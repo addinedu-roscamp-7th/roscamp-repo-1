@@ -211,6 +211,7 @@
 - int32 robot_id
 - string order_id
 - string product_id
+- int32 bbox_number
 - int32 quantity
 
 #### Response
@@ -223,6 +224,7 @@
     robot_id: 1
     order_id: "ORDER_001"
     product_id: "PROD_001"
+    bbox_number: 1
     quantity: 1
 
 **Response:**

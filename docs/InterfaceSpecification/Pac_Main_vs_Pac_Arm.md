@@ -311,33 +311,3 @@
 
     accepted: true
     message: "Right arm place command accepted"
-
----
-
-### 긴급 정지
-- **Service:** /packee/arm/emergency_stop
-- **From:** Pac Main
-- **To:** Pac Arm
-
-#### Request
-- int32 robot_id
-- string reason
-
-#### Response
-- bool success
-- Pose3D left_arm_pose
-- Pose3D right_arm_pose
-- string message
-
-#### 예시
-**Request:**
-
-    robot_id: 1
-    reason: "collision_risk"
-
-**Response:**
-
-    success: true
-    left_arm_pose: {x: 0.3, y: 0.15, z: 0.8, roll: 0.0, pitch: 0.0, yaw: 0.0}
-    right_arm_pose: {x: 0.25, y: -0.1, z: 0.75, roll: 0.0, pitch: 0.0, yaw: 0.0}
-    message: "Both arms emergency stopped"

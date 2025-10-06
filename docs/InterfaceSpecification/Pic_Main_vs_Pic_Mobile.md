@@ -63,8 +63,6 @@
 - **From:** Pic Main
 - **To:** Pic Mobile
 
-> **Note:** Service+Topic 말고 Service 단독으로 변경 예정
-
 #### Request
 - int32 robot_id
 - string order_id
@@ -104,8 +102,6 @@
 - **From:** Pic Main
 - **To:** Pic Mobile
 
-> **Note:** Service+Topic 말고 Service 단독으로 변경 예정
-
 #### Request
 - int32 robot_id
 - string order_id
@@ -139,8 +135,6 @@
 - **Service:** /pickee/mobile/speed_control
 - **From:** Pic Main
 - **To:** Pic Mobile
-
-> **Note:** Service+Topic 말고 Service 단독으로 변경 예정
 
 #### Request
 - int32 robot_id
@@ -183,31 +177,3 @@ Request:
     speed_mode: "stop"
     target_speed: 0.0
     reason: "collision_risk"
-
----
-
-### 긴급 정지
-- **Service:** /pickee/mobile/emergency_stop
-- **From:** Pic Main
-- **To:** Pic Mobile
-
-#### Request
-- int32 robot_id
-- string reason
-
-#### Response
-- bool success
-- Pose2D stopped_pose
-- string message
-
-#### 예시
-**Request:**
-
-    robot_id: 1
-    reason: "emergency"
-
-**Response:**
-
-    success: true
-    stopped_pose: {x: 7.3, y: 3.8, theta: 0.9}
-    message: "Emergency stop activated"

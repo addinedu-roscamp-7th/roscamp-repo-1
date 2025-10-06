@@ -212,7 +212,7 @@
 
 **Response:**
 
-    accepted: true
+    success: true
     message: "Pose change command accepted"
 
 ---
@@ -274,31 +274,3 @@
 
     accepted: true
     message: "Place command accepted"
-
----
-
-### 긴급 정지
-- **Service:** /pickee/arm/emergency_stop
-- **From:** Pic Main
-- **To:** Pic Arm
-
-#### Request
-- int32 robot_id
-- string reason
-
-#### Response
-- bool success
-- Pose3D stopped_pose
-- string message
-
-#### 예시
-**Request:**
-
-    robot_id: 1
-    reason: "collision_risk"
-
-**Response:**
-
-    success: true
-    stopped_pose: {x: 0.5, y: 0.3, z: 1.2, roll: 0.0, pitch: 0.0, yaw: 0.0}
-    message: "Arm emergency stopped"
