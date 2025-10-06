@@ -1,0 +1,917 @@
+@startuml 병합된_시퀀스_다이어그램
+!theme plain
+
+== 01_1 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor User as user
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "DB Manager" as db
+
+user -> app: App 시작
+activate app
+
+app -> app: 로그인 화면 출력
+activate app #DarkSalmon
+deactivate app
+
+user -> app: ID / PW 입력 후 확인 클릭
+
+app -> main: [TCP] ID / PW 전달\n(user_login)
+activate main
+
+main -> db: ID 및 PW 정보 조회
+activate db
+
+db --> main: 인증 결과\n(성공)
+deactivate db
+
+main --> app: [TCP] 로그인 결과\n(user_login_response)
+deactivate main
+
+app -> app: 쇼핑 화면\n전환
+activate app #DarkSalmon
+deactivate app
+
+deactivate app
+
+
+---
+
+== 01_2 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor User as user
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "Shopee\nLLM Service" as llm
+participant "DB Manager" as db
+
+user -> app: 상품 검색을 위한 음성/텍스트 입력
+activate app
+
+alt 음성 입력
+    app -> app: 음성 인식\n(STT)
+    activate app #DarkSalmon
+    deactivate app
+    
+    app -> main: [TCP] 인식된 텍스트 전달\n(product_search)
+    activate main
+else 텍스트 입력
+    app -> main: [TCP] 검색어 전달\n(product_search)
+end
+
+main -> llm: [HTTP] 상품 검색 쿼리 생성\n(search_request)
+activate llm
+
+llm -> llm: 검색 조건 추출
+activate llm #DarkSalmon
+deactivate llm
+
+llm --> main: [HTTP] 상품 검색 쿼리 생성 응답\n(search_answer)
+deactivate llm
+
+main -> db: 상품 테이블 조회
+activate db
+
+db -> db: 검색 쿼리 실행
+activate db #DarkSalmon
+deactivate db
+
+db --> main: 상품 리스트\n(id, name, price, quantity, category, allergy_info, is_vegan)
+deactivate db
+
+main --> app: [TCP] 검색 결과 전달\n(product_search_response)
+deactivate main
+
+app -> app: 상품 목록\n표시
+activate app #DarkSalmon
+deactivate app
+
+deactivate app
+
+
+---
+
+== 01_3 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor User as user
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "DB Manager" as db
+participant "Pickee\nMain Controller" as pickee
+
+user -> app: 결제 클릭
+activate app
+
+app -> app: 배정 중\n화면 전환
+activate app #DarkSalmon
+deactivate app
+
+app -> main: [TCP] 주문 생성\n(order_create)\n(customer_id, 상품 리스트)
+activate main
+
+main -> main: 가용 Pickee 선택
+activate main #DarkSalmon
+deactivate main
+
+main -> db: 주문 정보 생성 요청
+activate db
+
+db -> db: order_info 생성
+activate db #DarkSalmon
+deactivate db
+
+db -> db: order_item_info 생성
+activate db #DarkSalmon
+deactivate db
+
+db --> main: 저장완료\n(order_id)
+deactivate db
+
+main -> pickee: [ROS2 Service] 작업 시작 명령\n(/pickee/start_task)
+activate pickee
+
+pickee -> pickee: 작업 가능 여부\n확인
+activate pickee #DarkSalmon
+deactivate pickee
+
+pickee --> main: [ROS2 Service] 작업 시작 응답\n(/pickee/start_task)
+deactivate pickee
+
+main --> app: [TCP] 주문 생성 응답\n(order_create_response)\n(세션 ID, order_id)
+deactivate main
+
+app -> app: 결제 완료\n화면 전환
+activate app #DarkSalmon
+deactivate app
+
+app -> app: 쇼핑중\n화면 전환
+activate app #DarkSalmon
+deactivate app
+
+deactivate app
+
+
+---
+
+== 02_1 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nMobile Controller" as pickee_mobile
+
+main -> pickee_main: [ROS2 Service] 매대 이동 명령\n(/pickee/move_to_shelf)
+activate pickee_main
+
+pickee_main -> pickee_main: Pickee 상태 변경\n(상품위치이동->이동중)
+activate pickee_main #DarkSalmon
+deactivate pickee_main
+
+pickee_main --> main: [ROS2 Service] 매대 이동 명령 응답\n(/pickee/move_to_shelf)
+
+pickee_main -> pickee_main: Global Path 계획
+activate pickee_main #DarkSalmon
+deactivate pickee_main
+
+pickee_main -> pickee_mobile: [ROS2 Service] 목적지 이동 명령\n(/pickee/mobile/move_to_location)
+activate pickee_mobile
+
+pickee_mobile --> pickee_main: [ROS2 Service] 목적지 이동 명령\n(/pickee/mobile/move_to_location)
+
+pickee_main -> main: [ROS2 Topic] 이동 시작 알림\n(/pickee/moving_status)
+activate main
+
+main -> app: [TCP] 로봇 이동 알림\n(robot_moving_notification)
+activate app
+
+app -> app: 이동 시작\n알림
+activate app #DarkSalmon
+deactivate app
+
+pickee_mobile -> pickee_mobile: Local Path Planning\n(실시간 LiDAR 장애물 회피)
+activate pickee_mobile #DarkSalmon
+deactivate pickee_mobile
+
+pickee_mobile -> pickee_mobile: 경로 추종
+activate pickee_mobile #DarkSalmon
+deactivate pickee_mobile
+
+pickee_mobile -> pickee_mobile: 목적지 도착 확인
+activate pickee_mobile #DarkSalmon
+deactivate pickee_mobile
+
+pickee_mobile -> pickee_main: [ROS2 Topic] 도착 알림\n(/pickee/mobile/arrival)
+deactivate pickee_mobile
+
+pickee_main -> main: [ROS2 Topic] 도착 보고\n(/pickee/arrival_notice)
+deactivate pickee_main
+
+main -> app: [TCP] 로봇 도착 알림\n(robot_arrived_notification)
+deactivate main
+
+app -> app: 매대 도착 알림
+activate app #DarkSalmon
+deactivate app
+
+deactivate app
+
+
+---
+
+== 02_2_1 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nVision AI Service" as vision
+participant "Pickee\nMobile Controller" as pickee_mobile
+
+loop 장애물 감지 및 회피
+    vision -> vision: 장애물 인식
+    activate vision
+    activate vision #DarkSalmon
+    deactivate vision
+    
+    vision -> vision: 장애물 분류\n(타입, 위치, 속도, 거리)
+    activate vision #DarkSalmon
+    deactivate vision
+    
+    vision -> pickee_main: [ROS2 Topic] 장애물 감지 알림\n(/pickee/vision/obstacle)
+    activate pickee_main
+    
+    pickee_main -> pickee_main: 회피 가능성 판단
+    activate pickee_main #DarkSalmon
+    deactivate pickee_main
+    
+    alt 작은 장애물 (Local 회피 가능)
+        pickee_main -> pickee_mobile: [ROS2 Service] Local Path 수정 명령
+        activate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: Local Path 수정
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: 수정 Path 주행
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        deactivate pickee_mobile
+        
+    else 큰 장애물 (Global 재계획 필요)
+        pickee_main -> pickee_main: Global Path 재계획
+        activate pickee_main #DarkSalmon
+        deactivate pickee_main
+        
+        pickee_main -> pickee_mobile: [ROS2 Service] Global Path 업데이트\n(/pickee/mobile/update_global_path)
+        activate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: 새 Global Path 추종
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        pickee_mobile --> pickee_main: [ROS2 Service] Global Path 업데이트 응답\n(/pickee/mobile/update_global_path)
+        deactivate pickee_mobile
+    end
+    
+    deactivate pickee_main
+    deactivate vision
+end
+
+
+---
+
+== 02_2_2 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nVision AI Service" as vision
+participant "Pickee\nMobile Controller" as pickee_mobile
+
+loop 장애물 거리 모니터링
+    vision -> vision: 장애물 인식
+    activate vision
+    activate vision #DarkSalmon
+    deactivate vision
+    
+    vision -> vision: 장애물 분류\n(타입, 위치, 속도, 거리)
+    activate vision #DarkSalmon
+    deactivate vision
+    
+    vision -> pickee_main: [ROS2 Topic] 장애물 감지 알림\n(/pickee/vision/obstacle_detected)
+    activate pickee_main
+    
+    pickee_main -> pickee_main: 충돌 위험 계산
+    activate pickee_main #DarkSalmon
+    deactivate pickee_main
+    
+    alt 거리 < 2m
+        pickee_main -> pickee_mobile: 감속 명령
+        activate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: 감속 주행
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        deactivate pickee_mobile
+        
+    else 거리 < 1m
+        pickee_main -> pickee_mobile: 정지 명령
+        activate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: 정지
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        deactivate pickee_mobile
+        
+    else 안전거리 확보
+        pickee_main -> pickee_mobile: 정상 주행
+        activate pickee_mobile
+        
+        pickee_mobile -> pickee_mobile: 정상 주행
+        activate pickee_mobile #DarkSalmon
+        deactivate pickee_mobile
+        
+        deactivate pickee_mobile
+    end
+    
+    deactivate pickee_main
+    deactivate vision
+end
+
+
+---
+
+== 02_3_1 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+participant "Shopee\nMain Service" as main
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nVision AI Service" as vision
+participant "Pickee\nArm Controller" as pickee_arm
+
+pickee_main -> main: [ROS2 Topic] 도착 보고\n(/pickee/arrival_notice)
+
+main -> pickee_main: [ROS2 Service] 상품 인식 명령\n(/pickee/detect_products)
+activate pickee_main
+
+pickee_main --> main: [ROS2 Service] 상품 인식 명령 응답\n(/pickee/detect_products)
+
+pickee_main -> pickee_arm: [ROS2 Service] 자세 변경 요청\n(/pickee/arm/move_to_pose, pose_type=shelf_view)
+activate pickee_arm
+
+pickee_arm -> pickee_arm: 매대 확인 자세\n실행
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm --> pickee_main: [ROS2 Service] 자세 변경 응답\n(/pickee/arm/move_to_pose)
+
+pickee_arm -> pickee_main: [ROS2 Topic] 자세 변경 상태\n(/pickee/arm/pose_status)
+deactivate pickee_arm
+
+pickee_main -> vision: [ROS2 Service] 매대 상품 인식 요청\n(/pickee/vision/detect_product)
+activate vision
+
+vision -> vision: 상품 인식
+activate vision #DarkSalmon
+deactivate vision
+
+vision --> pickee_main: [ROS2 Service] 매대 상품 인식 응답\n(/pickee/vision/detect_product)
+
+vision -> pickee_main: [ROS2 Topic] 매대 상품 인식 완료\n(/pickee/vision/detection_result)
+deactivate vision
+
+deactivate pickee_main
+
+
+---
+
+== 02_3_2 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor User as user
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "Shopee\nLLM Service" as llm
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nVision AI Service" as vision
+participant "Pickee\nArm Controller" as pickee_arm
+
+pickee_main -> main: 매대 도착 보고\n(Location ID)
+
+main -> pickee_main: 상품 위치 인식 요청
+activate pickee_main
+
+pickee_main -> pickee_arm: 매대 확인 자세 요청\n(자세 타입)
+activate pickee_arm
+
+pickee_arm -> pickee_arm: 매대 확인 자세\n실행
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm --> pickee_main: 매대 확인 자세 완료
+deactivate pickee_arm
+
+pickee_main -> vision: 상품 위치 확인 요청 (상품 ID)
+activate vision
+
+vision -> vision: 상품 위치 인식
+activate vision #DarkSalmon
+deactivate vision
+
+vision -> vision: 송출중인 영상에\nbbox 그리기
+activate vision #DarkSalmon
+deactivate vision
+
+vision --> pickee_main: 상품 위치\n(상품 ID, bbox 번호, bbox 좌표, score)
+deactivate vision
+
+pickee_main --> main: 상품 위치 인식 완료\n(상품 ID, bbox 번호, bbox 좌표, score)
+deactivate pickee_main
+
+main -> app: [TCP] 상품 선택 시작 알림\n(product_selection_start)
+activate app
+
+app -> app: 상품 선택\n화면 전환
+activate app #DarkSalmon
+deactivate app
+
+alt 음성
+    user -> app: 음성\n(1번 오렌지 담아줘)
+    
+    app -> app: 음성 명령어\n텍스트 변환
+    activate app #DarkSalmon
+    deactivate app
+    
+    app -> main: 텍스트 명령어 전달
+    activate main
+    
+    main -> llm: 명령어 분석 요청\n(발화의도, 텍스트 명령어)
+    activate llm
+    
+    llm -> llm: 명령어 분석
+    activate llm #DarkSalmon
+    deactivate llm
+    
+    llm --> main: 명령어 분석 결과\n(발화의도, bbox번호)
+    deactivate llm
+    
+    deactivate main
+
+else 채팅
+    user -> app: 채팅\n(1번 오렌지 담아줘)
+    
+    app -> main: 텍스트 명령어 전달
+    activate main
+    
+    main -> llm: 명령어 분석 요청\n(발화의도, 텍스트 명령어)
+    activate llm
+    
+    llm -> llm: 명령어 분석
+    activate llm #DarkSalmon
+    deactivate llm
+    
+    llm --> main: 명령어 분석 결과\n(발화의도, bbox번호)
+    deactivate llm
+    
+    deactivate main
+
+else bbox 클릭
+    user -> app: bbox 클릭
+    
+    app -> main: bbox 번호 전달
+    activate main
+    deactivate main
+end
+
+deactivate app
+
+
+---
+
+== 02_4 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "Pickee\nMain Controller" as pickee_main
+participant "Pickee\nVision AI Service" as vision
+participant "Pickee\nArm Controller" as pickee_arm
+
+app -> main: [TCP] 상품 선택 요청\n(product_selection)
+activate main
+
+main --> app: [TCP] 상품 선택 응답\n(product_selection_response)
+
+main -> pickee_main: 상품 선택 요청
+activate pickee_main
+
+pickee_main -> pickee_arm: [ROS2 Service] 상품 픽업 요청\n(/pickee/arm/pick_product)
+activate pickee_arm
+
+pickee_arm --> pickee_main: [ROS2 Service] 상품 픽업 응답\n(/pickee/arm/pick_product)
+
+pickee_arm -> pickee_arm: Grasp Planning\n(그리퍼 경로 계획)
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm -> pickee_arm: Motion Execution\n(집기 동작)
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm -> pickee_main: [ROS2 Topic] 픽업 상태\n(/pickee/arm/pick_status)
+
+pickee_main -> pickee_arm: [ROS2 Service] 상품 담기 요청\n(/pickee/arm/place_product)
+
+pickee_arm --> pickee_main: [ROS2 Service] 상품 담기 응답\n(/pickee/arm/place_product)
+
+pickee_arm -> pickee_arm: Motion Execution\n(장바구니 담기)
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm -> pickee_main: [ROS2 Topic] 담기 상태\n(/pickee/arm/place_status)
+
+pickee_main -> pickee_arm: [ROS2 Service] 자세 변경 요청\n(/pickee/arm/move_to_pose)
+
+pickee_arm --> pickee_main: [ROS2 Service] 자세 변경 요청\n(/pickee/arm/move_to_pose)
+
+pickee_arm -> pickee_arm: 장바구니 확인 자세\n실행
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm -> pickee_main: [ROS2 Topic] 자세 변경 상태\n(/pickee/arm/pose_status)
+
+pickee_main -> vision: [ROS2 Service] 장바구니 내 특정 상품 확인 요청\n(/pickee/vision/check_product_in_cart)
+activate vision
+
+vision -> vision: 해당 상품\n장바구니 확인
+activate vision #DarkSalmon
+deactivate vision
+
+vision --> pickee_main: [ROS2 Service] 장바구니 내 특정 상품 확인 요청\n(/pickee/vision/check_product_in_cart)
+deactivate vision
+
+pickee_main -> main: 담기 완료 보고
+deactivate pickee_main
+
+main -> app: [TCP] 장바구니 담기 알림\n(cart_update_notification)
+deactivate main
+
+pickee_main -> pickee_arm: [ROS2 Service] 자세 변경 요청\n(/pickee/arm/move_to_pose)
+activate pickee_arm
+
+pickee_arm --> pickee_main: [ROS2 Service] 자세 변경 응답\n(/pickee/arm/move_to_pose)
+
+pickee_arm -> pickee_arm: 대기 자세\n실행
+activate pickee_arm #DarkSalmon
+deactivate pickee_arm
+
+pickee_arm -> pickee_main: [ROS2 Topic] 자세 변경 상태\n(/pickee/arm/pose_status)
+deactivate pickee_arm
+
+
+---
+
+== 02_5 ==
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor User as user
+participant "Shopee App" as app
+participant "Shopee\nMain Service" as main
+participant "DB Manager" as db
+participant "Pickee\nMain Controller" as pickee
+
+user -> app: 쇼핑 종료
+activate app
+
+app -> main: [TCP] 쇼핑 종료\n(shopping_end)
+activate main
+
+main -> db: 담은 상품 업데이트
+activate db
+
+db -> db: DB 업데이트
+activate db #DarkSalmon
+deactivate db
+
+db --> main: 담은 상품 업데이트 완료
+deactivate db
+
+main -> pickee: [ROS2 Service] 쇼핑 종료 명령\n(/pickee/end_shopping)
+activate pickee
+
+pickee -> pickee: 로봇 상태 전환\n(오토픽업 -> 포장대이동)
+activate pickee #DarkSalmon
+deactivate pickee
+
+pickee --> main: [ROS2 Service] 쇼핑 종료 명령 응답\n(/pickee/end_shopping)
+deactivate pickee
+
+main --> app: [TCP] 쇼핑 종료됨\n(shopping_end_response)
+deactivate main
+
+app -> app: 쇼핑 종료 알림
+activate app #DarkSalmon
+deactivate app
+
+deactivate app
+
+
+---
+
+== 03_1 ==
+
+title SC_03_1 Shopee 포장대 이동 시퀀스
+
+participant "Shopee\nMain Service" as Shopee
+participant "Pickee\nMain Controller" as MainCtrl
+participant "Pickee\nMobile Controller" as MobileCtrl
+
+activate Shopee
+
+Shopee -> MainCtrl: [ROS2 Service] 포장대 이동 명령\n(/pickee/move_to_packaging)
+activate MainCtrl
+
+MainCtrl -> MainCtrl: Global Path\n계획
+
+Shopee <-- MainCtrl: [ROS2 Service] 포장대 이동 명령 응답\n(/pickee/move_to_packaging)
+
+MainCtrl -> MobileCtrl: [ROS2 Service] 목적지 이동 명령\n(/pickee/mobile/move_to_location)
+activate MobileCtrl
+
+MobileCtrl -> MobileCtrl: 경로 주행
+
+MobileCtrl --> MainCtrl: [ROS2 Service] 목적지 이동 명령 응답\n(/pickee/mobile/move_to_location)
+
+MobileCtrl -> MainCtrl: [ROS2 Topic] 도착 알림\n(/pickee/mobile/arrival)
+deactivate MobileCtrl
+
+MainCtrl -> Shopee: [ROS2 Topic] 도착 보고\n(/pickee/arrival_notice)
+
+deactivate MainCtrl
+
+MainCtrl -> MainCtrl: 장바구니 교체\n직원 안내음 송출
+
+deactivate Shopee
+
+
+---
+
+== 03_2 ==
+
+title SC_03_2 장바구니 교체 확인 및 완료 프로세스
+
+participant "Shopee\nMain Service" as Shopee
+participant "Pickee\nMain Controller" as MainCtrl
+participant "Pickee\nVision AI Service" as Vision
+participant "Pickee\nAr m Controller" as ArmCtrl
+
+activate MainCtrl
+
+MainCtrl -> ArmCtrl: [ROS2 Service] 자세 변경 요청\n(/pickee/arm/move_to_pose, pose_type=cart_view)
+activate ArmCtrl
+
+ArmCtrl -> ArmCtrl: 장바구니 확인 자세
+
+ArmCtrl --> MainCtrl: [ROS2 Service] 자세 변경 응답\n(/pickee/arm/move_to_pose)
+
+ArmCtrl -> MainCtrl: [ROS2 Topic] 자세 변경 상태\n(/pickee/arm/pose_status)
+deactivate ArmCtrl
+
+loop 장바구니 유무 확인
+    MainCtrl -> Vision: [ROS2 Service] 장바구니 존재 확인 요청\n(/pickee/vision/check_cart_vision)
+    activate Vision
+    
+    Vision -> Vision: 장바구니 유무\n확인
+    
+    Vision --> MainCtrl: [ROS2 Service] 장바구니 존재 확인 응답\n(/pickee/vision/check_cart_vision)
+    deactivate Vision
+end
+
+MainCtrl -> MainCtrl: Pickee 상태변경\n(장바구니 전달 -> 대기장소이동)
+
+MainCtrl -> Shopee: [ROS2 Topic] 장바구니 교체 완료\n(/pickee/cart_handover_complete)
+
+deactivate MainCtrl
+
+
+---
+
+== 03_3 ==
+
+title Packee 작업 가능 확인 및 장바구니 인식 프로세스
+
+participant "Shopee\nMain Service" as Shopee
+participant "DB Manager" as DB
+participant "Pickee\nMain Controller" as Pickee
+participant "Packee\nMain Controller" as PackeeCtrl
+participant "Packee\nVision AI Service" as Vision
+participant "Packee\nArm Controller" as ArmCtrl
+
+activate Shopee
+
+Pickee -> Shopee: [ROS2 Topic] 장바구니 교체 완료\n(/pickee/cart_handover_completed)
+
+Shopee -> PackeeCtrl: [ROS2 Service] 작업 가능 확인 요청\n(/packee/check_availabilty)
+activate PackeeCtrl
+
+PackeeCtrl --> Shopee: [ROS2 Service] 작업 가능 확인 요청 응답\n(/packee/check_availabilty)
+
+PackeeCtrl -> ArmCtrl: [ROS2 Service] 자세 변경 명령\n(/packee/arm/move_to_pose, pose_type=cart_view)
+activate ArmCtrl
+
+ArmCtrl -> ArmCtrl: 장바구니 확인 자세\n(cart_view)
+
+ArmCtrl --> PackeeCtrl: [ROS2 Service] 자세 변경 응답\n(/packee/arm/move_to_pose, pose_type=cart_view)
+
+ArmCtrl -> PackeeCtrl: [ROS2 Topic] 자세 변경 상태\n(/packee/arm/pose_status, status=comleted)
+deactivate ArmCtrl
+
+loop 장바구니 유무 확인
+    PackeeCtrl -> Vision: [ROS2 Service] 장바구니 유무 확인 요청\n(/packee/vision/check_cart_presence)
+    activate Vision
+    
+    Vision -> Vision: 장바구니 유무 확인
+    
+    Vision --> PackeeCtrl: [ROS2 Service] 장바구니 유무 확인 응답\n(/packee/vision/check_cart_presence)
+    deactivate Vision
+end
+
+PackeeCtrl -> PackeeCtrl: Packee 상태 변경\n(작업대기 -> 픽업상품인식)
+
+PackeeCtrl -> Shopee: [ROS2 Topic] 작업 가능 확인 완료\n(/packee/availabilty_result)
+
+deactivate PackeeCtrl
+deactivate Shopee
+
+
+---
+
+== 03_4 ==
+
+title Packee 포장 프로세스 (Dual-Arm Pick & Place)
+
+participant "Shopee\nMain Service" as Shopee
+participant "DB Manager" as DB
+participant "Packee\nMain Controller" as PackeeCtrl
+participant "Packee\nVision AI Service" as Vision
+participant "Packee\nArm Controller" as ArmCtrl
+
+activate Shopee
+
+Shopee -> PackeeCtrl: [ROS2 Service] 포장 시작 명령\n(/packee/start_packing)
+activate PackeeCtrl
+
+PackeeCtrl --> Shopee: [ROS2 Service] 포장 시작 명령 응답\n(/packee/start_packing)
+
+== 포장 준비 ==
+
+PackeeCtrl -> ArmCtrl: 장바구니 확인 자세 요청
+activate ArmCtrl
+
+ArmCtrl -> ArmCtrl: 장바구니 확인 자세
+
+ArmCtrl --> PackeeCtrl: 장바구니 확인 자세
+deactivate ArmCtrl
+
+PackeeCtrl -> Vision: 상품 위치 확인 요청
+activate Vision
+
+Vision -> Vision: 상품 위치 확인
+
+Vision --> PackeeCtrl: 상품 위치\n(bbox 좌표, confidence)
+deactivate Vision
+
+== 포장 작업 (반복) ==
+
+loop 모든 상품 포장 완료까지
+    PackeeCtrl -> PackeeCtrl: 작업 분배 (Task Allocation)\n(Left=상품A, Right=상품B)
+    
+    PackeeCtrl -> PackeeCtrl: 좌우 팔 스케줄링 (Scheduling)
+    
+    PackeeCtrl -> PackeeCtrl: 충돌 회피 계획 (Collision-Free Plan)
+    
+    PackeeCtrl -> ArmCtrl: 좌/우 팔별 Pick/Place 명령 전달\n(bbox, 상품ID)
+    activate ArmCtrl
+    
+    ArmCtrl -> ArmCtrl: Grasp Planning
+    
+    ArmCtrl -> ArmCtrl: Pick
+    
+    ArmCtrl -> ArmCtrl: Place
+    
+    ArmCtrl --> PackeeCtrl: 좌/우 팔 포장 완료\n(성공/실패)
+    deactivate ArmCtrl
+end
+
+== 포장 완료 처리 ==
+
+PackeeCtrl -> Shopee: [ROS2 Topic] 포장 완료 알림\n(/packee/packing_complete)
+
+Shopee -> DB: 포장 완료 업데이트
+activate DB
+
+DB -> DB: 포장 완료\n업데이트
+
+DB --> Shopee: 업데이트 완료
+deactivate DB
+
+PackeeCtrl -> ArmCtrl: 대기 자세 요청
+activate ArmCtrl
+
+ArmCtrl -> ArmCtrl: 대기 자세
+
+ArmCtrl --> PackeeCtrl: 대기 자세
+deactivate ArmCtrl
+
+deactivate PackeeCtrl
+deactivate Shopee
+
+
+---
+
+== 04 ==
+
+title Pickee 복귀 및 충전 프로세스
+
+participant "Shopee\nMain Service" as Shopee
+participant "Pickee\nMain Controller" as PickeeCtrl
+participant "Pickee\nMobile Controller" as MobileCtrl
+
+activate PickeeCtrl
+
+PickeeCtrl -> Shopee: [ROS2 Topic] 장바구니 교체 완료\n(/pickee/cart_handover_complete)
+activate Shopee
+
+Shopee -> Shopee: 복귀 지시\n여부 판단
+
+Shopee -> PickeeCtrl: [ROS2 Service] 복귀 명령\n(/pickee/return_to_base)
+
+PickeeCtrl --> Shopee: [ROS2 Service] 복귀 명령 응답\n(/pickee/return_to_base)
+
+deactivate Shopee
+
+PickeeCtrl -> PickeeCtrl: Global Path\n계획
+
+PickeeCtrl -> PickeeCtrl: 상태 변경\n(대기장소이동->충전)
+
+PickeeCtrl -> MobileCtrl: [ROS2 Service] 목적지 이동 명령\n(/pickee/mobile/move_to_location)
+activate MobileCtrl
+
+MobileCtrl --> PickeeCtrl: [ROS2 Service] 목적지 이동 명령 응답\n(/pickee/mobile/move_to_location)
+
+MobileCtrl -> MobileCtrl: 경로 주행
+
+MobileCtrl -> PickeeCtrl: [ROS2 Topic] 도착 알림\n(/pickee/mobile/arrival)
+deactivate MobileCtrl
+
+PickeeCtrl -> Shopee: [ROS2 Topic] 도착 보고\n(/pickee/arrival_notice)
+
+group 충전 프로세스
+    opt 배터리 < 30%
+        PickeeCtrl -> PickeeCtrl: 충전
+        
+        PickeeCtrl -> PickeeCtrl: 배터리 체크
+    end
+    
+    PickeeCtrl -> PickeeCtrl: 상태변경\n(충전->작업대기)
+end
+
+deactivate PickeeCtrl
+
+
+@enduml

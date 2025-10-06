@@ -1,0 +1,20 @@
+시퀀스 다이어그램 XML 파일 병합 요약
+==================================================
+
+총 파일 수: 11개
+
+파일 목록:
+------------------------------
+ 1. SC_01_1 - SC_01_1.drawio.xml
+ 2. SC_01_2 - SC_01_2.drawio.xml
+ 3. SC_01_3 - SC_01_3.drawio.xml
+ 4. SC_02_1 - SC_02_1.drawio.xml
+ 5. SC_02_4 - SC_02_4.drawio.xml
+ 6. SC_02_5 - SC_02_5.drawio.xml
+ 7. SC_03_1 - SC_03_1.drawio.xml
+ 8. SC_03_2 - SC_03_2.drawio.xml
+ 9. SC_03_3 - SC_03_3.drawio.xml
+10. SC_03_4 - SC_03_4.drawio.xml
+11. SC_04 - SC_04.drawio.xml
+
+병합된 파일: merged_xml_with_sc_numbers.txt
