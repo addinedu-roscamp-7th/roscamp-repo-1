@@ -102,7 +102,7 @@
 ## Service
 
 ### 작업 시작 명령
-- **Service:** /pickee/start_task
+- **Service:** /pickee/workflow/start_task
 - **From:** Main
 - **To:** Pic Main
 
@@ -145,7 +145,7 @@
 ---
 
 ### 매대 이동 명령
-- **Service:** /pickee/move_to_shelf
+- **Service:** /pickee/workflow/move_to_shelf
 - **From:** Main
 - **To:** Pic Main
 
@@ -175,7 +175,7 @@
 ---
 
 ### 상품 인식 명령
-- **Service:** /pickee/detect_products
+- **Service:** /pickee/product/detect
 - **From:** Main
 - **To:** Pic Main
 
@@ -202,8 +202,8 @@
 
 ---
 
-### 상품 담기 명령
-- **Service:** /pickee/pick_product
+### 상품 처리 명령
+- **Service:** /pickee/product/process_selection
 - **From:** Main
 - **To:** Pic Main
 
@@ -211,7 +211,6 @@
 - int32 robot_id
 - string order_id
 - string product_id
-- int32 bbox_number
 - int32 quantity
 
 #### Response
@@ -224,18 +223,17 @@
     robot_id: 1
     order_id: "ORDER_001"
     product_id: "PROD_001"
-    bbox_number: 1
-    quantity: 2
+    quantity: 1
 
 **Response:**
 
     success: true
-    message: "Picking started"
+    message: "Processing selection started"
 
 ---
 
-### 담기 완료 보고
-- **Topic:** /pickee/pick_complete
+### 상품 처리 결과
+- **Topic:** /pickee/product/selection_result
 - **From:** Pic Main
 - **To:** Main
 - **발행:** 담기 완료 시 1회
@@ -255,8 +253,8 @@
     order_id: "ORDER_001"
     product_id: "PROD_001"
     success: true
-    quantity: 2
-    message: "Pick completed"
+    quantity: 1
+    message: "Selection processed successfully"
 
 **실패:**
 
@@ -265,12 +263,12 @@
     product_id: "PROD_001"
     success: false
     quantity: 0
-    message: "Pick failed - gripper error"
+    message: "Failed to process selection"
 
 ---
 
 ### 쇼핑 종료 명령
-- **Service:** /pickee/end_shopping
+- **Service:** /pickee/workflow/end_shopping
 - **From:** Main
 - **To:** Pic Main
 
@@ -298,7 +296,7 @@
 ---
 
 ### 포장대 이동 명령
-- **Service:** /pickee/move_to_packaging
+- **Service:** /pickee/workflow/move_to_packaging
 - **From:** Main
 - **To:** Pic Main
 
@@ -326,7 +324,7 @@
 ---
 
 ### 복귀 명령
-- **Service:** /pickee/return_to_base
+- **Service:** /pickee/workflow/return_to_base
 - **From:** Main
 - **To:** Pic Main
 

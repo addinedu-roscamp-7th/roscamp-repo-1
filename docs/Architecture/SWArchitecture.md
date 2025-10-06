@@ -1,3 +1,4 @@
+```plantuml
 @startuml Software Architecture
 
 skinparam backgroundColor #FFFFFF
@@ -70,3 +71,4 @@ PackeeMainCtrl -[#6c8ebf]-> PackeeVision : ROS2
 PackeeMainCtrl -[#6c8ebf]-> PackeeArm : ROS2
 
 @enduml
+```

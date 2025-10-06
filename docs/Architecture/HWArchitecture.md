@@ -1,3 +1,4 @@
+```plantuml
 @startuml Shopee Architecture
 
 !define RECTANGLE_COLOR #f5f5f5
@@ -72,3 +73,4 @@ note bottom of Packee
 end note
 
 @enduml
+```

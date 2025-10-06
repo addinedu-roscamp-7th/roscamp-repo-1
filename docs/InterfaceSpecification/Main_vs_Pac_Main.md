@@ -62,7 +62,7 @@
 ## Service
 
 ### 작업 가능 확인 요청
-- **Service:** /packee/check_availability
+- **Service:** /packee/packing/check_availability
 - **From:** Main
 - **To:** Pac Main
 
@@ -88,7 +88,7 @@
 ---
 
 ### 포장 시작 명령
-- **Service:** /packee/start_packing
+- **Service:** /packee/packing/start
 - **From:** Main
 - **To:** Pac Main
 
