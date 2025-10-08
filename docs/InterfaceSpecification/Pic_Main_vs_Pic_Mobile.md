@@ -56,6 +56,40 @@
 
 ---
 
+### 속도 제어
+- **Topic:** /pickee/mobile/speed_control
+- **From:** Pic Main
+- **To:** Pic Mobile
+
+#### Message
+- int32 robot_id
+- string order_id
+- string speed_mode ("normal", "decelerate", "stop")
+- float32 target_speed
+- Obstacle[] obstacles
+- string reason
+
+#### 예시
+**감속:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    speed_mode: "decelerate"
+    target_speed: 0.3
+    obstacles:
+      - obstacle_type: "person"
+        distance: 1.5
+        velocity: 0.8
+    reason: "dynamic_obstacle_near"
+
+**정지:**
+
+    speed_mode: "stop"
+    target_speed: 0.0
+    reason: "collision_risk"
+
+---
+
 ## Service
 
 ### 목적지 이동 명령
@@ -128,52 +162,3 @@
 
     success: true
     message: "Global path updated"
-
----
-
-### 속도 제어
-- **Service:** /pickee/mobile/speed_control
-- **From:** Pic Main
-- **To:** Pic Mobile
-
-#### Request
-- int32 robot_id
-- string order_id
-- string speed_mode ("normal", "decelerate", "stop")
-- float32 target_speed
-- Obstacle[] obstacles
-- string reason
-
-#### Response
-- bool success
-- string current_speed
-- string message
-
-#### 예시
-**감속:**
-
-Request:
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    speed_mode: "decelerate"
-    target_speed: 0.3
-    obstacles:
-      - obstacle_type: "person"
-        distance: 1.5
-        velocity: 0.8
-    reason: "dynamic_obstacle_near"
-
-Response:
-
-    success: true
-    current_speed: "0.3"
-    message: "Speed reduced"
-
-**정지:**
-
-Request:
-
-    speed_mode: "stop"
-    target_speed: 0.0
-    reason: "collision_risk"

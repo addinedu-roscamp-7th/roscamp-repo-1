@@ -371,3 +371,37 @@
     current_order_id: "ORDER_001"
     position_x: 10.5
     position_y: 5.2
+
+---
+
+### 데이터 조회
+- **Service:** /pickee/get_data
+- **From:** Pic Main
+- **To:** Main
+
+#### Request
+- int32 robot_id
+- string data_type ("product_location", "..." )
+- string query (요청할 데이터 키)
+
+#### Response
+- bool success
+- string data_type
+- string payload (JSON string 형태의 데이터)
+- string message
+
+#### 예시
+**Request:**
+
+    robot_id: 1
+    data_type: "product_location"
+    query: "PROD_005"
+
+**Response:**
+
+    success: true
+    data_type: "product_location"
+    payload: "{\"product_id\": \"PROD_005\", \"location_id\": \"LOC_B2\", \"shelf_id\": \"SHELF_B2_03\"}"
+    message: "Data retrieved successfully"
+
+---

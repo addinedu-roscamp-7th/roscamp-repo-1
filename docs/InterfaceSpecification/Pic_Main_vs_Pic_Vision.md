@@ -198,6 +198,53 @@
 
 ---
 
+### 추종 직원 위치
+- **Topic:** /pickee/vision/staff_location
+- **From:** Pic Vision
+- **To:** Pic Main
+
+#### Message
+- int32 robot_id
+- string staff_id
+- Point2D relative_position (로봇 기준 직원의 상대 위치)
+- float32 distance
+- bool is_tracking
+
+#### 예시
+    robot_id: 1
+    staff_id: "STAFF_001"
+    relative_position: {x: 2.5, y: 0.3}
+    distance: 2.52
+    is_tracking: true
+
+---
+
+### 직원 등록 결과
+- **Topic:** /pickee/vision/register_staff_result
+- **From:** Pic Vision
+- **To:** Pic Main
+
+#### Message
+- int32 robot_id
+- string staff_id
+- bool success
+- string message
+
+#### 예시
+**성공:**
+    robot_id: 1
+    staff_id: "STAFF_001"
+    success: true
+    message: "Staff registration completed successfully."
+
+**실패:**
+    robot_id: 1
+    staff_id: "STAFF_001"
+    success: false
+    message: "Failed to capture features after 3 attempts."
+
+---
+
 ## Service
 
 ### 매대 상품 인식 요청
@@ -287,3 +334,120 @@
     success: true
     cart_present: false
     message: "Cart not detected"
+
+---
+
+### 직원 등록 요청 (비동기 시작)
+- **Service:** /pickee/vision/register_staff
+- **Description:** 직원의 정면 및 후면 특징을 모두 등록하는 긴 작업을 시작하도록 요청한다. 서비스는 즉시 응답하며, 최종 결과는 `/pickee/vision/register_staff_result` 토픽으로 전송된다.
+- **From:** Pic Main
+- **To:** Pic Vision
+
+#### Request
+- int32 robot_id
+- string staff_id (등록할 직원 ID)
+
+#### Response
+- bool accepted (작업 접수 여부)
+- string message
+
+#### 예시
+**Request:**
+
+    robot_id: 1
+    staff_id: "STAFF_001"
+
+**Response:**
+
+    accepted: true
+    message: "Staff registration process accepted."
+
+---
+
+### 직원 추종 제어
+- **Service:** /pickee/vision/track_staff
+- **From:** Pic Main
+- **To:** Pic Vision
+
+#### Request
+- int32 robot_id
+- string staff_id
+- bool track (true: 추종 시작, false: 추종 중지)
+
+#### Response
+- bool success
+- string message
+
+#### 예시
+**Request (추종 시작):**
+
+    robot_id: 1
+    staff_id: "STAFF_001"
+    track: true
+
+**Response:**
+
+    success: true
+    message: "Started tracking STAFF_001"
+
+**Request (추종 중지):**
+
+    robot_id: 1
+    staff_id: "STAFF_001"
+    track: false
+
+**Response:**
+
+    success: true
+    message: "Stopped tracking STAFF_001"
+
+---
+
+### Vision 모드 설정
+- **Service:** /pickee/vision/set_mode
+- **From:** Pic Main
+- **To:** Pic Vision
+
+#### Request
+- int32 robot_id
+- string mode ("navigation", "register_staff", "detect_products", "track_staff")
+
+#### Response
+- bool success
+- string message
+
+#### 예시
+**Request:**
+
+    robot_id: 1
+    mode: "register_staff"
+
+**Response:**
+
+    success: true
+    message: "Vision mode switched to register_staff"
+
+---
+
+### 음성 송출 요청
+- **Service:** /pickee/tts_request
+- **Description:** Vision 모듈이 Main Controller에게 특정 문장의 음성 송출(TTS)을 요청한다. Main Controller는 음성 송출이 완료된 후 응답한다.
+- **From:** Pic Vision
+- **To:** Pic Main
+
+#### Request
+- string text_to_speak
+
+#### Response
+- bool success
+- string message
+
+#### 예시
+**Request:**
+
+    text_to_speak: "뒤로 돌아주세요."
+
+**Response:**
+
+    success: true
+    message: "TTS completed."

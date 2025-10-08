@@ -50,3 +50,34 @@ HTTP/1.1 200 OK
       "text": "SELECT * FROM product WHERE name LIKE '%사과%'",
       "answer_type": "search_answer"
     }
+
+### IF_HTTP_02: 발화 의도 분석
+
+**Description:** 자연어 문장의 의도와 핵심 개체를 추출
+
+| 항목 | 내용 |
+|---|---|
+| **From** | Main Service / Pickee Main Controller |
+| **To** | LLM Service |
+| **Request Type** | intent_detection |
+| **Answer Type** | intent_detection_result |
+
+#### 요청 예시
+POST /llm_service/request
+
+    {
+      "text": "피키야, B상품 1개 가져다줘",
+      "request_type": "intent_detection"
+    }
+
+#### 응답 예시
+HTTP/1.1 200 OK
+
+    {
+      "intent": "fetch_product",
+      "entities": {
+        "product_name": "B상품",
+        "quantity": 1
+      },
+      "answer_type": "intent_detection_result"
+    }

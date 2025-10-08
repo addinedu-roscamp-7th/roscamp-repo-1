@@ -59,6 +59,7 @@ MainService -[#FF8000]-> DB : TCP
 MainService -[#009900]-> LLMService : HTTP
 MainService -[#6c8ebf]-> PickeeMainCtrl : ROS2
 MainService -[#6c8ebf]-> PackeeMainCtrl : ROS2
+PickeeMainCtrl <-[#009900]-> LLMService : HTTP
 PickeeVision -[#b85450]-> MainService : UDP
 PickeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2
 PackeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2

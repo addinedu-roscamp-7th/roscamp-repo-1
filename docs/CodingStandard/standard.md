@@ -87,7 +87,7 @@ __4. 따옴표 규칙__
 > 2. 가로 공간 절약하지 말 것
 > 3. 약어 및 이니셜 사용 지양(단, 위키에 등재된 약어는 사용 가능)
 > 4. 전역 변수의 경우 구체적인 이름 사용
-> 5. 탬플릿 매개변수는 해당 범주에 따른 명명 규칙을 따름
+> 5. 템플릿 매개변수는 해당 범주에 따른 명명 규칙을 따름
 >
 >    - 타입 템플릿 = 타입
 >    - 비타입 템플릿 = 변수 또는 상수
@@ -103,11 +103,8 @@ __4. 따옴표 규칙__
    `PascalCase`
 4. Function Names
 
-   `PascalCase` `<br>`
-
-   `get` & `set` functions `<br>`
-
-   - `snake-case`
+   - 기본적으로 `PascalCase`
+   - 접근자(`get`/`set`)는 `snake_case`
 5. Variable Names
 
    - Class Data Members
@@ -139,43 +136,14 @@ __4. 따옴표 규칙__
 
 ### Python Standard
 
-1. Python Packages Names
+- Package 및 module 이름: `snake_case`
+- Class 및 exception 이름: `PascalCase`
+- Function, method, parameter, local/instance/global 변수 이름: `snake_case`
+- Global/Class constants: `SCREAMING_SNAKE_CASE`
 
-   `snake-case`
-2. Modules Names
+## Comments
 
-   `snake-case`
-3. Classes Names
-
-   `PascalCase`
-4. Exceptions Names
-
-   `PascalCase`
-5. Functions Names
-
-   `snake-case`
-6. Global/Class Constants Names
-
-   `SCREAMING-SNAKE-CASE`
-7. Global/Class Variables Names
-
-   `snake-case`
-8. Instance Variables Namse
-
-   `snake-case`
-9. Method Names
-
-   `snake-case`
-10. Functions/Method Parameters Names
-
-    `snake-case`
-11. Local Variables Names
-
-    `snake-case`
-
-## Commnets
-
-- 주석은 한줄로 작성
+- 주석은 한 줄로 작성
 - 주석 언어는 한글로 통일
-- `C++` 은 `//` 만 사용할 것
-- `Python` 은 `#` 만 사용할 것
+- `C++`은 `//`만 사용할 것
+- `Python`은 `#`만 사용할 것
