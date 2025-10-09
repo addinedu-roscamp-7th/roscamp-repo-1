@@ -536,7 +536,7 @@
         "customer_id": "string",
         "customer_name": "string",
         "customer_allergy_info": ["string"],
-        "customer_is_began": "boolean"
+        "customer_is_vegan": "boolean"
       },
       "message": "작업 정보 업데이트"
     }

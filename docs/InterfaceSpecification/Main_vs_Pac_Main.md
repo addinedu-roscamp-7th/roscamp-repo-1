@@ -56,13 +56,51 @@
 
 ---
 
+### 작업 가능 확인 완료
+- **Topic:** /packee/availability_result
+- **From:** Pac Main
+- **To:** Main
+
+#### Message
+- int32 robot_id
+- string order_id
+- bool available
+- bool cart_detected
+- string message
+
+#### 예시
+**작업 가능:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    available: true
+    cart_detected: true
+    message: "Ready for packing"
+
+**작업 불가 - 장바구니 없음:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    available: false
+    cart_detected: false
+    message: "Cart not detected"
+
+**작업 불가 - 로봇 상태:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    available: false
+    cart_detected: true
+    message: "Robot busy with another order"
+
+---
+
 ## Service
 
 ### 작업 가능 확인 요청
 - **Service:** /packee/packing/check_availability
 - **From:** Main
 - **To:** Pac Main
-- **비고:** 실제 확인 결과는 `/packee/availability_result` 토픽으로 전송됨.
 
 #### Request
 - int32 robot_id
@@ -108,42 +146,3 @@
 
     success: true
     message: "Packing started"
-
----
-
-### 작업 가능 확인 완료
-- **Topic:** /packee/availability_result
-- **From:** Pac Main
-- **To:** Main
-
-#### Message
-- int32 robot_id
-- string order_id
-- bool available
-- bool cart_detected
-- string message
-
-#### 예시
-**작업 가능:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: true
-    cart_detected: true
-    message: "Ready for packing"
-
-**작업 불가 - 장바구니 없음:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: false
-    cart_detected: false
-    message: "Cart not detected"
-
-**작업 불가 - 로봇 상태:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: false
-    cart_detected: true
-    message: "Robot busy with another order"

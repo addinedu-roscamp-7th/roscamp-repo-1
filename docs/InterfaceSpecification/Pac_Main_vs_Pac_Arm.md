@@ -1,8 +1,8 @@
 # Pac Main ↔ Pac Arm
 
-**Main** = Shopee Main Service
-
 **Pac Main** = Packee Main Controller
+
+**Pac Arm** = Packee Arm Controller
 
 ## Data Types
 

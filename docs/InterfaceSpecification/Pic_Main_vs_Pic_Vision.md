@@ -205,14 +205,12 @@
 
 #### Message
 - int32 robot_id
-- string staff_id
 - Point2D relative_position (로봇 기준 직원의 상대 위치)
 - float32 distance
 - bool is_tracking
 
 #### 예시
     robot_id: 1
-    staff_id: "STAFF_001"
     relative_position: {x: 2.5, y: 0.3}
     distance: 2.52
     is_tracking: true
@@ -226,22 +224,11 @@
 
 #### Message
 - int32 robot_id
-- string staff_id
 - bool success
 - string message
 
 #### 예시
-**성공:**
-    robot_id: 1
-    staff_id: "STAFF_001"
-    success: true
-    message: "Staff registration completed successfully."
-
-**실패:**
-    robot_id: 1
-    staff_id: "STAFF_001"
-    success: false
-    message: "Failed to capture features after 3 attempts."
+(추가 예정)
 
 ---
 
@@ -345,7 +332,6 @@
 
 #### Request
 - int32 robot_id
-- string staff_id (등록할 직원 ID)
 
 #### Response
 - bool accepted (작업 접수 여부)
@@ -355,7 +341,6 @@
 **Request:**
 
     robot_id: 1
-    staff_id: "STAFF_001"
 
 **Response:**
 
@@ -371,7 +356,6 @@
 
 #### Request
 - int32 robot_id
-- string staff_id
 - bool track (true: 추종 시작, false: 추종 중지)
 
 #### Response
@@ -382,7 +366,6 @@
 **Request (추종 시작):**
 
     robot_id: 1
-    staff_id: "STAFF_001"
     track: true
 
 **Response:**
@@ -393,7 +376,6 @@
 **Request (추종 중지):**
 
     robot_id: 1
-    staff_id: "STAFF_001"
     track: false
 
 **Response:**

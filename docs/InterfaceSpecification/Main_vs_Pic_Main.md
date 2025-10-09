@@ -120,7 +120,7 @@
     order_id: "ORDER_001"
     product_id: "PROD_001"
     success: true
-    quantity: 1
+    quantity: 2
     message: "Pick completed"
 
 **실패:**
@@ -262,7 +262,7 @@
 
 ---
 
-### 상품 처리 명령
+### 상품 담기 명령
 - **Service:** /pickee/product/process_selection
 - **From:** Main
 - **To:** Pic Main
@@ -285,12 +285,12 @@
     order_id: "ORDER_001"
     product_id: "PROD_001"
     bbox_number: 1
-    quantity: 1
+    quantity: 2
 
 **Response:**
 
     success: true
-    message: "Processing selection started"
+    message: "Picking started"
 
 ---
 

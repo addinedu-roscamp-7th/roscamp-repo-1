@@ -1,8 +1,8 @@
 # Pac Main ↔ Pac Vision
 
-**Main** = Shopee Main Service
-
 **Pac Main** = Packee Main Controller
+
+**Pac Vision** = Packee Vision AI Service
 
 ## Service
 
