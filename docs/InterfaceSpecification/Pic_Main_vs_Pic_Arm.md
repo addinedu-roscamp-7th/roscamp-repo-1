@@ -227,7 +227,6 @@
 - string order_id
 - string product_id
 - Point3D target_position
-- int32 bbox_number
 
 #### Response
 - bool accepted
@@ -240,7 +239,6 @@
     order_id: "ORDER_001"
     product_id: "PROD_001"
     target_position: {x: 0.5, y: 0.3, z: 1.2}
-    bbox_number: 1
 
 **Response:**
 

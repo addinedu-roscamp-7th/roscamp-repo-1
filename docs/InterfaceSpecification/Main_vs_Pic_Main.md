@@ -69,15 +69,15 @@
     order_id: "ORDER_001"
     products: [
       {
-        product_id: "PROD_001"
-        bbox_number: 1
-        bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+        product_id: "PROD_001",
+        bbox_number: 1,
+        bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250},
         confidence: 0.95
       },
       {
-        product_id: "PROD_002"
-        bbox_number: 2
-        bbox_coords: {x1: 250, y1: 150, x2: 350, y2: 250}
+        product_id: "PROD_002",
+        bbox_number: 2,
+        bbox_coords: {x1: 250, y1: 150, x2: 350, y2: 250},
         confidence: 0.92
       }
     ]
@@ -96,6 +96,66 @@
 #### 예시
     robot_id: 1
     order_id: "ORDER_001"
+
+---
+
+### 담기 완료 보고
+- **Topic:** /pickee/product/selection_result
+- **From:** Pic Main
+- **To:** Main
+- **발행:** 담기 완료 시 1회
+
+#### Message
+- int32 robot_id
+- string order_id
+- string product_id
+- bool success
+- int32 quantity
+- string message
+
+#### 예시
+**성공:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    product_id: "PROD_001"
+    success: true
+    quantity: 1
+    message: "Pick completed"
+
+**실패:**
+
+    robot_id: 1
+    order_id: "ORDER_001"
+    product_id: "PROD_001"
+    success: false
+    quantity: 0
+    message: "Pick failed - gripper error"
+
+---
+
+### 로봇 상태 전송
+- **Topic:** /pickee/robot_status
+- **From:** Pic Main
+- **To:** Main
+
+#### Message
+- int32 robot_id
+- string state # e.g., "moving", "picking", "idle", "error"
+- float32 battery_level
+- string current_order_id
+- float32 position_x
+- float32 position_y
+- float32 orientation_z
+
+#### 예시
+    robot_id: 1
+    state: "shopping"
+    battery_level: 75.5
+    current_order_id: "ORDER_001"
+    position_x: 10.5
+    position_y: 5.2
+    orientation_z: 3.14
 
 ---
 
@@ -130,9 +190,9 @@
     customer_id: "customer001"
     product_list: [
       {
-        product_id: "PROD_001"
-        location_id: "LOC_A1"
-        shelf_id: "SHELF_A1_01"
+        product_id: "PROD_001",
+        location_id: "LOC_A1",
+        shelf_id: "SHELF_A1_01",
         quantity: 2
       }
     ]
@@ -192,7 +252,7 @@
 **Request:**
 
     robot_id: 1
-    order_id: "ORDER_001"
+    order_id: "ORDER_001",
     product_ids: ["PROD_001", "PROD_002"]
 
 **Response:**
@@ -234,41 +294,6 @@
 
 ---
 
-### 상품 처리 결과
-- **Topic:** /pickee/product/selection_result
-- **From:** Pic Main
-- **To:** Main
-- **발행:** 담기 완료 시 1회
-
-#### Message
-- int32 robot_id
-- string order_id
-- string product_id
-- bool success
-- int32 quantity
-- string message
-
-#### 예시
-**성공:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    product_id: "PROD_001"
-    success: true
-    quantity: 1
-    message: "Selection processed successfully"
-
-**실패:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    product_id: "PROD_001"
-    success: false
-    quantity: 0
-    message: "Failed to process selection"
-
----
-
 ### 쇼핑 종료 명령
 - **Service:** /pickee/workflow/end_shopping
 - **From:** Main
@@ -277,7 +302,6 @@
 #### Request
 - int32 robot_id
 - string order_id
-- string session_id
 
 #### Response
 - bool success
@@ -288,7 +312,6 @@
 
     robot_id: 1
     order_id: "ORDER_001"
-    session_id: "SESSION_001"
 
 **Response:**
 
@@ -351,57 +374,86 @@
 
 ---
 
-### 로봇 상태 전송
-- **Topic:** /pickee/robot_status
-- **From:** Pic Main
-- **To:** Main
-
-#### Message
-- int32 robot_id
-- string state
-- float32 battery_level
-- string current_order_id
-- float32 position_x
-- float32 position_y
-
-#### 예시
-    robot_id: 1
-    state: "shopping"
-    battery_level: 75.5
-    current_order_id: "ORDER_001"
-    position_x: 10.5
-    position_y: 5.2
-
----
-
-### 데이터 조회
-- **Service:** /pickee/get_data
-- **From:** Pic Main
-- **To:** Main
+### 영상 송출 시작 명령
+- **Service:** /pickee/video_stream/start
+- **From:** Main
+- **To:** Pic Main
 
 #### Request
+- string user_type
+- string customer_id
 - int32 robot_id
-- string data_type ("product_location", "..." )
-- string query (요청할 데이터 키)
 
 #### Response
 - bool success
-- string data_type
-- string payload (JSON string 형태의 데이터)
 - string message
 
 #### 예시
 **Request:**
 
+    user_type: "admin",
+    customer_id: "admin01",
     robot_id: 1
-    data_type: "product_location"
-    query: "PROD_005"
 
 **Response:**
 
     success: true
-    data_type: "product_location"
-    payload: "{\"product_id\": \"PROD_005\", \"location_id\": \"LOC_B2\", \"shelf_id\": \"SHELF_B2_03\"}"
+    message: "video streaming started"
+
+---
+
+### 영상 송출 중지 명령
+- **Service:** /pickee/video_stream/stop
+- **From:** Main
+- **To:** Pic Main
+
+#### Request
+- string user_type
+- string customer_id
+- int32 robot_id
+
+#### Response
+- bool success
+- string message
+
+#### 예시
+**Request:**
+
+    user_type: "admin",
+    customer_id: "admin01",
+    robot_id: 1
+
+**Response:**
+
+    success: true
+    message: "video streaming stopped"
+
+---
+
+### 상품 위치 조회
+- **Service:** /main/get_product_location
+- **From:** Pic Main
+- **To:** Main
+
+#### Request
+- string product_id
+
+#### Response
+- bool success
+- string warehouse_location
+- string shelf_location
+- string message
+
+#### 예시
+**Request:**
+
+    product_id: "PROD_005"
+
+**Response:**
+
+    success: true
+    warehouse_location: "LOC_B2"
+    shelf_location: "SHELF_B2_03",
     message: "Data retrieved successfully"
 
 ---

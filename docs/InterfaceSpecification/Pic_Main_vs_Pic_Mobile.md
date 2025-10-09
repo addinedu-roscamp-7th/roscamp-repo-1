@@ -4,6 +4,20 @@
 
 **Pic Mobile** = Pickee Mobile Service
 
+## Data Types
+
+### Pose2D
+- float32 x  # x position in meters
+- float32 y  # y position in meters
+- float32 theta  # orientation in radians
+
+### Obstacle
+- string obstacle_type  # e.g., "person", "static", "dynamic", "wall"
+- float32 distance  # distance from robot in meters
+- float32 velocity  # relative velocity in m/s (0 for static obstacles)
+
+---
+
 ## Topic
 
 ### 위치 업데이트
@@ -15,19 +29,21 @@
 - int32 robot_id
 - string order_id
 - Pose2D current_pose
-- float32 linear_velocity
-- float32 angular_velocity
-- float32 battery_level
-- string status
+- float32 linear_velocity  # m/s
+- float32 angular_velocity  # rad/s
+- float32 battery_level  # percentage (0-100)
+- string status  # see Status Values
 
 #### 예시
-    robot_id: 1
-    order_id: "ORDER_001"
-    current_pose: {x: 5.3, y: 2.1, theta: 0.5}
-    linear_velocity: 0.8
-    angular_velocity: 0.0
-    battery_level: 75.5
-    status: "moving"
+```
+robot_id: 1
+order_id: "ORDER_001"
+current_pose: {x: 5.3, y: 2.1, theta: 0.5}
+linear_velocity: 0.8
+angular_velocity: 0.0
+battery_level: 75.5
+status: "moving"
+```
 
 ---
 
@@ -40,19 +56,21 @@
 - int32 robot_id
 - string order_id
 - string location_id
-- Pose2D final_pose
-- float32 position_error
-- float32 travel_time
+- Pose2D final_pose  # see Pose2D definition
+- float32 position_error  # meters
+- float32 travel_time  # seconds
 - string message
 
 #### 예시
-    robot_id: 1
-    order_id: "ORDER_001"
-    location_id: "LOC_A1"
-    final_pose: {x: 10.52, y: 5.18, theta: 1.56}
-    position_error: 0.03
-    travel_time: 43.5
-    message: "Arrived at LOC_A1"
+```
+robot_id: 1
+order_id: "ORDER_001"
+location_id: "LOC_A1"
+final_pose: {x: 10.52, y: 5.18, theta: 1.56}
+position_error: 0.03
+travel_time: 43.5
+message: "Arrived at LOC_A1"
+```
 
 ---
 
@@ -64,29 +82,31 @@
 #### Message
 - int32 robot_id
 - string order_id
-- string speed_mode ("normal", "decelerate", "stop")
-- float32 target_speed
-- Obstacle[] obstacles
+- string speed_mode  # "normal", "decelerate", "stop"
+- float32 target_speed  # m/s
+- Obstacle[] obstacles  # see Obstacle definition
 - string reason
 
 #### 예시
 **감속:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    speed_mode: "decelerate"
-    target_speed: 0.3
-    obstacles:
-      - obstacle_type: "person"
-        distance: 1.5
-        velocity: 0.8
-    reason: "dynamic_obstacle_near"
+```
+robot_id: 1
+order_id: "ORDER_001"
+speed_mode: "decelerate"
+target_speed: 0.3
+obstacles:
+  - obstacle_type: "person"
+    distance: 1.5
+    velocity: 0.8
+reason: "dynamic_obstacle_near"
+```
 
 **정지:**
-
-    speed_mode: "stop"
-    target_speed: 0.0
-    reason: "collision_risk"
+```
+speed_mode: "stop"
+target_speed: 0.0
+reason: "collision_risk"
+```
 
 ---
 
@@ -101,9 +121,9 @@
 - int32 robot_id
 - string order_id
 - string location_id
-- Pose2D target_pose
-- Pose2D[] global_path (Main이 A* 알고리즘으로 생성한 경로)
-- string navigation_mode
+- Pose2D target_pose  # see Pose2D definition
+- Pose2D[] global_path  # Main이 A* 알고리즘으로 생성한 경로
+- string navigation_mode  # see Navigation Mode Values
 
 #### Response
 - bool success
@@ -111,23 +131,25 @@
 
 #### 예시
 **Request:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    location_id: "LOC_A1"
-    target_pose: {x: 10.5, y: 5.2, theta: 1.57}
-    global_path:
-      - {x: 0.0, y: 0.0, theta: 0.0}
-      - {x: 2.5, y: 1.2, theta: 0.5}
-      - {x: 5.0, y: 2.5, theta: 0.8}
-      - {x: 7.5, y: 4.0, theta: 1.2}
-      - {x: 10.5, y: 5.2, theta: 1.57}
-    navigation_mode: "normal"
+```
+robot_id: 1
+order_id: "ORDER_001"
+location_id: "LOC_A1"
+target_pose: {x: 10.5, y: 5.2, theta: 1.57}
+global_path:
+  - {x: 0.0, y: 0.0, theta: 0.0}
+  - {x: 2.5, y: 1.2, theta: 0.5}
+  - {x: 5.0, y: 2.5, theta: 0.8}
+  - {x: 7.5, y: 4.0, theta: 1.2}
+  - {x: 10.5, y: 5.2, theta: 1.57}
+navigation_mode: "normal"
+```
 
 **Response:**
-
-    success: true
-    message: "Navigation started"
+```
+success: true
+message: "Navigation started"
+```
 
 ---
 
@@ -140,7 +162,7 @@
 - int32 robot_id
 - string order_id
 - string location_id
-- Pose2D[] global_path (Main이 A* 알고리즘으로 생성한 경로)
+- Pose2D[] global_path  # Main이 A* 알고리즘으로 생성한 경로
 
 #### Response
 - bool success
@@ -148,17 +170,19 @@
 
 #### 예시
 **Request:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    location_id: "LOC_A1"
-    global_path:
-      - {x: 5.0, y: 2.5, theta: 0.8}
-      - {x: 4.0, y: 3.5, theta: 1.2}
-      - {x: 6.0, y: 4.0, theta: 0.5}
-      - {x: 10.5, y: 5.2, theta: 1.57}
+```
+robot_id: 1
+order_id: "ORDER_001"
+location_id: "LOC_A1"
+global_path:
+  - {x: 5.0, y: 2.5, theta: 0.8}
+  - {x: 4.0, y: 3.5, theta: 1.2}
+  - {x: 6.0, y: 4.0, theta: 0.5}
+  - {x: 10.5, y: 5.2, theta: 1.57}
+```
 
 **Response:**
-
-    success: true
-    message: "Global path updated"
+```
+success: true
+message: "Global path updated"
+```

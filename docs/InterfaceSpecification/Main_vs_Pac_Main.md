@@ -14,7 +14,6 @@
 #### Message
 - int32 robot_id
 - string order_id
-- string session_id
 - bool success
 - int32 packed_items
 - string message
@@ -24,7 +23,6 @@
 
     robot_id: 1
     order_id: "ORDER_001"
-    session_id: "SESSION_001"
     success: true
     packed_items: 5
     message: "Packing completed"
@@ -33,7 +31,6 @@
 
     robot_id: 1
     order_id: "ORDER_001"
-    session_id: "SESSION_001"
     success: false
     packed_items: 3
     message: "Packing failed - gripper error"
@@ -47,7 +44,7 @@
 
 #### Message
 - int32 robot_id
-- string state
+- string state # e.g., "packing", "idle", "error"
 - string current_order_id
 - int32 items_in_cart
 
@@ -65,13 +62,14 @@
 - **Service:** /packee/packing/check_availability
 - **From:** Main
 - **To:** Pac Main
+- **비고:** 실제 확인 결과는 `/packee/availability_result` 토픽으로 전송됨.
 
 #### Request
 - int32 robot_id
 - string order_id
 
 #### Response
-- bool available
+- bool success
 - string message
 
 #### 예시
@@ -82,8 +80,8 @@
 
 **Response:**
 
-    available: true
-    message: "Ready for packing"
+    success: true
+    message: "Availability check initiated"
 
 ---
 

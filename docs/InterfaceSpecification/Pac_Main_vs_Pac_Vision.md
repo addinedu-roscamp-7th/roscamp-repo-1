@@ -54,6 +54,23 @@
 - int32 total_detected
 - string message
 
+**DetectedProduct 구조:**
+- string product_id
+- BBox bbox
+- float32 confidence
+- Point3D position
+
+**BBox 구조:**
+- int32 x1
+- int32 y1
+- int32 x2
+- int32 y2
+
+**Point3D 구조:**
+- float32 x
+- float32 y
+- float32 z
+
 #### 예시
 **Request:**
 
