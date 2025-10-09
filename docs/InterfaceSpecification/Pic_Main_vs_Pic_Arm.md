@@ -4,6 +4,13 @@
 
 **Pic Arm** = Pickee Arm Controller
 
+## Data Types
+
+- **Point3D**
+  - float32 x
+  - float32 y
+  - float32 z
+
 ## Topic
 
 ### 자세 변경 상태

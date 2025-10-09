@@ -130,7 +130,6 @@
     {
       "type": "order_create_response",
       "result": true,
-      "error_code": "ORDER_000",
       "data": {
         "order_id": "O12345",
         "assigned_pickee": "Pickee_02",
@@ -204,7 +203,7 @@
       "data": {
         "user_type": "admin",
         "customer_id": "admin01",
-        "robot_id": "pickee01"
+        "robot_id": 1
       }
     }
 
@@ -234,7 +233,7 @@
       "data": {
         "user_type": "admin",
         "customer_id": "admin01",
-        "robot_id": "pickee01"
+        "robot_id": 1
       }
     }
 
@@ -267,7 +266,7 @@
         "name": "string" || null,
         "quantity": ["int","int"] || null,
         "price": "int" || null,
-        "shelf_id": "int" || null,
+        "shelf_id": "string" || null,
         "category": "string" || null,
         "allergy_info": ["string"] || null,
         "is_vegan_friendly": "boolean" || null
@@ -290,7 +289,7 @@
             "name": "string",
             "quantity": "int",
             "price": "int",
-            "shelf_id": "int",
+            "shelf_id": "string",
             "category": "string",
             "allergy_info": ["string"],
             "is_vegan_friendly": "boolean"
@@ -313,7 +312,7 @@
         "name": "string",
         "quantity": "int",
         "price": "int",
-        "shelf_id": "int",
+        "shelf_id": "string",
         "category": "string",
         "allergy_info": ["string"],
         "is_vegan_friendly": "boolean"
@@ -349,7 +348,7 @@
         "name": "string",
         "quantity": "int",
         "price": "int",
-        "shelf_id": "int",
+        "shelf_id": "string",
         "category": "string",
         "allergy_info": ["string"],
         "is_vegan_friendly": "boolean"
@@ -538,7 +537,8 @@
         "customer_name": "string",
         "customer_allergy_info": ["string"],
         "customer_is_began": "boolean"
-      }
+      },
+      "message": "작업 정보 업데이트"
     }
 - 비고:
     - destination: order_info.order_status가 3인 row의 다음에 있는 row가 목적지
@@ -558,7 +558,8 @@
         "product_name": "string",
         "product_price": "int",
         "product_quantity": "int"
-      }
+      },
+      "message": "포장 정보 업데이트"
     }
 - 비고:
     - order_status: "적재 전", "적재 완료", "포장 실패", "포장 완료"로 나뉨

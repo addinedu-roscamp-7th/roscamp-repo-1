@@ -16,6 +16,25 @@
 - float32 distance  # distance from robot in meters
 - float32 velocity  # relative velocity in m/s (0 for static obstacles)
 
+### Status Values (string)
+- "idle" - Robot is stationary and waiting
+- "moving" - Robot is navigating to destination
+- "arrived" - Robot has reached destination
+- "charging" - Robot is charging battery
+- "error" - Robot encountered an error
+- "emergency_stop" - Robot is in emergency stop state
+
+### Navigation Mode Values (string)
+- "normal" - Standard navigation speed and behavior
+- "fast" - Faster navigation with less caution
+- "careful" - Slower, more cautious navigation
+- "precision" - High precision mode for final approach
+
+### Speed Mode Values (string)
+- "normal" - Normal driving speed
+- "decelerate" - Reduced speed for obstacle avoidance
+- "stop" - Complete stop
+
 ---
 
 ## Topic

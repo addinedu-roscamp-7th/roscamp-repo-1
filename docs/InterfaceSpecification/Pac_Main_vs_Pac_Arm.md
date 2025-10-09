@@ -4,6 +4,18 @@
 
 **Pac Main** = Packee Main Controller
 
+## Data Types
+
+- **Point3D**
+  - float32 x
+  - float32 y
+  - float32 z
+- **BBox**
+  - int32 x1
+  - int32 y1
+  - int32 x2
+  - int32 y2
+
 ## Topic
 
 ### 자세 변경 상태
