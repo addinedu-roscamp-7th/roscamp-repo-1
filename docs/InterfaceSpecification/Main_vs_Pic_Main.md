@@ -32,13 +32,13 @@
 - int32 robot_id
 - string order_id
 - string location_id
-- string shelf_id
+- int32 section_id
 
 #### 예시
     robot_id: 1
     order_id: "ORDER_001"
     location_id: "LOC_A1"
-    shelf_id: "SHELF_A1_01"
+    section_id: 101
 
 ---
 
@@ -141,7 +141,7 @@
 
 #### Message
 - int32 robot_id
-- string state # e.g., "moving", "picking", "idle", "error"
+ - string state # Pickee 상태 코드 (예: "PK_S10")
 - float32 battery_level
 - string current_order_id
 - float32 position_x
@@ -150,7 +150,7 @@
 
 #### 예시
     robot_id: 1
-    state: "shopping"
+    state: "PK_S13"
     battery_level: 75.5
     current_order_id: "ORDER_001"
     position_x: 10.5
@@ -175,7 +175,7 @@
 **ProductLocation 구조:**
 - string product_id
 - string location_id
-- string shelf_id
+- int32 section_id
 - int32 quantity
 
 #### Response
@@ -192,7 +192,7 @@
       {
         product_id: "PROD_001",
         location_id: "LOC_A1",
-        shelf_id: "SHELF_A1_01",
+        section_id: 101,
         quantity: 2
       }
     ]
@@ -204,8 +204,8 @@
 
 ---
 
-### 매대 이동 명령
-- **Service:** /pickee/workflow/move_to_shelf
+### 섹션 이동 명령
+- **Service:** /pickee/workflow/move_to_section
 - **From:** Main
 - **To:** Pic Main
 
@@ -213,7 +213,7 @@
 - int32 robot_id
 - string order_id
 - string location_id
-- string shelf_id
+- int32 section_id
 
 #### Response
 - bool success
@@ -225,12 +225,12 @@
     robot_id: 1
     order_id: "ORDER_001"
     location_id: "LOC_A1"
-    shelf_id: "SHELF_A1_01"
+    section_id: 101
 
 **Response:**
 
     success: true
-    message: "Moving to shelf"
+    message: "Moving to section"
 
 ---
 
@@ -440,8 +440,8 @@
 
 #### Response
 - bool success
-- string warehouse_location
-- string shelf_location
+- int32 warehouse_id
+- int32 section_id
 - string message
 
 #### 예시
@@ -452,8 +452,8 @@
 **Response:**
 
     success: true
-    warehouse_location: "LOC_B2"
-    shelf_location: "SHELF_B2_03",
+    warehouse_id: 15
+    section_id: 203
     message: "Data retrieved successfully"
 
 ---

@@ -15,7 +15,7 @@
 | **UR_05** | **상품 포장 보조** | 원격 쇼핑 종료 후 포장 박스에 장바구니의 상품들을 적재 및 정렬<br><br>**정렬 기준**<br>• 손상 가능성 있는 물품을 위로<br>• 안전성이 높은 방향으로 | R | |
 | **UR_06** | **재고 보충 보조** | 직원의 요청에 따라 창고의 상품을 매대로 자율 운송 | O | |
 | | **관리자 (Admin)** | | | |
-| **UR_07** | **주문 정보 관리** | 주문 현황 확인 및 이력 조회 | R | **주문 정보**<br>• 주문 ID<br>• 고객 ID<br>• 주문 상품 목록<br>• 주문 상태<br>&nbsp;&nbsp;- pending<br>&nbsp;&nbsp;- paid<br>&nbsp;&nbsp;- fail_paid<br>&nbsp;&nbsp;- fail_pack<br>&nbsp;&nbsp;- packed |
+| **UR_07** | **주문 정보 관리** | 주문 현황 확인 및 이력 조회 | R | **주문 정보**<br>• 주문 ID<br>• 고객 ID<br>• 주문 상품 목록<br>• 주문 상태<br>&nbsp;&nbsp;- PENDING<br>&nbsp;&nbsp;- PAID<br>&nbsp;&nbsp;- FAIL_PAID<br>&nbsp;&nbsp;- FAIL_PACK<br>&nbsp;&nbsp;- PACKED |
 | **UR_08** | **작업 정보 관리** | 작업 현황 확인 및 이력 조회 | R | **작업 정보**<br>• 작업 ID<br>• 고객 ID<br>• 로봇 ID<br>• 작업 종류<br>&nbsp;&nbsp;- 원격 쇼핑<br>&nbsp;&nbsp;- 포장<br>&nbsp;&nbsp;- 재고 보충<br>• 작업 상태<br>&nbsp;&nbsp;- 진행중<br>&nbsp;&nbsp;- 완료<br>&nbsp;&nbsp;- 실패 |
 | **UR_09** | **로봇 정보 관리** | 로봇 상태 확인 및 이력 조회 | R | **로봇 상태**<br>• 현재 위치<br>• 장바구니 상태<br>• 충전 여부 및 배터리 잔량<br>• 시스템 오류 상태 |
 | **UR_10** | **상품 정보 관리** | 상품 정보 조회 및 수정 | R | **상품 정보**<br>• 상품 ID, 바코드, 이름<br>• 수량, 가격, 카테고리<br>• 매대 위치<br>• 알레르기 정보, 비건 여부 |

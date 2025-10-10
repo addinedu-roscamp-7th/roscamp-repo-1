@@ -7,7 +7,7 @@ skinparam componentStyle rectangle
 ' UI Layer
 package "UI Layer" {
     node "User PC" <<device>> {
-        component [Shopee App] as ShopeeApp
+        component [Shopee App\n(ROS2 Enabled)] as ShopeeApp
     }
 }
 
@@ -61,8 +61,13 @@ MainService -[#6c8ebf]-> PickeeMainCtrl : ROS2
 MainService -[#6c8ebf]-> PackeeMainCtrl : ROS2
 PickeeMainCtrl <-[#009900]-> LLMService : HTTP
 PickeeVision -[#b85450]-> MainService : UDP
-PickeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2
-PackeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2
+PickeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2 (monitoring topics)
+PackeeMainCtrl -[#6c8ebf]-> ShopeeApp : ROS2 (monitoring topics)
+
+note right of ShopeeApp
+  App 포함 클라이언트는 ROS2 미들웨어를 탑재하여
+  선택된 모니터링 토픽을 직접 구독함
+end note
 
 ' Pickee Internal Connections
 PickeeMainCtrl -[#6c8ebf]-> PickeeVision : ROS2

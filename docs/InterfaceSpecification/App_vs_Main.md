@@ -9,6 +9,10 @@
 ### 사용 포트  
 - TCP: 5000  
 
+> **Note:** 본 인터페이스는 학습/프로토타입 용도로 작성되어 있으며,
+> TLS 암호화나 세션 토큰 관리 등 보안 요소는 범위에 포함하지 않습니다.
+> 실제 서비스 환경에서는 별도 보안 설계를 적용해야 합니다.
+
 ### 요청 포맷  
     {
       "type": "message_type",
@@ -98,7 +102,10 @@
             "name": "string",
             "price": "int",
             "quantity": "int",
-            "shelf_id": "string"
+            "section_id": "int",
+            "category": "string",
+            "allergy_info_id": "int",
+            "is_vegan_friendly": "boolean"
           }
         ],
         "total_count": "int"
@@ -266,9 +273,9 @@
         "name": "string" || null,
         "quantity": ["int","int"] || null,
         "price": "int" || null,
-        "shelf_id": "string" || null,
+        "section_id": "int" || null,
         "category": "string" || null,
-        "allergy_info": ["string"] || null,
+        "allergy_info_id": "int" || null,
         "is_vegan_friendly": "boolean" || null
       }
     }
@@ -289,9 +296,9 @@
             "name": "string",
             "quantity": "int",
             "price": "int",
-            "shelf_id": "string",
+            "section_id": "int",
             "category": "string",
-            "allergy_info": ["string"],
+            "allergy_info_id": "int",
             "is_vegan_friendly": "boolean"
           }
         ],
@@ -312,9 +319,9 @@
         "name": "string",
         "quantity": "int",
         "price": "int",
-        "shelf_id": "string",
+        "section_id": "int",
         "category": "string",
-        "allergy_info": ["string"],
+        "allergy_info_id": "int",
         "is_vegan_friendly": "boolean"
       }
     }
@@ -348,9 +355,9 @@
         "name": "string",
         "quantity": "int",
         "price": "int",
-        "shelf_id": "string",
+        "section_id": "int",
         "category": "string",
-        "allergy_info": ["string"],
+        "allergy_info_id": "int",
         "is_vegan_friendly": "boolean"
       }
     }
@@ -409,11 +416,10 @@
       "data": {
         "robot_history_id": "int" || null,
         "robot_id": "int" || null,
-        "order_info_id": "int" || null,
-        "location_history": "string" || null,
+        "order_item_info_id": "int" || null,
         "failure_reason": "string" || null,
-        "is_complete": "int" || null,
-        "active_duration": "string" || null,
+        "is_complete": "boolean" || null,
+        "active_duration": "int" || null,
         "created_at": "string" || null
       }
     }
@@ -431,11 +437,10 @@
           {
             "robot_history_id": "int",
             "robot_id": "int",
-            "order_info_id": "int",
-            "location_history": "string",
+            "order_item_info_id": "int",
             "failure_reason": "string",
-            "is_complete": "int",
-            "active_duration": "string",
+            "is_complete": "boolean",
+            "active_duration": "int",
             "created_at": "datetime"
           }
         ],
@@ -472,9 +477,9 @@
         "order_id": "string",
         "robot_id": "int",
         "location_id": "string",
-        "shelf_name": "string"
+        "section_id": "int"
       },
-      "message": "매대에 도착했습니다"
+      "message": "섹션에 도착했습니다"
     }
 
 상품 선택 시작 알림
@@ -535,7 +540,7 @@
         "active_duration": "int",
         "customer_id": "string",
         "customer_name": "string",
-        "customer_allergy_info": ["string"],
+        "customer_allergy_info_id": "int",
         "customer_is_vegan": "boolean"
       },
       "message": "작업 정보 업데이트"
@@ -562,5 +567,5 @@
       "message": "포장 정보 업데이트"
     }
 - 비고:
-    - order_status: "적재 전", "적재 완료", "포장 실패", "포장 완료"로 나뉨
+    - order_status: ERD에 정의된 `order_status` enum 값을 따름 (예: 'PACKED', 'FAIL_PACK')
     - order_status의 비율을 진행율로 표시 가능

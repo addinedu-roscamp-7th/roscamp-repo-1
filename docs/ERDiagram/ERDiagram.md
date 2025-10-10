@@ -1,160 +1,164 @@
-@startuml Shopee_ERD
+@startuml
 
-!define PK_COLOR #FFE6CC
-!define FK_COLOR #E1D5E7
-
-entity location {
-  * **id** : int <<PK>>
+' 엔티티 정의
+entity "customer" as customer {
+  * id : varchar <<PK>>
   --
-  location_x : float
-  location_y : float
-  aruco_marker : int
+  password : varchar
+  name : varchar
+  gender : varchar
+  age : int
+  address : varchar
+  allergy_info_id : int <<FK>>
+  is_vegan : boolean
 }
 
-entity section {
-  * **id** : int <<PK>>
+entity "admin" as admin {
+  * id : varchar <<PK>>
   --
-  * location_id : int <<FK>>
-  section_name : varchar
+  password : varchar
+  name : varchar
 }
 
-entity shelf {
-  * **id** : int <<PK>>
+entity "allergy_info" as allergy_info {
+  * id : int <<PK>>
+  owner_type : enum
   --
-  * location_id : int <<FK>>
-  * section_id : int <<FK>>
-  shelf_name : varchar
+  nuts (견과류) : boolean
+  milk (유제품) : boolean
+  seafood (어패류) : boolean
+  soy (대두/콩) : boolean
+  peach (복숭아) : boolean
+  gluten (밀, 글루텐) : boolean
+  eggs (계란) : boolean
 }
 
-entity product {
-  * **id** : int <<PK>>
+entity "order_info" as order_info {
+  * id : int <<PK>>
+  --
+  customer_id : varchar <<FK>>
+  start_time : datetime
+  end_time : datetime
+  order_status : enum
+  failure_reason : varchar
+  created_at : datetime
+}
+
+entity "order_item_info" as order_item_info {
+  * id : int <<PK>>
+  --
+  order_info_id : int <<FK>>
+  product_id : int <<FK>>
+  quantity : int
+  created_at : datetime
+}
+
+entity "product" as product {
+  * id : int <<PK>>
   --
   barcode : varchar
   name : varchar
   quantity : int
-  * shelf_id : int <<FK>>
   price : int
+  discount_rate : int
   category : varchar
-  allergy_info : varchar
+  allergy_info_id : int <<FK>>
   is_vegan_friendly : boolean
+  section_id : int <<FK>>
+  warehouse_id : int <<FK>>
 }
 
-entity customer {
-  * **id** : varchar <<PK>>
+entity "robot" as robot {
+  * id : int <<PK>>
   --
-  password : varchar
-  name : varchar
-  allergy_info : varchar
-  is_vegan : boolean
+  robot_type : enum
 }
 
-entity order_info {
-  * **id** : int <<PK>>
+entity "warehouse" as warehouse {
+  * id : int <<PK>>
   --
-  * customer_id : varchar <<FK>>
-  * robot_id : int <<FK>>
-  start_time : datetime
-  end_time : datetime
-  * order_status_id : int <<FK>>
-  created_at : datetime
-  updated_at : datetime
+  location_id : int <<FK>>
+  warehouse_name : varchar
 }
 
-entity order_item_info {
-  * **id** : int <<PK>>
+entity "robot_history" as robot_history {
+  * id : int <<PK>>
   --
-  * order_info_id : int <<FK>>
-  * product_id : int <<FK>>
-  quantity : int
-  created_at : datetime
-}
-
-entity order_status {
-  * **id** : int <<PK>>
-  --
-  name : varchar
-}
-
-note right of order_status
-  1 : paid
-  2 : fail paid
-  3 : returned
-  4 : fail return
-  5 : packaged
-  6 : fail pack
-  7 : packed
-  8 : fail pack
-end note
-
-entity robot {
-  * **id** : int <<PK>>
-  --
-  is_charging : boolean
-  system_error_status : varchar
-  * robot_type_id : varchar <<FK>>
-}
-
-entity robot_type {
-  * **id** : int <<PK>>
-  --
-  name : varchar
-}
-
-note right of robot_type
-  1 = 주행로봇 / 2 = 로봇팔
-end note
-
-entity robot_history {
-  * **id** : int <<PK>>
-  --
-  * robot_id : int <<FK>>
-  * order_info_id : int <<FK>>
-  location_history : varchar
-  timestamp : datetime
-  failure_reason : varchar
+  robot_id : int <<FK>>
+  history_type : enum
+  order_item_info_id : int <<FK>> (nullable)
   is_complete : boolean
-}
-
-entity packaging {
-  * **id** : int <<PK>>
-  --
-  * order_info_id : int <<FK>>
-  package_type : varchar
-  package_status : varchar
-  package_start_time : datetime
-  package_complete_time : datetime
+  failure_reason : varchar
+  active_duration : int
   created_at : datetime
 }
 
-note right of packaging
-  packaging 필요한가?
-  order_status에서
-  포장 여부 관리 되는지?
-end note
-
-entity admin {
-  * **id** : varchar <<PK>>
+entity "location" as location {
+  * id : int <<PK>>
   --
-  password : varchar
-  name : varchar
+  location_x : float
+  location_y : float
+  aruco_marker (space number) : int
 }
 
-' Relationships
-location ||--o{ section : "has"
-location ||--o{ shelf : "contains"
-section ||--o{ shelf : "has"
-shelf ||--o{ product : "stores"
+entity "shelf" as shelf {
+  * id : int <<PK>>
+  --
+  location_id : int <<FK>>
+  shelf_name : varchar
+}
 
-customer ||--o{ order_info : "places"
-robot ||--o{ order_info : "assigned to"
-order_status ||--o{ order_info : "has"
-order_info ||--o{ order_item_info : "contains"
-product ||--o{ order_item_info : "ordered in"
+entity "section" as section {
+  * id : int <<PK>>
+  --
+  shelf_id : int <<FK>>
+  section_name : varchar
+}
 
-robot_type ||--o{ robot : "categorizes"
-robot ||--o{ robot_history : "tracks"
-order_info ||--o{ robot_history : "recorded in"
+' 관계 정의
+customer }o--|| allergy_info : "allergy_info_id"
+order_info }o--|| customer : "customer_id"
+order_item_info }o--|| order_info : "order_info_id"
+order_item_info }o--|| product : "product_id"
+product }o--|| allergy_info : "allergy_info_id"
+product }o--|| section : "section_id"
+product }o--|| warehouse : "warehouse_id"
+robot_history }o--|| robot : "robot_id"
+robot_history }o--|| order_item_info : "order_item_info_id"
+shelf }o--|| location : "location_id"
+section }o--|| shelf : "shelf_id"
+warehouse }o--|| location : "location_id"
 
-order_info ||--|| packaging : "packaged as"
+' 노트 추가
+note right of allergy_info
+  owner_type
+  "customer" / "product"
+end note
+
+note right of order_info
+  order_status:
+  - 결제 성공(픽업 전): PAID
+  - 결제 실패: FAIL_PAID
+  - 픽업 성공(포장 전): PICKED_UP
+  - 픽업 실패: FAIL_PICKUP
+  - 픽업 취소(반납 전): CANCELED
+  - 반납 성공: RETURNED
+  - 반납 실패: FAIL_RETURN
+  - 포장 성공: PACKED
+  - 포장 실패: FAIL_PACK
+end note
+
+note right of robot
+  robot_type
+  "pickee" / "packee"
+end note
+
+note right of robot_history
+  history_type:
+  "task" / "charge" / "error"
+  
+  active_duration:
+  1 = 1min
+end note
 
 @enduml
