@@ -4,14 +4,14 @@ Pac Arm = Packee Arm Controller
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/packee/arm/pose_status` | `shopee_interfaces/msg/ArmPoseStatus` |
-| Topic | `/packee/arm/pick_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` |
-| Topic | `/packee/arm/place_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` |
-| Service | `/packee/arm/move_to_pose` | `shopee_interfaces/srv/PackeeArmMoveToPose` |
-| Service | `/packee/arm/pick_product` | `shopee_interfaces/srv/PackeeArmPickProduct` |
-| Service | `/packee/arm/place_product` | `shopee_interfaces/srv/PackeeArmPlaceProduct` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/packee/arm/pose_status` | `shopee_interfaces/msg/ArmPoseStatus` | `ros2_ws/src/shopee_interfaces/msg/ArmPoseStatus.msg` |
+| Topic | `/packee/arm/pick_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` | `ros2_ws/src/shopee_interfaces/msg/PackeeArmTaskStatus.msg` |
+| Topic | `/packee/arm/place_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` | `ros2_ws/src/shopee_interfaces/msg/PackeeArmTaskStatus.msg` |
+| Service | `/packee/arm/move_to_pose` | `shopee_interfaces/srv/PackeeArmMoveToPose` | `ros2_ws/src/shopee_interfaces/srv/PackeeArmMoveToPose.srv` |
+| Service | `/packee/arm/pick_product` | `shopee_interfaces/srv/PackeeArmPickProduct` | `ros2_ws/src/shopee_interfaces/srv/PackeeArmPickProduct.srv` |
+| Service | `/packee/arm/place_product` | `shopee_interfaces/srv/PackeeArmPlaceProduct` | `ros2_ws/src/shopee_interfaces/srv/PackeeArmPlaceProduct.srv` |
 
 
 

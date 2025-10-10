@@ -4,13 +4,13 @@ Pac Main = Packee Main Controller
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/packee/packing_complete` | `shopee_interfaces/msg/PackeePackingComplete` |
-| Topic | `/packee/robot_status` | `shopee_interfaces/msg/PackeeRobotStatus` |
-| Topic | `/packee/availability_result` | `shopee_interfaces/msg/PackeeAvailability` |
-| Service | `/packee/packing/check_availability` | `shopee_interfaces/srv/PackeePackingCheckAvailability` |
-| Service | `/packee/packing/start` | `shopee_interfaces/srv/PackeePackingStart` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/packee/packing_complete` | `shopee_interfaces/msg/PackeePackingComplete` | `ros2_ws/src/shopee_interfaces/msg/PackeePackingComplete.msg` |
+| Topic | `/packee/robot_status` | `shopee_interfaces/msg/PackeeRobotStatus` | `ros2_ws/src/shopee_interfaces/msg/PackeeRobotStatus.msg` |
+| Topic | `/packee/availability_result` | `shopee_interfaces/msg/PackeeAvailability` | `ros2_ws/src/shopee_interfaces/msg/PackeeAvailability.msg` |
+| Service | `/packee/packing/check_availability` | `shopee_interfaces/srv/PackeePackingCheckAvailability` | `ros2_ws/src/shopee_interfaces/srv/PackeePackingCheckAvailability.srv` |
+| Service | `/packee/packing/start` | `shopee_interfaces/srv/PackeePackingStart` | `ros2_ws/src/shopee_interfaces/srv/PackeePackingStart.srv` |
 
 
 

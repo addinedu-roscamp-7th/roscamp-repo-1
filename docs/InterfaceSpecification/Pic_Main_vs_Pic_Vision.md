@@ -4,22 +4,22 @@ Pic Vision = Pickee Vision AI Service
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/pickee/vision/detection_result` | `shopee_interfaces/msg/PickeeVisionDetection` |
-| Topic | `/pickee/vision/cart_check_result` | `shopee_interfaces/msg/PickeeVisionCartCheck` |
-| Topic | `/pickee/vision/obstacle_detected` | `shopee_interfaces/msg/PickeeVisionObstacles` |
-| Topic | `/pickee/vision/staff_location` | `shopee_interfaces/msg/PickeeVisionStaffLocation` |
-| Topic | `/pickee/vision/register_staff_result` | `shopee_interfaces/msg/PickeeVisionStaffRegister` |
-| Service | `/pickee/vision/detect_products` | `shopee_interfaces/srv/PickeeVisionDetectProducts` |
-| Service | `/pickee/vision/check_product_in_cart` | `shopee_interfaces/srv/PickeeVisionCheckProductInCart` |
-| Service | `/pickee/vision/check_cart_presence` | `shopee_interfaces/srv/PickeeVisionCheckCartPresence` |
-| Service | `/pickee/video_stream/start` | `shopee_interfaces/srv/PickeeVisionVideoStreamStart` |
-| Service | `/pickee/video_stream/stop` | `shopee_interfaces/srv/PickeeVisionVideoStreamStop` |
-| Service | `/pickee/vision/register_staff` | `shopee_interfaces/srv/PickeeVisionRegisterStaff` |
-| Service | `/pickee/vision/track_staff` | `shopee_interfaces/srv/PickeeVisionTrackStaff` |
-| Service | `/pickee/vision/set_mode` | `shopee_interfaces/srv/PickeeVisionSetMode` |
-| Service | `/pickee/tts_request` | `shopee_interfaces/srv/PickeeTtsRequest` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/pickee/vision/detection_result` | `shopee_interfaces/msg/PickeeVisionDetection` | `ros2_ws/src/shopee_interfaces/msg/PickeeVisionDetection.msg` |
+| Topic | `/pickee/vision/cart_check_result` | `shopee_interfaces/msg/PickeeVisionCartCheck` | `ros2_ws/src/shopee_interfaces/msg/PickeeVisionCartCheck.msg` |
+| Topic | `/pickee/vision/obstacle_detected` | `shopee_interfaces/msg/PickeeVisionObstacles` | `ros2_ws/src/shopee_interfaces/msg/PickeeVisionObstacles.msg` |
+| Topic | `/pickee/vision/staff_location` | `shopee_interfaces/msg/PickeeVisionStaffLocation` | `ros2_ws/src/shopee_interfaces/msg/PickeeVisionStaffLocation.msg` |
+| Topic | `/pickee/vision/register_staff_result` | `shopee_interfaces/msg/PickeeVisionStaffRegister` | `ros2_ws/src/shopee_interfaces/msg/PickeeVisionStaffRegister.msg` |
+| Service | `/pickee/vision/detect_products` | `shopee_interfaces/srv/PickeeVisionDetectProducts` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionDetectProducts.srv` |
+| Service | `/pickee/vision/check_product_in_cart` | `shopee_interfaces/srv/PickeeVisionCheckProductInCart` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionCheckProductInCart.srv` |
+| Service | `/pickee/vision/check_cart_presence` | `shopee_interfaces/srv/PickeeVisionCheckCartPresence` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionCheckCartPresence.srv` |
+| Service | `/pickee/video_stream/start` | `shopee_interfaces/srv/PickeeVisionVideoStreamStart` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionVideoStreamStart.srv` |
+| Service | `/pickee/video_stream/stop` | `shopee_interfaces/srv/PickeeVisionVideoStreamStop` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionVideoStreamStop.srv` |
+| Service | `/pickee/vision/register_staff` | `shopee_interfaces/srv/PickeeVisionRegisterStaff` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionRegisterStaff.srv` |
+| Service | `/pickee/vision/track_staff` | `shopee_interfaces/srv/PickeeVisionTrackStaff` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionTrackStaff.srv` |
+| Service | `/pickee/vision/set_mode` | `shopee_interfaces/srv/PickeeVisionSetMode` | `ros2_ws/src/shopee_interfaces/srv/PickeeVisionSetMode.srv` |
+| Service | `/pickee/tts_request` | `shopee_interfaces/srv/PickeeTtsRequest` | `ros2_ws/src/shopee_interfaces/srv/PickeeTtsRequest.srv` |
 
 **구조체 매핑**
 - `DetectedProduct` → `shopee_interfaces/msg/PickeeDetectedProduct`

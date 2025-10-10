@@ -4,14 +4,14 @@ Pic Arm = Pickee Arm Controller
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/pickee/arm/pose_status` | `shopee_interfaces/msg/ArmPoseStatus` |
-| Topic | `/pickee/arm/pick_status` | `shopee_interfaces/msg/PickeeArmTaskStatus` |
-| Topic | `/pickee/arm/place_status` | `shopee_interfaces/msg/PickeeArmTaskStatus` |
-| Service | `/pickee/arm/move_to_pose` | `shopee_interfaces/srv/PickeeArmMoveToPose` |
-| Service | `/pickee/arm/pick_product` | `shopee_interfaces/srv/PickeeArmPickProduct` |
-| Service | `/pickee/arm/place_product` | `shopee_interfaces/srv/PickeeArmPlaceProduct` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/pickee/arm/pose_status` | `shopee_interfaces/msg/ArmPoseStatus` | `ros2_ws/src/shopee_interfaces/msg/ArmPoseStatus.msg` |
+| Topic | `/pickee/arm/pick_status` | `shopee_interfaces/msg/PickeeArmTaskStatus` | `ros2_ws/src/shopee_interfaces/msg/PickeeArmTaskStatus.msg` |
+| Topic | `/pickee/arm/place_status` | `shopee_interfaces/msg/PickeeArmTaskStatus` | `ros2_ws/src/shopee_interfaces/msg/PickeeArmTaskStatus.msg` |
+| Service | `/pickee/arm/move_to_pose` | `shopee_interfaces/srv/PickeeArmMoveToPose` | `ros2_ws/src/shopee_interfaces/srv/PickeeArmMoveToPose.srv` |
+| Service | `/pickee/arm/pick_product` | `shopee_interfaces/srv/PickeeArmPickProduct` | `ros2_ws/src/shopee_interfaces/srv/PickeeArmPickProduct.srv` |
+| Service | `/pickee/arm/place_product` | `shopee_interfaces/srv/PickeeArmPlaceProduct` | `ros2_ws/src/shopee_interfaces/srv/PickeeArmPlaceProduct.srv` |
 
  
  

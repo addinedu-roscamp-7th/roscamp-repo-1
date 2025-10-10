@@ -4,13 +4,13 @@ Pic Mobile = Pickee Mobile Service
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/pickee/mobile/pose` | `shopee_interfaces/msg/PickeeMobilePose` |
-| Topic | `/pickee/mobile/arrival` | `shopee_interfaces/msg/PickeeMobileArrival` |
-| Topic | `/pickee/mobile/speed_control` | `shopee_interfaces/msg/PickeeMobileSpeedControl` |
-| Service | `/pickee/mobile/move_to_location` | `shopee_interfaces/srv/PickeeMobileMoveToLocation` |
-| Service | `/pickee/mobile/update_global_path` | `shopee_interfaces/srv/PickeeMobileUpdateGlobalPath` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/pickee/mobile/pose` | `shopee_interfaces/msg/PickeeMobilePose` | `ros2_ws/src/shopee_interfaces/msg/PickeeMobilePose.msg` |
+| Topic | `/pickee/mobile/arrival` | `shopee_interfaces/msg/PickeeMobileArrival` | `ros2_ws/src/shopee_interfaces/msg/PickeeMobileArrival.msg` |
+| Topic | `/pickee/mobile/speed_control` | `shopee_interfaces/msg/PickeeMobileSpeedControl` | `ros2_ws/src/shopee_interfaces/msg/PickeeMobileSpeedControl.msg` |
+| Service | `/pickee/mobile/move_to_location` | `shopee_interfaces/srv/PickeeMobileMoveToLocation` | `ros2_ws/src/shopee_interfaces/srv/PickeeMobileMoveToLocation.srv` |
+| Service | `/pickee/mobile/update_global_path` | `shopee_interfaces/srv/PickeeMobileUpdateGlobalPath` | `ros2_ws/src/shopee_interfaces/srv/PickeeMobileUpdateGlobalPath.srv` |
 
 **구조체 매핑**
 - `Pose2D` → `shopee_interfaces/msg/Pose2D`

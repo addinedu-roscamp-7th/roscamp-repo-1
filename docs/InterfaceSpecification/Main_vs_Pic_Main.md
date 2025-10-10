@@ -6,24 +6,24 @@ Pic Main = Pickee Main Controller
 
 ## ROS 인터페이스 매핑
 
-| 분류 | 토픽/서비스 | ROS 타입 |
-|---|---|---|
-| Topic | `/pickee/moving_status` | `shopee_interfaces/msg/PickeeMoveStatus` |
-| Topic | `/pickee/arrival_notice` | `shopee_interfaces/msg/PickeeArrival` |
-| Topic | `/pickee/product_detected` | `shopee_interfaces/msg/PickeeProductDetection` |
-| Topic | `/pickee/cart_handover_complete` | `shopee_interfaces/msg/PickeeCartHandover` |
-| Topic | `/pickee/robot_status` | `shopee_interfaces/msg/PickeeRobotStatus` |
-| Topic | `/pickee/product/selection_result` | `shopee_interfaces/msg/PickeeProductSelection` |
-| Service | `/pickee/workflow/start_task` | `shopee_interfaces/srv/PickeeWorkflowStartTask` |
-| Service | `/pickee/workflow/move_to_section` | `shopee_interfaces/srv/PickeeWorkflowMoveToSection` |
-| Service | `/pickee/product/detect` | `shopee_interfaces/srv/PickeeProductDetect` |
-| Service | `/pickee/product/process_selection` | `shopee_interfaces/srv/PickeeProductProcessSelection` |
-| Service | `/pickee/workflow/end_shopping` | `shopee_interfaces/srv/PickeeWorkflowEndShopping` |
-| Service | `/pickee/workflow/move_to_packaging` | `shopee_interfaces/srv/PickeeWorkflowMoveToPackaging` |
-| Service | `/pickee/workflow/return_to_base` | `shopee_interfaces/srv/PickeeWorkflowReturnToBase` |
-| Service | `/pickee/video_stream/start` | `shopee_interfaces/srv/PickeeMainVideoStreamStart` |
-| Service | `/pickee/video_stream/stop` | `shopee_interfaces/srv/PickeeMainVideoStreamStop` |
-| Service | `/main/get_product_location` | `shopee_interfaces/srv/MainGetProductLocation` |
+| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
+|---|---|---|---|
+| Topic | `/pickee/moving_status` | `shopee_interfaces/msg/PickeeMoveStatus` | `ros2_ws/src/shopee_interfaces/msg/PickeeMoveStatus.msg` |
+| Topic | `/pickee/arrival_notice` | `shopee_interfaces/msg/PickeeArrival` | `ros2_ws/src/shopee_interfaces/msg/PickeeArrival.msg` |
+| Topic | `/pickee/product_detected` | `shopee_interfaces/msg/PickeeProductDetection` | `ros2_ws/src/shopee_interfaces/msg/PickeeProductDetection.msg` |
+| Topic | `/pickee/cart_handover_complete` | `shopee_interfaces/msg/PickeeCartHandover` | `ros2_ws/src/shopee_interfaces/msg/PickeeCartHandover.msg` |
+| Topic | `/pickee/robot_status` | `shopee_interfaces/msg/PickeeRobotStatus` | `ros2_ws/src/shopee_interfaces/msg/PickeeRobotStatus.msg` |
+| Topic | `/pickee/product/selection_result` | `shopee_interfaces/msg/PickeeProductSelection` | `ros2_ws/src/shopee_interfaces/msg/PickeeProductSelection.msg` |
+| Service | `/pickee/workflow/start_task` | `shopee_interfaces/srv/PickeeWorkflowStartTask` | `ros2_ws/src/shopee_interfaces/srv/PickeeWorkflowStartTask.srv` |
+| Service | `/pickee/workflow/move_to_section` | `shopee_interfaces/srv/PickeeWorkflowMoveToSection` | `ros2_ws/src/shopee_interfaces/srv/PickeeWorkflowMoveToSection.srv` |
+| Service | `/pickee/product/detect` | `shopee_interfaces/srv/PickeeProductDetect` | `ros2_ws/src/shopee_interfaces/srv/PickeeProductDetect.srv` |
+| Service | `/pickee/product/process_selection` | `shopee_interfaces/srv/PickeeProductProcessSelection` | `ros2_ws/src/shopee_interfaces/srv/PickeeProductProcessSelection.srv` |
+| Service | `/pickee/workflow/end_shopping` | `shopee_interfaces/srv/PickeeWorkflowEndShopping` | `ros2_ws/src/shopee_interfaces/srv/PickeeWorkflowEndShopping.srv` |
+| Service | `/pickee/workflow/move_to_packaging` | `shopee_interfaces/srv/PickeeWorkflowMoveToPackaging` | `ros2_ws/src/shopee_interfaces/srv/PickeeWorkflowMoveToPackaging.srv` |
+| Service | `/pickee/workflow/return_to_base` | `shopee_interfaces/srv/PickeeWorkflowReturnToBase` | `ros2_ws/src/shopee_interfaces/srv/PickeeWorkflowReturnToBase.srv` |
+| Service | `/pickee/video_stream/start` | `shopee_interfaces/srv/PickeeMainVideoStreamStart` | `ros2_ws/src/shopee_interfaces/srv/PickeeMainVideoStreamStart.srv` |
+| Service | `/pickee/video_stream/stop` | `shopee_interfaces/srv/PickeeMainVideoStreamStop` | `ros2_ws/src/shopee_interfaces/srv/PickeeMainVideoStreamStop.srv` |
+| Service | `/main/get_product_location` | `shopee_interfaces/srv/MainGetProductLocation` | `ros2_ws/src/shopee_interfaces/srv/MainGetProductLocation.srv` |
 
  
 
