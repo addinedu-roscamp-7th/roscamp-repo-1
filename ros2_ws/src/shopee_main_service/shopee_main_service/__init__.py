@@ -1,6 +1,7 @@
 """Shopee Main Service core modules."""
 
 from .api_controller import APIController
+from .config import MainServiceConfig
 from .database_manager import DatabaseManager
 from .event_bus import EventBus
 from .llm_client import LLMClient
@@ -11,6 +12,7 @@ from .user_service import UserService
 
 __all__ = [
     "APIController",
+    "MainServiceConfig",
     "DatabaseManager",
     "EventBus",
     "LLMClient",
