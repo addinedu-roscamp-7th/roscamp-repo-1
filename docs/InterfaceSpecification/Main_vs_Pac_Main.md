@@ -1,148 +1,170 @@
-# Main ↔ Pac Main
+Main = Shopee Main Service
 
-**Main** = Shopee Main Service
+Pac Main = Packee Main Controller
 
-**Pac Main** = Packee Main Controller
 
-## Topic
 
-### 포장 완료 알림
-- **Topic:** /packee/packing_complete
-- **From:** Pac Main
-- **To:** Main
 
-#### Message
-- int32 robot_id
-- string order_id
-- bool success
-- int32 packed_items
-- string message
 
-#### 예시
-**성공:**
+From
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: true
-    packed_items: 5
-    message: "Packing completed"
+To
 
-**실패:**
+Message
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: false
-    packed_items: 3
-    message: "Packing failed - gripper error"
+예시
+
+Topic
+
+
+
+
+
+
+
+
+
+
+
+포장 완료 알림
+
+/packee/packing_complete
+
+Pac Main
+
+Main
+
+int32 robot_id
+int32 order_id
+bool success
+int32 packed_items
+string message
+
+# 성공
+robot_id: 1
+order_id: 3
+success: true
+packed_items: 5
+message: "Packing completed"
+
+# 실패
+robot_id: 1
+order_id: 3
+success: false
+packed_items: 3
+message: "Packing failed - gripper error"
+
+로봇 상태 전송
+
+/packee/robot_status
+
+Pac Main
+
+Main
+
+int32 robot_id
+string state
+int32 current_order_id
+int32 items_in_cart
+
+robot_id: 1
+state: "packing"
+current_order_id: 3
+items_in_cart: 5
+
+작업 가능 확인 완료
+
+/packee/availability_result
+
+Pac Main
+
+Main
+
+int32 robot_id
+int32 order_id
+bool available
+bool cart_detected
+string message
+
+# 작업 가능
+robot_id: 1
+order_id: 3
+available: true
+cart_detected: true
+message: "Ready for packing"
+
+# 작업 불가 - 장바구니 없음
+robot_id: 1
+order_id: 3
+available: false
+cart_detected: false
+message: "Cart not detected"
+
+# 작업 불가 - 로봇 상태
+robot_id: 1
+order_id: 3
+available: false
+cart_detected: true
+message: "Robot busy with another order"
+
+Service
+
+
+
+
+
+
+
+
+
+
+
+작업 가능 확인 요청
+
+/packee/packing/check_availability
+
+Main
+
+Pac Main
+
+# Request
+int32 robot_id
+int32 order_id
 
 ---
+# Response
+bool success
+string message
 
-### 로봇 상태 전송
-- **Topic:** /packee/robot_status
-- **From:** Pac Main
-- **To:** Main
+# Request
+robot_id: 1
+order_id: 3
 
-#### Message
-- int32 robot_id
-- string state # e.g., "packing", "idle", "error"
-- string current_order_id
-- int32 items_in_cart
+# Response
+success: true
+message: "Availability check initiated"
 
-#### 예시
-    robot_id: 1
-    state: "packing"
-    current_order_id: "ORDER_001"
-    items_in_cart: 5
+포장 시작 명령
 
----
+/packee/packing/start
 
-### 작업 가능 확인 완료
-- **Topic:** /packee/availability_result
-- **From:** Pac Main
-- **To:** Main
+Main 
 
-#### Message
-- int32 robot_id
-- string order_id
-- bool available
-- bool cart_detected
-- string message
+Pac Main
 
-#### 예시
-**작업 가능:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: true
-    cart_detected: true
-    message: "Ready for packing"
-
-**작업 불가 - 장바구니 없음:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: false
-    cart_detected: false
-    message: "Cart not detected"
-
-**작업 불가 - 로봇 상태:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-    available: false
-    cart_detected: true
-    message: "Robot busy with another order"
+# Request
+int32 robot_id
+int32 order_id
 
 ---
+# Response
+bool success
+string message
 
-## Service
+# Request
+robot_id: 1
+order_id: 3
 
-### 작업 가능 확인 요청
-- **Service:** /packee/packing/check_availability
-- **From:** Main
-- **To:** Pac Main
-
-#### Request
-- int32 robot_id
-- string order_id
-
-#### Response
-- bool success
-- string message
-
-#### 예시
-**Request:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-
-**Response:**
-
-    success: true
-    message: "Availability check initiated"
-
----
-
-### 포장 시작 명령
-- **Service:** /packee/packing/start
-- **From:** Main
-- **To:** Pac Main
-
-#### Request
-- int32 robot_id
-- string order_id
-
-#### Response
-- bool success
-- string message
-
-#### 예시
-**Request:**
-
-    robot_id: 1
-    order_id: "ORDER_001"
-
-**Response:**
-
-    success: true
-    message: "Packing started"
+# Response
+success: true
+message: "Packing started"

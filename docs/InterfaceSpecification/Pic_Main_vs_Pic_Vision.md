@@ -1,435 +1,506 @@
-# Pic Main ↔ Pic Vision
+Pic Main = Pickee Main Controller
 
-**Pic Main** = Pickee Main Controller
+Pic Vision = Pickee Vision AI Service
 
-**Pic Vision** = Pickee Vision AI Service
 
-## Topic
 
-### 매대 상품 인식 완료
-- **Topic:** /pickee/vision/detection_result
-- **From:** Pic Vision
-- **To:** Pic Main
 
-#### Message
-- int32 robot_id
-- string order_id
-- bool success
-- DetectedProduct[] products
-- string message
 
-**DetectedProduct 구조:**
-- string product_id
-- int32 bbox_number
-- BBox bbox_coords
-- float32 confidence
+From
 
-**BBox 구조:**
-- int32 x1
-- int32 y1
-- int32 x2
-- int32 y2
+To
 
-#### 예시
-**성공:**
+Message
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: true
-    products: [
-      {
-        product_id: "PROD_001"
-        bbox_number: 1
-        bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
-        confidence: 0.95
-      },
-      {
-        product_id: "PROD_002"
-        bbox_number: 2
-        bbox_coords: {x1: 250, y1: 150, x2: 350, y2: 250}
-        confidence: 0.92
-      }
-    ]
-    message: "2 products detected"
+예시
 
-**실패:**
+Topic
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: false
-    products: []
-    message: "No products detected"
 
----
 
-### 장바구니 내 특정 상품 확인 완료
-- **Topic:** /pickee/vision/cart_check_result
-- **From:** Pic Vision
-- **To:** Pic Main
 
-#### Message
-- int32 robot_id
-- string order_id
-- bool success
-- string product_id
-- bool found
-- int32 quantity
-- string message
 
-#### 예시
-**상품 있음:**
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: true
-    product_id: "PROD_001"
-    found: true
-    quantity: 2
-    message: "Product found in cart"
 
-**상품 없음:**
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: true
-    product_id: "PROD_001"
-    found: false
-    quantity: 0
-    message: "Product not found in cart"
 
-**실패:**
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    success: false
-    product_id: "PROD_001"
-    found: false
-    quantity: 0
-    message: "Vision system error"
 
----
+매대 상품 인식 완료
 
-### 장애물 감지 알림
-- **Topic:** /pickee/vision/obstacle_detected
-- **From:** Pic Vision
-- **To:** Pic Main
 
-#### Message
-- int32 robot_id
-- string order_id
-- Obstacle[] obstacles
-- string message
 
-**Obstacle 구조:**
-- string obstacle_type (정적: "cart", "box", "product", "shelf" / 동적: "person", "other_robot", "cart_moving")
-- Point2D position (장애물 중심 위치, m)
-- float32 distance (로봇으로부터의 거리, m)
-- float32 velocity (속도 m/s - 정적: 0.0, 동적: > 0.0)
-- Vector2D direction (이동 방향, 동적 장애물만)
-- BBox bbox (Bounding Box)
-- float32 confidence (인식 신뢰도)
+/pickee/vision/detection_result
 
-**Point2D 구조:**
-- float32 x
-- float32 y
+Pic Vision
 
-**Vector2D 구조:**
-- float32 vx (x 방향 속도 성분)
-- float32 vy (y 방향 속도 성분)
+Pic Main
 
-**BBox 구조:**
-- int32 x1
-- int32 y1
-- int32 x2
-- int32 y2
+int32 robot_id
+int32 order_id
+bool success
+DetectedProduct[] products
+string message
 
-#### 예시
-**정적 장애물:**
+# DetectedProduct
+int32 product_id
+int32 bbox_number
+BBox bbox_coords
+float32 confidence
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    obstacles: [
-      {
-        obstacle_type: "cart"
-        position: {x: 5.2, y: 3.1}
-        distance: 2.5
-        velocity: 0.0
-        direction: {vx: 0.0, vy: 0.0}
-        bbox: {x1: 200, y1: 150, x2: 350, y2: 400}
-        confidence: 0.92
-      }
-    ]
-    message: "1 static obstacle detected"
+# BBox
+int32 x1
+int32 y1
+int32 x2
+int32 y2
 
-**동적 장애물:**
+# 성공
+robot_id: 1
+order_id: 4
+success: true
+products: [
+  {
+    product_id: 4
+    bbox_number: 1
+    bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+    confidence: 0.95
+  },
+  {
+    product_id: 5
+    bbox_number: 2
+    bbox_coords: {x1: 250, y1: 150, x2: 350, y2: 250}
+    confidence: 0.92
+  }
+]
+message: "2 products detected"
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    obstacles: [
-      {
-        obstacle_type: "person"
-        position: {x: 8.5, y: 4.2}
-        distance: 1.5
-        velocity: 1.2
-        direction: {vx: 0.8, vy: 0.9}
-        bbox: {x1: 300, y1: 100, x2: 400, y2: 450}
-        confidence: 0.96
-      }
-    ]
-    message: "1 dynamic obstacle detected"
+# 실패
+robot_id: 1
+order_id: 4
+success: false
+products: []
+message: "No products detected"
 
-**복합 장애물 (정적 + 동적):**
+장바구니 내 특정 상품 확인 완료
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    obstacles: [
-      {
-        obstacle_type: "cart"
-        distance: 3.0
-        velocity: 0.0
-      },
-      {
-        obstacle_type: "person"
-        distance: 1.8
-        velocity: 1.0
-      }
-    ]
-    message: "1 static, 1 dynamic obstacle detected"
+/pickee/vision/cart_check_result
 
----
+Pic Vision
 
-### 추종 직원 위치
-- **Topic:** /pickee/vision/staff_location
-- **From:** Pic Vision
-- **To:** Pic Main
+Pic Main
 
-#### Message
-- int32 robot_id
-- Point2D relative_position (로봇 기준 직원의 상대 위치)
-- float32 distance
-- bool is_tracking
+int32 robot_id
+int32 order_id
+bool success
+int32 product_id
+bool found
+int32 quantity
+string message
 
-#### 예시
-    robot_id: 1
-    relative_position: {x: 2.5, y: 0.3}
-    distance: 2.52
-    is_tracking: true
+# 상품 있음
+robot_id: 1
+order_id: 4
+success: true
+product_id: 5
+found: true
+quantity: 2
+message: "Product found in cart"
 
----
+# 상품 없음
+robot_id: 1
+order_id: 4
+success: true
+product_id: 5
+found: false
+quantity: 0
+message: "Product not found in cart"
 
-### 직원 등록 결과
-- **Topic:** /pickee/vision/register_staff_result
-- **From:** Pic Vision
-- **To:** Pic Main
+# 실패
+robot_id: 1
+order_id: 4
+success: false
+product_id: 5
+found: false
+quantity: 0
+message: "Vision system error"
 
-#### Message
-- int32 robot_id
-- bool success
-- string message
+장애물 감지 알림
 
-#### 예시
-(추가 예정)
+/pickee/vision/obstacle_detected
 
----
+Pic Vision
 
-## Service
+Pic Main
 
-### 매대 상품 인식 요청
-- **Service:** /pickee/vision/detect_products
-- **From:** Pic Main
-- **To:** Pic Vision
+int32 robot_id
+int32 order_id
+Obstacle[] obstacles
+string message
 
-#### Request
-- int32 robot_id
-- string order_id
-- string[] product_ids
+# Obstacle
+string obstacle_type  # 정적: "cart", "box", "product", "shelf"
+                      # 동적: "person", "other_robot", "cart_moving"
+Point2D position      # 장애물 중심 위치 (m)
+float32 distance      # 로봇으로부터의 거리 (m)
+float32 velocity      # 속도 (m/s) - 정적: 0.0, 동적: > 0.0
+Vector2D direction    # 이동 방향 (동적 장애물만)
+BBox bbox            # Bounding Box
+float32 confidence   # 인식 신뢰도
 
-#### Response
-- bool success
-- string message
+# Point2D
+float32 x
+float32 y
 
-#### 예시
-**Request:**
+# Vector2D
+float32 vx  # x 방향 속도 성분
+float32 vy  # y 방향 속도 성분
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    product_ids: ["PROD_001", "PROD_002"]
+# BBox (재사용)
+int32 x1
+int32 y1
+int32 x2
+int32 y2
 
-**Response:**
+# 정적 장애물
+robot_id: 1
+order_id: 4
+obstacles: [
+  {
+    obstacle_type: "cart"
+    position: {x: 5.2, y: 3.1}
+    distance: 2.5
+    velocity: 0.0
+    direction: {vx: 0.0, vy: 0.0}
+    bbox: {x1: 200, y1: 150, x2: 350, y2: 400}
+    confidence: 0.92
+  }
+]
+message: "1 static obstacle detected"
 
-    success: true
-    message: "Detection started"
+# 동적 장애물
+robot_id: 1
+order_id: 4
+obstacles: [
+  {
+    obstacle_type: "person"
+    position: {x: 8.5, y: 4.2}
+    distance: 1.5
+    velocity: 1.2
+    direction: {vx: 0.8, vy: 0.9}
+    bbox: {x1: 300, y1: 100, x2: 400, y2: 450}
+    confidence: 0.96
+  }
+]
+message: "1 dynamic obstacle detected"
 
----
+# 복합 장애물 (정적 + 동적)
+robot_id: 1
+order_id: 4
+obstacles: [
+  {
+    obstacle_type: "cart"
+    distance: 3.0
+    velocity: 0.0
+  },
+  {
+    obstacle_type: "person"
+    distance: 1.8
+    velocity: 1.0
+  }
+]
+message: "1 static, 1 dynamic obstacle detected"
 
-### 장바구니 내 특정 상품 확인 요청
-- **Service:** /pickee/vision/check_product_in_cart
-- **From:** Pic Main
-- **To:** Pic Vision
+추종 직원 위치
 
-#### Request
-- int32 robot_id
-- string order_id
-- string product_id
+/pickee/vision/staff_location
 
-#### Response
-- bool success
-- string message
+Pic Vision
 
-#### 예시
-**Request:**
+Pic Main
 
-    robot_id: 1
-    order_id: "ORDER_001"
-    product_id: "PROD_001"
+int32 robot_id
+Point2D relative_position (로봇 기준 직원의 상대 위치)
+float32 distance
+bool is_tracking
 
-**Response:**
+robot_id: 1
+relative_position: {x: 2.5, y: 0.3}
+distance: 2.52
+is_tracking: true
 
-    success: true
-    message: "Cart product check started"
+직원 등록 결과
+
+/pickee/vision/register_staff_result
+
+Pic Vision
+
+Pic Main
+
+int32 robot_id
+bool success
+string message
+
+# 성공
+robot_id: 1
+success: true
+message: "Staff registration successful."
+
+# 실패
+robot_id: 1
+success: false
+message: "Failed to register staff: Timed out."
+
+Service
+
+
+
+
+
+
+
+
+
+
+
+매대 상품 인식 요청
+
+
+
+/pickee/vision/detect_products
+
+Pic Main
+
+Pic Vision
+
+# Request
+int32 robot_id
+int32 order_id
+int32[] product_ids
 
 ---
+# Response
+bool success
+string message
 
-### 장바구니 존재 확인 요청
-- **Service:** /pickee/vision/check_cart_presence
-- **From:** Pic Main
-- **To:** Pic Vision
+# Request
+robot_id: 1
+order_id: 4
+product_ids: [5, 6]
 
-#### Request
-- int32 robot_id
-- string order_id
+# Response
+success: true
+message: "Detection started"
 
-#### Response
-- bool success
-- bool cart_present
-- string message
+장바구니 내 특정 상품 확인 요청
 
-#### 예시
-**Request:**
+/pickee/vision/check_product_in_cart
 
-    robot_id: 1
-    order_id: "ORDER_001"
+Pic Main
 
-**Response (장바구니 있음):**
+Pic Vision
 
-    success: true
-    cart_present: true
-    message: "Cart detected"
-
-**Response (장바구니 없음):**
-
-    success: true
-    cart_present: false
-    message: "Cart not detected"
+# Request
+int32 robot_id
+int32 order_id
+int32 product_id
 
 ---
+# Response
+bool success
+string message
 
-### 직원 등록 요청 (비동기 시작)
-- **Service:** /pickee/vision/register_staff
-- **Description:** 직원의 정면 및 후면 특징을 모두 등록하는 긴 작업을 시작하도록 요청한다. 서비스는 즉시 응답하며, 최종 결과는 `/pickee/vision/register_staff_result` 토픽으로 전송된다.
-- **From:** Pic Main
-- **To:** Pic Vision
+# Request
+robot_id: 1
+order_id: 4
+product_id: 5
 
-#### Request
-- int32 robot_id
+# Response
+success: true
+message: "Cart product check started"
 
-#### Response
-- bool accepted (작업 접수 여부)
-- string message
+장바구니 존재 확인 요청
 
-#### 예시
-**Request:**
+/pickee/vision/check_cart_presence
 
-    robot_id: 1
+Pic Main
 
-**Response:**
+Pic Vision
 
-    accepted: true
-    message: "Staff registration process accepted."
-
----
-
-### 직원 추종 제어
-- **Service:** /pickee/vision/track_staff
-- **From:** Pic Main
-- **To:** Pic Vision
-
-#### Request
-- int32 robot_id
-- bool track (true: 추종 시작, false: 추종 중지)
-
-#### Response
-- bool success
-- string message
-
-#### 예시
-**Request (추종 시작):**
-
-    robot_id: 1
-    track: true
-
-**Response:**
-
-    success: true
-    message: "Started tracking STAFF_001"
-
-**Request (추종 중지):**
-
-    robot_id: 1
-    track: false
-
-**Response:**
-
-    success: true
-    message: "Stopped tracking STAFF_001"
+# Request
+int32 robot_id
+int32 order_id
 
 ---
+# Response
+bool success
+bool cart_present
+string message
 
-### Vision 모드 설정
-- **Service:** /pickee/vision/set_mode
-- **From:** Pic Main
-- **To:** Pic Vision
+# Request
+robot_id: 1
+order_id: 4
 
-#### Request
-- int32 robot_id
-- string mode ("navigation", "register_staff", "detect_products", "track_staff")
+# Response (장바구니 있음)
+success: true
+cart_present: true
+message: "Cart detected"
 
-#### Response
-- bool success
-- string message
+# Response (장바구니 없음)
+success: true
+cart_present: false
+message: "Cart not detected"
 
-#### 예시
-**Request:**
+영상 송출 시작 명령
 
-    robot_id: 1
-    mode: "register_staff"
+/pickee/video_stream/start
 
-**Response:**
+Pic Main
 
-    success: true
-    message: "Vision mode switched to register_staff"
+Pic Vision
+
+# Request
+string user_type
+string user_id
+int32 robot_id
 
 ---
+# Response
+bool success
+string message
 
-### 음성 송출 요청
-- **Service:** /pickee/tts_request
-- **Description:** Vision 모듈이 Main Controller에게 특정 문장의 음성 송출(TTS)을 요청한다. Main Controller는 음성 송출이 완료된 후 응답한다.
-- **From:** Pic Vision
-- **To:** Pic Main
+# Request
+user_type: "admin"
+user_id: "admin01"
+robot_id: 1
 
-#### Request
-- string text_to_speak
+# Response
+success: true
+message: "video streaming started"
 
-#### Response
-- bool success
-- string message
+영상 송출 중지 명령
 
-#### 예시
-**Request:**
+/pickee/video_stream/stop
 
-    text_to_speak: "뒤로 돌아주세요."
+Pic Main
 
-**Response:**
+Pic Vision
 
-    success: true
-    message: "TTS completed."
+# Request
+string user_type
+string user_id
+int32 robot_id
+
+---
+# Response
+bool success
+string message
+
+# Request
+user_type: "admin"
+user_id: "admin01"
+robot_id: 1
+
+# Response
+success: true
+message: "video streaming stopped"
+
+직원 등록 요청
+
+/pickee/vision/register_staff
+
+Pic Main
+
+Pic Vision
+
+# Request
+int32 robot_id
+---
+# Response
+bool accepted (작업 접수 여부)
+string message
+
+# Request
+robot_id: 1
+---
+# Response
+accepted: true
+message: "Staff registration process accepted."
+
+직원 추종 제어
+
+/pickee/vision/track_staff
+
+Pic Main
+
+Pic Vision
+
+# Request
+int32 robot_id
+bool track (true: 추종 시작, false: 추종 중지)
+---
+# Response
+bool success
+string message
+
+# Request
+robot_id: 1
+track: true
+Response:
+---
+# Response
+success: true
+message: "Started tracking STAFF_001"
+
+# Request
+robot_id: 1
+track: false
+---
+# Response
+success: true
+message: "Stopped tracking STAFF_001"
+
+Vision 모드 설정
+
+/pickee/vision/set_mode
+
+Pic Main
+
+Pic Vision
+
+# Request
+int32 robot_id
+string mode ("navigation", "register_staff", "detect_products", "track_staff")
+---
+# Response
+bool success
+string message
+
+# Request
+robot_id: 1
+mode: "register_staff"
+---
+# Response
+success: true
+message: "Vision mode switched to register_staff"
+
+음성 송출 요청
+
+/pickee/tts_request
+
+Pic Vision
+
+Pic Main
+
+# Request
+string text_to_speak
+---
+# Response
+bool success
+string message
+
+# Request
+text_to_speak: "뒤로 돌아주세요."
+---
+# Response
+success: true
+message: "TTS completed."

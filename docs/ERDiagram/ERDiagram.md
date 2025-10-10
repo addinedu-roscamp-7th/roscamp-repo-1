@@ -33,7 +33,7 @@ entity "allergy_info" as allergy_info {
   eggs (계란) : boolean
 }
 
-entity "order_info" as order_info {
+entity "order" as order {
   * id : int <<PK>>
   --
   customer_id : varchar <<FK>>
@@ -47,7 +47,7 @@ entity "order_info" as order_info {
 entity "order_item_info" as order_item_info {
   * id : int <<PK>>
   --
-  order_info_id : int <<FK>>
+  order_id : int <<FK>>
   product_id : int <<FK>>
   quantity : int
   created_at : datetime
@@ -86,7 +86,7 @@ entity "robot_history" as robot_history {
   --
   robot_id : int <<FK>>
   history_type : enum
-  order_item_info_id : int <<FK>> (nullable)
+  order_id : int <<FK>> (nullable)
   is_complete : boolean
   failure_reason : varchar
   active_duration : int
@@ -117,14 +117,14 @@ entity "section" as section {
 
 ' 관계 정의
 customer }o--|| allergy_info : "allergy_info_id"
-order_info }o--|| customer : "customer_id"
-order_item_info }o--|| order_info : "order_info_id"
+order }o--|| customer : "customer_id"
+order_item_info }o--|| order : "order_id"
 order_item_info }o--|| product : "product_id"
 product }o--|| allergy_info : "allergy_info_id"
 product }o--|| section : "section_id"
 product }o--|| warehouse : "warehouse_id"
 robot_history }o--|| robot : "robot_id"
-robot_history }o--|| order_item_info : "order_item_info_id"
+robot_history }o--|| order : "order_id"
 shelf }o--|| location : "location_id"
 section }o--|| shelf : "shelf_id"
 warehouse }o--|| location : "location_id"
@@ -135,7 +135,7 @@ note right of allergy_info
   "customer" / "product"
 end note
 
-note right of order_info
+note right of order
   order_status:
   - 결제 성공(픽업 전): PAID
   - 결제 실패: FAIL_PAID

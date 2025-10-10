@@ -1,116 +1,96 @@
-# Pic Main ↔ Pic Mobile
+Pic Main = Pickee Main Controller
 
-**Pic Main** = Pickee Main Controller
+Pic Mobile = Pickee Mobile Service
 
-**Pic Mobile** = Pickee Mobile Service
 
-## Data Types
 
-### Pose2D
-- float32 x  # x position in meters
-- float32 y  # y position in meters
-- float32 theta  # orientation in radians
 
-### Obstacle
-- string obstacle_type  # e.g., "person", "static", "dynamic", "wall"
-- float32 distance  # distance from robot in meters
-- float32 velocity  # relative velocity in m/s (0 for static obstacles)
 
-### Status Values (string)
-- "idle" - Robot is stationary and waiting
-- "moving" - Robot is navigating to destination
-- "arrived" - Robot has reached destination
-- "charging" - Robot is charging battery
-- "error" - Robot encountered an error
-- "emergency_stop" - Robot is in emergency stop state
+From
 
-### Navigation Mode Values (string)
-- "normal" - Standard navigation speed and behavior
-- "fast" - Faster navigation with less caution
-- "careful" - Slower, more cautious navigation
-- "precision" - High precision mode for final approach
+To
 
-### Speed Mode Values (string)
-- "normal" - Normal driving speed
-- "decelerate" - Reduced speed for obstacle avoidance
-- "stop" - Complete stop
+Message
 
----
+예시
 
-## Topic
+Topic
 
-### 위치 업데이트
-- **Topic:** /pickee/mobile/pose
-- **From:** Pic Mobile
-- **To:** Pic Main
 
-#### Message
-- int32 robot_id
-- string order_id
-- Pose2D current_pose
-- float32 linear_velocity  # m/s
-- float32 angular_velocity  # rad/s
-- float32 battery_level  # percentage (0-100)
-- string status  # see Status Values
 
-#### 예시
-```
+
+
+
+
+
+
+
+
+위치 업데이트
+
+/pickee/mobile/pose
+
+Pic Mobile
+
+Pic Main
+
+int32 robot_id
+int32 order_id
+Pose2D current_pose
+float32 linear_velocity
+float32 angular_velocity
+float32 battery_level
+string status
+
 robot_id: 1
-order_id: "ORDER_001"
+order_id: 3
 current_pose: {x: 5.3, y: 2.1, theta: 0.5}
 linear_velocity: 0.8
 angular_velocity: 0.0
 battery_level: 75.5
 status: "moving"
-```
 
----
+도착 알림
 
-### 도착 알림
-- **Topic:** /pickee/mobile/arrival
-- **From:** Pic Mobile
-- **To:** Pic Main
+/pickee/mobile/arrival
 
-#### Message
-- int32 robot_id
-- string order_id
-- string location_id
-- Pose2D final_pose  # see Pose2D definition
-- float32 position_error  # meters
-- float32 travel_time  # seconds
-- string message
+Pic Mobile
 
-#### 예시
-```
+Pic Main
+
+int32 robot_id
+int32 order_id
+int32 location_id
+Pose2D final_pose
+float32 position_error
+float32 travel_time
+string message
+
 robot_id: 1
-order_id: "ORDER_001"
-location_id: "LOC_A1"
+order_id: 3
+location_id: 3
 final_pose: {x: 10.52, y: 5.18, theta: 1.56}
 position_error: 0.03
 travel_time: 43.5
 message: "Arrived at LOC_A1"
-```
 
----
+속도 제어
 
-### 속도 제어
-- **Topic:** /pickee/mobile/speed_control
-- **From:** Pic Main
-- **To:** Pic Mobile
+/pickee/mobile/speed_control
 
-#### Message
-- int32 robot_id
-- string order_id
-- string speed_mode  # "normal", "decelerate", "stop"
-- float32 target_speed  # m/s
-- Obstacle[] obstacles  # see Obstacle definition
-- string reason
+Pic Main
 
-#### 예시
-**감속:**
-```
+Pic Mobile
+
+int32 robot_id
+int32 order_id
+string speed_mode ("normal", "decelerate", "stop")
+float32 target_speed
+Obstacle[] obstacles
+string reason
+
 robot_id: 1
-order_id: "ORDER_001"
+order_id: 44
 speed_mode: "decelerate"
 target_speed: 0.3
 obstacles:
@@ -118,90 +98,90 @@ obstacles:
     distance: 1.5
     velocity: 0.8
 reason: "dynamic_obstacle_near"
-```
 
-**정지:**
-```
 speed_mode: "stop"
 target_speed: 0.0
 reason: "collision_risk"
-```
+
+Service
+
+
+
+
+
+
+
+
+
+
+
+목적지 이동 명령
+
+/pickee/mobile/move_to_location
+
+Pic Main
+
+Pic Mobile
+
+# Request
+int32 robot_id
+int32 order_id
+int32 location_id
+Pose2D target_pose
+Pose2D[] global_path
+string navigation_mode
 
 ---
+# Response
+bool success
+string message
 
-## Service
+Request:
+  robot_id: 1
+  order_id: 3
+  location_id: 3
+  target_pose: {x: 10.5, y: 5.2, theta: 1.57}
+  global_path:
+    - {x: 0.0, y: 0.0, theta: 0.0}
+    - {x: 2.5, y: 1.2, theta: 0.5}
+    - {x: 5.0, y: 2.5, theta: 0.8}
+    - {x: 7.5, y: 4.0, theta: 1.2}
+    - {x: 10.5, y: 5.2, theta: 1.57}
+  navigation_mode: "normal"
 
-### 목적지 이동 명령
-- **Service:** /pickee/mobile/move_to_location
-- **From:** Pic Main
-- **To:** Pic Mobile
+Response:
+  success: true
+  message: "Navigation started"
 
-#### Request
-- int32 robot_id
-- string order_id
-- string location_id
-- Pose2D target_pose  # see Pose2D definition
-- Pose2D[] global_path  # Main이 A* 알고리즘으로 생성한 경로
-- string navigation_mode  # see Navigation Mode Values
+Global Path 업데이트
 
-#### Response
-- bool success
-- string message
+/pickee/mobile/update_global_path
 
-#### 예시
-**Request:**
-```
-robot_id: 1
-order_id: "ORDER_001"
-location_id: "LOC_A1"
-target_pose: {x: 10.5, y: 5.2, theta: 1.57}
-global_path:
-  - {x: 0.0, y: 0.0, theta: 0.0}
-  - {x: 2.5, y: 1.2, theta: 0.5}
-  - {x: 5.0, y: 2.5, theta: 0.8}
-  - {x: 7.5, y: 4.0, theta: 1.2}
-  - {x: 10.5, y: 5.2, theta: 1.57}
-navigation_mode: "normal"
-```
+Pic Main
 
-**Response:**
-```
-success: true
-message: "Navigation started"
-```
+Pic Mobile
+
+# Request
+int32 robot_id
+int32 order_id
+int32 location_id
+Pose2D[] global_path  # Main이 A* 알고리즘으로 생성한 경로
 
 ---
+# Response
+bool success
+string message
 
-### Global Path 업데이트
-- **Service:** /pickee/mobile/update_global_path
-- **From:** Pic Main
-- **To:** Pic Mobile
+Request:
+  robot_id: 1
+  order_id: 3
+  location_id: 3
+  global_path:
+    - {x: 5.0, y: 2.5, theta: 0.8}
+    - {x: 4.0, y: 3.5, theta: 1.2}
+    - {x: 6.0, y: 4.0, theta: 0.5}
+    - {x: 10.5, y: 5.2, theta: 1.57}
 
-#### Request
-- int32 robot_id
-- string order_id
-- string location_id
-- Pose2D[] global_path  # Main이 A* 알고리즘으로 생성한 경로
-
-#### Response
-- bool success
-- string message
-
-#### 예시
-**Request:**
-```
-robot_id: 1
-order_id: "ORDER_001"
-location_id: "LOC_A1"
-global_path:
-  - {x: 5.0, y: 2.5, theta: 0.8}
-  - {x: 4.0, y: 3.5, theta: 1.2}
-  - {x: 6.0, y: 4.0, theta: 0.5}
-  - {x: 10.5, y: 5.2, theta: 1.57}
-```
-
-**Response:**
-```
-success: true
-message: "Global path updated"
-```
+Response:
+  success: true
+  message: "Global path updated"
