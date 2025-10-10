@@ -3,11 +3,20 @@
 Shopee 프로젝트의 로봇 상태(State) 정의 문서입니다.
 
 ## 목차
-- [Pickee State Definition](#pickee-state-definition)
-  - [공통 상태](#공통-상태-common-states)
-  - [쇼핑 모드](#쇼핑-모드-shopping-mode)
-  - [재고 보충 모드](#재고-보충-모드-restocking-mode)
-- [Packee State Definition](#packee-state-definition)
+- [State Definition](#state-definition)
+  - [목차](#목차)
+  - [Pickee State Definition](#pickee-state-definition)
+    - [공통 상태 (Common States)](#공통-상태-common-states)
+    - [쇼핑 모드 (Shopping Mode)](#쇼핑-모드-shopping-mode)
+    - [재고 보충 모드 (Restocking Mode)](#재고-보충-모드-restocking-mode)
+  - [Packee State Definition](#packee-state-definition)
+  - [State Transition Rules](#state-transition-rules)
+    - [Pickee State Transitions](#pickee-state-transitions)
+      - [공통 전환 규칙](#공통-전환-규칙)
+      - [쇼핑 모드 전환 규칙](#쇼핑-모드-전환-규칙)
+      - [재고 보충 모드 전환 규칙](#재고-보충-모드-전환-규칙)
+    - [Packee State Transitions](#packee-state-transitions)
+  - [버전 히스토리](#버전-히스토리)
 
 ---
 
@@ -47,7 +56,7 @@ Shopee 프로젝트의 로봇 상태(State) 정의 문서입니다.
 | PK_S21 | 직원추종중 | FOLLOWING_STAFF | Vision을 통해 직원 위치를 추적하며 추종 중 |
 | PK_S22 | 창고이동중 | MOVING_TO_WAREHOUSE | 상품 가져오기 요청 받고 창고로 이동 중 |
 | PK_S23 | 적재대기중 | WAITING_LOADING | 창고에서 직원이 상품을 적재할 때까지 대기 중 |
-| PK_S24 | 매대이동중 | MOVING_TO_STAFF | 적재 완료 후 저장된 직원 위치로 복귀 중 |
+| PK_S24 | 매대이동중 | MOVING_TO_SHELF | 적재 완료 후 저장된 매대(직원) 위치로 복귀 중 |
 | PK_S25 | 하차대기중 | WAITING_UNLOADING | 직원 위치 도착 후 직원이 상품을 하차할 때까지 대기 중 |
 
 ---
