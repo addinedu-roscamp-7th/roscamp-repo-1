@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+int32 product_id
+shopee_interfaces/Point3D target_position
+---
+bool accepted
+string message

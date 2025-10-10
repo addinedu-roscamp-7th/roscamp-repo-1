@@ -2,6 +2,18 @@ Pac Main = Packee Main Controller
 
 Pac Vision = Packee Vision AI Service
 
+## ROS 인터페이스 매핑
+
+| 분류 | 토픽/서비스 | ROS 타입 |
+|---|---|---|
+| Service | `/packee/vision/check_cart_presence` | `shopee_interfaces/srv/PackeeVisionCheckCartPresence` |
+| Service | `/packee/vision/detect_products_in_cart` | `shopee_interfaces/srv/PackeeVisionDetectProductsInCart` |
+| Service | `/packee/vision/verify_packing_complete` | `shopee_interfaces/srv/PackeeVisionVerifyPackingComplete` |
+
+**구조체 매핑**
+- `DetectedProduct` → `shopee_interfaces/msg/PackeeDetectedProduct`
+- `BBox` → `shopee_interfaces/msg/BBox`
+- `Point3D` → `shopee_interfaces/msg/Point3D`
 
 
 

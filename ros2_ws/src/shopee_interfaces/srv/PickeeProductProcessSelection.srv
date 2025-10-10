@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+int32 product_id
+int32 bbox_number
+---
+bool success
+string message

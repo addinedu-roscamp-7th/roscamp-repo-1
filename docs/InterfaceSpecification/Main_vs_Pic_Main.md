@@ -4,6 +4,27 @@ Pic Main = Pickee Main Controller
 
  
 
+## ROS 인터페이스 매핑
+
+| 분류 | 토픽/서비스 | ROS 타입 |
+|---|---|---|
+| Topic | `/pickee/moving_status` | `shopee_interfaces/msg/PickeeMoveStatus` |
+| Topic | `/pickee/arrival_notice` | `shopee_interfaces/msg/PickeeArrival` |
+| Topic | `/pickee/product_detected` | `shopee_interfaces/msg/PickeeProductDetection` |
+| Topic | `/pickee/cart_handover_complete` | `shopee_interfaces/msg/PickeeCartHandover` |
+| Topic | `/pickee/robot_status` | `shopee_interfaces/msg/PickeeRobotStatus` |
+| Topic | `/pickee/product/selection_result` | `shopee_interfaces/msg/PickeeProductSelection` |
+| Service | `/pickee/workflow/start_task` | `shopee_interfaces/srv/PickeeWorkflowStartTask` |
+| Service | `/pickee/workflow/move_to_section` | `shopee_interfaces/srv/PickeeWorkflowMoveToSection` |
+| Service | `/pickee/product/detect` | `shopee_interfaces/srv/PickeeProductDetect` |
+| Service | `/pickee/product/process_selection` | `shopee_interfaces/srv/PickeeProductProcessSelection` |
+| Service | `/pickee/workflow/end_shopping` | `shopee_interfaces/srv/PickeeWorkflowEndShopping` |
+| Service | `/pickee/workflow/move_to_packaging` | `shopee_interfaces/srv/PickeeWorkflowMoveToPackaging` |
+| Service | `/pickee/workflow/return_to_base` | `shopee_interfaces/srv/PickeeWorkflowReturnToBase` |
+| Service | `/pickee/video_stream/start` | `shopee_interfaces/srv/PickeeMainVideoStreamStart` |
+| Service | `/pickee/video_stream/stop` | `shopee_interfaces/srv/PickeeMainVideoStreamStop` |
+| Service | `/main/get_product_location` | `shopee_interfaces/srv/MainGetProductLocation` |
+
  
 
 From

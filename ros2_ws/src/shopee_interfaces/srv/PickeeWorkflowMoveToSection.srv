@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+int32 location_id
+int32 section_id
+---
+bool success
+string message

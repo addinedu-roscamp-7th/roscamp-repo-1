@@ -2,7 +2,16 @@ Pac Main = Packee Main Controller
 
 Pac Arm = Packee Arm Controller
 
+## ROS 인터페이스 매핑
 
+| 분류 | 토픽/서비스 | ROS 타입 |
+|---|---|---|
+| Topic | `/packee/arm/pose_status` | `shopee_interfaces/msg/ArmPoseStatus` |
+| Topic | `/packee/arm/pick_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` |
+| Topic | `/packee/arm/place_status` | `shopee_interfaces/msg/PackeeArmTaskStatus` |
+| Service | `/packee/arm/move_to_pose` | `shopee_interfaces/srv/PackeeArmMoveToPose` |
+| Service | `/packee/arm/pick_product` | `shopee_interfaces/srv/PackeeArmPickProduct` |
+| Service | `/packee/arm/place_product` | `shopee_interfaces/srv/PackeeArmPlaceProduct` |
 
 
 

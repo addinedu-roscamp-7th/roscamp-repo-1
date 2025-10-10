@@ -2,6 +2,15 @@ Main = Shopee Main Service
 
 Pac Main = Packee Main Controller
 
+## ROS 인터페이스 매핑
+
+| 분류 | 토픽/서비스 | ROS 타입 |
+|---|---|---|
+| Topic | `/packee/packing_complete` | `shopee_interfaces/msg/PackeePackingComplete` |
+| Topic | `/packee/robot_status` | `shopee_interfaces/msg/PackeeRobotStatus` |
+| Topic | `/packee/availability_result` | `shopee_interfaces/msg/PackeeAvailability` |
+| Service | `/packee/packing/check_availability` | `shopee_interfaces/srv/PackeePackingCheckAvailability` |
+| Service | `/packee/packing/start` | `shopee_interfaces/srv/PackeePackingStart` |
 
 
 
