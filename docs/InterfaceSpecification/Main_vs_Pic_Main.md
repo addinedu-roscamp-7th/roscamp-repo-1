@@ -213,7 +213,6 @@ int32 robot_id
 int order_id
 int product_id
 int32 bbox_number
-int32 quantity
 ---
 # Response
 bool success
