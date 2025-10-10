@@ -24,7 +24,7 @@
 ### 상품 검색 쿼리 생성
 
 **Description:** 자연어를 DB 쿼리로 변환
-**Endpoint:** `POST /llm_service/search-query`
+**Endpoint:** `POST /llm_service/search_query`
 
 #### 요청 (Request)
 ```json
@@ -45,7 +45,7 @@
 ### 발화 의도 분석
 
 **Description:** 자연어 문장의 의도와 핵심 개체를 추출
-**Endpoint:** `POST /llm_service/intent-detection`
+**Endpoint:** `POST /llm_service/intent_detection`
 
 #### 요청 (Request)
 ```json

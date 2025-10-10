@@ -63,6 +63,11 @@
       "data": {
         "customer_id": "string",
         "name": "string"
+        "gender": "male/female",
+        "age": "int",
+        "address": "string",
+        "allergy_info": "object",
+        "is_vegan": "boolean"
       },
       "message": "Login successful"
     }
@@ -83,10 +88,20 @@
       "data": {
         "customer_id": "string",
         "query": "string",
-        "input_type": "text"
+        "filter": {
+          "allergy_info": {
+            "nuts": "boolean",
+            "milk": "boolean",
+            "seafood": "boolean",
+            "soy": "boolean",
+            "peach": "boolean",
+            "gluten": "boolean",
+            "eggs": "boolean",
+          }
+          "is_vegan": "boolean"
+        }
       }
     }
-- 비고: input_type 값은 "text" 또는 "voice"
 
 상품 검색 응답
 - From: Main Service → To: App
