@@ -61,7 +61,7 @@ entity "product" as product {
   * product_id : int <<PK>>
   --
   barcode : varchar(100)
-  name : varchar(10)
+  name : varchar(50)
   quantity : int
   price : int
   discount_rate : int

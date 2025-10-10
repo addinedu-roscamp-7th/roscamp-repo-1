@@ -1,5 +1,5 @@
 string user_type
-string customer_id
+string user_id
 int32 robot_id
 ---
 bool success

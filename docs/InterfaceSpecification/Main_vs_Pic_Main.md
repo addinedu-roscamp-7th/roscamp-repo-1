@@ -167,7 +167,7 @@ Pic Main
 # Request
 int32 robot_id
 int order_id
-string customer_id
+string user_id
 ProductLocation[] product_list
 ---
 # Response
@@ -302,7 +302,7 @@ Pic Main
 
 # Request
 string user_type
-string customer_id
+string user_id
 int32 robot_id
 ---
 # Response
@@ -320,7 +320,7 @@ Pic Main
 
 # Request
 string user_type
-string customer_id
+string user_id
 int32 robot_id
 ---
 # Response

@@ -58,7 +58,7 @@ user_login
 {
   "type": "user_login",
   "data": {
-    "customer_id": "string",
+    "user_id": "string",
     "password": "string"
   }
 }
@@ -66,7 +66,7 @@ user_login
 {
   "type": "user_login",
   "data": {
-    "customer_id": "customer001",
+    "user_id": "customer001",
     "password": "hunter2"
   }
 }
@@ -79,16 +79,28 @@ user_login
       "type": "user_login_response",
       "result": true,
       "data": {
-        "customer_id": "string",
+        "user_id": "string",
         "name": "string"
-        "gender": "male/female",
+        "gender": "boolean",
         "age": "int",
         "address": "string",
-        "allergy_info": "object",
+        "allergy_info": {
+          "nuts": "boolean",
+          "milk": "boolean",
+          "seafood": "boolean",
+          "soy": "boolean",
+          "peach": "boolean",
+          "gluten": "boolean",
+          "eggs": "boolean"
+        },
         "is_vegan": "boolean"
       },
       "message": "Login successful"
     }
+    
+    gender: 1 (남성), 0 (여성)
+    allergy_info: 각 필드 1 (알레르기 있음), 0 (없음)
+    
 - 상세 메시지 포맷 (실패):
     {
       "type": "user_login_response",
@@ -108,7 +120,7 @@ user_login_response
   "result": true,
   "error_code": "string",
   "data": {
-    "customer_id": "string",
+    "user_id": "string",
     "name": "string"
   },
   "message": "string"
@@ -118,8 +130,21 @@ user_login_response
   "type": "user_login_response",
   "result": true,
   "data": {
-    "customer_id": "customer001",
-    "name": "홍길동"
+    "user_id": "customer001",
+    "name": "홍길동",
+    "gender": 1,
+    "age": 30,
+    "address": "서울시 강남구",
+    "allergy_info": {
+      "nuts": 0,
+      "milk": 1,
+      "seafood": 0,
+      "soy": 0,
+      "peach": 0,
+      "gluten": 0,
+      "eggs": 0
+    },
+    "is_vegan": 0
   },
   "message": "Login successful"
 }
@@ -139,7 +164,7 @@ user_login_response
     {
       "type": "product_search",
       "data": {
-        "customer_id": "string",
+        "user_id": "string",
         "query": "string",
         "filter": {
           "allergy_info": {
@@ -165,7 +190,7 @@ product_search
 {
   "type": "product_search",
   "data": {
-    "customer_id": "string",
+    "user_id": "string",
     "query": "string"
   }
 }
@@ -173,7 +198,7 @@ product_search
 {
   "type": "product_search",
   "data": {
-    "customer_id": "customer001",
+    "user_id": "customer001",
     "query": "사과"
   }
 }
@@ -241,7 +266,7 @@ order_create
 {
   "type": "order_create",
   "data": {
-    "customer_id": "string",
+    "user_id": "string",
     "cart_items": [
       {
         "product_id": int,
@@ -256,7 +281,7 @@ order_create
 {
   "type": "order_create",
   "data": {
-    "customer_id": "customer001",
+    "user_id": "customer001",
     "cart_items": [
       { "product_id": 15, "quantity": 2 },
       { "product_id": 20, "quantity": 1 }
@@ -365,7 +390,7 @@ shopping_end
 {
   "type": "shopping_end",
   "data": {
-    "customer_id": "string",
+    "user_id": "string",
     "order_id": "int"
   }
 }
@@ -373,7 +398,7 @@ shopping_end
 {
   "type": "shopping_end",
   "data": {
-    "customer_id": "customer001",
+    "user_id": "customer001",
     "order_id": 15
   }
 }
@@ -421,7 +446,7 @@ video_stream_start
   "type": "video_stream_start",
   "data": {
     "user_type": "string",
-    "customer_id": "string",
+    "user_id": "string",
     "robot_id": "int"
   }
 }
@@ -430,7 +455,7 @@ video_stream_start
   "type": "video_stream_start",
   "data": {
     "user_type": "admin",
-    "customer_id": "admin01",
+    "user_id": "admin01",
     "robot_id": 1
   }
 }
@@ -478,7 +503,7 @@ video_stream_stop
   "type": "video_stream_stop",
   "data": {
     "user_type": "string",
-    "customer_id": "string",
+    "user_id": "string",
     "robot_id": "int"
   }
 }
@@ -487,7 +512,7 @@ video_stream_stop
   "type": "video_stream_stop",
   "data": {
     "user_type": "admin",
-    "customer_id": "admin01",
+    "user_id": "admin01",
     "robot_id": 1
   }
 }
@@ -820,7 +845,7 @@ robot_history_search
   "data": {
     "robot_history_id": "int|null",
     "robot_id": "int|null",
-    "order_item_info_id": "int|null",
+    "order_item_id": "int|null",
     "failure_reason": "string|null",
     "is_complete": "boolean|null",
     "active_duration": "int|null",
@@ -833,7 +858,7 @@ robot_history_search
   "data": {
     "robot_history_id": null,
     "robot_id": 1,
-    "order_item_info_id": null,
+    "order_item_id": null,
     "failure_reason": null,
     "is_complete": null,
     "active_duration": null,
@@ -860,7 +885,7 @@ robot_history_search_response
       {
         "robot_history_id": "int",
         "robot_id": "int",
-        "order_item_info_id": "int|null",
+        "order_item_id": "int|null",
         "failure_reason": "string|null",
         "is_complete": "boolean",
         "active_duration": "int",
@@ -880,7 +905,7 @@ robot_history_search_response
       {
         "robot_history_id": 1001,
         "robot_id": 1,
-        "order_item_info_id": 5012,
+        "order_item_id": 5012,
         "failure_reason": null,
         "is_complete": true,
         "active_duration": 7,
@@ -1080,7 +1105,7 @@ work_info_notification
     "destination": "string",
     "progress": "int",
     "active_duration": "int",
-    "customer_id": "string",
+    "user_id": "string",
     "customer_name": "string",
     "customer_allergy_info_id": "int",
     "customer_is_vegan": "boolean"
@@ -1096,7 +1121,7 @@ work_info_notification
     "destination": "PACKING_AREA_A",
     "progress": 60,
     "active_duration": 12,
-    "customer_id": "customer001",
+    "user_id": "customer001",
     "customer_name": "홍길동",
     "customer_allergy_info_id": 12,
     "customer_is_vegan": false
