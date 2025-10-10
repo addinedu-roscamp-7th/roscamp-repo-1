@@ -213,15 +213,15 @@ Order -> EventBus: cart_update_notification
 
 | 구분 | 이름 | 방향 | 설명 | Msg |
 | --- | --- | --- | --- | --- |
-| Service | `/pickee/workflow/start_task` | Main → Pickee | 피킹 시작 | `PickeeStartTask.srv` |
-| Service | `/pickee/product/process_selection` | Main → Pickee | 상품 담기 명령 | `PickeeProcessSelection.srv` |
-| Topic | `/pickee/moving_status` | Pickee → Main | 이동 상태 | `pickee_msgs/MovingStatus` |
-| Topic | `/pickee/product/selection_result` | Pickee → Main | 담기 결과 | `pickee_msgs/SelectionResult` |
-| Topic | `/pickee/robot_status` | Pickee → Main | 로봇 상태 | `pickee_msgs/RobotStatus` |
-| Service | `/packee/packing/check_availability` | Main ↔ Packee | 포장 가능 여부 | `packee_msgs/CheckAvailability` |
-| Service | `/packee/packing/start` | Main → Packee | 포장 시작 | `packee_msgs/StartPacking` |
-| Topic | `/packee/packing_complete` | Packee → Main | 포장 완료 | `packee_msgs/PackingComplete` |
-| Topic | `/packee/robot_status` | Packee → Main | 로봇 상태 | `packee_msgs/RobotStatus` |
+| Service | `/pickee/workflow/start_task` | Main → Pickee | 피킹 시작 | `shopee_interfaces/srv/PickeeWorkflowStartTask` |
+| Service | `/pickee/product/process_selection` | Main → Pickee | 상품 담기 명령 | `shopee_interfaces/srv/PickeeProductProcessSelection` |
+| Topic | `/pickee/moving_status` | Pickee → Main | 이동 상태 | `shopee_interfaces/msg/PickeeMoveStatus` |
+| Topic | `/pickee/product/selection_result` | Pickee → Main | 담기 결과 | `shopee_interfaces/msg/PickeeProductSelection` |
+| Topic | `/pickee/robot_status` | Pickee → Main | 로봇 상태 | `shopee_interfaces/msg/PickeeRobotStatus` |
+| Service | `/packee/packing/check_availability` | Main ↔ Packee | 포장 가능 여부 | `shopee_interfaces/srv/PackeePackingCheckAvailability` |
+| Service | `/packee/packing/start` | Main → Packee | 포장 시작 | `shopee_interfaces/srv/PackeePackingStart` |
+| Topic | `/packee/packing_complete` | Packee → Main | 포장 완료 | `shopee_interfaces/msg/PackeePackingComplete` |
+| Topic | `/packee/robot_status` | Packee → Main | 로봇 상태 | `shopee_interfaces/msg/PackeeRobotStatus` |
 
 ROS 메시지는 InterfaceSpecification 문서 기반 DTO로 역직렬화하여 내부 도메인 이벤트로 변환합니다.
 

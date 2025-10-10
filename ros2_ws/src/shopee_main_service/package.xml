@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>shopee_main_service</name>
+  <version>0.0.1</version>
+  <description>Shopee Main Service ROS2 package bridging app, robots, and backend services.</description>
+
+  <maintainer email="jinhyuk2me@example.com">jinhyuk2me</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>shopee_interfaces</depend>
+
+  <test_depend>ament_pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
