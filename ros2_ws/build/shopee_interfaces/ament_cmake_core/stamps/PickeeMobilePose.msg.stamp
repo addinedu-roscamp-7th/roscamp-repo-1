@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+shopee_interfaces/Pose2D current_pose
+float32 linear_velocity
+float32 angular_velocity
+float32 battery_level
+string status

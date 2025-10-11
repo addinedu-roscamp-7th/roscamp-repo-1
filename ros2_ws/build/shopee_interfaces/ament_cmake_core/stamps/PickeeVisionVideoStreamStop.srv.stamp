@@ -1,0 +1,6 @@
+string user_type
+string user_id
+int32 robot_id
+---
+bool success
+string message

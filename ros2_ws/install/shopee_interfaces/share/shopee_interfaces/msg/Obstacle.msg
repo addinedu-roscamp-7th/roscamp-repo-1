@@ -1,0 +1,7 @@
+string obstacle_type
+shopee_interfaces/Point2D position
+float32 distance
+float32 velocity
+shopee_interfaces/Vector2D direction
+shopee_interfaces/BBox bbox
+float32 confidence

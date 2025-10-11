@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+---
+bool cart_empty
+int32 remaining_items
+int32[] remaining_product_ids
+string message

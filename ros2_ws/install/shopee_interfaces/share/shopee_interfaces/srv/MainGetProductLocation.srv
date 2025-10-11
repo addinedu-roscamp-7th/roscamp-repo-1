@@ -1,0 +1,6 @@
+int32 product_id
+---
+bool success
+int32 warehouse_id
+int32 section_id
+string message

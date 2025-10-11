@@ -1,0 +1,2 @@
+[console_scripts]
+main_service_node = shopee_main_service.main_service_node:main

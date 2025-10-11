@@ -10,7 +10,16 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
     ],
-    install_requires=["setuptools"],
+    install_requires=[
+        "setuptools",
+        "pydantic-settings",
+        "python-dotenv",
+        "SQLAlchemy",
+        "PyMySQL",
+        "passlib",
+        "bcrypt",
+        "httpx",
+    ],
     zip_safe=True,
     author="Shopee Robotics",
     author_email="jinhyuk2me@example.com",
@@ -18,7 +27,7 @@ setup(
     maintainer_email="jinhyuk2me@example.com",
     description="Main Service ROS 2 entry point handling TCP API and robot orchestration.",
     license="Apache License 2.0",
-    tests_require=["pytest"],
+    tests_require=["pytest", "pytest-asyncio"],
     entry_points={
         "console_scripts": [
             "main_service_node = shopee_main_service.main_service_node:main",

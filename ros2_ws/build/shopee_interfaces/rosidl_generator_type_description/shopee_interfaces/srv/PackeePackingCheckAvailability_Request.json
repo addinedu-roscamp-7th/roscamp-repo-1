@@ -1,0 +1,36 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "shopee_interfaces/srv/PackeePackingCheckAvailability_Request",
+      "fields": [
+        {
+          "name": "robot_id",
+          "type": {
+            "type_id": 6,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        },
+        {
+          "name": "order_id",
+          "type": {
+            "type_id": 6,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "shopee_interfaces/srv/PackeePackingCheckAvailability_Request",
+      "hash_string": "RIHS01_5b135286b0b853283a1998402d505f62eeb2ac0a81c772f8388055922ea7634f"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from shopee_interfaces/msg/PickeeVisionDetection.msg
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/PickeeDetectedProduct.idl"
+
+module shopee_interfaces {
+  module msg {
+    struct PickeeVisionDetection {
+      int32 robot_id;
+
+      int32 order_id;
+
+      boolean success;
+
+      sequence<shopee_interfaces::msg::PickeeDetectedProduct> products;
+
+      string message;
+    };
+  };
+};

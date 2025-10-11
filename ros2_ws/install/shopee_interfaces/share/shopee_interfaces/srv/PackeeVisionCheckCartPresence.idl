@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/PackeeVisionCheckCartPresence.srv
+// generated code does not contain a copyright notice
+
+
+module shopee_interfaces {
+  module srv {
+    struct PackeeVisionCheckCartPresence_Request {
+      int32 robot_id;
+    };
+    struct PackeeVisionCheckCartPresence_Response {
+      boolean cart_present;
+
+      float confidence;
+
+      string message;
+    };
+  };
+};

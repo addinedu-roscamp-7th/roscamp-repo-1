@@ -1,0 +1,8 @@
+setuptools
+pydantic-settings
+python-dotenv
+SQLAlchemy
+PyMySQL
+passlib
+bcrypt
+httpx

@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/PickeeMainVideoStreamStart.srv
+// generated code does not contain a copyright notice
+
+
+module shopee_interfaces {
+  module srv {
+    struct PickeeMainVideoStreamStart_Request {
+      string user_type;
+
+      string user_id;
+
+      int32 robot_id;
+    };
+    struct PickeeMainVideoStreamStart_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

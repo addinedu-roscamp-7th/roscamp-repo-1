@@ -1,0 +1,36 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "shopee_interfaces/srv/PackeeArmPlaceProduct_Response",
+      "fields": [
+        {
+          "name": "accepted",
+          "type": {
+            "type_id": 15,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        },
+        {
+          "name": "message",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "shopee_interfaces/srv/PackeeArmPlaceProduct_Response",
+      "hash_string": "RIHS01_9b9e966f76c0ee65150d4e8b46b29766556679fed24f6e30e5e4132923c75f16"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from shopee_interfaces/msg/PickeeMobileSpeedControl.msg
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/Obstacle.idl"
+
+module shopee_interfaces {
+  module msg {
+    struct PickeeMobileSpeedControl {
+      int32 robot_id;
+
+      int32 order_id;
+
+      string speed_mode;
+
+      float target_speed;
+
+      sequence<shopee_interfaces::msg::Obstacle> obstacles;
+
+      string reason;
+    };
+  };
+};

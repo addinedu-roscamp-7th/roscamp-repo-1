@@ -1,0 +1,26 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "shopee_interfaces/srv/PickeeTtsRequest_Request",
+      "fields": [
+        {
+          "name": "text_to_speak",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "shopee_interfaces/srv/PickeeTtsRequest_Request",
+      "hash_string": "RIHS01_2f9767e83134208d04a04802c980cabcf69b9a60c1edf9ce0943c8d8f541d72e"
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+// generated from rosidl_generator_cpp/resource/idl__struct.hpp.em
+// with input from shopee_interfaces:msg/PickeeMobilePose.idl
+// generated code does not contain a copyright notice
+
+// IWYU pragma: private, include "shopee_interfaces/msg/pickee_mobile_pose.hpp"
+
+
+#ifndef SHOPEE_INTERFACES__MSG__DETAIL__PICKEE_MOBILE_POSE__STRUCT_HPP_
+#define SHOPEE_INTERFACES__MSG__DETAIL__PICKEE_MOBILE_POSE__STRUCT_HPP_
+
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "rosidl_runtime_cpp/bounded_vector.hpp"
+#include "rosidl_runtime_cpp/message_initialization.hpp"
+
+
+// Include directives for member types
+// Member 'current_pose'
+#include "shopee_interfaces/msg/detail/pose2_d__struct.hpp"
+
+#ifndef _WIN32
+# define DEPRECATED__shopee_interfaces__msg__PickeeMobilePose __attribute__((deprecated))
+#else
+# define DEPRECATED__shopee_interfaces__msg__PickeeMobilePose __declspec(deprecated)
+#endif
+
+namespace shopee_interfaces
+{
+
+namespace msg
+{
+
+// message struct
+template<class ContainerAllocator>
+struct PickeeMobilePose_
+{
+  using Type = PickeeMobilePose_<ContainerAllocator>;
+
+  explicit PickeeMobilePose_(rosidl_runtime_cpp::MessageInitialization _init = rosidl_runtime_cpp::MessageInitialization::ALL)
+  : current_pose(_init)
+  {
+    if (rosidl_runtime_cpp::MessageInitialization::ALL == _init ||
+      rosidl_runtime_cpp::MessageInitialization::ZERO == _init)
+    {
+      this->robot_id = 0l;
+      this->order_id = 0l;
+      this->linear_velocity = 0.0f;
+      this->angular_velocity = 0.0f;
+      this->battery_level = 0.0f;
+      this->status = "";
+    }
+  }
+
+  explicit PickeeMobilePose_(const ContainerAllocator & _alloc, rosidl_runtime_cpp::MessageInitialization _init = rosidl_runtime_cpp::MessageInitialization::ALL)
+  : current_pose(_alloc, _init),
+    status(_alloc)
+  {
+    if (rosidl_runtime_cpp::MessageInitialization::ALL == _init ||
+      rosidl_runtime_cpp::MessageInitialization::ZERO == _init)
+    {
+      this->robot_id = 0l;
+      this->order_id = 0l;
+      this->linear_velocity = 0.0f;
+      this->angular_velocity = 0.0f;
+      this->battery_level = 0.0f;
+      this->status = "";
+    }
+  }
+
+  // field types and members
+  using _robot_id_type =
+    int32_t;
+  _robot_id_type robot_id;
+  using _order_id_type =
+    int32_t;
+  _order_id_type order_id;
+  using _current_pose_type =
+    shopee_interfaces::msg::Pose2D_<ContainerAllocator>;
+  _current_pose_type current_pose;
+  using _linear_velocity_type =
+    float;
+  _linear_velocity_type linear_velocity;
+  using _angular_velocity_type =
+    float;
+  _angular_velocity_type angular_velocity;
+  using _battery_level_type =
+    float;
+  _battery_level_type battery_level;
+  using _status_type =
+    std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>>;
+  _status_type status;
+
+  // setters for named parameter idiom
+  Type & set__robot_id(
+    const int32_t & _arg)
+  {
+    this->robot_id = _arg;
+    return *this;
+  }
+  Type & set__order_id(
+    const int32_t & _arg)
+  {
+    this->order_id = _arg;
+    return *this;
+  }
+  Type & set__current_pose(
+    const shopee_interfaces::msg::Pose2D_<ContainerAllocator> & _arg)
+  {
+    this->current_pose = _arg;
+    return *this;
+  }
+  Type & set__linear_velocity(
+    const float & _arg)
+  {
+    this->linear_velocity = _arg;
+    return *this;
+  }
+  Type & set__angular_velocity(
+    const float & _arg)
+  {
+    this->angular_velocity = _arg;
+    return *this;
+  }
+  Type & set__battery_level(
+    const float & _arg)
+  {
+    this->battery_level = _arg;
+    return *this;
+  }
+  Type & set__status(
+    const std::basic_string<char, std::char_traits<char>, typename std::allocator_traits<ContainerAllocator>::template rebind_alloc<char>> & _arg)
+  {
+    this->status = _arg;
+    return *this;
+  }
+
+  // constant declarations
+
+  // pointer types
+  using RawPtr =
+    shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> *;
+  using ConstRawPtr =
+    const shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> *;
+  using SharedPtr =
+    std::shared_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>>;
+  using ConstSharedPtr =
+    std::shared_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> const>;
+
+  template<typename Deleter = std::default_delete<
+      shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>>>
+  using UniquePtrWithDeleter =
+    std::unique_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>, Deleter>;
+
+  using UniquePtr = UniquePtrWithDeleter<>;
+
+  template<typename Deleter = std::default_delete<
+      shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>>>
+  using ConstUniquePtrWithDeleter =
+    std::unique_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> const, Deleter>;
+  using ConstUniquePtr = ConstUniquePtrWithDeleter<>;
+
+  using WeakPtr =
+    std::weak_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>>;
+  using ConstWeakPtr =
+    std::weak_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> const>;
+
+  // pointer types similar to ROS 1, use SharedPtr / ConstSharedPtr instead
+  // NOTE: Can't use 'using' here because GNU C++ can't parse attributes properly
+  typedef DEPRECATED__shopee_interfaces__msg__PickeeMobilePose
+    std::shared_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator>>
+    Ptr;
+  typedef DEPRECATED__shopee_interfaces__msg__PickeeMobilePose
+    std::shared_ptr<shopee_interfaces::msg::PickeeMobilePose_<ContainerAllocator> const>
+    ConstPtr;
+
+  // comparison operators
+  bool operator==(const PickeeMobilePose_ & other) const
+  {
+    if (this->robot_id != other.robot_id) {
+      return false;
+    }
+    if (this->order_id != other.order_id) {
+      return false;
+    }
+    if (this->current_pose != other.current_pose) {
+      return false;
+    }
+    if (this->linear_velocity != other.linear_velocity) {
+      return false;
+    }
+    if (this->angular_velocity != other.angular_velocity) {
+      return false;
+    }
+    if (this->battery_level != other.battery_level) {
+      return false;
+    }
+    if (this->status != other.status) {
+      return false;
+    }
+    return true;
+  }
+  bool operator!=(const PickeeMobilePose_ & other) const
+  {
+    return !this->operator==(other);
+  }
+};  // struct PickeeMobilePose_
+
+// alias to use template instance with default allocator
+using PickeeMobilePose =
+  shopee_interfaces::msg::PickeeMobilePose_<std::allocator<void>>;
+
+// constant definitions
+
+}  // namespace msg
+
+}  // namespace shopee_interfaces
+
+#endif  // SHOPEE_INTERFACES__MSG__DETAIL__PICKEE_MOBILE_POSE__STRUCT_HPP_

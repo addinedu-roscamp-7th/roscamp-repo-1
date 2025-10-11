@@ -1,0 +1,5 @@
+int32 robot_id
+---
+bool cart_present
+float32 confidence
+string message

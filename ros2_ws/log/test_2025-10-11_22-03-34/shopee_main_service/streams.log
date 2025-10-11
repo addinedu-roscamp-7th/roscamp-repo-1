@@ -1,0 +1,53 @@
+[0.226s] Invoking command in '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service': AMENT_PREFIX_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service:/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces:${CMAKE_PREFIX_PATH} DEBUGINFOD_URLS=https://debuginfod.ubuntu.com LD_LIBRARY_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces/lib:${LD_LIBRARY_PATH} PYTEST_ADDOPTS=--tb=short --junit-xml=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/pytest.xml --junit-prefix=shopee_main_service -o cache_dir=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/.pytest_cache PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages:/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces/lib/python3.12/site-packages:${PYTHONPATH} VIRTUAL_ENV_PROMPT=(ros_venv) /usr/bin/python3 -m pytest
+[0.662s] ============================= test session starts ==============================
+[0.662s] platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0
+[0.662s] cachedir: /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/.pytest_cache
+[0.663s] rootdir: /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service
+[0.663s] plugins: launch-testing-ros-0.26.9, ament-lint-0.17.3, ament-flake8-0.17.3, ament-xmllint-0.17.3, launch-testing-3.4.6, ament-pep257-0.17.3, launch-pytest-3.4.6, ament-copyright-0.17.3, mock-3.12.0, timeout-2.2.0, anyio-4.2.0, colcon-core-0.20.0, cov-4.1.0, rerunfailures-12.0, None-None, typeguard-4.1.5
+[0.663s] collected 0 items / 1 error
+[0.663s] 
+[0.663s] ==================================== ERRORS ====================================
+[0.663s] ________________________ ERROR collecting test session _________________________
+[0.663s] /usr/lib/python3/dist-packages/pluggy/_hooks.py:501: in __call__
+[0.663s]     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+[0.663s] /usr/lib/python3/dist-packages/pluggy/_manager.py:119: in _hookexec
+[0.663s]     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+[0.663s] /usr/lib/python3/dist-packages/_pytest/python.py:215: in pytest_collect_file
+[0.663s]     module: Module = ihook.pytest_pycollect_makemodule(
+[0.663s] /usr/lib/python3/dist-packages/_pytest/config/compat.py:66: in fixed_hook
+[0.663s]     return hook(**kw)
+[0.663s] /usr/lib/python3/dist-packages/pluggy/_hooks.py:501: in __call__
+[0.663s]     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+[0.663s] /usr/lib/python3/dist-packages/pluggy/_manager.py:119: in _hookexec
+[0.663s]     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+[0.663s] /opt/ros/jazzy/lib/python3.12/site-packages/launch_testing/pytest/hooks.py:193: in pytest_pycollect_makemodule
+[0.663s]     entrypoint = find_launch_test_entrypoint(path)
+[0.664s] /opt/ros/jazzy/lib/python3.12/site-packages/launch_testing/pytest/hooks.py:183: in find_launch_test_entrypoint
+[0.664s]     module = import_path(path, root=None)
+[0.664s] /usr/lib/python3/dist-packages/_pytest/pathlib.py:567: in import_path
+[0.664s]     importlib.import_module(module_name)
+[0.664s] /usr/lib/python3.12/importlib/__init__.py:90: in import_module
+[0.664s]     return _bootstrap._gcd_import(name[level:], package, level)
+[0.664s] <frozen importlib._bootstrap>:1387: in _gcd_import
+[0.664s]     ???
+[0.664s] <frozen importlib._bootstrap>:1360: in _find_and_load
+[0.664s]     ???
+[0.664s] <frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+[0.664s]     ???
+[0.664s] <frozen importlib._bootstrap>:935: in _load_unlocked
+[0.664s]     ???
+[0.664s] <frozen importlib._bootstrap_external>:995: in exec_module
+[0.664s]     ???
+[0.664s] <frozen importlib._bootstrap>:488: in _call_with_frames_removed
+[0.664s]     ???
+[0.664s] shopee_main_service/__init__.py:4: in <module>
+[0.665s]     from .config import MainServiceConfig
+[0.665s] shopee_main_service/config.py:13: in <module>
+[0.665s]     from pydantic_settings import BaseSettings, SettingsConfigDict
+[0.665s] E   ModuleNotFoundError: No module named 'pydantic_settings'
+[0.665s] - generated xml file: /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/pytest.xml -
+[0.665s] =========================== short test summary info ============================
+[0.665s] ERROR  - ModuleNotFoundError: No module named 'pydantic_settings'
+[0.665s] !!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+[0.665s] =============================== 1 error in 0.11s ===============================
+[0.698s] Invoked command in '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service' returned '2': AMENT_PREFIX_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service:/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces:${CMAKE_PREFIX_PATH} DEBUGINFOD_URLS=https://debuginfod.ubuntu.com LD_LIBRARY_PATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces/lib:${LD_LIBRARY_PATH} PYTEST_ADDOPTS=--tb=short --junit-xml=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/pytest.xml --junit-prefix=shopee_main_service -o cache_dir=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service/.pytest_cache PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages:/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces/lib/python3.12/site-packages:${PYTHONPATH} VIRTUAL_ENV_PROMPT=(ros_venv) /usr/bin/python3 -m pytest

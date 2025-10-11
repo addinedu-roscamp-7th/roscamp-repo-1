@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: shopee-main-service
+Version: 0.0.1
+Summary: Main Service ROS 2 entry point handling TCP API and robot orchestration.
+Author: Shopee Robotics
+Author-email: jinhyuk2me@example.com
+Maintainer: jinhyuk2me
+Maintainer-email: jinhyuk2me@example.com
+License: Apache License 2.0

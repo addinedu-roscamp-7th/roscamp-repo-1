@@ -1,0 +1,29 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/PackeeArmPickProduct.srv
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/BBox.idl"
+#include "shopee_interfaces/msg/Point3D.idl"
+
+module shopee_interfaces {
+  module srv {
+    struct PackeeArmPickProduct_Request {
+      int32 robot_id;
+
+      int32 order_id;
+
+      int32 product_id;
+
+      string arm_side;
+
+      shopee_interfaces::msg::Point3D target_position;
+
+      shopee_interfaces::msg::BBox bbox;
+    };
+    struct PackeeArmPickProduct_Response {
+      boolean accepted;
+
+      string message;
+    };
+  };
+};

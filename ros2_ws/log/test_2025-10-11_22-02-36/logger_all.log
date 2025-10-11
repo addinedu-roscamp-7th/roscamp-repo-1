@@ -1,0 +1,221 @@
+[0.270s] DEBUG:colcon:Command line arguments: ['/home/jinhyuk2me/venv/ros_venv/bin/colcon', 'test', '--packages-select', 'shopee_main_service']
+[0.270s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='test', build_base='build', install_base='install', merge_install=False, test_result_base=None, retest_until_fail=0, retest_until_pass=0, abort_on_error=False, return_code_on_test_failure=False, executor='parallel', parallel_workers=12, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=['shopee_main_service'], packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], ctest_args=None, python_testing=None, pytest_args=None, pytest_with_coverage=False, unittest_args=None, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x74988584e7e0>, verb_extension=<colcon_core.verb.test.TestVerb object at 0x7498857cb620>, main=<bound method TestVerb.main of <colcon_core.verb.test.TestVerb object at 0x7498857cb620>>, mixin_verb=('test',))
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.313s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws'
+[0.313s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.313s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.313s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.313s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.313s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.314s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.314s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.314s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.314s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.333s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore_ament_install'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['colcon_pkg']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'colcon_pkg'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['colcon_meta']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'colcon_meta'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ros']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ros'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['cmake', 'python']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'cmake'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'python'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['python_setup_py']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'python_setup_py'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore_ament_install'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['colcon_pkg']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'colcon_pkg'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['colcon_meta']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'colcon_meta'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ros']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ros'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['cmake', 'python']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'cmake'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'python'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['python_setup_py']
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'python_setup_py'
+[0.334s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extensions ['ignore', 'ignore_ament_install']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extension 'ignore'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extension 'ignore_ament_install'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extensions ['colcon_pkg']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extension 'colcon_pkg'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extensions ['colcon_meta']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extension 'colcon_meta'
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extensions ['ros']
+[0.335s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_interfaces) by extension 'ros'
+[0.337s] DEBUG:colcon.colcon_core.package_identification:Package 'src/shopee_interfaces' with type 'ros.ament_cmake' and name 'shopee_interfaces'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extensions ['ignore', 'ignore_ament_install']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extension 'ignore'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extension 'ignore_ament_install'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extensions ['colcon_pkg']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extension 'colcon_pkg'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extensions ['colcon_meta']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extension 'colcon_meta'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extensions ['ros']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_main_service) by extension 'ros'
+[0.338s] DEBUG:colcon.colcon_core.package_identification:Package 'src/shopee_main_service' with type 'ros.ament_python' and name 'shopee_main_service'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['ignore', 'ignore_ament_install']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'ignore'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'ignore_ament_install'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['colcon_pkg']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'colcon_pkg'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['colcon_meta']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'colcon_meta'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['ros']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'ros'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['cmake', 'python']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'cmake'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'python'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extensions ['python_setup_py']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_arm) by extension 'python_setup_py'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['ignore', 'ignore_ament_install']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'ignore'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'ignore_ament_install'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['colcon_pkg']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'colcon_pkg'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['colcon_meta']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'colcon_meta'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['ros']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'ros'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['cmake', 'python']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'cmake'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'python'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extensions ['python_setup_py']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_main) by extension 'python_setup_py'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['ignore', 'ignore_ament_install']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'ignore'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'ignore_ament_install'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['colcon_pkg']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'colcon_pkg'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['colcon_meta']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'colcon_meta'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['ros']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'ros'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['cmake', 'python']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'cmake'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'python'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extensions ['python_setup_py']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_packee_vision) by extension 'python_setup_py'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['ignore', 'ignore_ament_install']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'ignore'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'ignore_ament_install'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['colcon_pkg']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'colcon_pkg'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['colcon_meta']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'colcon_meta'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['ros']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'ros'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['cmake', 'python']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'cmake'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'python'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extensions ['python_setup_py']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_arm) by extension 'python_setup_py'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['ignore', 'ignore_ament_install']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'ignore'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'ignore_ament_install'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['colcon_pkg']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'colcon_pkg'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['colcon_meta']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'colcon_meta'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['ros']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'ros'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['cmake', 'python']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'cmake'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'python'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extensions ['python_setup_py']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_main) by extension 'python_setup_py'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['ignore', 'ignore_ament_install']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'ignore'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'ignore_ament_install'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['colcon_pkg']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'colcon_pkg'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['colcon_meta']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'colcon_meta'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['ros']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'ros'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['cmake', 'python']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'cmake'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'python'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extensions ['python_setup_py']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_mobile) by extension 'python_setup_py'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['ignore', 'ignore_ament_install']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'ignore'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'ignore_ament_install'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['colcon_pkg']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'colcon_pkg'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['colcon_meta']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'colcon_meta'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['ros']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'ros'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['cmake', 'python']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'cmake'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'python'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extensions ['python_setup_py']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(src/shopee_pickee_vision) by extension 'python_setup_py'
+[0.342s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.342s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.342s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.342s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.342s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.344s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'shopee_interfaces' in 'src/shopee_interfaces'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'ctest_args' from command line to 'None'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'python_testing' from command line to 'None'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'pytest_args' from command line to 'None'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'pytest_with_coverage' from command line to 'False'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'unittest_args' from command line to 'None'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'retest_until_pass' from command line to '0'
+[0.344s] Level 5:colcon.colcon_core.verb:set package 'shopee_main_service' test argument 'retest_until_fail' from command line to '0'
+[0.345s] DEBUG:colcon.colcon_core.verb.test:Testing package 'shopee_main_service' with the following arguments: {'build_base': '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/build/shopee_main_service', 'ctest_args': None, 'install_base': '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service', 'path': '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service', 'pytest_args': None, 'pytest_with_coverage': False, 'python_testing': None, 'retest_until_fail': 0, 'retest_until_pass': 0, 'test_result_base': None, 'unittest_args': None}
+[0.345s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.345s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.345s] INFO:colcon.colcon_ros.task.ament_python.test:Testing ROS package in '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service' with build type'ament_python'
+[0.345s] INFO:colcon.colcon_core.task.python.test:Testing Python package in '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service'
+[0.349s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.350s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.350s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.354s] ERROR:colcon.colcon_core.task.python.test:Failed to find the following files:
+- /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces/share/shopee_interfaces/package.sh
+- /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/share/shopee_main_service/package.sh
+Check that the following packages have been built:
+- shopee_interfaces
+- shopee_main_service
+[0.354s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[0.354s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[0.354s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '1'
+[0.354s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[0.369s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[0.369s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[0.369s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[0.387s] DEBUG:colcon.colcon_core.event_reactor:joined thread

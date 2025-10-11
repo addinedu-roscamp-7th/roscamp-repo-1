@@ -1,0 +1,36 @@
+// generated from rosidl_generator_c/resource/idl__type_support.h.em
+// with input from shopee_interfaces:msg/Obstacle.idl
+// generated code does not contain a copyright notice
+
+// IWYU pragma: private, include "shopee_interfaces/msg/obstacle.h"
+
+
+#ifndef SHOPEE_INTERFACES__MSG__DETAIL__OBSTACLE__TYPE_SUPPORT_H_
+#define SHOPEE_INTERFACES__MSG__DETAIL__OBSTACLE__TYPE_SUPPORT_H_
+
+#include "rosidl_typesupport_interface/macros.h"
+
+#include "shopee_interfaces/msg/rosidl_generator_c__visibility_control.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#include "rosidl_runtime_c/message_type_support_struct.h"
+
+// Forward declare the get type support functions for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+const rosidl_message_type_support_t *
+ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  msg,
+  Obstacle
+)(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // SHOPEE_INTERFACES__MSG__DETAIL__OBSTACLE__TYPE_SUPPORT_H_

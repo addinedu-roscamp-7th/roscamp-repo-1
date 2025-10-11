@@ -1,0 +1,23 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/PackeeVisionVerifyPackingComplete.srv
+// generated code does not contain a copyright notice
+
+
+module shopee_interfaces {
+  module srv {
+    struct PackeeVisionVerifyPackingComplete_Request {
+      int32 robot_id;
+
+      int32 order_id;
+    };
+    struct PackeeVisionVerifyPackingComplete_Response {
+      boolean cart_empty;
+
+      int32 remaining_items;
+
+      sequence<int32> remaining_product_ids;
+
+      string message;
+    };
+  };
+};

@@ -1,0 +1,25 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from shopee_interfaces/msg/PickeeMobileArrival.msg
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/Pose2D.idl"
+
+module shopee_interfaces {
+  module msg {
+    struct PickeeMobileArrival {
+      int32 robot_id;
+
+      int32 order_id;
+
+      int32 location_id;
+
+      shopee_interfaces::msg::Pose2D final_pose;
+
+      float position_error;
+
+      float travel_time;
+
+      string message;
+    };
+  };
+};

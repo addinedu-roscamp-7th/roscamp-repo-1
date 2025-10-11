@@ -1,0 +1,12 @@
+// generated from rosidl_generator_c/resource/idl.h.em
+// with input from shopee_interfaces:srv/PickeeArmPlaceProduct.idl
+// generated code does not contain a copyright notice
+
+#ifndef SHOPEE_INTERFACES__SRV__PICKEE_ARM_PLACE_PRODUCT_H_
+#define SHOPEE_INTERFACES__SRV__PICKEE_ARM_PLACE_PRODUCT_H_
+
+#include "shopee_interfaces/srv/detail/pickee_arm_place_product__struct.h"
+#include "shopee_interfaces/srv/detail/pickee_arm_place_product__functions.h"
+#include "shopee_interfaces/srv/detail/pickee_arm_place_product__type_support.h"
+
+#endif  // SHOPEE_INTERFACES__SRV__PICKEE_ARM_PLACE_PRODUCT_H_

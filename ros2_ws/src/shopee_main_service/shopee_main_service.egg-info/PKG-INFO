@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: shopee_main_service
+Version: 0.0.1
+Summary: Main Service ROS 2 entry point handling TCP API and robot orchestration.
+Author: Shopee Robotics
+Author-email: jinhyuk2me@example.com
+Maintainer: jinhyuk2me
+Maintainer-email: jinhyuk2me@example.com
+License: Apache License 2.0
+Requires-Dist: setuptools
+Requires-Dist: pydantic-settings
+Requires-Dist: python-dotenv
+Requires-Dist: SQLAlchemy
+Requires-Dist: PyMySQL
+Requires-Dist: passlib
+Requires-Dist: bcrypt
+Requires-Dist: httpx
+Dynamic: author
+Dynamic: author-email
+Dynamic: license
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: summary
