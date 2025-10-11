@@ -28,7 +28,6 @@ logger = logging.getLogger("shopee_main_service")
 class MainServiceApp:
     """
     Main Service 애플리케이션 컨테이너
-    
     모든 모듈을 생성하고 연결하여 실행합니다.
     - TCP API 서버 (App과 통신)
     - ROS2 노드 (로봇과 통신)
@@ -57,6 +56,7 @@ class MainServiceApp:
         self._order_service = OrderService(self._db, self._robot, self._event_bus)
         
         # API 핸들러 등록용 딕셔너리
+        """문자열 키와 dict를 입력받아 dict를 반환하는 async 함수로 이루어진 딕셔너리"""
         self._handlers: Dict[str, Callable[[dict], Awaitable[dict]]] = {}
         
         # TCP API 서버

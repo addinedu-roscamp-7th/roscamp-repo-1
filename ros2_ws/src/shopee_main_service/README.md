@@ -27,6 +27,315 @@ shopee_main_service/
 └── utils.py                    # 유틸리티 함수
 ```
 
+## 🏗️ 아키텍처 다이어그램
+
+### 1. 컴포넌트 다이어그램 (모듈 간 의존성)
+
+Main Service 내부 모듈들의 의존성과 외부 시스템과의 연결을 보여줍니다.
+
+```plantuml
+@startuml
+!theme plain
+skinparam componentStyle rectangle
+skinparam backgroundColor #FFFFFF
+skinparam component {
+    BackgroundColor<<external>> #E8F4F8
+    BackgroundColor<<interface>> #FFF4E6
+    BackgroundColor<<service>> #F0F8E8
+    BackgroundColor<<infra>> #F5F5F5
+}
+
+' 외부 시스템
+component "Mobile App" as App <<external>> #E8F4F8
+component "ROS2\n(Pickee/Packee)" as ROS2 <<external>> #E8F4F8
+component "LLM Service" as LLM <<external>> #E8F4F8
+component "MySQL\nDatabase" as DB <<external>> #E8F4F8
+
+' 인터페이스 레이어
+component "APIController\n(TCP Server)" as API <<interface>> #FFF4E6
+component "RobotCoordinator\n(ROS2 Node)" as Robot <<interface>> #FFF4E6
+
+' 비즈니스 로직 레이어
+component "UserService" as User <<service>> #F0F8E8
+component "ProductService" as Product <<service>> #F0F8E8
+component "OrderService" as Order <<service>> #F0F8E8
+
+' 인프라 레이어
+component "DatabaseManager" as DBMgr <<infra>> #F5F5F5
+component "LLMClient" as LLMClient <<infra>> #F5F5F5
+component "EventBus" as EventBus <<infra>> #F5F5F5
+
+' 메인 진입점
+component "MainServiceApp\n(main_service_node.py)" as Main #FFE6E6
+
+' 연결: 외부 → 인터페이스
+App -down-> API : "TCP/IP\nJSON"
+ROS2 -down-> Robot : "ROS2\nTopics/Services"
+
+' 연결: 메인 → 모든 모듈
+Main ..> API : "초기화 및\n핸들러 등록"
+Main ..> Robot : "초기화"
+Main ..> User : "초기화"
+Main ..> Product : "초기화"
+Main ..> Order : "초기화"
+Main ..> DBMgr : "초기화"
+Main ..> LLMClient : "초기화"
+Main ..> EventBus : "초기화"
+
+' 연결: 인터페이스 → 서비스
+API --> User : "로그인/로그아웃"
+API --> Product : "상품 검색"
+API --> Order : "주문 관리"
+
+' 연결: 서비스 → 인프라
+User --> DBMgr : "사용자 조회"
+Product --> DBMgr : "상품 조회"
+Product --> LLMClient : "자연어 검색"
+Order --> DBMgr : "주문 CRUD"
+Order --> Robot : "로봇 작업 요청"
+Order --> EventBus : "이벤트 발행"
+
+' 연결: 인프라 → 외부
+DBMgr --> DB : "SQL\nQueries"
+LLMClient --> LLM : "HTTP\nREST API"
+Robot --> ROS2 : "서비스 호출"
+
+' 연결: EventBus → API (알림)
+EventBus --> API : "푸시 알림\n(Pub/Sub)"
+
+note right of Main
+  **진입점**
+  - ROS2 + asyncio 통합
+  - 모든 모듈 의존성 주입
+  - 설정 관리
+end note
+
+note bottom of EventBus
+  **내부 이벤트 버스**
+  - order_created
+  - robot_moving
+  - robot_arrived
+  → APIController가 구독하여
+     App으로 푸시 알림
+end note
+
+@enduml
+```
+
+### 2. 아키텍처 레이어 다이어그램 (계층 구조)
+
+Clean Architecture 원칙에 따른 계층 구조를 보여줍니다.
+
+```plantuml
+@startuml
+!theme plain
+skinparam rectangle {
+    BackgroundColor<<layer1>> #E8F4F8
+    BackgroundColor<<layer2>> #FFF4E6
+    BackgroundColor<<layer3>> #F0F8E8
+    BackgroundColor<<layer4>> #F5F5F5
+    BackgroundColor<<layer5>> #FFE6E6
+}
+
+rectangle "**진입점 & 설정**" <<layer5>> #FFE6E6 {
+    rectangle "main_service_node.py\n(MainServiceApp)" as Entry
+    rectangle "config.py\n(환경 변수, 설정)" as Config
+}
+
+rectangle "**Presentation Layer**\n(외부 통신)" <<layer1>> #E8F4F8 {
+    rectangle "api_controller.py\n(TCP API 서버)" as API
+    rectangle "robot_coordinator.py\n(ROS2 노드)" as Robot
+}
+
+rectangle "**Business Logic Layer**\n(도메인 로직)" <<layer2>> #FFF4E6 {
+    rectangle "user_service.py\n(인증/사용자 관리)" as User
+    rectangle "product_service.py\n(상품 검색/재고)" as Product
+    rectangle "order_service.py\n(주문 생명주기)" as Order
+}
+
+rectangle "**Infrastructure Layer**\n(기술적 구현)" <<layer3>> #F0F8E8 {
+    rectangle "database_manager.py\n(SQLAlchemy)" as DB
+    rectangle "llm_client.py\n(HTTP 클라이언트)" as LLM
+    rectangle "event_bus.py\n(Pub/Sub)" as Event
+}
+
+rectangle "**Common Layer**\n(공통 요소)" <<layer4>> #F5F5F5 {
+    rectangle "constants.py\n(Enum, 상수)" as Constants
+    rectangle "exceptions.py\n(커스텀 예외)" as Exceptions
+    rectangle "models.py\n(DTO)" as Models
+    rectangle "utils.py\n(유틸리티)" as Utils
+}
+
+' 계층 간 의존성 (위 → 아래만 가능)
+Entry -down-> API
+Entry -down-> Robot
+Entry -down-> User
+Entry -down-> Product
+Entry -down-> Order
+Entry -down-> Config
+
+API -down-> User
+API -down-> Product
+API -down-> Order
+
+User -down-> DB
+Product -down-> DB
+Product -down-> LLM
+Order -down-> DB
+Order -down-> Robot
+Order -down-> Event
+
+Event -up-> API : "역방향\n(Pub/Sub)"
+
+API -down-> Models
+User -down-> Models
+Product -down-> Models
+Order -down-> Models
+
+API -down-> Exceptions
+User -down-> Exceptions
+Product -down-> Exceptions
+Order -down-> Exceptions
+
+API -down-> Constants
+Order -down-> Constants
+Product -down-> Utils
+
+note right of Entry
+  **의존성 주입**
+  모든 모듈을 생성하고
+  의존성을 주입
+end note
+
+note bottom of Event
+  **느슨한 결합**
+  EventBus를 통해
+  모듈 간 결합도 감소
+end note
+
+@enduml
+```
+
+### 3. 데이터 흐름 다이어그램 (주문 생성 플로우)
+
+주문 생성 요청이 어떻게 처리되는지 보여줍니다.
+
+```plantuml
+@startuml
+!theme plain
+skinparam sequence {
+    ArrowColor #2C3E50
+    LifeLineBorderColor #2C3E50
+    ParticipantBackgroundColor #ECF0F1
+    ParticipantBorderColor #34495E
+}
+
+actor "Mobile App" as App
+participant "APIController" as API
+participant "OrderService" as Order
+participant "ProductService" as Product
+participant "DatabaseManager" as DB
+participant "RobotCoordinator" as Robot
+participant "EventBus" as Event
+participant "LLMClient" as LLM
+
+== 1. 주문 생성 요청 ==
+App -> API : TCP: {"type":"order_create",\n"data":{"user_id":"user1","items":[...]}}
+activate API
+
+API -> Order : create_order(user_id, items)
+activate Order
+
+Order -> DB : validate_user(user_id)
+activate DB
+DB --> Order : user exists ✓
+deactivate DB
+
+Order -> Product : check_stock(product_ids)
+activate Product
+Product -> DB : SELECT quantity FROM product
+activate DB
+DB --> Product : stock info
+deactivate DB
+Product --> Order : stock available ✓
+deactivate Product
+
+Order -> DB : INSERT INTO `order`
+activate DB
+DB --> Order : order_id = 123
+deactivate DB
+
+Order -> Event : publish("order_created", {order_id: 123})
+activate Event
+Event --> API : notify subscribers
+deactivate Event
+
+Order --> API : {"order_id": 123, "status": "PAID"}
+deactivate Order
+
+API --> App : {"result": true, "data": {"order_id": 123}}
+deactivate API
+
+== 2. 로봇 작업 할당 ==
+Order -> Robot : assign_pickee_task(order_id, products)
+activate Robot
+
+Robot -> Robot : find_available_pickee()
+Robot -> Robot : call ROS2 service\n(/pickee/workflow/start_task)
+
+Robot --> Order : task_assigned ✓
+deactivate Robot
+
+Order -> DB : UPDATE `order` SET status='PICKED_UP'
+activate DB
+DB --> Order : success
+deactivate DB
+
+Order -> Event : publish("robot_moving", {order_id: 123, robot_id: 1})
+activate Event
+Event -> API : notify
+API -> App : Push: "로봇이 이동 중입니다"
+deactivate Event
+
+== 3. 상품 검색 (LLM 연동) ==
+App -> API : TCP: {"type":"product_search",\n"data":{"query":"비건 사과"}}
+activate API
+
+API -> Product : search_products("비건 사과")
+activate Product
+
+Product -> LLM : POST /detect_intent\n{"text":"비건 사과"}
+activate LLM
+LLM --> Product : {"intent":"search","product":"사과"}
+deactivate LLM
+
+Product -> LLM : POST /generate_search_query\n{"text":"사과"}
+activate LLM
+LLM --> Product : {"sql_condition":"name LIKE '%사과%'"}
+deactivate LLM
+
+Product -> DB : SELECT * FROM product\nWHERE name LIKE '%사과%'\nAND is_vegan_friendly = true
+activate DB
+DB --> Product : [product1, product2, ...]
+deactivate DB
+
+Product --> API : search results
+deactivate Product
+
+API --> App : {"result": true, "data": {"products": [...]}}
+deactivate API
+
+note over App, LLM
+  **핵심 패턴**
+  1. **계층 분리**: API → Service → Infrastructure
+  2. **이벤트 기반**: EventBus를 통한 비동기 알림
+  3. **LLM 통합**: 자연어 검색을 SQL로 변환
+  4. **트랜잭션**: DatabaseManager가 세션 관리
+end note
+
+@enduml
+```
+
 ### 주요 모듈 설명
 
 #### 🎯 **main_service_node.py**
@@ -221,8 +530,3 @@ result = await retry_async(
     backoff=0.5
 )
 ```
-
----
-
-**현재 상태**: 완벽한 스켈레톤! 기반이 탄탄하여 구현 준비 완료 ✅  
-각 모듈의 TODO 주석과 examples를 참고하여 기능을 하나씩 구현하세요!

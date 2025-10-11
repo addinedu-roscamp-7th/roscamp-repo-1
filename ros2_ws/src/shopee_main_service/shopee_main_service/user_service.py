@@ -38,11 +38,13 @@ class UserService:
             2. 비밀번호 해시 비교 (bcrypt)
             3. 성공 시 customer_id(int) 반환용 세션 생성
         """
+
         # TODO: 실제 DB 조회 및 해시 비교
         # with self._db.session_scope() as session:
         #     customer = session.query(Customer).filter_by(id=user_id).first()
         #     if customer and verify_password(password, customer.password):
         #         return True
+        
         return False
 
     async def get_user_info(self, user_id: str) -> Optional[dict]:

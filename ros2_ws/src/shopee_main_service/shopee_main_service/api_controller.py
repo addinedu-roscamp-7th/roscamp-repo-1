@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 from typing import Any, Awaitable, Callable, Dict, Optional
+from .event_bus import EventBus
 
 logger = logging.getLogger(__name__)
 
