@@ -1,3 +1,21 @@
+SET FOREIGN_KEY_CHECKS=0;
+
+-- Drop existing tables
+DROP TABLE IF EXISTS `robot_history`;
+DROP TABLE IF EXISTS `order_item`;
+DROP TABLE IF EXISTS `order`;
+DROP TABLE IF EXISTS `product`;
+DROP TABLE IF EXISTS `section`;
+DROP TABLE IF EXISTS `shelf`;
+DROP TABLE IF EXISTS `warehouse`;
+DROP TABLE IF EXISTS `location`;
+DROP TABLE IF EXISTS `customer`;
+DROP TABLE IF EXISTS `admin`;
+DROP TABLE IF EXISTS `allergy_info`;
+DROP TABLE IF EXISTS `robot`;
+
+SET FOREIGN_KEY_CHECKS=1;
+
 -- Shopee Database Schema - CREATE TABLE Statements
 -- Generated: 2025-10-10
 
@@ -77,8 +95,10 @@ CREATE TABLE shelf (
 CREATE TABLE section (
     section_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '섹션 정보 pkey',
     shelf_id INT NOT NULL COMMENT '매대 정보',
+    location_id INT NOT NULL COMMENT '위치 정보',
     section_name VARCHAR(50) NOT NULL COMMENT '코너 이름',
-    FOREIGN KEY (shelf_id) REFERENCES shelf(shelf_id)
+    FOREIGN KEY (shelf_id) REFERENCES shelf(shelf_id),
+    FOREIGN KEY (location_id) REFERENCES location(location_id)
 );
 
 -- ================================
@@ -161,4 +181,3 @@ CREATE UNIQUE INDEX idx_admin_id ON admin(id);
 CREATE UNIQUE INDEX idx_product_barcode ON product(barcode);
 CREATE INDEX idx_order_customer_status ON `order`(customer_id, order_status);
 CREATE INDEX idx_robot_history_robot_created ON robot_history(robot_id, created_at);
-

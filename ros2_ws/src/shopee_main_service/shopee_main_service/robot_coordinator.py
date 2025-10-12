@@ -15,6 +15,7 @@ from typing import Callable, Dict, Optional
 import rclpy
 from rclpy.node import Node
 
+from .inventory_service import InventoryService
 from .product_service import ProductService
 
 from shopee_interfaces.msg import (
@@ -26,6 +27,7 @@ from shopee_interfaces.msg import (
     PickeeProductDetection,
     PickeeProductSelection,
     PickeeRobotStatus,
+    Pose2D,
 )
 from shopee_interfaces.srv import (
     PackeePackingCheckAvailability,
@@ -38,6 +40,7 @@ from shopee_interfaces.srv import (
     PickeeWorkflowReturnToBase,
     PickeeWorkflowStartTask,
     MainGetProductLocation,
+    MainGetLocationPose, # Add new service import
     PickeeMainVideoStreamStart,
     PickeeMainVideoStreamStop,
 )
@@ -125,6 +128,9 @@ class RobotCoordinator(Node):
         # Main Service가 직접 제공하는 서비스
         self._get_product_location_srv = self.create_service(
             MainGetProductLocation, "/main/get_product_location", self._get_product_location_callback
+        )
+        self._get_location_pose_srv = self.create_service(
+            MainGetLocationPose, "/main/get_location_pose", self._get_location_pose_callback
         )
 
         # 로봇 상태 캐시 (최근 메시지 저장)
@@ -238,6 +244,12 @@ class RobotCoordinator(Node):
         """
         self._product_service = product_service
 
+    def set_inventory_service(self, inventory_service: InventoryService) -> None:
+        """
+        외부에서 InventoryService를 주입받기 위한 메서드.
+        """
+        self._inventory_service = inventory_service
+
     # === 서비스 콜백 함수들 ===
 
     def _get_product_location_callback(
@@ -263,6 +275,32 @@ class RobotCoordinator(Node):
         else:
             response.success = False
             response.message = f"Product with ID {product_id} not found."
+            logger.warning(response.message)
+        
+        return response
+
+    async def _get_location_pose_callback(
+        self, request: MainGetLocationPose.Request, response: MainGetLocationPose.Response
+    ) -> MainGetLocationPose.Response:
+        """/main/get_location_pose 서비스 요청을 처리합니다."""
+        location_id = request.location_id
+        logger.info(f"Received request to get pose for location {location_id}")
+
+        if not hasattr(self, "_inventory_service"):
+            response.success = False
+            response.message = "InventoryService is not initialized in RobotCoordinator."
+            logger.error(response.message)
+            return response
+
+        pose_info = await self._inventory_service.get_location_pose(location_id)
+
+        if pose_info:
+            response.success = True
+            response.pose = Pose2D(x=pose_info['x'], y=pose_info['y'], theta=pose_info['theta'])
+            response.message = "Pose found."
+        else:
+            response.success = False
+            response.message = f"Location with ID {location_id} not found."
             logger.warning(response.message)
         
         return response

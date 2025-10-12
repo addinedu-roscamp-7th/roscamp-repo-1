@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import and_
 
-from .database_models import Product, Section, Warehouse
+from .database_models import Product, Section, Warehouse, Location
 
 
 class InventoryService:
@@ -17,6 +17,26 @@ class InventoryService:
 
     def __init__(self, db):
         self._db = db
+
+    async def get_location_pose(self, location_id: int) -> Optional[Dict[str, float]]:
+        """
+        Location ID에 해당하는 좌표(Pose)를 조회합니다.
+
+        Args:
+            location_id: 조회할 위치의 ID
+
+        Returns:
+            좌표 정보를 담은 딕셔너리 또는 None
+        """
+        with self._db.session_scope() as session:
+            location = session.query(Location).filter(Location.location_id == location_id).first()
+            if location:
+                return {
+                    "x": location.location_x,
+                    "y": location.location_y,
+                    "theta": 0.0  # DB에 theta 정보가 없으므로 기본값 0.0 사용
+                }
+            return None
 
     async def search_products(self, filters: Dict[str, object]) -> Tuple[List[Dict[str, object]], int]:
         """

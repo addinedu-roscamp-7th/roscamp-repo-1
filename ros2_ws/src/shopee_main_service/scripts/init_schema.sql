@@ -93,8 +93,10 @@ CREATE TABLE shelf (
 CREATE TABLE section (
     section_id INT AUTO_INCREMENT PRIMARY KEY,
     shelf_id INT NOT NULL,
+    location_id INT NOT NULL,
     section_name VARCHAR(50) NOT NULL,
-    FOREIGN KEY (shelf_id) REFERENCES shelf(shelf_id)
+    FOREIGN KEY (shelf_id) REFERENCES shelf(shelf_id),
+    FOREIGN KEY (location_id) REFERENCES location(location_id)
 );
 
 -- ========================================

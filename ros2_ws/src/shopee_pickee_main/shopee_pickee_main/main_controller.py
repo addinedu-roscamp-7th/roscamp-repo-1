@@ -47,7 +47,8 @@ from shopee_interfaces.srv import (
     PickeeWorkflowReturnToBase,
     PickeeMainVideoStreamStart,
     PickeeMainVideoStreamStop,
-    MainGetProductLocation
+    MainGetProductLocation,
+    MainGetLocationPose
 )
 
 
@@ -313,6 +314,11 @@ class PickeeMainController(Node):
         self.get_product_location_client = self.create_client(
             MainGetProductLocation,
             '/main/get_product_location'
+        )
+
+        self.get_location_pose_client = self.create_client(
+            MainGetLocationPose,
+            '/main/get_location_pose'
         )
 
     # Mobile 관련 콜백 함수들
@@ -583,6 +589,25 @@ class PickeeMainController(Node):
             return None
         except Exception as e:
             self.get_logger().error(f'Get product location service call failed: {str(e)}')
+            return None
+
+    async def call_get_location_pose(self, location_id):
+        """Main Service에서 위치 Pose 조회"""
+        request = MainGetLocationPose.Request()
+        request.location_id = location_id
+        
+        if not self.get_location_pose_client.wait_for_service(timeout_sec=self.get_parameter('main_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Get location pose service not available')
+            return None
+        
+        try:
+            future = self.get_location_pose_client.call_async(request)
+            response = await future
+            if response.success:
+                return response.pose
+            return None
+        except Exception as e:
+            self.get_logger().error(f'Get location pose service call failed: {str(e)}')
             return None
 
     # Service Server 콜백 함수들

@@ -117,6 +117,7 @@ entity "section" as section {
   * section_id : int <<PK>>
   --
   shelf_id : int <<FK>>
+  location_id : int <<FK>>
   section_name : varchar(50)
 }
 
@@ -136,6 +137,7 @@ robot_history }o--|| order_item : "order_item_id"
 warehouse }o--|| location : "location_id"
 shelf }o--|| location : "location_id"
 section }o--|| shelf : "shelf_id"
+section }o--|| location : "location_id"
 
 ' ==========================
 '  Notes

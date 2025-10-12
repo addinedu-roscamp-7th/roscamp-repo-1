@@ -65,6 +65,9 @@ class MainServiceApp:
             port=6000  # UDP Port from spec
         ) # UDP 스트리밍 중계기
         self._robot = robot or RobotCoordinator()  # ROS2 노드 (로봇 통신)
+
+        # RobotCoordinator에 InventoryService 주입
+        self._robot.set_inventory_service(self._inventory_service)
         
         # 도메인 서비스 초기화
         self._user_service = UserService(self._db)

@@ -35,6 +35,15 @@ INSERT INTO location (location_x, location_y, aruco_marker) VALUES
 (20.0, 30.0, 102),  -- ID: 3 (선반2 위치)
 (25.0, 35.0, 103);  -- ID: 4 (선반3 위치)
 
+-- Section Locations
+INSERT INTO location (location_x, location_y, aruco_marker) VALUES
+(15.5, 25.0, 201), -- ID: 5 (사과 구역)
+(16.0, 25.0, 202), -- ID: 6 (바나나 구역)
+(20.5, 30.0, 203), -- ID: 7 (양상추 구역)
+(21.0, 30.0, 204), -- ID: 8 (토마토 구역)
+(25.5, 35.0, 205), -- ID: 9 (주스 구역)
+(26.0, 35.0, 206); -- ID: 10 (우유 구역)
+
 -- ========================================
 -- 5. Warehouse
 -- ========================================
@@ -52,13 +61,13 @@ INSERT INTO shelf (location_id, shelf_name) VALUES
 -- ========================================
 -- 7. Section
 -- ========================================
-INSERT INTO section (shelf_id, section_name) VALUES
-(1, '사과 구역'),     -- ID: 1
-(1, '바나나 구역'),   -- ID: 2
-(2, '양상추 구역'),   -- ID: 3
-(2, '토마토 구역'),   -- ID: 4
-(3, '주스 구역'),     -- ID: 5
-(3, '우유 구역');     -- ID: 6
+INSERT INTO section (shelf_id, location_id, section_name) VALUES
+(1, 5, '사과 구역'),     -- ID: 1
+(1, 6, '바나나 구역'),   -- ID: 2
+(2, 7, '양상추 구역'),   -- ID: 3
+(2, 8, '토마토 구역'),   -- ID: 4
+(3, 9, '주스 구역'),     -- ID: 5
+(3, 10, '우유 구역');    -- ID: 6
 
 -- ========================================
 -- 8. Product (테스트용 상품)

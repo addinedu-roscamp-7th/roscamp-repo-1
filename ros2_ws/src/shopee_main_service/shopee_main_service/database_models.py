@@ -79,9 +79,11 @@ class Section(Base):
     __tablename__ = 'section'
     section_id = Column(Integer, primary_key=True, autoincrement=True)
     shelf_id = Column(Integer, ForeignKey('shelf.shelf_id'), nullable=False)
+    location_id = Column(Integer, ForeignKey('location.location_id'), nullable=False)
     section_name = Column(String(50), nullable=False)
 
     shelf = relationship("Shelf")
+    location = relationship("Location")
 
 class Product(Base):
     __tablename__ = 'product'

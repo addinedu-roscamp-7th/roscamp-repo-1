@@ -46,6 +46,7 @@ set(msg_files
 
 set(srv_files
   "srv/MainGetProductLocation.srv"
+  "srv/MainGetLocationPose.srv"
   "srv/PackeeArmMoveToPose.srv"
   "srv/PackeeArmPickProduct.srv"
   "srv/PackeeArmPlaceProduct.srv"
