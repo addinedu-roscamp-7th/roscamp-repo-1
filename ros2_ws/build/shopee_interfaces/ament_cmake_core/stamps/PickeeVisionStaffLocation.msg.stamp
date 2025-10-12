@@ -1,4 +1,0 @@
-int32 robot_id
-shopee_interfaces/Point2D relative_position
-float32 distance
-bool is_tracking

@@ -1,4 +1,0 @@
-int32 product_id
-shopee_interfaces/BBox bbox
-float32 confidence
-shopee_interfaces/Point3D position

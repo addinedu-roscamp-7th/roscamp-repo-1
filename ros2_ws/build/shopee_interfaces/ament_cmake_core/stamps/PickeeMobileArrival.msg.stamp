@@ -1,7 +1,0 @@
-int32 robot_id
-int32 order_id
-int32 location_id
-shopee_interfaces/Pose2D final_pose
-float32 position_error
-float32 travel_time
-string message

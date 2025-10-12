@@ -1,6 +1,0 @@
-int32 robot_id
-int32 order_id
-int32 product_id
----
-bool accepted
-string message

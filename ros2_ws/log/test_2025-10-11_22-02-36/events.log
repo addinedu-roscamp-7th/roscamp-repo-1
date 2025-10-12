@@ -1,5 +1,0 @@
-[0.000000] (-) TimerEvent: {}
-[0.000384] (shopee_main_service) JobQueued: {'identifier': 'shopee_main_service', 'dependencies': OrderedDict({'shopee_interfaces': '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_interfaces', 'shopee_main_service': '/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service'})}
-[0.000419] (shopee_main_service) JobStarted: {'identifier': 'shopee_main_service'}
-[0.008502] (shopee_main_service) JobEnded: {'identifier': 'shopee_main_service', 'rc': 1}
-[0.008980] (-) EventReactorShutdown: {}

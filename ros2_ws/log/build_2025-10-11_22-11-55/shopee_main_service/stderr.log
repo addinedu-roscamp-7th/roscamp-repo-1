@@ -1,5 +1,0 @@
-  File "/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/order_service.py", line 36
-    )    from .database_manager import DatabaseManager
-         ^^^^
-SyntaxError: invalid syntax
-

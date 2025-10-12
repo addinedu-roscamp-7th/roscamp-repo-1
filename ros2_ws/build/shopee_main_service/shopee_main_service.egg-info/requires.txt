@@ -1,9 +1,0 @@
-PyMySQL
-SQLAlchemy
-aiohttp
-bcrypt
-httpx
-passlib
-pydantic-settings
-python-dotenv
-setuptools

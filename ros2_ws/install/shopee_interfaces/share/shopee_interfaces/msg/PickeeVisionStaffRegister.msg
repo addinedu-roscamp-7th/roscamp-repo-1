@@ -1,3 +1,0 @@
-int32 robot_id
-bool success
-string message
