@@ -1,5 +1,6 @@
 PyMySQL
 SQLAlchemy
+aiohttp
 bcrypt
 httpx
 passlib

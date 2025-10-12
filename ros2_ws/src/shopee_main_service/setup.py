@@ -19,6 +19,7 @@ setup(
         "passlib",
         "bcrypt",
         "httpx",
+        "aiohttp",
     ],
     zip_safe=True,
     author="Shopee Robotics",

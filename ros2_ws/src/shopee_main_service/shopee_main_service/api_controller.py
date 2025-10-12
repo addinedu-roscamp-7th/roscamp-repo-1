@@ -11,10 +11,20 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+
 from .event_bus import EventBus
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _ClientSession:
+    """TCP 클라이언트 연결 정보를 보관"""
+    writer: asyncio.StreamWriter
+    peer: Tuple[str, int]
+    lock: asyncio.Lock
 
 
 class APIController:
@@ -46,6 +56,7 @@ class APIController:
         self._handlers = handlers  # 외부에서 주입받은 핸들러 딕셔너리
         self._event_bus = event_bus
         self._server: Optional[asyncio.AbstractServer] = None
+        self._clients: Dict[asyncio.StreamWriter, _ClientSession] = {}
 
     async def start(self) -> None:
         """
@@ -81,6 +92,7 @@ class APIController:
         """
         peer = writer.get_extra_info("peername")
         logger.info("Accepted connection from %s", peer)
+        self._register_client(writer, peer)
         
         try:
             # 연결이 유지되는 동안 메시지 처리
@@ -92,10 +104,7 @@ class APIController:
                 
                 # 요청 처리 및 응답 생성
                 response = await self._dispatch(line.decode(), peer)
-                
-                # 응답 전송 (JSON + \n)
-                writer.write((json.dumps(response) + "\n").encode())
-                await writer.drain()
+                await self._send_to_client(writer, response)
                 
         except asyncio.CancelledError:
             raise  # 정상 종료
@@ -105,6 +114,7 @@ class APIController:
             # 연결 종료
             writer.close()
             await writer.wait_closed()
+            self._unregister_client(writer)
             logger.info("Closed connection from %s", peer)
 
     async def _dispatch(self, raw_payload: str, peer: Tuple[str, int]) -> Dict[str, Any]:
@@ -158,6 +168,48 @@ class APIController:
                 "message": "internal_error"
             }
 
+    def _register_client(self, writer: asyncio.StreamWriter, peer: Tuple[str, int]) -> None:
+        """새 TCP 클라이언트를 레지스트리에 등록"""
+        if writer in self._clients:
+            return
+        self._clients[writer] = _ClientSession(writer=writer, peer=peer, lock=asyncio.Lock())
+        logger.debug("Client registered: %s (total=%d)", peer, len(self._clients))
+
+    def _unregister_client(self, writer: asyncio.StreamWriter) -> None:
+        """TCP 클라이언트를 레지스트리에서 제거"""
+        session = self._clients.pop(writer, None)
+        if session:
+            logger.debug("Client unregistered: %s (total=%d)", session.peer, len(self._clients))
+
+    async def _send_to_client(self, writer: asyncio.StreamWriter, payload: Any) -> None:
+        """
+        클라이언트에게 메시지를 전송 (응답/푸시 공용)
+        - JSON 직렬화 및 개행 처리
+        - 동시 전송 시 Lock으로 순서 보장
+        """
+        session = self._clients.get(writer)
+        if not session:
+            return
+
+        if session.writer.is_closing():
+            self._unregister_client(writer)
+            return
+
+        if isinstance(payload, (bytes, bytearray)):
+            serialized = bytes(payload)
+        elif isinstance(payload, str):
+            serialized = (payload if payload.endswith("\n") else payload + "\n").encode()
+        else:
+            serialized = (json.dumps(payload) + "\n").encode()
+
+        try:
+            async with session.lock:
+                session.writer.write(serialized)
+                await session.writer.drain()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to send message to %s: %s", session.peer, exc)
+            self._unregister_client(writer)
+
     async def _handle_push_event(self, message: Dict[str, Any]) -> None:
         """
         푸시 알림 처리 (Placeholder)
@@ -165,10 +217,14 @@ class APIController:
         EventBus에서 발행한 "app_push" 이벤트를 받아
         연결된 클라이언트들에게 전송합니다.
         
-        TODO: 클라이언트 레지스트리 구현
+        TODO:
             - user_id별 연결 관리
             - 특정 사용자에게만 알림 전송
-            - 브로드캐스트 지원
         """
-        # TODO: maintain client registry and broadcast events.
-        logger.debug("Push event queued: %s", message)
+        if not self._clients:
+            logger.debug("No clients to push message: %s", message)
+            return
+
+        logger.debug("Broadcasting push event to %d clients: %s", len(self._clients), message)
+        for writer in list(self._clients.keys()):
+            await self._send_to_client(writer, message)

@@ -8,6 +8,7 @@ Pickee/Packee 로봇들과의 ROS2 통신을 담당합니다.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Callable, Dict, Optional
 
@@ -32,6 +33,9 @@ from shopee_interfaces.srv import (
     PickeeProductDetect,
     PickeeProductProcessSelection,
     PickeeWorkflowEndShopping,
+    PickeeWorkflowMoveToSection,
+    PickeeWorkflowMoveToPackaging,
+    PickeeWorkflowReturnToBase,
     PickeeWorkflowStartTask,
     MainGetProductLocation,
     PickeeMainVideoStreamStart,
@@ -98,6 +102,12 @@ class RobotCoordinator(Node):
         # Pickee: 작업 시작 명령
         self._pickee_start_cli = self.create_client(PickeeWorkflowStartTask, "/pickee/workflow/start_task")
         # Pickee: 상품 인식 명령
+        # Pickee: 섹션 이동 명령
+        self._pickee_move_section_cli = self.create_client(PickeeWorkflowMoveToSection, "/pickee/workflow/move_to_section")
+        # Pickee: 포장대로 이동 명령
+        self._pickee_move_packaging_cli = self.create_client(PickeeWorkflowMoveToPackaging, "/pickee/workflow/move_to_packaging")
+        # Pickee: 복귀 명령
+        self._pickee_return_base_cli = self.create_client(PickeeWorkflowReturnToBase, "/pickee/workflow/return_to_base")
         self._pickee_product_detect_cli = self.create_client(PickeeProductDetect, "/pickee/product/detect")
         # Pickee: 상품 선택 처리
         self._pickee_process_cli = self.create_client(PickeeProductProcessSelection, "/pickee/product/process_selection")
@@ -181,6 +191,27 @@ class RobotCoordinator(Node):
         """
         logger.info("Dispatching product detect: %s", request)
         return await self._call_service(self._pickee_product_detect_cli, request)
+
+    async def dispatch_move_to_section(
+        self, request: PickeeWorkflowMoveToSection.Request
+    ) -> PickeeWorkflowMoveToSection.Response:
+        """Pickee에게 섹션 이동 명령"""
+        logger.info("Dispatching move to section: %s", request)
+        return await self._call_service(self._pickee_move_section_cli, request)
+
+    async def dispatch_move_to_packaging(
+        self, request: PickeeWorkflowMoveToPackaging.Request
+    ) -> PickeeWorkflowMoveToPackaging.Response:
+        """Pickee에게 포장대로 이동 명령"""
+        logger.info("Dispatching move to packaging: %s", request)
+        return await self._call_service(self._pickee_move_packaging_cli, request)
+
+    async def dispatch_return_to_base(
+        self, request: PickeeWorkflowReturnToBase.Request
+    ) -> PickeeWorkflowReturnToBase.Response:
+        """Pickee에게 복귀 명령"""
+        logger.info("Dispatching return to base: %s", request)
+        return await self._call_service(self._pickee_return_base_cli, request)
 
     async def dispatch_video_stream_start(
         self, request: PickeeMainVideoStreamStart.Request
@@ -323,46 +354,78 @@ class RobotCoordinator(Node):
         """Pickee 상태 토픽 콜백"""
         self._ros_cache["pickee_status"] = msg
         if self._pickee_status_cb:
-            self._pickee_status_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_status_cb):
+                asyncio.create_task(self._pickee_status_cb(msg))
+            else:
+                self._pickee_status_cb(msg)
 
     def _on_pickee_move(self, msg: PickeeMoveStatus) -> None:
         """Pickee 이동 상태 토픽 콜백"""
         self._ros_cache["pickee_move"] = msg
         if self._pickee_move_cb:
-            self._pickee_move_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_move_cb):
+                asyncio.create_task(self._pickee_move_cb(msg))
+            else:
+                self._pickee_move_cb(msg)
 
     def _on_pickee_arrival(self, msg: PickeeArrival) -> None:
         """Pickee 도착 토픽 콜백"""
         self._ros_cache["pickee_arrival"] = msg
         if self._pickee_arrival_cb:
-            self._pickee_arrival_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_arrival_cb):
+                asyncio.create_task(self._pickee_arrival_cb(msg))
+            else:
+                self._pickee_arrival_cb(msg)
 
     def _on_pickee_handover(self, msg: PickeeCartHandover) -> None:
         """Pickee 장바구니 전달 완료 토픽 콜백"""
         self._ros_cache["pickee_handover"] = msg
         if self._pickee_handover_cb:
-            self._pickee_handover_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_handover_cb):
+                asyncio.create_task(self._pickee_handover_cb(msg))
+            else:
+                self._pickee_handover_cb(msg)
 
     def _on_product_detected(self, msg: PickeeProductDetection) -> None:
         """Pickee 상품 인식 완료 토픽 콜백"""
         self._ros_cache["product_detected"] = msg
         if self._pickee_product_detected_cb:
-            self._pickee_product_detected_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_product_detected_cb):
+                asyncio.create_task(self._pickee_product_detected_cb(msg))
+            else:
+                self._pickee_product_detected_cb(msg)
 
     def _on_pickee_selection(self, msg: PickeeProductSelection) -> None:
         """Pickee 상품 선택 토픽 콜백"""
         self._ros_cache["pickee_selection"] = msg
         if self._pickee_selection_cb:
-            self._pickee_selection_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_selection_cb):
+                asyncio.create_task(self._pickee_selection_cb(msg))
+            else:
+                self._pickee_selection_cb(msg)
 
     def _on_packee_status(self, msg: PackeeRobotStatus) -> None:
         """Packee 상태 토픽 콜백"""
         self._ros_cache["packee_status"] = msg
         if self._packee_status_cb:
-            self._packee_status_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._packee_status_cb):
+                asyncio.create_task(self._packee_status_cb(msg))
+            else:
+                self._packee_status_cb(msg)
 
     def _on_packee_complete(self, msg: PackeePackingComplete) -> None:
         """Packee 포장 완료 토픽 콜백"""
         self._ros_cache["packee_complete"] = msg
         if self._packee_complete_cb:
-            self._packee_complete_cb(msg)
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._packee_complete_cb):
+                asyncio.create_task(self._packee_complete_cb(msg))
+            else:
+                self._packee_complete_cb(msg)

@@ -5,7 +5,7 @@ Unit tests for the OrderService.
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch, ANY
 
-from shopee_interfaces.msg import PickeeArrival, PickeeCartHandover
+from shopee_interfaces.msg import PickeeArrival, PickeeCartHandover, PickeeMoveStatus
 from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
 
 from shopee_main_service.database_models import Customer, Order, OrderItem, Product, Section, Shelf, Location
@@ -145,6 +145,36 @@ class TestOrderServiceCreateOrder:
         mock_session.commit.assert_not_called()
 
 
+class TestHandleMovingStatus:
+    """Test suite for the OrderService.handle_moving_status method."""
+
+    async def test_emits_work_info_notification(
+        self,
+        order_service: OrderService,
+        mock_event_bus: AsyncMock,
+    ) -> None:
+        """Robot moving 이벤트 시 관리자 알림이 발행되는지 확인."""
+        move_msg = PickeeMoveStatus(robot_id=2, order_id=77, destination="SECTION_B1")
+
+        with patch.object(order_service, "_emit_work_info_notification", new=AsyncMock()) as mock_emit:
+            await order_service.handle_moving_status(move_msg)
+
+        mock_event_bus.publish.assert_any_call(
+            "app_push",
+            {
+                "type": "robot_moving_notification",
+                "result": True,
+                "error_code": None,
+                "data": {
+                    "order_id": 77,
+                    "robot_id": 2,
+                    "destination": "SECTION_B1",
+                },
+                "message": ANY,
+            },
+        )
+        mock_emit.assert_awaited_once_with(order_id=77, robot_id=2, destination="SECTION_B1")
+
 class TestHandleArrivalNotice:
     """Test suite for the OrderService.handle_arrival_notice method."""
 
@@ -161,16 +191,19 @@ class TestHandleArrivalNotice:
 
         # Assert
         # 1. Check that app notification was published
-        mock_event_bus.publish.assert_awaited_once_with(
+        mock_event_bus.publish.assert_any_call(
             "app_push",
             {
                 "type": "robot_arrived_notification",
+                "result": True,
+                "error_code": None,
                 "data": {
                     "order_id": 99,
                     "robot_id": 1,
                     "location_id": 5,
                     "section_id": 10,
                 },
+                "message": ANY,
             },
         )
         
@@ -184,7 +217,7 @@ class TestHandleArrivalNotice:
 class TestHandleCartHandover:
     """Test suite for the OrderService.handle_cart_handover method."""
 
-    async def test_dispatches_packing_when_packee_available(self, order_service: OrderService, mock_robot_coordinator: AsyncMock):
+    async def test_dispatches_packing_when_packee_available(self, order_service: OrderService, mock_robot_coordinator: AsyncMock, mock_event_bus: AsyncMock):
         """Verify that packing is dispatched if a Packee robot is available."""
         # Arrange
         mock_robot_coordinator.check_packee_availability.return_value = MagicMock(available=True, robot_id=5)
@@ -198,11 +231,22 @@ class TestHandleCartHandover:
         # Assert
         mock_robot_coordinator.check_packee_availability.assert_awaited_once()
         mock_robot_coordinator.dispatch_pack_task.assert_awaited_once()
+        mock_robot_coordinator.dispatch_return_to_base.assert_awaited_once()
+        mock_event_bus.publish.assert_any_call(
+            "app_push",
+            {
+                "type": "packing_info_notification",
+                "result": True,
+                "error_code": None,
+                "data": ANY,
+                "message": "포장 정보 업데이트",
+            },
+        )
         call_args = mock_robot_coordinator.dispatch_pack_task.await_args[0][0]
         assert call_args.robot_id == 5
         assert call_args.order_id == 99
 
-    async def test_does_not_dispatch_when_packee_unavailable(self, order_service: OrderService, mock_robot_coordinator: AsyncMock):
+    async def test_does_not_dispatch_when_packee_unavailable(self, order_service: OrderService, mock_robot_coordinator: AsyncMock, mock_event_bus: AsyncMock):
         """Verify that packing is not dispatched if no Packee robot is available."""
         # Arrange
         mock_robot_coordinator.check_packee_availability.return_value = MagicMock(available=False, message="All busy")
@@ -215,3 +259,4 @@ class TestHandleCartHandover:
         # Assert
         mock_robot_coordinator.check_packee_availability.assert_awaited_once()
         mock_robot_coordinator.dispatch_pack_task.assert_not_awaited()
+        mock_event_bus.publish.assert_not_called()

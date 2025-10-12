@@ -1,5 +1,6 @@
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/exceptions.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/event_bus.py
+/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/inventory_service.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/main_service_node.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/config.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/order_service.py
@@ -10,6 +11,7 @@
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/constants.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/llm_client.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/robot_coordinator.py
+/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/robot_history_service.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__init__.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/database_manager.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/models.py
@@ -17,6 +19,7 @@
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/database_models.py
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/exceptions.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/event_bus.cpython-312.pyc
+/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/inventory_service.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/main_service_node.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/config.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/order_service.cpython-312.pyc
@@ -27,6 +30,7 @@
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/constants.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/llm_client.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/robot_coordinator.cpython-312.pyc
+/home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/robot_history_service.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/__init__.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/database_manager.cpython-312.pyc
 /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/install/shopee_main_service/lib/python3.12/site-packages/shopee_main_service/__pycache__/models.cpython-312.pyc

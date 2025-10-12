@@ -74,3 +74,29 @@ class LLMClient:
         except Exception as e:
             logger.exception("An unexpected error occurred in LLMClient: %s", e)
             return None
+
+    async def detect_intent(self, text: str) -> Optional[Dict[str, Any]]:
+        """자연어 문장의 의도와 엔티티를 추출한다."""
+        endpoint = f"{self._base_url}/llm_service/intent_detection"
+        payload = {"text": text}
+
+        logger.debug("LLM intent_detection request to %s with text='%s'", endpoint, text)
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(endpoint, json=payload, timeout=self._timeout)
+                response.raise_for_status()
+                data = response.json()
+                if not data.get("intent"):
+                    logger.warning("LLM intent response missing 'intent': %s", data)
+                    return None
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error("LLM service returned error status %d: %s", e.response.status_code, e.response.text)
+            return None
+        except httpx.RequestError as e:
+            logger.error("Failed to connect to LLM service at %s: %s", e.request.url, e)
+            return None
+        except Exception as e:  # noqa: BLE001
+            logger.exception("An unexpected error occurred in LLMClient.detect_intent: %s", e)
+            return None

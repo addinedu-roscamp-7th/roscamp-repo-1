@@ -54,6 +54,8 @@ class ProductService:
             keyword = f"%{query}%"
             with self._db.session_scope() as session:
                 products = session.query(Product).filter(Product.name.like(keyword)).all()
+                # 세션 안에서 딕셔너리로 변환 (DetachedInstanceError 방지)
+                return [self._product_to_dict(p) for p in products]
         else:
             # 3. LLM이 생성한 WHERE 절을 사용하여 안전하게 쿼리 실행
             # SQLAlchemy의 text()를 사용하여 SQL Injection 방지
@@ -61,9 +63,8 @@ class ProductService:
             full_query = text(f"SELECT * FROM product WHERE {where_clause}")
             with self._db.session_scope() as session:
                 products = session.query(Product).from_statement(full_query).all()
-
-        # 4. 조회 결과를 API 응답 형식(딕셔너리)으로 변환
-        return [self._product_to_dict(p) for p in products]
+                # 세션 안에서 딕셔너리로 변환 (DetachedInstanceError 방지)
+                return [self._product_to_dict(p) for p in products]
 
     def _product_to_dict(self, product: Product) -> Dict[str, Any]:
         """Product 객체를 딕셔너리로 변환"""

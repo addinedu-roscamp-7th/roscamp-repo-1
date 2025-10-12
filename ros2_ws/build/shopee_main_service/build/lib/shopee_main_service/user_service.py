@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from passlib.context import CryptContext
 
-from .database_models import Customer
+from .database_models import Admin, AllergyInfo, Customer
 
 if TYPE_CHECKING:
     from .database_manager import DatabaseManager
@@ -32,24 +32,41 @@ class UserService:
 
     async def login(self, user_id: str, password: str) -> bool:
         """
-        사용자 로그인 검증
-        
+        사용자 로그인 검증 (admin 또는 customer)
+
         Args:
-            user_id: 로그인 ID (customer.id 컬럼, 문자열)
+            user_id: 로그인 ID (admin.id 또는 customer.id 컬럼, 문자열)
             password: 비밀번호 (평문)
-            
+
         Returns:
             bool: 로그인 성공 여부
         """
         with self._db.session_scope() as session:
-            # 데이터베이스에서 사용자 ID로 고객 정보 조회
+            # 먼저 admin 테이블에서 검색
+            admin = session.query(Admin).filter_by(id=user_id).first()
+            if admin:
+                # admin은 비밀번호가 평문으로 저장되어 있을 수 있음 (테스트용)
+                # bcrypt 해시 확인을 시도하고, 실패하면 평문 비교
+                try:
+                    if pwd_context.verify(password, admin.password):
+                        return True
+                except Exception:
+                    # 해시가 아닌 평문일 경우
+                    if admin.password == password:
+                        return True
+
+            # admin이 아니면 customer 테이블에서 검색
             customer = session.query(Customer).filter_by(id=user_id).first()
-            
-            # 고객 정보가 존재하고, 입력된 비밀번호가 저장된 해시와 일치하는지 확인
-            if customer and pwd_context.verify(password, customer.password):
-                # TODO: 로그인 성공 시, 사용자 세션 또는 토큰 생성 로직 추가
-                return True
-        
+            if customer:
+                # 고객 정보가 존재하고, 입력된 비밀번호가 저장된 해시와 일치하는지 확인
+                try:
+                    if pwd_context.verify(password, customer.password):
+                        return True
+                except Exception:
+                    # 해시가 아닌 평문일 경우
+                    if customer.password == password:
+                        return True
+
         return False
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:

@@ -53,6 +53,12 @@ class MainServiceConfig(BaseSettings):
     ROS_SPIN_TIMEOUT: float = 0.1
     ROS_SERVICE_TIMEOUT: float = 1.0
     
+    PICKEE_PACKING_LOCATION_ID: int = 0
+    PICKEE_HOME_LOCATION_ID: int = 0
+    DESTINATION_PACKING_NAME: str = "PACKING_AREA_A"
+    DESTINATION_DELIVERY_NAME: str = "DELIVERY"
+    DESTINATION_RETURN_NAME: str = "RETURN"
+
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Optional[str] = None

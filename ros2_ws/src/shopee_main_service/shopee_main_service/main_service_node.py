@@ -24,6 +24,8 @@ from .order_service import OrderService
 from .product_service import ProductService
 from .robot_coordinator import RobotCoordinator
 from .user_service import UserService
+from .inventory_service import InventoryService
+from .robot_history_service import RobotHistoryService
 
 logger = logging.getLogger("shopee_main_service")
 
@@ -37,7 +39,16 @@ class MainServiceApp:
     - 데이터베이스, LLM, EventBus 등 내부 서비스
     """
 
-    def __init__(self, db=None, llm=None, robot=None, event_bus=None, streaming_service=None) -> None:
+    def __init__(
+        self,
+        db=None,
+        llm=None,
+        robot=None,
+        event_bus=None,
+        streaming_service=None,
+        inventory_service=None,
+        robot_history_service=None,
+    ) -> None:
         """
         Args:
             config: Main Service 설정
@@ -59,6 +70,8 @@ class MainServiceApp:
         self._user_service = UserService(self._db)
         self._product_service = ProductService(self._db, self._llm)
         self._order_service = OrderService(self._db, self._robot, self._event_bus)
+        self._inventory_service = inventory_service or InventoryService(self._db)
+        self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
 
         # RobotCoordinator에 ProductService 주입 (의존성 해결)
         self._robot.set_product_service(self._product_service)
@@ -150,6 +163,7 @@ class MainServiceApp:
             return {
                 "type": "product_search_response",
                 "result": True,
+                "error_code": None,
                 "data": {"products": products},
                 "message": "ok",
             }
@@ -174,6 +188,7 @@ class MainServiceApp:
                 return {
                     "type": "order_create_response",
                     "result": True,
+                    "error_code": None,
                     "data": {"order_id": order_id, "robot_id": robot_id},
                     "message": "Order successfully created",
                 }
@@ -230,14 +245,17 @@ class MainServiceApp:
                     "error_code": "SYS_001",
                 }
 
-            success = await self._order_service.end_shopping(order_id, robot_id)
+            success, summary = await self._order_service.end_shopping(order_id, robot_id)
 
-            # TODO: 응답 데이터에 total_items, total_price 추가
+            data_payload = {"order_id": order_id}
+            if summary:
+                data_payload.update(summary)
+
             return {
                 "type": "shopping_end_response",
                 "result": success,
-                "data": {"order_id": order_id},
-                "message": "Shopping ended successfully" if success else "Failed to end shopping",
+                "data": data_payload,
+                "message": "쇼핑이 종료되었습니다" if success else "Failed to end shopping",
                 "error_code": None if success else "ROBOT_002",
             }
 
@@ -260,9 +278,14 @@ class MainServiceApp:
             res = await self._robot.dispatch_video_stream_start(req)
 
             success = res.success
+            if not success:
+                # 로봇이 실패한 경우 릴레이도 초기화
+                self._streaming_service.stop_relay()
             return {
                 "type": "video_stream_start_response",
                 "result": success,
+                "error_code": None if success else "SYS_001",
+                "data": {},
                 "message": res.message if success else "Failed to start stream",
             }
 
@@ -285,8 +308,188 @@ class MainServiceApp:
             return {
                 "type": "video_stream_stop_response",
                 "result": success,
+                "error_code": None if success else "SYS_001",
+                "data": {},
                 "message": res.message if success else "Failed to stop stream",
             }
+
+        async def handle_inventory_search(data, peer=None):
+            """재고 검색 처리"""
+            filters = data or {}
+            try:
+                products, total_count = await self._inventory_service.search_products(filters)
+                return {
+                    "type": "inventory_search_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {"products": products, "total_count": total_count},
+                    "message": "Search completed",
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Inventory search failed: %s", exc)
+                return {
+                    "type": "inventory_search_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {"products": [], "total_count": 0},
+                    "message": "Failed to search inventory",
+                }
+
+        async def handle_voice_command(data, peer=None):
+            """음성 명령 텍스트를 LLM으로 분석"""
+            text_value = (data or {}).get("text")
+            if not text_value:
+                return {
+                    "type": "voice_command_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "text is required",
+                }
+            intent_data = await self._llm.detect_intent(text_value)
+            if not intent_data:
+                return {
+                    "type": "voice_command_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to analyze intent",
+                }
+            return {
+                "type": "voice_command_response",
+                "result": True,
+                "error_code": None,
+                "data": intent_data,
+                "message": "ok",
+            }
+
+        async def handle_inventory_create(data, peer=None):
+            """재고 추가 처리"""
+            payload = data or {}
+            try:
+                await self._inventory_service.create_product(payload)
+                return {
+                    "type": "inventory_create_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {},
+                    "message": "재고 정보를 추가하였습니다.",
+                }
+            except ValueError as exc:
+                return {
+                    "type": "inventory_create_response",
+                    "result": False,
+                    "error_code": "PROD_003",
+                    "data": {},
+                    "message": str(exc),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Inventory create failed: %s", exc)
+                return {
+                    "type": "inventory_create_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to create inventory",
+                }
+
+        async def handle_inventory_update(data, peer=None):
+            """재고 수정 처리"""
+            payload = data or {}
+            try:
+                updated = await self._inventory_service.update_product(payload)
+                if not updated:
+                    return {
+                        "type": "inventory_update_response",
+                        "result": False,
+                        "error_code": "PROD_001",
+                        "data": {},
+                        "message": "Product not found.",
+                    }
+                return {
+                    "type": "inventory_update_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {},
+                    "message": "재고 정보를 수정하였습니다.",
+                }
+            except ValueError as exc:
+                return {
+                    "type": "inventory_update_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": str(exc),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Inventory update failed: %s", exc)
+                return {
+                    "type": "inventory_update_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to update inventory",
+                }
+
+        async def handle_inventory_delete(data, peer=None):
+            """재고 삭제 처리"""
+            product_id = data.get("product_id")
+            if product_id is None:
+                return {
+                    "type": "inventory_delete_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "product_id is required.",
+                }
+            try:
+                deleted = await self._inventory_service.delete_product(product_id)
+                if not deleted:
+                    return {
+                        "type": "inventory_delete_response",
+                        "result": False,
+                        "error_code": "PROD_001",
+                        "data": {},
+                        "message": "Product not found.",
+                    }
+                return {
+                    "type": "inventory_delete_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {},
+                    "message": "재고 정보를 삭제하였습니다.",
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Inventory delete failed: %s", exc)
+                return {
+                    "type": "inventory_delete_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to delete inventory",
+                }
+
+        async def handle_robot_history_search(data, peer=None):
+            """로봇 작업 이력 검색"""
+            filters = data or {}
+            try:
+                histories, total_count = await self._robot_history_service.search_histories(filters)
+                return {
+                    "type": "robot_history_search_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {"histories": histories, "total_count": total_count},
+                    "message": "Search completed",
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Robot history search failed: %s", exc)
+                return {
+                    "type": "robot_history_search_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {"histories": [], "total_count": 0},
+                    "message": "Failed to search robot histories",
+                }
 
         # 핸들러 등록: 메시지 타입 → 처리 함수 매핑
         self._handlers.update(
@@ -298,6 +501,12 @@ class MainServiceApp:
                 "shopping_end": handle_shopping_end,
                 "video_stream_start": handle_video_stream_start,
                 "video_stream_stop": handle_video_stream_stop,
+                "inventory_search": handle_inventory_search,
+                "inventory_create": handle_inventory_create,
+                "inventory_update": handle_inventory_update,
+                "inventory_delete": handle_inventory_delete,
+                "robot_history_search": handle_robot_history_search,
+                "voice_command": handle_voice_command,
             }
         )
 
