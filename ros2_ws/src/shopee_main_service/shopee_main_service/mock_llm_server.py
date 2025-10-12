@@ -118,7 +118,7 @@ class MockLLMServer:
         web.run_app(self.app, host=self.host, port=self.port)
 
 
-if __name__ == "__main__":
+def main():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -130,8 +130,8 @@ if __name__ == "__main__":
 ╚══════════════════════════════════════════════════════════╝
 
 Endpoints:
-  POST http://localhost:8000/search_query
-  POST http://localhost:8000/detect_intent
+  POST http://localhost:8000/llm_service/search_query
+  POST http://localhost:8000/llm_service/intent_detection
 
 Press Ctrl+C to stop
 """)
@@ -141,3 +141,6 @@ Press Ctrl+C to stop
         server.run()
     except KeyboardInterrupt:
         print("\nMock LLM Server stopped")
+
+if __name__ == "__main__":
+    main()

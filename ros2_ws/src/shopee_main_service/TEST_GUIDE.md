@@ -51,16 +51,29 @@ ros2 run shopee_main_service main_service_node
 
 **터미널 4 - Test Client 실행:**
 
-전체 워크플로우 테스트:
+전체 워크플로우 테스트 (자동):
 ```bash
 cd src/shopee_main_service
 python3 scripts/test_client.py
 ```
 
-재고 관리 테스트:
+전체 워크플로우 테스트 (수동 - 단계별):
+```bash
+python3 scripts/test_client.py -i
+```
+
+재고 관리 테스트 (자동):
 ```bash
 python3 scripts/test_client.py inventory
 ```
+
+재고 관리 테스트 (수동 - 단계별):
+```bash
+python3 scripts/test_client.py inventory -i
+```
+
+**옵션:**
+- `-i`, `--interactive`: 인터랙티브 모드 - 각 단계마다 Enter를 눌러야 진행
 
 ## 🔍 상세 가이드
 
@@ -101,6 +114,13 @@ LLM API를 시뮬레이션하는 HTTP 서버입니다.
 
 Main Service의 TCP API를 테스트하는 클라이언트입니다.
 
+**실행 모드:**
+
+- **자동 모드**: 모든 테스트 단계를 자동으로 순차 실행
+- **인터랙티브 모드** (`-i` 옵션): 각 단계마다 Enter를 눌러야 진행
+  - 각 단계를 천천히 확인하면서 테스트 가능
+  - 로봇/서비스 상태를 확인하기 좋음
+
 **테스트 시나리오:**
 
 1. **전체 워크플로우** (기본):
@@ -132,7 +152,16 @@ Main Service의 TCP API를 테스트하는 클라이언트입니다.
 [INFO] [mock_robot_node]: [MOCK] Detected 2 products
 ```
 
-### Test Client
+### Main Service (로그)
+```
+INFO:shopee_main_service.api_controller:→ Received [user_login] from ('127.0.0.1', 54321): {"user_id": "admin", "password": "admin123"}
+INFO:shopee_main_service.api_controller:← Sending [user_login_response] result=True (15.3ms): Login successful
+
+INFO:shopee_main_service.api_controller:→ Received [order_create] from ('127.0.0.1', 54321): {"user_id": "admin", "cart_items": [{"product_id": 1, "quantity": 2}]}
+INFO:shopee_main_service.api_controller:← Sending [order_create_response] result=True (8.7ms): Order successfully created
+```
+
+### Test Client (자동 모드)
 ```
 → Sent: user_login
   Data: {"user_id": "admin", "password": "admin123"}
@@ -148,6 +177,22 @@ Main Service의 TCP API를 테스트하는 클라이언트입니다.
     "order_id": 1,
     "robot_id": 1
   }
+```
+
+### Test Client (인터랙티브 모드)
+```
+[1] Testing Login...
+→ Press Enter to continue... [사용자가 Enter 입력]
+
+→ Sent: user_login
+  Data: {"user_id": "admin", "password": "admin123"}
+← Received: user_login_response
+  Result: True
+  Message: Login successful
+
+[2] Testing Product Search...
+→ Press Enter to continue... [사용자가 Enter 입력]
+...
 ```
 
 ## 🛠️ 트러블슈팅

@@ -158,13 +158,13 @@ class MainServiceApp:
         async def handle_product_search(data, peer=None):
             """상품 검색 처리 (LLM 연동)"""
             query = data.get("query", "")
-            products = await self._product_service.search_products(query)
-            
+            result = await self._product_service.search_products(query)
+
             return {
                 "type": "product_search_response",
                 "result": True,
                 "error_code": None,
-                "data": {"products": products},
+                "data": result,  # {"products": [...], "total_count": N}
                 "message": "ok",
             }
 

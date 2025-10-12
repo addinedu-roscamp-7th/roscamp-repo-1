@@ -129,6 +129,9 @@ __pycache__/
 *.dylib
 *.dll
 
+# Python egg-info directories
+*.egg-info/
+
 # Colcon
 colcon_ws/
 colcon_install/

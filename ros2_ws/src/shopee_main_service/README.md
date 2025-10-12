@@ -63,17 +63,20 @@ ROS2 패키지로 구현된 Shopee 중앙 백엔드 서비스입니다. App, 로
 
 ## 테스트 방법
 
-1.  워크스페이스 환경 설정 파일을 소싱(source)합니다.
-    ```bash
-    cd /home/jinhyuk2me/dev_ws/Shopee/ros2_ws
-    source install/setup.bash
-    ```
+`shopee_main_service`는 단위 테스트와 Mock 컴포넌트를 활용한 통합 테스트를 모두 지원합니다.
 
-2.  `pytest`를 실행합니다. `shopee_main_service` 패키지 디렉토리에서 실행하거나, 워크스페이스 루트에서 전체 테스트를 실행할 수 있습니다.
-    ```bash
-    # shopee_main_service 패키지 디렉토리에서 실행
-    cd src/shopee_main_service
-    pytest
-    ```
+### 단위 테스트 (Unit Tests)
 
-현재 총 14개의 단위 테스트가 구현되어 있으며, 모든 테스트가 통과하는 것을 확인했습니다.
+핵심 로직의 개별 단위를 테스트합니다. `pytest`를 사용하여 실행할 수 있습니다.
+
+```bash
+# shopee_main_service 패키지 디렉토리에서 실행
+cd /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/shopee_main_service
+pytest
+```
+
+### 통합 테스트 (Integration Tests)
+
+실제 로봇이나 외부 서비스 없이 `main_service`의 전체 워크플로우를 테스트할 수 있는 가장 효과적인 방법입니다. Mock 컴포넌트(`Mock Robot`, `Mock LLM`)를 사용하여 실제 운영 환경과 유사한 시나리오를 시뮬레이션합니다.
+
+**자세한 실행 방법은 `TEST_GUIDE.md` 파일을 참고하세요.** 이 가이드에는 Mock 컴포넌트 실행, 테스트 클라이언트 사용법, 문제 해결 팁이 상세히 설명되어 있습니다.

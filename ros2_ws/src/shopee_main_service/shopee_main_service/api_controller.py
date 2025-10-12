@@ -137,6 +137,7 @@ class APIController:
         try:
             payload = json.loads(raw_payload)
         except json.JSONDecodeError:
+            logger.warning("Invalid JSON from %s: %s", peer, raw_payload[:100])
             return {
                 "type": "error",
                 "result": False,
@@ -146,9 +147,15 @@ class APIController:
 
         # 메시지 타입 확인
         msg_type = payload.get("type")
+        data = payload.get("data") or {}
+        
+        # 요청 로그
+        logger.info("→ Received [%s] from %s: %s", msg_type, peer, json.dumps(data, ensure_ascii=False)[:200])
+        
         handler = self._handlers.get(msg_type)
         
         if not handler:
+            logger.warning("Unsupported message type: %s", msg_type)
             return {
                 "type": msg_type or "unknown",
                 "result": False,
@@ -158,7 +165,19 @@ class APIController:
 
         # 핸들러 실행
         try:
-            return await handler(payload.get("data") or {}, peer)
+            import time
+            start_time = time.perf_counter()
+            response = await handler(data, peer)
+            elapsed = (time.perf_counter() - start_time) * 1000  # ms
+            
+            # 응답 로그
+            logger.info("← Sending [%s] result=%s (%.1fms): %s", 
+                       response.get('type', 'unknown'),
+                       response.get('result', False),
+                       elapsed,
+                       response.get('message', ''))
+            
+            return response
         except Exception:  # noqa: BLE001
             logger.exception("Handler failure for %s", msg_type)
             return {

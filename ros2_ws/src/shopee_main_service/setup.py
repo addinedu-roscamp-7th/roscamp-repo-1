@@ -20,6 +20,7 @@ setup(
         "bcrypt",
         "httpx",
         "aiohttp",
+        "cryptography",
     ],
     zip_safe=True,
     author="Shopee Robotics",
@@ -32,6 +33,8 @@ setup(
     entry_points={
         "console_scripts": [
             "main_service_node = shopee_main_service.main_service_node:main",
+            "mock_llm_server = shopee_main_service.mock_llm_server:main",
+            "mock_robot_node = shopee_main_service.mock_robot_node:main",
         ],
     },
 )

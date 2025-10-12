@@ -32,16 +32,16 @@ class ProductService:
         self._db = db
         self._llm = llm_client
 
-    async def search_products(self, query: str, filters: Optional[dict] = None) -> List[dict]:
+    async def search_products(self, query: str, filters: Optional[dict] = None) -> Dict[str, Any]:
         """
         상품 검색 (LLM 연동)
-        
+
         Args:
             query: 자연어 검색어 (예: "비건 사과")
             filters: 추가 필터 (현재 미사용)
-            
+
         Returns:
-            list[dict]: 상품 정보 딕셔너리 목록
+            dict: {"products": list[dict], "total_count": int}
         """
         # 1. LLM을 통해 검색 조건 생성
         # 예: "name LIKE '%사과%' AND is_vegan_friendly = true"
@@ -55,7 +55,11 @@ class ProductService:
             with self._db.session_scope() as session:
                 products = session.query(Product).filter(Product.name.like(keyword)).all()
                 # 세션 안에서 딕셔너리로 변환 (DetachedInstanceError 방지)
-                return [self._product_to_dict(p) for p in products]
+                product_list = [self._product_to_dict(p) for p in products]
+                return {
+                    "products": product_list,
+                    "total_count": len(product_list)
+                }
         else:
             # 3. LLM이 생성한 WHERE 절을 사용하여 안전하게 쿼리 실행
             # SQLAlchemy의 text()를 사용하여 SQL Injection 방지
@@ -64,7 +68,11 @@ class ProductService:
             with self._db.session_scope() as session:
                 products = session.query(Product).from_statement(full_query).all()
                 # 세션 안에서 딕셔너리로 변환 (DetachedInstanceError 방지)
-                return [self._product_to_dict(p) for p in products]
+                product_list = [self._product_to_dict(p) for p in products]
+                return {
+                    "products": product_list,
+                    "total_count": len(product_list)
+                }
 
     def _product_to_dict(self, product: Product) -> Dict[str, Any]:
         """Product 객체를 딕셔너리로 변환"""
