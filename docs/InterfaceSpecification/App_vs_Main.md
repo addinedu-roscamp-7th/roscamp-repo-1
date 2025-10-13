@@ -1,18 +1,22 @@
-공통 규약
+App = Shopee Mobile Application
 
-사용 포트
+Main = Shopee Main Service
 
-TCP:5000
+## 공통 규약
 
-요청 포맷
+### 사용 포트
+- **TCP: 5000**
 
+### 요청 포맷
+```json
 {
   "type": "message_type",
   "data": { }
 }
+```
 
-응답 포맷
-
+### 응답 포맷
+```json
 {
   "type": "message_type",
   "result": true/false,
@@ -20,41 +24,25 @@ TCP:5000
   "data": { },
   "message": "string"
 }
+```
 
-에러 코드
+### 에러 코드
+- **AUTH_xxx**: 인증 관련 (001: 비밀번호 오류, 002: 사용자 없음)
+- **ORDER_xxx**: 주문 관련 (001: 잘못된 주문, 002: 결제 실패)
+- **ROBOT_xxx**: 로봇 관련 (001: 가용 로봇 없음, 002: 로봇 오류)
+- **PROD_xxx**: 상품 관련 (001: 상품 없음, 002: 재고 없음)
+- **SYS_xxx**: 시스템 관련 (001: 서버 오류)
 
-AUTH_xxx: 인증 관련 (001: 비밀번호 오류, 002: 사용자 없음)
+## 요청-응답 API
 
-ORDER_xxx: 주문 관련 (001: 잘못된 주문, 002: 결제 실패)
+### 사용자 로그인
 
-ROBOT_xxx: 로봇 관련 (001: 가용 로봇 없음, 002: 로봇 오류)
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `user_login`
 
-PROD_xxx: 상품 관련 (001: 상품 없음, 002: 재고 없음)
-
-SYS_xxx: 시스템 관련 (001: 서버 오류)
-
-Function
-
-From
-
-To
-
-Message Type
-
-Schema
-
-Example & Remark
-
-요청-응답
-
-사용자 로그인 요청
-
-App
-
-Main Service
-
-user_login
-
+```json
 {
   "type": "user_login",
   "data": {
@@ -62,7 +50,10 @@ user_login
     "password": "string"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "user_login",
   "data": {
@@ -70,62 +61,41 @@ user_login
     "password": "hunter2"
   }
 }
+```
 
-사용자 로그인 응답
-- From: Main Service → To: App
-- Message Type: user_login_response
-- 상세 메시지 포맷 (성공):
-    {
-      "type": "user_login_response",
-      "result": true,
-      "data": {
-        "user_id": "string",
-        "name": "string"
-        "gender": "boolean",
-        "age": "int",
-        "address": "string",
-        "allergy_info": {
-          "nuts": "boolean",
-          "milk": "boolean",
-          "seafood": "boolean",
-          "soy": "boolean",
-          "peach": "boolean",
-          "gluten": "boolean",
-          "eggs": "boolean"
-        },
-        "is_vegan": "boolean"
-      },
-      "message": "Login successful"
-    }
-    
-    gender: 1 (남성), 0 (여성)
-    allergy_info: 각 필드 1 (알레르기 있음), 0 (없음)
-    
-- 상세 메시지 포맷 (실패):
-    {
-      "type": "user_login_response",
-      "result": false,
-      "error_code": "AUTH_001",
-      "message": "Invalid password"
-    }
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `user_login_response`
 
-Main Service
-
-App
-
-user_login_response
-
+```json
 {
   "type": "user_login_response",
   "result": true,
   "error_code": "string",
   "data": {
     "user_id": "string",
-    "name": "string"
+    "name": "string",
+    "gender": "boolean",
+    "age": "int",
+    "address": "string",
+    "allergy_info": {
+      "nuts": "boolean",
+      "milk": "boolean",
+      "seafood": "boolean",
+      "soy": "boolean",
+      "peach": "boolean",
+      "gluten": "boolean",
+      "eggs": "boolean"
+    },
+    "is_vegan": "boolean"
   },
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "user_login_response",
   "result": true,
@@ -148,7 +118,10 @@ user_login_response
   },
   "message": "Login successful"
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "user_login_response",
   "result": false,
@@ -156,61 +129,66 @@ user_login_response
   "data": {},
   "message": "Invalid password"
 }
+```
 
-상품 검색 요청
-- From: App → To: Main Service
-- Message Type: product_search
-- 상세 메시지 포맷:
-    {
-      "type": "product_search",
-      "data": {
-        "user_id": "string",
-        "query": "string",
-        "filter": {
-          "allergy_info": {
-            "nuts": "boolean",
-            "milk": "boolean",
-            "seafood": "boolean",
-            "soy": "boolean",
-            "peach": "boolean",
-            "gluten": "boolean",
-            "eggs": "boolean",
-          }
-          "is_vegan": "boolean"
-        }
-      }
-    }
+### 상품 검색
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `product_search`
 
-Main Service
-
-product_search
-
+```json
 {
   "type": "product_search",
   "data": {
     "user_id": "string",
-    "query": "string"
+    "query": "string",
+    "filter": {
+      "allergy_info": {
+         "nuts": "boolean",
+         "milk": "boolean",
+         "seafood": "boolean",
+         "soy": "boolean",
+         "peach": "boolean",
+         "gluten": "boolean",
+         "eggs": "boolean"
+      },
+      "is_vegan": "boolean"
+    }
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "product_search",
   "data": {
     "user_id": "customer001",
-    "query": "사과"
+    "query": "사과",
+    "filter": {
+      "allergy_info": {
+         "nuts": false,
+         "milk": true,
+         "seafood": false,
+         "soy": true,
+         "peach": false,
+         "gluten": true,
+         "eggs": false
+      },
+      "is_vegan": false
+    }
   }
 }
+```
 
-상품 검색 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `product_search_response`
 
-Main Service
-
-App
-
-product_search_response
-
+```json
 {
   "type": "product_search_response",
   "result": true,
@@ -226,21 +204,23 @@ product_search_response
         "category": "string",
         "allergy_info_id": "int",
         "is_vegan_friendly": "boolean"
-      },
-      ...
+      }
     ],
     "total_count": "int"
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "product_search_response",
   "result": true,
   "data": {
     "products": [
       {
-        "product_id": 1,
+        "product_id": 20,
         "name": "청사과",
         "price": 3200,
         "quantity": 25,
@@ -254,22 +234,23 @@ product_search_response
   },
   "message": "Search completed"
 }
+```
 
-주문 생성 요청
+### 주문 생성
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `order_create`
 
-Main Service
-
-order_create
-
+```json
 {
   "type": "order_create",
   "data": {
     "user_id": "string",
     "cart_items": [
       {
-        "product_id": int,
+        "product_id": "int",
         "quantity": "int"
       }
     ],
@@ -277,7 +258,10 @@ order_create
     "total_amount": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "order_create",
   "data": {
@@ -290,44 +274,47 @@ order_create
     "total_amount": 16200
   }
 }
+```
 
-주문 생성 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `order_create_response`
 
-Main Service
-
-App
-
-order_create_response
-
+```json
 {
   "type": "order_create_response",
   "result": true,
   "error_code": "string",
   "data": {
     "order_id": "int",
-    "robot_id": "int",
+    "robot_id": "int"
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "order_create_response",
   "result": true,
   "data": {
     "order_id": 15,
-    "robot_id": 3,
+    "robot_id": 3
   },
   "message": "Order successfully created"
 }
+```
 
-상품 선택 요청
+### 상품 선택 (BBox)
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `product_selection`
 
-Main Service
-
-product_selection
-
+```json
 {
   "type": "product_selection",
   "data": {
@@ -337,7 +324,10 @@ product_selection
     "product_id": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "product_selection",
   "data": {
@@ -347,15 +337,14 @@ product_selection
     "product_id": 45
   }
 }
+```
 
-상품 선택 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `product_selection_response`
 
-Main Service
-
-App
-
-product_selection_response
-
+```json
 {
   "type": "product_selection_response",
   "result": true,
@@ -367,7 +356,10 @@ product_selection_response
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "product_selection_response",
   "result": true,
@@ -378,15 +370,50 @@ product_selection_response
   },
   "message": "Product selection confirmed"
 }
+```
 
-쇼핑 종료 요청
+### 상품 선택 (텍스트)
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `product_selection_by_text`
 
-Main Service
+```json
+{
+  "type": "product_selection_by_text",
+  "data": {
+    "order_id": "int",
+    "robot_id": "int",
+    "speech": "string"
+  }
+}
+```
 
-shopping_end
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `product_selection_by_text_response`
 
+```json
+{
+  "type": "product_selection_by_text_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "bbox": "int"
+  }
+}
+```
+
+### 쇼핑 종료
+
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `shopping_end`
+
+```json
 {
   "type": "shopping_end",
   "data": {
@@ -394,7 +421,10 @@ shopping_end
     "order_id": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "shopping_end",
   "data": {
@@ -402,15 +432,14 @@ shopping_end
     "order_id": 15
   }
 }
+```
 
-쇼핑 종료 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `shopping_end_response`
 
-Main Service
-
-App
-
-shopping_end_response
-
+```json
 {
   "type": "shopping_end_response",
   "result": true,
@@ -422,26 +451,30 @@ shopping_end_response
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "shopping_end_response",
   "result": true,
   "data": {
-    "order_id": 1,
+    "order_id": 20,
     "total_items": 7,
     "total_price": 45800
   },
   "message": "쇼핑이 종료되었습니다"
 }
+```
 
-영상 스트림 시작 요청
+### 영상 스트림 시작
 
-​App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `video_stream_start`
 
-Main Service
-
-video_stream_start
-
+```json
 {
   "type": "video_stream_start",
   "data": {
@@ -450,7 +483,10 @@ video_stream_start
     "robot_id": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "video_stream_start",
   "data": {
@@ -459,15 +495,14 @@ video_stream_start
     "robot_id": 1
   }
 }
+```
 
-영상 스트림 시작 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `video_stream_start_response`
 
-Main Service
-
-App
-
-video_stream_start_response
-
+```json
 {
   "type": "video_stream_start_response",
   "result": true,
@@ -475,14 +510,20 @@ video_stream_start_response
   "data": {},
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "video_stream_start_response",
   "result": true,
   "data": {},
   "message": "비디오 송출을 시작합니다."
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "video_stream_start_response",
   "result": false,
@@ -490,15 +531,16 @@ video_stream_start_response
   "data": {},
   "message": "Invalid server"
 }
+```
 
-영상 스트림 중지 요청
+### 영상 스트림 중지
 
-​App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `video_stream_stop`
 
-Main Service
-
-video_stream_stop
-
+```json
 {
   "type": "video_stream_stop",
   "data": {
@@ -507,7 +549,10 @@ video_stream_stop
     "robot_id": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "video_stream_stop",
   "data": {
@@ -516,15 +561,14 @@ video_stream_stop
     "robot_id": 1
   }
 }
+```
 
-영상 스트림 중지 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `video_stream_stop_response`
 
-Main Service
-
-App
-
-video_stream_stop_response
-
+```json
 {
   "type": "video_stream_stop_response",
   "result": true,
@@ -532,14 +576,20 @@ video_stream_stop_response
   "data": {},
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "video_stream_stop_response",
   "result": true,
   "data": {},
   "message": "비디오 송출을 중지합니다."
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "video_stream_stop_response",
   "result": false,
@@ -547,15 +597,16 @@ video_stream_stop_response
   "data": {},
   "message": "Invalid server"
 }
+```
 
-재고 조회 요청
+### 재고 조회
 
-​App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `inventory_search`
 
-Main Service
-
-inventory_search
-
+```json
 {
   "type": "inventory_search",
   "data": {
@@ -570,7 +621,10 @@ inventory_search
     "is_vegan_friendly": "boolean|null"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "inventory_search",
   "data": {
@@ -585,17 +639,16 @@ inventory_search
     "is_vegan_friendly": true
   }
 }
+```
 
-data 객체는 검색 필터 역할
+**비고**: data 객체는 검색 필터 역할
 
-재고 조회 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `inventory_search_response`
 
-Main Service
-
-App
-
-inventory_search_response
-
+```json
 {
   "type": "inventory_search_response",
   "result": true,
@@ -618,14 +671,17 @@ inventory_search_response
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "inventory_search_response",
   "result": true,
   "data": {
     "products": [
       {
-        "product_id": 1,
+        "product_id": 20,
         "barcode": "8800000000012",
         "name": "청사과",
         "quantity": 25,
@@ -640,15 +696,16 @@ inventory_search_response
   },
   "message": "Search completed"
 }
+```
 
-재고 추가 요청
+### 재고 추가
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `inventory_create`
 
-Main Service
-
-inventory_create
-
+```json
 {
   "type": "inventory_create",
   "data": {
@@ -663,11 +720,14 @@ inventory_create
     "is_vegan_friendly": "boolean"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "inventory_create",
   "data": {
-    "product_id": 50,
+    "product_id": 278,
     "barcode": "8800000001055",
     "name": "그릭요거트",
     "quantity": 12,
@@ -678,15 +738,14 @@ inventory_create
     "is_vegan_friendly": false
   }
 }
+```
 
-재고 추가 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `inventory_create_response`
 
-Main Service
-
-App
-
-inventory_create_response
-
+```json
 {
   "type": "inventory_create_response",
   "result": true,
@@ -694,14 +753,20 @@ inventory_create_response
   "data": {},
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "inventory_create_response",
   "result": true,
   "data": {},
   "message": "재고 정보를 추가하였습니다."
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "inventory_create_response",
   "result": false,
@@ -709,15 +774,16 @@ inventory_create_response
   "data": {},
   "message": "Invalid server"
 }
+```
 
-재고 수정 요청
+### 재고 수정
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `inventory_update`
 
-Main Service
-
-inventory_update
-
+```json
 {
   "type": "inventory_update",
   "data": {
@@ -732,11 +798,14 @@ inventory_update
     "is_vegan_friendly": "boolean"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "inventory_update",
   "data": {
-    "product_id": 1,
+    "product_id": 20,
     "barcode": "8800000000012",
     "name": "청사과",
     "quantity": 30,
@@ -747,15 +816,14 @@ inventory_update
     "is_vegan_friendly": true
   }
 }
+```
 
-재고 수정 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `inventory_update_response`
 
-Main Service
-
-App
-
-inventory_update_response
-
+```json
 {
   "type": "inventory_update_response",
   "result": true,
@@ -763,14 +831,20 @@ inventory_update_response
   "data": {},
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "inventory_update_response",
   "result": true,
   "data": {},
   "message": "재고 정보를 수정하였습니다."
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "inventory_update_response",
   "result": false,
@@ -778,37 +852,40 @@ inventory_update_response
   "data": {},
   "message": "Invalid server"
 }
+```
 
-재고 삭제 요청
+### 재고 삭제
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `inventory_delete`
 
-Main Service
-
-inventory_delete
-
+```json
 {
   "type": "inventory_delete",
   "data": {
     "product_id": "int"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "inventory_delete",
   "data": {
     "product_id": 20
   }
 }
+```
 
-재고 삭제 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `inventory_delete_response`
 
-Main Service
-
-App
-
-inventory_delete_response
-
+```json
 {
   "type": "inventory_delete_response",
   "result": true,
@@ -816,14 +893,20 @@ inventory_delete_response
   "data": {},
   "message": "string"
 }
+```
 
+**성공 예시**
+```json
 {
   "type": "inventory_delete_response",
   "result": true,
   "data": {},
   "message": "재고 정보를 삭제하였습니다."
 }
+```
 
+**실패 예시**
+```json
 {
   "type": "inventory_delete_response",
   "result": false,
@@ -831,15 +914,16 @@ inventory_delete_response
   "data": {},
   "message": "Invalid server"
 }
+```
 
-작업 이력 조회 요청
+### 작업 이력 조회
 
-App
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `robot_history_search`
 
-Main Service
-
-robot_history_search
-
+```json
 {
   "type": "robot_history_search",
   "data": {
@@ -852,7 +936,10 @@ robot_history_search
     "created_at": "string|null"
   }
 }
+```
 
+**예시**
+```json
 {
   "type": "robot_history_search",
   "data": {
@@ -865,17 +952,16 @@ robot_history_search
     "created_at": null
   }
 }
+```
 
-data 객체는 검색 필터 역할
+**비고**: data 객체는 검색 필터 역할
 
-작업 이력 조회 응답
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `robot_history_search_response`
 
-Main Service
-
-App
-
-robot_history_search_response
-
+```json
 {
   "type": "robot_history_search_response",
   "result": true,
@@ -896,7 +982,10 @@ robot_history_search_response
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "robot_history_search_response",
   "result": true,
@@ -916,27 +1005,17 @@ robot_history_search_response
   },
   "message": "Search completed"
 }
+```
 
-이벤트
+## 이벤트 알림
 
+### 로봇 이동 알림
 
+- From: Main Service
+- To: App
+- Message Type: `robot_moving_notification`
 
-
-
-
-
-
-
-
-
-로봇 이동 알림
-
-Main Service
-
-App
-
-robot_moving_notification
-
+```json
 {
   "type": "robot_moving_notification",
   "result": true,
@@ -948,7 +1027,10 @@ robot_moving_notification
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "robot_moving_notification",
   "result": true,
@@ -959,15 +1041,15 @@ robot_moving_notification
   },
   "message": "상품 위치로 이동 중입니다"
 }
+```
 
-로봇 도착 알림
+### 로봇 도착 알림
 
-Main Service
+- From: Main Service
+- To: App
+- Message Type: `robot_arrived_notification`
 
-App
-
-robot_arrived_notification
-
+```json
 {
   "type": "robot_arrived_notification",
   "result": true,
@@ -980,7 +1062,10 @@ robot_arrived_notification
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "robot_arrived_notification",
   "result": true,
@@ -992,15 +1077,15 @@ robot_arrived_notification
   },
   "message": "섹션에 도착했습니다"
 }
+```
 
-상품 선택 시작 알림
+### 상품 선택 시작 알림
 
-Main Service
+- From: Main Service
+- To: App
+- Message Type: `product_selection_start`
 
-App
-
-product_selection_start
-
+```json
 {
   "type": "product_selection_start",
   "result": true,
@@ -1018,7 +1103,10 @@ product_selection_start
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "product_selection_start",
   "result": true,
@@ -1040,15 +1128,15 @@ product_selection_start
   },
   "message": "상품을 선택해주세요"
 }
+```
 
-장바구니 담기 알림
+### 장바구니 담기 알림
 
-Main Service
+- From: Main Service
+- To: App
+- Message Type: `cart_update_notification`
 
-App
-
-cart_update_notification
-
+```json
 {
   "type": "cart_update_notification",
   "result": true,
@@ -1068,7 +1156,10 @@ cart_update_notification
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "cart_update_notification",
   "result": true,
@@ -1087,15 +1178,15 @@ cart_update_notification
   },
   "message": "상품이 장바구니에 담겼습니다"
 }
+```
 
-작업 정보 알림 (관리자)
+### 작업 정보 알림 (관리자)
 
-Main Service
+- From: Main Service
+- To: App
+- Message Type: `work_info_notification`
 
-App
-
-work_info_notification
-
+```json
 {
   "type": "work_info_notification",
   "result": true,
@@ -1112,7 +1203,10 @@ work_info_notification
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "work_info_notification",
   "result": true,
@@ -1128,21 +1222,20 @@ work_info_notification
   },
   "message": "작업 정보 업데이트"
 }
+```
 
-destination: order_info.order_status가 3인 row의 다음 row가 목적지
+**비고**:
+- destination: order_info.order_status가 3인 row의 다음 row가 목적지
+- progress: order_info.order_status 진행 비율
+- active_duration: robot_history.active_duration 참조
 
-progress: order_info.order_status 진행 비율
+### 포장 정보 알림 (관리자)
 
-active_duration: robot_history.active_duration 참조
+- From: Main Service
+- To: App
+- Message Type: `packing_info_notification`
 
-포장 정보 알림 (관리자)
-
-Main Service
-
-App
-
-packing_info_notification
-
+```json
 {
   "type": "packing_info_notification",
   "result": true,
@@ -1156,7 +1249,10 @@ packing_info_notification
   },
   "message": "string"
 }
+```
 
+**예시**
+```json
 {
   "type": "packing_info_notification",
   "result": true,
@@ -1169,7 +1265,8 @@ packing_info_notification
   },
   "message": "포장 정보 업데이트"
 }
+```
 
-order_status: ERD 정의 enum 사용 (예: PACKED, FAIL_PACK)
-
-order_status 비율을 진행율로 표현 가능
+**비고**:
+- order_status: ERD 정의 enum 사용 (예: PACKED, FAIL_PACK)
+- order_status 비율을 진행율로 표현 가능

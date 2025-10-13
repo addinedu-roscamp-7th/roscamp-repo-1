@@ -240,10 +240,6 @@ class TestClient:
             self.wait_for_user(10, "Testing Voice Command...")
         else:
             print("\n[10] Testing Voice Command...")
-        await self.send_request("voice_command", {
-            "text": "사과 한 개 가져다줘"
-        })
-
         # 포장 완료 대기
         print("\n⏳ Waiting for packaging completion...")
         await asyncio.sleep(2)

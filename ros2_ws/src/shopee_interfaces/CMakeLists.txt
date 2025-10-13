@@ -30,6 +30,7 @@ set(msg_files
   "msg/PickeeMobileSpeedControl.msg"
   "msg/PickeeMoveStatus.msg"
   "msg/PickeeProductDetection.msg"
+  "msg/PickeeProductLoaded.msg"
   "msg/PickeeProductSelection.msg"
   "msg/PickeeRobotStatus.msg"
   "msg/PickeeVisionCartCheck.msg"
@@ -47,6 +48,8 @@ set(msg_files
 set(srv_files
   "srv/MainGetProductLocation.srv"
   "srv/MainGetLocationPose.srv"
+  "srv/MainGetWarehousePose.srv"
+  "srv/MainGetSectionPose.srv"
   "srv/PackeeArmMoveToPose.srv"
   "srv/PackeeArmPickProduct.srv"
   "srv/PackeeArmPlaceProduct.srv"
@@ -77,6 +80,7 @@ set(srv_files
   "srv/PickeeWorkflowMoveToPackaging.srv"
   "srv/PickeeWorkflowMoveToSection.srv"
   "srv/PickeeWorkflowReturnToBase.srv"
+  "srv/PickeeWorkflowReturnToStaff.srv"
   "srv/PickeeWorkflowStartTask.srv"
 )
 

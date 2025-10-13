@@ -113,6 +113,23 @@ class ProductService:
         logger.warning("Inventory update failed: Product %d not found", product_id)
         return False
 
+    async def get_product_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        상품명을 이용해 단일 상품 정보를 조회합니다.
+        """
+        if not name:
+            return None
+
+        with self._db.session_scope() as session:
+            product = (
+                session.query(Product)
+                .filter(Product.name == name)
+                .first()
+            )
+            if product:
+                return self._product_to_dict(product)
+        return None
+
     def get_product_location_sync(self, product_id: int) -> Optional[Dict[str, int]]:
         """
         상품 ID로 위치 정보(창고, 섹션)를 동기적으로 조회합니다.

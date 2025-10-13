@@ -139,18 +139,3 @@ class TestRobotHistoryHandlers:
         app._streaming_service.stop_relay.assert_called_once()
         app._robot.dispatch_video_stream_stop.assert_awaited_once()
         assert response["result"] is True
-class TestVoiceCommandHandler:
-    async def test_voice_command_success(self, app: MainServiceApp):
-        handler = app._handlers["voice_command"]
-        app._llm.detect_intent.return_value = {"intent": "fetch_product", "entities": {"product_name": "사과"}}
-        response = await handler({"text": "사과 한 개 가져다줘"})
-        app._llm.detect_intent.assert_awaited_once_with("사과 한 개 가져다줘")
-        assert response["result"] is True
-        assert response["data"]["intent"] == "fetch_product"
-
-    async def test_voice_command_missing_text(self, app: MainServiceApp):
-        handler = app._handlers["voice_command"]
-        response = await handler({})
-        assert response["result"] is False
-        assert response["error_code"] == "SYS_001"
-

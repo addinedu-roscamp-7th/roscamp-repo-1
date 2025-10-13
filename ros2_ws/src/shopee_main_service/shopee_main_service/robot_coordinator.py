@@ -19,12 +19,14 @@ from .inventory_service import InventoryService
 from .product_service import ProductService
 
 from shopee_interfaces.msg import (
+    PackeeAvailability,
     PackeePackingComplete,
     PackeeRobotStatus,
     PickeeArrival,
     PickeeCartHandover,
     PickeeMoveStatus,
     PickeeProductDetection,
+    PickeeProductLoaded,
     PickeeProductSelection,
     PickeeRobotStatus,
     Pose2D,
@@ -38,9 +40,12 @@ from shopee_interfaces.srv import (
     PickeeWorkflowMoveToSection,
     PickeeWorkflowMoveToPackaging,
     PickeeWorkflowReturnToBase,
+    PickeeWorkflowReturnToStaff,
     PickeeWorkflowStartTask,
     MainGetProductLocation,
-    MainGetLocationPose, # Add new service import
+    MainGetLocationPose,
+    MainGetWarehousePose,
+    MainGetSectionPose,
     PickeeMainVideoStreamStart,
     PickeeMainVideoStreamStop,
 )
@@ -72,7 +77,9 @@ class RobotCoordinator(Node):
         # 외부에서 등록할 콜백 함수들 (OrderService 등에서 사용)
         self._pickee_status_cb: Optional[Callable[[PickeeRobotStatus], None]] = None
         self._pickee_selection_cb: Optional[Callable[[PickeeProductSelection], None]] = None
+        self._pickee_product_loaded_cb: Optional[Callable[[PickeeProductLoaded], None]] = None
         self._packee_status_cb: Optional[Callable[[PackeeRobotStatus], None]] = None
+        self._packee_availability_cb: Optional[Callable[[PackeeAvailability], None]] = None
         self._packee_complete_cb: Optional[Callable[[PackeePackingComplete], None]] = None
 
         # === Pickee 토픽 구독 ===
@@ -100,6 +107,20 @@ class RobotCoordinator(Node):
         self._pickee_product_detected_sub = self.create_subscription(
             PickeeProductDetection, "/pickee/product_detected", self._on_product_detected, 10
         )
+        # 창고 물품 적재 완료
+        self._pickee_product_loaded_sub = self.create_subscription(
+            PickeeProductLoaded, "/pickee/product/loaded", self._on_product_loaded, 10
+        )
+        # Packee 상태
+        self._packee_status_sub = self.create_subscription(
+            PackeeRobotStatus, "/packee/robot_status", self._on_packee_status, 10
+        )
+        self._packee_availability_sub = self.create_subscription(
+            PackeeAvailability, "/packee/availability_result", self._on_packee_availability, 10
+        )
+        self._packee_complete_sub = self.create_subscription(
+            PackeePackingComplete, "/packee/packing_complete", self._on_packee_complete, 10
+        )
 
         # === ROS2 서비스 클라이언트 ===
         # Pickee: 작업 시작 명령
@@ -111,6 +132,8 @@ class RobotCoordinator(Node):
         self._pickee_move_packaging_cli = self.create_client(PickeeWorkflowMoveToPackaging, "/pickee/workflow/move_to_packaging")
         # Pickee: 복귀 명령
         self._pickee_return_base_cli = self.create_client(PickeeWorkflowReturnToBase, "/pickee/workflow/return_to_base")
+        # Pickee: 직원으로 복귀 명령
+        self._pickee_return_staff_cli = self.create_client(PickeeWorkflowReturnToStaff, "/pickee/workflow/return_to_staff")
         self._pickee_product_detect_cli = self.create_client(PickeeProductDetect, "/pickee/product/detect")
         # Pickee: 상품 선택 처리
         self._pickee_process_cli = self.create_client(PickeeProductProcessSelection, "/pickee/product/process_selection")
@@ -131,6 +154,12 @@ class RobotCoordinator(Node):
         )
         self._get_location_pose_srv = self.create_service(
             MainGetLocationPose, "/main/get_location_pose", self._get_location_pose_callback
+        )
+        self._get_warehouse_pose_srv = self.create_service(
+            MainGetWarehousePose, "/main/get_warehouse_pose", self._get_warehouse_pose_callback
+        )
+        self._get_section_pose_srv = self.create_service(
+            MainGetSectionPose, "/main/get_section_pose", self._get_section_pose_callback
         )
 
         # 로봇 상태 캐시 (최근 메시지 저장)
@@ -219,6 +248,17 @@ class RobotCoordinator(Node):
         logger.info("Dispatching return to base: %s", request)
         return await self._call_service(self._pickee_return_base_cli, request)
 
+    async def dispatch_return_to_staff(
+        self, request: PickeeWorkflowReturnToStaff.Request
+    ) -> PickeeWorkflowReturnToStaff.Response:
+        """
+        Pickee에게 직원으로 복귀 명령
+
+        마지막으로 추종했던 직원 위치로 이동합니다.
+        """
+        logger.info("Dispatching return to staff: %s", request)
+        return await self._call_service(self._pickee_return_staff_cli, request)
+
     async def dispatch_video_stream_start(
         self, request: PickeeMainVideoStreamStart.Request
     ) -> PickeeMainVideoStreamStart.Response:
@@ -305,6 +345,58 @@ class RobotCoordinator(Node):
         
         return response
 
+    async def _get_warehouse_pose_callback(
+        self, request: MainGetWarehousePose.Request, response: MainGetWarehousePose.Response
+    ) -> MainGetWarehousePose.Response:
+        """/main/get_warehouse_pose 서비스 요청을 처리합니다."""
+        warehouse_id = request.warehouse_id
+        logger.info(f"Received request to get pose for warehouse {warehouse_id}")
+
+        if not hasattr(self, "_inventory_service"):
+            response.success = False
+            response.message = "InventoryService is not initialized in RobotCoordinator."
+            logger.error(response.message)
+            return response
+
+        pose_info = await self._inventory_service.get_warehouse_pose(warehouse_id)
+
+        if pose_info:
+            response.success = True
+            response.pose = Pose2D(x=pose_info['x'], y=pose_info['y'], theta=pose_info['theta'])
+            response.message = "Warehouse pose found."
+        else:
+            response.success = False
+            response.message = f"Warehouse with ID {warehouse_id} not found."
+            logger.warning(response.message)
+
+        return response
+
+    async def _get_section_pose_callback(
+        self, request: MainGetSectionPose.Request, response: MainGetSectionPose.Response
+    ) -> MainGetSectionPose.Response:
+        """/main/get_section_pose 서비스 요청을 처리합니다."""
+        section_id = request.section_id
+        logger.info(f"Received request to get pose for section {section_id}")
+
+        if not hasattr(self, "_inventory_service"):
+            response.success = False
+            response.message = "InventoryService is not initialized in RobotCoordinator."
+            logger.error(response.message)
+            return response
+
+        pose_info = await self._inventory_service.get_section_pose(section_id)
+
+        if pose_info:
+            response.success = True
+            response.pose = Pose2D(x=pose_info['x'], y=pose_info['y'], theta=pose_info['theta'])
+            response.message = "Section pose found."
+        else:
+            response.success = False
+            response.message = f"Section with ID {section_id} not found."
+            logger.warning(response.message)
+
+        return response
+
     async def check_packee_availability(
         self, request: PackeePackingCheckAvailability.Request
     ) -> PackeePackingCheckAvailability.Response:
@@ -346,8 +438,10 @@ class RobotCoordinator(Node):
         pickee_arrival_cb: Optional[Callable[[PickeeArrival], None]] = None,
         pickee_handover_cb: Optional[Callable[[PickeeCartHandover], None]] = None,
         pickee_product_detected_cb: Optional[Callable[[PickeeProductDetection], None]] = None,
+        pickee_product_loaded_cb: Optional[Callable[[PickeeProductLoaded], None]] = None,
         pickee_selection_cb: Optional[Callable[[PickeeProductSelection], None]] = None,
         packee_status_cb: Optional[Callable[[PackeeRobotStatus], None]] = None,
+        packee_availability_cb: Optional[Callable[[PackeeAvailability], None]] = None,
         packee_complete_cb: Optional[Callable[[PackeePackingComplete], None]] = None,
     ) -> None:
         """
@@ -360,8 +454,10 @@ class RobotCoordinator(Node):
         self._pickee_arrival_cb = pickee_arrival_cb
         self._pickee_handover_cb = pickee_handover_cb
         self._pickee_product_detected_cb = pickee_product_detected_cb
+        self._pickee_product_loaded_cb = pickee_product_loaded_cb
         self._pickee_selection_cb = pickee_selection_cb
         self._packee_status_cb = packee_status_cb
+        self._packee_availability_cb = packee_availability_cb
         self._packee_complete_cb = packee_complete_cb
 
     async def _call_service(self, client, request):
@@ -458,6 +554,15 @@ class RobotCoordinator(Node):
             else:
                 self._packee_status_cb(msg)
 
+    def _on_packee_availability(self, msg: PackeeAvailability) -> None:
+        """Packee 작업 가능 여부 콜백"""
+        self._ros_cache["packee_availability"] = msg
+        if self._packee_availability_cb:
+            if asyncio.iscoroutinefunction(self._packee_availability_cb):
+                asyncio.create_task(self._packee_availability_cb(msg))
+            else:
+                self._packee_availability_cb(msg)
+
     def _on_packee_complete(self, msg: PackeePackingComplete) -> None:
         """Packee 포장 완료 토픽 콜백"""
         self._ros_cache["packee_complete"] = msg
@@ -467,3 +572,13 @@ class RobotCoordinator(Node):
                 asyncio.create_task(self._packee_complete_cb(msg))
             else:
                 self._packee_complete_cb(msg)
+
+    def _on_product_loaded(self, msg: PickeeProductLoaded) -> None:
+        """창고 물품 적재 완료 토픽 콜백"""
+        self._ros_cache["product_loaded"] = msg
+        if self._pickee_product_loaded_cb:
+            # async 콜백을 asyncio task로 실행
+            if asyncio.iscoroutinefunction(self._pickee_product_loaded_cb):
+                asyncio.create_task(self._pickee_product_loaded_cb(msg))
+            else:
+                self._pickee_product_loaded_cb(msg)

@@ -34,9 +34,59 @@ class InventoryService:
                 return {
                     "x": location.location_x,
                     "y": location.location_y,
-                    "theta": 0.0  # DB에 theta 정보가 없으므로 기본값 0.0 사용
+                    "theta": location.location_theta,
                 }
             return None
+
+    async def get_warehouse_pose(self, warehouse_id: int) -> Optional[Dict[str, float]]:
+        """
+        Warehouse ID에 해당하는 좌표(Pose)를 조회합니다.
+
+        Args:
+            warehouse_id: 조회할 창고의 ID
+
+        Returns:
+            좌표 정보를 담은 딕셔너리 또는 None
+        """
+        with self._db.session_scope() as session:
+            warehouse = (
+                session.query(Warehouse)
+                .filter(Warehouse.warehouse_id == warehouse_id)
+                .first()
+            )
+            if warehouse and warehouse.location:
+                loc = warehouse.location
+                return {
+                    "x": loc.location_x,
+                    "y": loc.location_y,
+                    "theta": loc.location_theta,
+                }
+        return None
+
+    async def get_section_pose(self, section_id: int) -> Optional[Dict[str, float]]:
+        """
+        Section ID에 해당하는 좌표(Pose)를 조회합니다.
+
+        Args:
+            section_id: 조회할 섹션의 ID
+
+        Returns:
+            좌표 정보를 담은 딕셔너리 또는 None
+        """
+        with self._db.session_scope() as session:
+            section = (
+                session.query(Section)
+                .filter(Section.section_id == section_id)
+                .first()
+            )
+            if section and section.location:
+                loc = section.location
+                return {
+                    "x": loc.location_x,
+                    "y": loc.location_y,
+                    "theta": loc.location_theta,
+                }
+        return None
 
     async def search_products(self, filters: Dict[str, object]) -> Tuple[List[Dict[str, object]], int]:
         """

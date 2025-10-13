@@ -46,18 +46,15 @@ Shopee 프로젝트의 로봇 상태(State) 정의 문서입니다.
 | PK_S15 | 장바구니전달대기중 | WAITING_HANDOVER | 포장대에서 장바구니 교체 대기 중 |
 | PK_S16 | 대기장소이동중 | MOVING_TO_STANDBY | 작업 완료 후 대기 장소로 이동 중 |
 
-### 재고 보충 모드 (Restocking Mode)
-
-직원의 재고 보충 작업을 지원하는 상태입니다.
+### 직원 보조 모드 (Staff Helper Mode)
+직원의 물품 이동 작업을 지원하는 상태입니다.
 
 | State ID | 한글명 | 영문명 | 설명 |
 |----------|--------|--------|------|
 | PK_S20 | 직원등록중 | REGISTERING_STAFF | 직원의 정면/후면 외형 특징 등록 중 |
 | PK_S21 | 직원추종중 | FOLLOWING_STAFF | Vision을 통해 직원 위치를 추적하며 추종 중 |
-| PK_S22 | 창고이동중 | MOVING_TO_WAREHOUSE | 상품 가져오기 요청 받고 창고로 이동 중 |
-| PK_S23 | 적재대기중 | WAITING_LOADING | 창고에서 직원이 상품을 적재할 때까지 대기 중 |
-| PK_S24 | 매대이동중 | MOVING_TO_SHELF | 적재 완료 후 저장된 매대(직원) 위치로 복귀 중 |
-| PK_S25 | 하차대기중 | WAITING_UNLOADING | 직원 위치 도착 후 직원이 상품을 하차할 때까지 대기 중 |
+| PK_S22 | 장소이동중 | MOVING_TO_DESTINATION | 이동 요청 받고 직원이 요청한 장소로 이동 중 |
+| PK_S23 | 임무완료대기중 | WAITING_COMPLETE | 도착 장소에서 직원이 임무 완료를 확인할때까지 대기 |
 
 ---
 

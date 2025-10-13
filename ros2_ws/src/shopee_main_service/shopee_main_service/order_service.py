@@ -31,6 +31,7 @@ from .event_bus import EventBus
 
 if TYPE_CHECKING:
     from shopee_interfaces.msg import (
+        PackeeAvailability,
         PackeePackingComplete,
         PickeeArrival,
         PickeeCartHandover,
@@ -63,6 +64,7 @@ class OrderService:
         self._db = db
         self._robot = robot_coordinator
         self._event_bus = event_bus
+        self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
         self._default_locale_messages = {
             "robot_moving": "상품 위치로 이동 중입니다",
             "robot_arrived": "섹션에 도착했습니다",
@@ -422,6 +424,10 @@ class OrderService:
                     for detected in msg.products
                 ]
 
+        self._detected_product_bbox[msg.order_id] = {
+            detected.product_id: detected.bbox_number for detected in msg.products
+        }
+
         await self._event_bus.publish(
             "app_push",
             {
@@ -501,6 +507,11 @@ class OrderService:
                 "message": message,
             },
         )
+        bbox_map = self._detected_product_bbox.get(msg.order_id)
+        if bbox_map and msg.product_id in bbox_map:
+            bbox_map.pop(msg.product_id, None)
+            if not bbox_map:
+                self._detected_product_bbox.pop(msg.order_id, None)
 
     async def handle_cart_handover(self, msg: "PickeeCartHandover") -> None:
         """
@@ -582,6 +593,27 @@ class OrderService:
         except Exception as e:
             logger.exception("Failed to handle cart handover for order %d: %s", order_id, e)
 
+    async def handle_packee_availability(self, msg: "PackeeAvailability") -> None:
+        """
+        Packee 작업 가능 여부 결과를 처리합니다.
+        """
+        logger.info(
+            "Packee availability result for order %d (robot %d): available=%s cart_detected=%s message=%s",
+            msg.order_id,
+            msg.robot_id,
+            msg.available,
+            msg.cart_detected,
+            msg.message,
+        )
+        if not msg.available:
+            logger.warning(
+                "Packee unavailable for order %d. Reason: %s", msg.order_id, msg.message
+            )
+        await self._emit_work_info_notification(
+            order_id=msg.order_id,
+            robot_id=msg.robot_id,
+        )
+
     async def handle_packee_complete(self, msg: "PackeePackingComplete") -> None:
         """
         Packee의 포장 완료 이벤트를 처리합니다.
@@ -647,18 +679,15 @@ class OrderService:
             },
         )
 
-        await self._event_bus.publish(
-            "app_push",
-            {
-                "type": "order_complete_notification",
-                "result": msg.success,
-                "error_code": None if msg.success else "ROBOT_002",
-                "data": {"order_id": msg.order_id, "status": order_status_text},
-                "message": packing_message,
-            },
-        )
         await self._emit_work_info_notification(
             order_id=msg.order_id,
             robot_id=msg.robot_id,
             destination=self._default_destination(final_status),
         )
+        self._detected_product_bbox.pop(msg.order_id, None)
+
+    def get_detected_bbox(self, order_id: int, product_id: int) -> Optional[int]:
+        """
+        최근 상품 인식 결과에서 해당 상품의 bbox 번호를 조회합니다.
+        """
+        return self._detected_product_bbox.get(order_id, {}).get(product_id)

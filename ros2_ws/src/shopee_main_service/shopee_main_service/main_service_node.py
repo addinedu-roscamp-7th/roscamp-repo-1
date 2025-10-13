@@ -66,15 +66,15 @@ class MainServiceApp:
         ) # UDP 스트리밍 중계기
         self._robot = robot or RobotCoordinator()  # ROS2 노드 (로봇 통신)
 
-        # RobotCoordinator에 InventoryService 주입
-        self._robot.set_inventory_service(self._inventory_service)
-        
         # 도메인 서비스 초기화
         self._user_service = UserService(self._db)
         self._product_service = ProductService(self._db, self._llm)
         self._order_service = OrderService(self._db, self._robot, self._event_bus)
         self._inventory_service = inventory_service or InventoryService(self._db)
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
+
+        # RobotCoordinator에 InventoryService 주입
+        self._robot.set_inventory_service(self._inventory_service)
 
         # RobotCoordinator에 ProductService 주입 (의존성 해결)
         self._robot.set_product_service(self._product_service)
@@ -110,6 +110,7 @@ class MainServiceApp:
             pickee_handover_cb=self._order_service.handle_cart_handover,
             pickee_product_detected_cb=self._order_service.handle_product_detected,
             pickee_selection_cb=self._order_service.handle_pickee_selection,
+            packee_availability_cb=self._order_service.handle_packee_availability,
             packee_complete_cb=self._order_service.handle_packee_complete
         )
 
@@ -234,6 +235,83 @@ class MainServiceApp:
                 "error_code": None if success else "ROBOT_002",
             }
 
+        async def handle_product_selection_by_text(data, peer=None):
+            """음성 기반 상품 선택 처리"""
+            order_id = data.get("order_id")
+            robot_id = data.get("robot_id")
+            speech = (data or {}).get("speech") or ""
+
+            if not all([order_id, robot_id, speech]):
+                return {
+                    "type": "product_selection_by_text_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "order_id, robot_id, and speech are required.",
+                }
+
+            intent_data = await self._llm.detect_intent(speech)
+            if not intent_data:
+                return {
+                    "type": "product_selection_by_text_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to analyze speech command",
+                }
+
+            entities = intent_data.get("entities") or {}
+            product_id = entities.get("product_id")
+            product_name = entities.get("product_name")
+
+            resolved_product = None
+            if product_id is not None:
+                try:
+                    resolved_product = int(product_id)
+                except (TypeError, ValueError):
+                    resolved_product = None
+
+            if resolved_product is None and product_name:
+                product_info = await self._product_service.get_product_by_name(product_name)
+                if product_info:
+                    resolved_product = product_info["product_id"]
+
+            if resolved_product is None:
+                return {
+                    "type": "product_selection_by_text_response",
+                    "result": False,
+                    "error_code": "PROD_001",
+                    "data": {},
+                    "message": "Could not determine product from speech.",
+                }
+
+            bbox_number = self._order_service.get_detected_bbox(int(order_id), int(resolved_product))
+            if bbox_number is None:
+                return {
+                    "type": "product_selection_by_text_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "No detected product matches the request.",
+                }
+
+            success = await self._order_service.select_product(
+                int(order_id),
+                int(robot_id),
+                bbox_number,
+                int(resolved_product),
+            )
+
+            return {
+                "type": "product_selection_by_text_response",
+                "result": success,
+                "error_code": None if success else "ROBOT_002",
+                "data": {
+                    "bbox": bbox_number,
+                },
+                "message": "Product selection processed" if success else "Failed to process selection",
+            }
+
         async def handle_shopping_end(data, peer=None):
             """쇼핑 종료 처리"""
             user_id = data.get("user_id") # 로깅/인증용
@@ -337,34 +415,6 @@ class MainServiceApp:
                     "data": {"products": [], "total_count": 0},
                     "message": "Failed to search inventory",
                 }
-
-        async def handle_voice_command(data, peer=None):
-            """음성 명령 텍스트를 LLM으로 분석"""
-            text_value = (data or {}).get("text")
-            if not text_value:
-                return {
-                    "type": "voice_command_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "text is required",
-                }
-            intent_data = await self._llm.detect_intent(text_value)
-            if not intent_data:
-                return {
-                    "type": "voice_command_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to analyze intent",
-                }
-            return {
-                "type": "voice_command_response",
-                "result": True,
-                "error_code": None,
-                "data": intent_data,
-                "message": "ok",
-            }
 
         async def handle_inventory_create(data, peer=None):
             """재고 추가 처리"""
@@ -501,6 +551,7 @@ class MainServiceApp:
                 "product_search": handle_product_search,
                 "order_create": handle_order_create,
                 "product_selection": handle_product_selection,
+                "product_selection_by_text": handle_product_selection_by_text,
                 "shopping_end": handle_shopping_end,
                 "video_stream_start": handle_video_stream_start,
                 "video_stream_stop": handle_video_stream_stop,
@@ -509,7 +560,6 @@ class MainServiceApp:
                 "inventory_update": handle_inventory_update,
                 "inventory_delete": handle_inventory_delete,
                 "robot_history_search": handle_robot_history_search,
-                "voice_command": handle_voice_command,
             }
         )
 
