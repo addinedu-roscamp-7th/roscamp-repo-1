@@ -246,14 +246,10 @@ class APIController:
 
     async def _handle_push_event(self, message: Dict[str, Any]) -> None:
         """
-        푸시 알림 처리 (Placeholder)
-        
-        EventBus에서 발행한 "app_push" 이벤트를 받아
-        연결된 클라이언트들에게 전송합니다.
-        
-        TODO:
-            - user_id별 연결 관리
-            - 특정 사용자에게만 알림 전송
+        EventBus에서 발행한 "app_push" 이벤트를 받아 연결된 클라이언트에 전송합니다.
+
+        payload에 `target_user_id` 또는 `target_user_ids`가 지정되면 해당 사용자에게만
+        푸시가 전달되고, 지정되지 않은 경우 모든 세션으로 브로드캐스트합니다.
         """
         if not self._clients:
             logger.debug("No clients to push message: %s", message)

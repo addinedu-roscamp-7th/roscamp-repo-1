@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Awaitable
 
 import rclpy
 from rclpy.node import Node
@@ -349,14 +350,7 @@ class RobotCoordinator(Node):
             battery_level=battery_level,
             active_order_id=active_id,
         )
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop and loop.is_running():
-            loop.create_task(self._state_store.upsert_state(state))
-        else:
-            asyncio.run(self._state_store.upsert_state(state))
+        self._submit_coroutine(self._state_store.upsert_state, state)
 
     def _publish_robot_failure_event(
         self,
@@ -379,14 +373,7 @@ class RobotCoordinator(Node):
 
         # 예약 해제
         if self._state_store and active_order_id:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop and loop.is_running():
-                loop.create_task(self._state_store.release(robot_id, active_order_id))
-            else:
-                asyncio.run(self._state_store.release(robot_id, active_order_id))
+            self._submit_coroutine(self._state_store.release, robot_id, active_order_id)
 
         # EventBus로 알림 발행
         event_data = {
@@ -395,14 +382,7 @@ class RobotCoordinator(Node):
             "status": status,
             "active_order_id": active_order_id,
         }
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop and loop.is_running():
-            loop.create_task(self._event_bus.publish("robot_failure", event_data))
-        else:
-                asyncio.run(self._event_bus.publish("robot_failure", event_data))
+        self._submit_coroutine(self._event_bus.publish, "robot_failure", event_data)
 
     # === 서비스 콜백 함수들 ===
 
@@ -412,6 +392,53 @@ class RobotCoordinator(Node):
             raise RuntimeError("Asyncio loop is not set for RobotCoordinator.")
         future = asyncio.run_coroutine_threadsafe(coro, self._asyncio_loop)
         return future.result(timeout=timeout)
+
+    def _submit_coroutine(
+        self,
+        func: Callable[..., Awaitable[object]],
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        ROS 콜백 스레드에서 안전하게 비동기 함수를 실행합니다.
+
+        1순위: 주입된 asyncio 루프에 run_coroutine_threadsafe.
+        2순위: 현재 스레드에 실행 중인 루프가 있으면 create_task.
+        3순위: 백그라운드 스레드를 만들어 전용 이벤트 루프로 실행.
+        """
+        loop = self._asyncio_loop
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(func(*args, **kwargs), loop)
+            return
+
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(
+                target=self._run_in_new_loop,
+                args=(func, args, kwargs),
+                daemon=True,
+            ).start()
+        else:
+            current_loop.create_task(func(*args, **kwargs))
+
+    @staticmethod
+    def _run_in_new_loop(
+        func: Callable[..., Awaitable[object]],
+        args: tuple,
+        kwargs: Dict[str, object],
+    ) -> None:
+        """별도의 이벤트 루프에서 비동기 함수를 실행."""
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(func(*args, **kwargs))
+        finally:
+            try:
+                loop.run_until_complete(loop.shutdown_asyncgens())
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
 
     def _get_available_robots_callback(
         self, request: MainGetAvailableRobots.Request, response: MainGetAvailableRobots.Response
