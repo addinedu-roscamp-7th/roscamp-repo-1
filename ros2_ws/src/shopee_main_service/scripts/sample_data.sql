@@ -29,20 +29,20 @@ INSERT INTO customer (id, password, name, gender, age, address, allergy_info_id,
 -- ========================================
 -- 4. Location (창고/선반 위치)
 -- ========================================
-INSERT INTO location (location_x, location_y, aruco_marker) VALUES
-(10.0, 20.0, 100),  -- ID: 1 (창고 위치)
-(15.0, 25.0, 101),  -- ID: 2 (선반1 위치)
-(20.0, 30.0, 102),  -- ID: 3 (선반2 위치)
-(25.0, 35.0, 103);  -- ID: 4 (선반3 위치)
+INSERT INTO location (location_x, location_y, location_theta, aruco_marker) VALUES
+(10.0, 20.0, 0.0, 100),  -- ID: 1 (창고 위치)
+(15.0, 25.0, 1.57, 101),  -- ID: 2 (선반1 위치)
+(20.0, 30.0, 3.14, 102),  -- ID: 3 (선반2 위치)
+(25.0, 35.0, 0.0, 103);  -- ID: 4 (선반3 위치)
 
 -- Section Locations
-INSERT INTO location (location_x, location_y, aruco_marker) VALUES
-(15.5, 25.0, 201), -- ID: 5 (사과 구역)
-(16.0, 25.0, 202), -- ID: 6 (바나나 구역)
-(20.5, 30.0, 203), -- ID: 7 (양상추 구역)
-(21.0, 30.0, 204), -- ID: 8 (토마토 구역)
-(25.5, 35.0, 205), -- ID: 9 (주스 구역)
-(26.0, 35.0, 206); -- ID: 10 (우유 구역)
+INSERT INTO location (location_x, location_y, location_theta, aruco_marker) VALUES
+(15.5, 25.0, 0.0, 201), -- ID: 5 (사과 구역)
+(16.0, 25.0, 0.0, 202), -- ID: 6 (바나나 구역)
+(20.5, 30.0, 0.0, 203), -- ID: 7 (양상추 구역)
+(21.0, 30.0, 0.0, 204), -- ID: 8 (토마토 구역)
+(25.5, 35.0, 0.0, 205), -- ID: 9 (주스 구역)
+(26.0, 35.0, 0.0, 206); -- ID: 10 (우유 구역)
 
 -- ========================================
 -- 5. Warehouse

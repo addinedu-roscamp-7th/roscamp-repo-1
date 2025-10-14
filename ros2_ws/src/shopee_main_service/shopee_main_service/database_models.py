@@ -57,6 +57,7 @@ class Location(Base):
     location_id = Column(Integer, primary_key=True, autoincrement=True)
     location_x = Column(Float, nullable=False)
     location_y = Column(Float, nullable=False)
+    location_theta = Column(Float, nullable=False, default=0.0)
     aruco_marker = Column(Integer, nullable=False)
 
 class Warehouse(Base):

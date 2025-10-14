@@ -3,7 +3,7 @@ Unit tests for the OrderService.
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, ANY, call
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from shopee_interfaces.msg import PickeeArrival, PickeeCartHandover, PickeeMoveStatus, PackeePackingComplete
 from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
@@ -13,6 +13,16 @@ from shopee_main_service.order_service import OrderService
 
 # Mark all tests in this file as asyncio
 pytestmark = pytest.mark.asyncio
+
+
+def find_push_payload(mock_event_bus: AsyncMock, message_type: str):
+    """Utility to find a recorded app_push payload by type."""
+    for args in mock_event_bus.publish.await_args_list:
+        if args.args and args.args[0] == "app_push":
+            payload = args.args[1]
+            if payload.get("type") == message_type:
+                return payload
+    return None
 
 
 @pytest.fixture
@@ -205,26 +215,20 @@ class TestHandleMovingStatus:
     ) -> None:
         """Robot moving 이벤트 시 관리자 알림이 발행되는지 확인."""
         move_msg = PickeeMoveStatus(robot_id=2, order_id=77, location_id=5)
+        order_service._order_user_map[77] = "user77"
 
         with patch.object(order_service, "_emit_work_info_notification", new=AsyncMock()) as mock_emit:
             await order_service.handle_moving_status(move_msg)
 
-        # The data now includes location_id instead of destination string
-        mock_event_bus.publish.assert_any_call(
-            "app_push",
-            {
-                "type": "robot_moving_notification",
-                "result": True,
-                "error_code": None,
-                "data": {
-                    "order_id": 77,
-                    "robot_id": 2,
-                    "destination": "LOCATION_5",
-                    "location_id": 5,
-                },
-                "message": ANY,
-            },
-        )
+        payload = find_push_payload(mock_event_bus, "robot_moving_notification")
+        assert payload is not None
+        assert payload["result"] is True
+        assert payload["error_code"] is None
+        assert payload["data"]["order_id"] == 77
+        assert payload["data"]["robot_id"] == 2
+        assert payload["data"]["destination"] == "LOCATION_5"
+        assert payload["data"]["location_id"] == 5
+        assert payload["target_user_id"] == "user77"
         mock_emit.assert_awaited_once_with(order_id=77, robot_id=2, destination="LOCATION_5")
 
 class TestHandleArrivalNotice:
@@ -237,27 +241,19 @@ class TestHandleArrivalNotice:
         mock_session.query.return_value.filter_by.return_value.all.return_value = [OrderItem(product_id=101)]
         
         arrival_msg = PickeeArrival(robot_id=1, order_id=99, location_id=5, section_id=10)
+        order_service._order_user_map[99] = "user99"
 
         # Act
         await order_service.handle_arrival_notice(arrival_msg)
 
         # Assert
-        # 1. Check that app notification was published
-        mock_event_bus.publish.assert_any_call(
-            "app_push",
-            {
-                "type": "robot_arrived_notification",
-                "result": True,
-                "error_code": None,
-                "data": {
-                    "order_id": 99,
-                    "robot_id": 1,
-                    "location_id": 5,
-                    "section_id": 10,
-                },
-                "message": ANY,
-            },
-        )
+        payload = find_push_payload(mock_event_bus, "robot_arrived_notification")
+        assert payload is not None
+        assert payload["data"]["order_id"] == 99
+        assert payload["data"]["robot_id"] == 1
+        assert payload["data"]["location_id"] == 5
+        assert payload["data"]["section_id"] == 10
+        assert payload["target_user_id"] == "user99"
         
         # 2. Check that product detection was dispatched
         mock_robot_coordinator.dispatch_product_detect.assert_awaited_once()
@@ -289,6 +285,7 @@ class TestHandleCartHandover:
         mock_session.query.return_value.filter_by.return_value.first.return_value = None
 
         handover_msg = PickeeCartHandover(order_id=99, robot_id=1)
+        order_service._order_user_map[99] = "user99"
 
         # Act
         with patch('shopee_main_service.order_service.settings') as mock_settings:
@@ -300,16 +297,12 @@ class TestHandleCartHandover:
         mock_robot_coordinator.check_packee_availability.assert_not_awaited()
         mock_robot_coordinator.dispatch_pack_task.assert_awaited_once()
         mock_robot_coordinator.dispatch_return_to_base.assert_awaited_once()
-        mock_event_bus.publish.assert_any_call(
-            "app_push",
-            {
-                "type": "packing_info_notification",
-                "result": True,
-                "error_code": None,
-                "data": ANY,
-                "message": "포장 정보 업데이트",
-            },
-        )
+        payload = find_push_payload(mock_event_bus, "packing_info_notification")
+        assert payload is not None
+        assert payload["result"] is True
+        assert payload["data"]["order_id"] == 99
+        assert payload["message"] == "포장 정보 업데이트"
+        assert payload["target_user_id"] == "user99"
         call_args = mock_robot_coordinator.dispatch_pack_task.await_args[0][0]
         assert call_args.robot_id == 5
         assert call_args.order_id == 99

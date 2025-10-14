@@ -131,6 +131,9 @@ class MainServiceApp:
         """
         self._install_handlers()
 
+        # ROS 노드가 비동기 동작을 위임할 이벤트 루프를 주입
+        self._robot.set_asyncio_loop(asyncio.get_running_loop())
+
         # 로봇 이벤트 콜백 등록
         self._robot.set_status_callbacks(
             pickee_move_cb=self._order_service.handle_moving_status,
@@ -178,6 +181,8 @@ class MainServiceApp:
             if success:
                 # 로그인 성공 시 사용자 정보 조회
                 user_info = await self._user_service.get_user_info(user_id)
+                if user_info:
+                    self._api.associate_peer_with_user(peer, user_id)
 
             return {
                 "type": "user_login_response",

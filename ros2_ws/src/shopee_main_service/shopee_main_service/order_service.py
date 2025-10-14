@@ -76,6 +76,7 @@ class OrderService:
         self._pickee_assignments: Dict[int, int] = {}
         self._packee_assignments: Dict[int, int] = {}
         self._reservation_monitors: Dict[tuple, asyncio.Task] = {}  # (order_id, robot_id) -> Task
+        self._order_user_map: Dict[int, str] = {}
 
         # 로봇 장애 이벤트 구독 (자동 복구용)
         if settings.ROBOT_AUTO_RECOVERY_ENABLED:
@@ -111,6 +112,42 @@ class OrderService:
             8: settings.DESTINATION_DELIVERY_NAME,
             9: settings.DESTINATION_RETURN_NAME,
         }
+
+    def _register_order_user(self, order_id: int, user_id: str) -> None:
+        """order_id와 user_id 연관 정보를 저장합니다."""
+        self._order_user_map[order_id] = user_id
+
+    def _clear_order_user(self, order_id: int) -> None:
+        """주문 완료/종료 시 매핑을 정리합니다."""
+        self._order_user_map.pop(order_id, None)
+
+    def _get_order_user_id(self, order_id: int) -> Optional[str]:
+        """order_id에 해당하는 사용자 ID를 조회합니다."""
+        user_id = self._order_user_map.get(order_id)
+        if user_id:
+            return user_id
+        with self._db.session_scope() as session:
+            order = session.query(Order).filter_by(order_id=order_id).first()
+            if order and order.customer:
+                user_id = order.customer.id
+                self._order_user_map[order_id] = user_id
+                return user_id
+        return None
+
+    async def _push_to_user(self, payload: Dict[str, Any], order_id: Optional[int]) -> None:
+        """
+        사용자별 푸시 메시지를 발송합니다.
+
+        Args:
+            payload: 이벤트 페이로드
+            order_id: 대상 주문 ID (없으면 브로드캐스트)
+        """
+        message = dict(payload)
+        if order_id is not None:
+            user_id = self._get_order_user_id(order_id)
+            if user_id:
+                message.setdefault("target_user_id", user_id)
+        await self._event_bus.publish("app_push", message)
 
     def _calculate_order_summary(self, session, order_id: int) -> Tuple[int, int]:
         """주문 총 수량과 금액 계산"""
@@ -228,8 +265,7 @@ class OrderService:
                 })
 
                 # 사용자 알림
-                await self._event_bus.publish(
-                    "app_push",
+                await self._push_to_user(
                     {
                         "type": "robot_timeout_notification",
                         "result": False,
@@ -241,6 +277,7 @@ class OrderService:
                         },
                         "message": f"로봇 {robot_id}이(가) 응답하지 않습니다. 다시 시도해주세요.",
                     },
+                    order_id=order_id,
                 )
             else:
                 logger.debug(
@@ -319,8 +356,7 @@ class OrderService:
                 "customer_is_vegan": customer.is_vegan,
             }
 
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "work_info_notification",
                 "result": True,
@@ -328,6 +364,7 @@ class OrderService:
                 "data": data,
                 "message": "작업 정보 업데이트",
             },
+            order_id=order_id,
         )
 
     async def create_order(self, user_id: str, items: List[Dict[str, Any]]) -> Optional[Tuple[int, int]]:
@@ -352,6 +389,8 @@ class OrderService:
                 session.add(new_order)
                 session.flush()
                 order_id = new_order.order_id
+
+                self._register_order_user(order_id, customer.id)
 
                 if self._allocator:
                     context = AllocationContext(
@@ -435,6 +474,8 @@ class OrderService:
                 session.rollback()
                 if self._allocator and reserved_robot_id is not None and order_id is not None:
                     await self._allocator.release_robot(reserved_robot_id, order_id)
+                if order_id is not None:
+                    self._clear_order_user(order_id)
                 return None
 
     async def select_product(
@@ -501,8 +542,7 @@ class OrderService:
                     logger.error("Failed to dispatch move_to_packaging for order %d: %s", order_id, pack_exc)
                     # 이 시점에서는 이미 주문 상태가 변경되었으므로
                     # 사용자에게 알림만 보내고 예약은 유지 (수동 복구 가능하도록)
-                    await self._event_bus.publish(
-                        "app_push",
+                    await self._push_to_user(
                         {
                             "type": "robot_command_failed",
                             "result": False,
@@ -514,6 +554,7 @@ class OrderService:
                             },
                             "message": "로봇 이동 명령이 실패했습니다. 직원이 확인 중입니다.",
                         },
+                        order_id=order_id,
                     )
 
             return True, summary
@@ -532,8 +573,7 @@ class OrderService:
 
         # PickeeMoveStatus에는 location_id만 있음
         destination_text = f"LOCATION_{msg.location_id}"
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "robot_moving_notification",
                 "result": True,
@@ -546,6 +586,7 @@ class OrderService:
                 },
                 "message": self._default_locale_messages["robot_moving"],
             },
+            order_id=msg.order_id,
         )
         await self._emit_work_info_notification(
             order_id=msg.order_id,
@@ -558,8 +599,7 @@ class OrderService:
         Pickee의 도착 이벤트를 처리하고, 상품 인식 단계를 시작합니다.
         """
         logger.info("Handling arrival notice for order %d at section %d", msg.order_id, msg.section_id)
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "robot_arrived_notification",
                 "result": True,
@@ -572,6 +612,7 @@ class OrderService:
                 },
                 "message": self._default_locale_messages["robot_arrived"],
             },
+            order_id=msg.order_id,
         )
         try:
             with self._db.session_scope() as session:
@@ -618,8 +659,7 @@ class OrderService:
             detected.product_id: detected.bbox_number for detected in msg.products
         }
 
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "product_selection_start",
                 "result": True,
@@ -631,6 +671,7 @@ class OrderService:
                 },
                 "message": self._default_locale_messages["product_detected"],
             },
+            order_id=msg.order_id,
         )
 
     async def handle_pickee_selection(self, msg: "PickeeProductSelection") -> None:
@@ -675,8 +716,7 @@ class OrderService:
             else self._default_locale_messages["cart_add_fail"]
         )
         error_code = None if msg.success else "ROBOT_002"
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "cart_update_notification",
                 "result": msg.success,
@@ -696,6 +736,7 @@ class OrderService:
                 },
                 "message": message,
             },
+            order_id=msg.order_id,
         )
         bbox_map = self._detected_product_bbox.get(msg.order_id)
         if bbox_map and msg.product_id in bbox_map:
@@ -780,15 +821,15 @@ class OrderService:
                         }
                     )
 
-            await self._event_bus.publish(
-                "app_push",
+            await self._push_to_user(
                 {
                     "type": "packing_info_notification",
                     "result": True,
                     "error_code": None,
-                    "data": packing_payload,
+                    "data": {**packing_payload, "order_id": order_id},
                     "message": "포장 정보 업데이트",
                 },
+                order_id=order_id,
             )
 
             home_location_id = settings.PICKEE_HOME_LOCATION_ID
@@ -896,18 +937,19 @@ class OrderService:
             else self._default_locale_messages["packing_fail"]
         )
 
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "packing_info_notification",
                 "result": msg.success,
                 "error_code": None if msg.success else "ROBOT_002",
                 "data": {
+                    "order_id": msg.order_id,
                     "order_status": order_status_text,
                     **product_info,
                 },
                 "message": packing_message,
             },
+            order_id=msg.order_id,
         )
 
         await self._emit_work_info_notification(
@@ -918,6 +960,8 @@ class OrderService:
         self._detected_product_bbox.pop(msg.order_id, None)
         await self._release_packee(msg.order_id)
         await self._release_pickee(msg.order_id)
+        if msg.success:
+            self._clear_order_user(msg.order_id)
 
     async def _release_pickee(self, order_id: int) -> None:
         """Pickee 예약을 해제합니다."""
@@ -1053,8 +1097,7 @@ class OrderService:
         status: str,
     ) -> None:
         """로봇 재할당 성공 알림."""
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "robot_reassignment_notification",
                 "result": True,
@@ -1070,6 +1113,7 @@ class OrderService:
                     f"로봇 {old_robot_id}에 문제가 발생하여 로봇 {new_robot_id}으로 교체되었습니다."
                 ),
             },
+            order_id=order_id,
         )
 
     async def _notify_reassignment_failure(
@@ -1081,8 +1125,7 @@ class OrderService:
         reason: str,
     ) -> None:
         """로봇 재할당 실패 알림."""
-        await self._event_bus.publish(
-            "app_push",
+        await self._push_to_user(
             {
                 "type": "robot_failure_notification",
                 "result": False,
@@ -1096,6 +1139,7 @@ class OrderService:
                 },
                 "message": self._format_reassignment_failure_message(robot_id, reason),
             },
+            order_id=order_id,
         )
 
     def _format_reassignment_failure_message(self, robot_id: int, reason: str) -> str:

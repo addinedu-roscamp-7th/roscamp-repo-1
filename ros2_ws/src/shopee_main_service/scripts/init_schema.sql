@@ -64,6 +64,7 @@ CREATE TABLE location (
     location_id INT AUTO_INCREMENT PRIMARY KEY,
     location_x FLOAT NOT NULL,
     location_y FLOAT NOT NULL,
+    location_theta FLOAT NOT NULL DEFAULT 0,
     aruco_marker INT NOT NULL
 );
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from typing import Callable, Dict, Optional
 
 import rclpy
@@ -87,6 +88,7 @@ class RobotCoordinator(Node):
         self._packee_complete_cb: Optional[Callable[[PackeePackingComplete], None]] = None
         self._state_store: Optional[RobotStateStore] = state_store
         self._event_bus: Optional[EventBus] = event_bus
+        self._asyncio_loop: Optional[asyncio.AbstractEventLoop] = None
 
         # === Pickee 토픽 구독 ===
         # 로봇 상태 (위치, 배터리, 현재 작업 등)
@@ -299,6 +301,15 @@ class RobotCoordinator(Node):
         """
         self._inventory_service = inventory_service
 
+    def set_asyncio_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        """
+        MainServiceApp에서 asyncio 이벤트 루프를 주입합니다.
+
+        ROS2 서비스 콜백은 동기 방식으로 호출되므로, 내부에서 비동기 함수를
+        실행하려면 run_coroutine_threadsafe를 사용해야 합니다.
+        """
+        self._asyncio_loop = loop
+
     def set_state_store(self, state_store: RobotStateStore) -> None:
         """
         로봇 상태 캐시를 주입합니다.
@@ -391,11 +402,18 @@ class RobotCoordinator(Node):
         if loop and loop.is_running():
             loop.create_task(self._event_bus.publish("robot_failure", event_data))
         else:
-            asyncio.run(self._event_bus.publish("robot_failure", event_data))
+                asyncio.run(self._event_bus.publish("robot_failure", event_data))
 
     # === 서비스 콜백 함수들 ===
 
-    async def _get_available_robots_callback(
+    def _run_coroutine_threadsafe(self, coro: asyncio.Future, timeout: float = 2.0):
+        """Async helper executed from synchronous ROS service callbacks."""
+        if not self._asyncio_loop:
+            raise RuntimeError("Asyncio loop is not set for RobotCoordinator.")
+        future = asyncio.run_coroutine_threadsafe(coro, self._asyncio_loop)
+        return future.result(timeout=timeout)
+
+    def _get_available_robots_callback(
         self, request: MainGetAvailableRobots.Request, response: MainGetAvailableRobots.Response
     ) -> MainGetAvailableRobots.Response:
         """/main/get_available_robots 서비스 요청을 처리합니다."""
@@ -426,11 +444,17 @@ class RobotCoordinator(Node):
 
             # 가용 로봇 조회
             if robot_type:
-                available_robots = await self._state_store.list_available(robot_type)
+                available_robots = self._run_coroutine_threadsafe(
+                    self._state_store.list_available(robot_type)
+                )
             else:
                 # 모든 타입 조회
-                pickee_robots = await self._state_store.list_available(RobotType.PICKEE)
-                packee_robots = await self._state_store.list_available(RobotType.PACKEE)
+                pickee_robots = self._run_coroutine_threadsafe(
+                    self._state_store.list_available(RobotType.PICKEE)
+                )
+                packee_robots = self._run_coroutine_threadsafe(
+                    self._state_store.list_available(RobotType.PACKEE)
+                )
                 available_robots = pickee_robots + packee_robots
 
             robot_ids = [r.robot_id for r in available_robots]
@@ -440,6 +464,12 @@ class RobotCoordinator(Node):
             logger.info(response.message)
             return response
 
+        except FuturesTimeoutError:
+            logger.error("Timeout while fetching available robots.")
+            response.success = False
+            response.message = "Timeout while fetching available robots."
+            response.robot_ids = []
+            return response
         except Exception as exc:
             logger.exception("Failed to get available robots: %s", exc)
             response.success = False
@@ -474,7 +504,7 @@ class RobotCoordinator(Node):
         
         return response
 
-    async def _get_location_pose_callback(
+    def _get_location_pose_callback(
         self, request: MainGetLocationPose.Request, response: MainGetLocationPose.Response
     ) -> MainGetLocationPose.Response:
         """/main/get_location_pose 서비스 요청을 처리합니다."""
@@ -487,7 +517,20 @@ class RobotCoordinator(Node):
             logger.error(response.message)
             return response
 
-        pose_info = await self._inventory_service.get_location_pose(location_id)
+        try:
+            pose_info = self._run_coroutine_threadsafe(
+                self._inventory_service.get_location_pose(location_id)
+            )
+        except FuturesTimeoutError:
+            response.success = False
+            response.message = "Timeout while fetching location pose."
+            logger.error(response.message)
+            return response
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to get location pose: %s", exc)
+            response.success = False
+            response.message = "Internal error while fetching location pose."
+            return response
 
         if pose_info:
             response.success = True
@@ -500,7 +543,7 @@ class RobotCoordinator(Node):
         
         return response
 
-    async def _get_warehouse_pose_callback(
+    def _get_warehouse_pose_callback(
         self, request: MainGetWarehousePose.Request, response: MainGetWarehousePose.Response
     ) -> MainGetWarehousePose.Response:
         """/main/get_warehouse_pose 서비스 요청을 처리합니다."""
@@ -513,7 +556,20 @@ class RobotCoordinator(Node):
             logger.error(response.message)
             return response
 
-        pose_info = await self._inventory_service.get_warehouse_pose(warehouse_id)
+        try:
+            pose_info = self._run_coroutine_threadsafe(
+                self._inventory_service.get_warehouse_pose(warehouse_id)
+            )
+        except FuturesTimeoutError:
+            response.success = False
+            response.message = "Timeout while fetching warehouse pose."
+            logger.error(response.message)
+            return response
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to get warehouse pose: %s", exc)
+            response.success = False
+            response.message = "Internal error while fetching warehouse pose."
+            return response
 
         if pose_info:
             response.success = True
@@ -526,7 +582,7 @@ class RobotCoordinator(Node):
 
         return response
 
-    async def _get_section_pose_callback(
+    def _get_section_pose_callback(
         self, request: MainGetSectionPose.Request, response: MainGetSectionPose.Response
     ) -> MainGetSectionPose.Response:
         """/main/get_section_pose 서비스 요청을 처리합니다."""
@@ -539,7 +595,20 @@ class RobotCoordinator(Node):
             logger.error(response.message)
             return response
 
-        pose_info = await self._inventory_service.get_section_pose(section_id)
+        try:
+            pose_info = self._run_coroutine_threadsafe(
+                self._inventory_service.get_section_pose(section_id)
+            )
+        except FuturesTimeoutError:
+            response.success = False
+            response.message = "Timeout while fetching section pose."
+            logger.error(response.message)
+            return response
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to get section pose: %s", exc)
+            response.success = False
+            response.message = "Internal error while fetching section pose."
+            return response
 
         if pose_info:
             response.success = True

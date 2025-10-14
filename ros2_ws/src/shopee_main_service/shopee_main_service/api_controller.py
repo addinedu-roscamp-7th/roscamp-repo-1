@@ -25,6 +25,7 @@ class _ClientSession:
     writer: asyncio.StreamWriter
     peer: Tuple[str, int]
     lock: asyncio.Lock
+    user_id: Optional[str] = None
 
 
 class APIController:
@@ -200,6 +201,20 @@ class APIController:
         if session:
             logger.debug("Client unregistered: %s (total=%d)", session.peer, len(self._clients))
 
+    def associate_peer_with_user(self, peer: Optional[Tuple[str, int]], user_id: str) -> None:
+        """
+        특정 peer(연결)와 사용자 ID를 매핑합니다.
+
+        로그인 성공 시 호출되어, 이후 push 이벤트를 사용자별로 필터링할 수 있습니다.
+        """
+        if peer is None:
+            return
+        for session in self._clients.values():
+            if session.peer == peer:
+                session.user_id = user_id
+                logger.debug("Associated peer %s with user %s", peer, user_id)
+                break
+
     async def _send_to_client(self, writer: asyncio.StreamWriter, payload: Any) -> None:
         """
         클라이언트에게 메시지를 전송 (응답/푸시 공용)
@@ -244,6 +259,24 @@ class APIController:
             logger.debug("No clients to push message: %s", message)
             return
 
-        logger.debug("Broadcasting push event to %d clients: %s", len(self._clients), message)
-        for writer in list(self._clients.keys()):
+        target_ids = set()
+        if isinstance(message.get("target_user_ids"), list):
+            target_ids.update(str(uid) for uid in message["target_user_ids"])
+        if message.get("target_user_id") is not None:
+            target_ids.add(str(message["target_user_id"]))
+
+        recipients = []
+        for writer, session in list(self._clients.items()):
+            if target_ids:
+                if session.user_id and str(session.user_id) in target_ids:
+                    recipients.append(writer)
+            else:
+                recipients.append(writer)
+
+        if not recipients:
+            logger.debug("No matching recipients for push event: %s", message)
+            return
+
+        logger.debug("Broadcasting push event to %d clients: %s", len(recipients), message)
+        for writer in recipients:
             await self._send_to_client(writer, message)
