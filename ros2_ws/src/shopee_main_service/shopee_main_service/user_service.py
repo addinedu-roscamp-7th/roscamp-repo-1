@@ -5,7 +5,11 @@
 """
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Optional
+
+# passlib이 내부적으로 Python 3.13+에서 deprecated될 crypt 모듈을 사용하는 것에 대한 경고를 억제
+warnings.filterwarnings("ignore", message="'crypt' is deprecated")
 
 from passlib.context import CryptContext
 
@@ -15,8 +19,12 @@ if TYPE_CHECKING:
     from .database_manager import DatabaseManager
 
 # 비밀번호 해싱을 위한 컨텍스트 설정
-# bcrypt 알고리즘을 사용하며, deprecated="auto"는 보안 강화를 위해 필요시 자동 업그레이드를 지원합니다.
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt 알고리즘만 사용하도록 명시적으로 설정하여 Python 3.13+의 crypt 모듈 deprecation 경고를 방지합니다.
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    bcrypt__default_rounds=12,  # bcrypt의 기본 라운드 수 명시
+    bcrypt__ident="2b"  # bcrypt 버전 2b 사용 (최신 버전)
+)
 
 
 class UserService:

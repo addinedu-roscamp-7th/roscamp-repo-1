@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/MainGetSectionPose.srv
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/Pose2D.idl"
+
+module shopee_interfaces {
+  module srv {
+    struct MainGetSectionPose_Request {
+      int32 section_id;
+    };
+    struct MainGetSectionPose_Response {
+      shopee_interfaces::msg::Pose2D pose;
+
+      boolean success;
+
+      string message;
+    };
+  };
+};

@@ -27,15 +27,28 @@ def mock_db_manager() -> MagicMock:
 
 
 @pytest.fixture
-def mock_robot_coordinator() -> AsyncMock:
+def mock_robot_coordinator() -> MagicMock:
     """Fixture to create a mock RobotCoordinator."""
-    return AsyncMock()
+    robot = MagicMock()
+    robot.dispatch_pick_task = AsyncMock()
+    robot.dispatch_move_to_section = AsyncMock()
+    robot.dispatch_pick_process = AsyncMock()
+    robot.dispatch_shopping_end = AsyncMock()
+    robot.dispatch_move_to_packaging = AsyncMock()
+    robot.dispatch_product_detect = AsyncMock()
+    robot.check_packee_availability = AsyncMock()
+    robot.dispatch_pack_task = AsyncMock()
+    robot.dispatch_return_to_base = AsyncMock()
+    return robot
 
 
 @pytest.fixture
-def mock_event_bus() -> AsyncMock:
+def mock_event_bus() -> MagicMock:
     """Fixture to create a mock EventBus."""
-    return AsyncMock()
+    bus = MagicMock()
+    bus.publish = AsyncMock()
+    bus.subscribe = MagicMock()
+    return bus
 
 @pytest.fixture
 def mock_allocator() -> MagicMock:

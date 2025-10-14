@@ -2,13 +2,14 @@ Pac Main = Packee Main Controller
 
 Pac Vision = Packee Vision AI Service
 
-## ROS 인터페이스 매핑
+### `/packee/vision/check_cart_presence`
+> **ROS2 Interface:** `shopee_interfaces/srv/PackeeVisionCheckCartPresence.srv`
 
-| 분류 | 토픽/서비스 | ROS 타입 | 파일 경로 |
-|---|---|---|---|
-| Service | `/packee/vision/check_cart_presence` | `shopee_interfaces/srv/PackeeVisionCheckCartPresence` | `ros2_ws/src/shopee_interfaces/srv/PackeeVisionCheckCartPresence.srv` |
-| Service | `/packee/vision/detect_products_in_cart` | `shopee_interfaces/srv/PackeeVisionDetectProductsInCart` | `ros2_ws/src/shopee_interfaces/srv/PackeeVisionDetectProductsInCart.srv` |
-| Service | `/packee/vision/verify_packing_complete` | `shopee_interfaces/srv/PackeeVisionVerifyPackingComplete` | `ros2_ws/src/shopee_interfaces/srv/PackeeVisionVerifyPackingComplete.srv` |
+### `/packee/vision/detect_products_in_cart`
+> **ROS2 Interface:** `shopee_interfaces/srv/PackeeVisionDetectProductsInCart.srv`
+
+### `/packee/vision/verify_packing_complete`
+> **ROS2 Interface:** `shopee_interfaces/srv/PackeeVisionVerifyPackingComplete.srv`
 
 **구조체 매핑**
 - `DetectedProduct` → `shopee_interfaces/msg/PackeeDetectedProduct`

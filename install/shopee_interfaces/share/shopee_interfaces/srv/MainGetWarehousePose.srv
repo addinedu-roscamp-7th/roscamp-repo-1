@@ -1,0 +1,5 @@
+int32 warehouse_id
+---
+shopee_interfaces/Pose2D pose
+bool success
+string message

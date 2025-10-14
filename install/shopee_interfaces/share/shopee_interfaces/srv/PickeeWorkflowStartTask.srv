@@ -1,0 +1,7 @@
+int32 robot_id
+int32 order_id
+string user_id
+shopee_interfaces/ProductLocation[] product_list
+---
+bool success
+string message

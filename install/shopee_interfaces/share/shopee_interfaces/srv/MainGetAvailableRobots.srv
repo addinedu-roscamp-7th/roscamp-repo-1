@@ -1,0 +1,5 @@
+string robot_type  # "pickee" or "packee" or "" (empty for all)
+---
+int32[] robot_ids
+bool success
+string message

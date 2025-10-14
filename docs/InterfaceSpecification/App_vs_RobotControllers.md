@@ -11,81 +11,25 @@ Packee Main Controller = 패키 메인 컨트롤러
 ## Topic 인터페이스
 
 ### Pickee 로봇 상태 스트림
+> **ROS2 Interface:** `shopee_interfaces/msg/PickeeRobotStatus.msg`
 - **Topic**: `/pickee/robot_status`
 - **ROS 타입**: `shopee_interfaces/msg/PickeeRobotStatus`
 - **From**: Pickee Main Controller
 - **To**: Shopee App (Admin)
-- **필드**
-  | 필드 | 타입 | 설명 |
-  |---|---|---|
-  | `robot_id` | `int32` | 로봇 고유 ID |
-  | `state` | `string` | 피키 상태 코드 (예: `PK_S10`) |
-  | `battery_level` | `float32` | 배터리 잔량 (%) |
-  | `current_order_id` | `int32` | 수행 중인 주문 ID (없으면 0) |
-  | `position_x` | `float32` | X 좌표 (m) |
-  | `position_y` | `float32` | Y 좌표 (m) |
-  | `orientation_z` | `float32` | 요(heading) 방향 (rad) |
-- **샘플 JSON (rosbridge)**:
-  ```json
-  {
-    "op": "publish",
-    "topic": "/pickee/robot_status",
-    "msg": {
-      "robot_id": 1,
-      "state": "PK_S20",
-      "battery_level": 78.5,
-      "current_order_id": 12,
-      "position_x": 5.3,
-      "position_y": 2.1,
-      "orientation_z": 0.48
-    }
-  }
-  ```
-- **활용 시나리오**: Dashboard 실시간 카드/지도 표시 (`SC_05_1_1`, `SC_05_1_2`, `SC_05_1_4`)
 
 ### Packee 로봇 상태 스트림
+> **ROS2 Interface:** `shopee_interfaces/msg/PackeeRobotStatus.msg`
 - **Topic**: `/packee/robot_status`
 - **ROS 타입**: `shopee_interfaces/msg/PackeeRobotStatus`
 - **From**: Packee Main Controller
 - **To**: Shopee App (Admin)
-- **필드**
-  | 필드 | 타입 | 설명 |
-  |---|---|---|
-  | `robot_id` | `int32` | 로봇 고유 ID |
-  | `state` | `string` | 패키 상태 코드 (예: `PC_S10`) |
-  | `current_order_id` | `int32` | 수행 중인 주문 ID |
-  | `items_in_cart` | `int32` | 현재 카트 내 아이템 수 |
-- **샘플 JSON (rosbridge)**:
-  ```json
-  {
-    "op": "publish",
-    "topic": "/packee/robot_status",
-    "msg": {
-      "robot_id": 2,
-      "state": "PC_PACKING",
-      "current_order_id": 23,
-      "items_in_cart": 5
-    }
-  }
-  ```
-- **활용 시나리오**: 관리자 대시보드 로봇 테이블 및 포장 진행률 표시 (`SC_05_1_1`, `SC_05_1_4`)
 
 ### Pickee 위치 확인 (선택)
+> **ROS2 Interface:** `shopee_interfaces/msg/PickeeMobilePose.msg`
 - **Topic**: `/pickee/mobile/pose`
 - **ROS 타입**: `shopee_interfaces/msg/PickeeMobilePose`
 - **From**: Pickee Mobile Controller
 - **To**: Shopee App (Admin)
-- **필드**
-  | 필드 | 타입 | 설명 |
-  |---|---|---|
-  | `robot_id` | `int32` | 로봇 ID |
-  | `order_id` | `int32` | 연관 주문 ID |
-  | `current_pose` | `shopee_interfaces/msg/Pose2D` | x, y, theta |
-  | `linear_velocity` | `float32` | 선속도 (m/s) |
-  | `angular_velocity` | `float32` | 각속도 (rad/s) |
-  | `battery_level` | `float32` | 배터리 잔량 (%) |
-  | `status` | `string` | 이동 상태 (`moving`, `waiting` 등) |
-- **비고**: 위치 지도 표시가 필요한 경우에만 구독 (`SC_05_1_2`)
 
 ### 이벤트 트리거 정리
 | 시퀀스 ID | 사용 토픽 | 설명 |

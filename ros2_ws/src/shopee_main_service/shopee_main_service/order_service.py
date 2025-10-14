@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from shopee_interfaces.srv import (
@@ -346,7 +346,7 @@ class OrderService:
 
                 new_order = Order(
                     customer_id=customer.customer_id,
-                    start_time=datetime.utcnow(),
+                    start_time=datetime.now(timezone.utc),
                     order_status=1,  # 1: PAID
                 )
                 session.add(new_order)
@@ -866,7 +866,7 @@ class OrderService:
                 return
 
             order.order_status = final_status
-            order.end_time = datetime.utcnow()
+            order.end_time = datetime.now(timezone.utc)
             if not msg.success:
                 order.failure_reason = msg.message
             

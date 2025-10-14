@@ -16,11 +16,17 @@ pytestmark = pytest.mark.asyncio
 def app() -> MainServiceApp:
     """Fixture to create a MainServiceApp instance with injected mocks."""
     # Create mock objects for all dependencies
-    mock_robot = AsyncMock()
-    mock_streamer = AsyncMock()
+    mock_robot = MagicMock()
+    mock_robot.dispatch_video_stream_start = AsyncMock()
+    mock_robot.dispatch_video_stream_stop = AsyncMock()
+
+    mock_streamer = MagicMock()
     mock_db = MagicMock()
     mock_llm = AsyncMock()
-    mock_bus = AsyncMock()
+
+    mock_bus = MagicMock()
+    mock_bus.publish = AsyncMock()
+
     mock_inventory = AsyncMock()
     mock_robot_history = AsyncMock()
 

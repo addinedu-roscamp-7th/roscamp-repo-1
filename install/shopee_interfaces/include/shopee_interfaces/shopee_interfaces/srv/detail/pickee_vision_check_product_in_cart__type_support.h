@@ -1,0 +1,100 @@
+// generated from rosidl_generator_c/resource/idl__type_support.h.em
+// with input from shopee_interfaces:srv/PickeeVisionCheckProductInCart.idl
+// generated code does not contain a copyright notice
+
+// IWYU pragma: private, include "shopee_interfaces/srv/pickee_vision_check_product_in_cart.h"
+
+
+#ifndef SHOPEE_INTERFACES__SRV__DETAIL__PICKEE_VISION_CHECK_PRODUCT_IN_CART__TYPE_SUPPORT_H_
+#define SHOPEE_INTERFACES__SRV__DETAIL__PICKEE_VISION_CHECK_PRODUCT_IN_CART__TYPE_SUPPORT_H_
+
+#include "rosidl_typesupport_interface/macros.h"
+
+#include "shopee_interfaces/msg/rosidl_generator_c__visibility_control.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#include "rosidl_runtime_c/message_type_support_struct.h"
+
+// Forward declare the get type support functions for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+const rosidl_message_type_support_t *
+ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart_Request
+)(void);
+
+// already included above
+// #include "rosidl_runtime_c/message_type_support_struct.h"
+
+// Forward declare the get type support functions for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+const rosidl_message_type_support_t *
+ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart_Response
+)(void);
+
+// already included above
+// #include "rosidl_runtime_c/message_type_support_struct.h"
+
+// Forward declare the get type support functions for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+const rosidl_message_type_support_t *
+ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart_Event
+)(void);
+
+#include "rosidl_runtime_c/service_type_support_struct.h"
+
+// Forward declare the get type support functions for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+const rosidl_service_type_support_t *
+ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart
+)(void);
+
+// Forward declare the function to create a service event message for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+void *
+ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_CREATE_EVENT_MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart
+)(
+  const rosidl_service_introspection_info_t * info,
+  rcutils_allocator_t * allocator,
+  const void * request_message,
+  const void * response_message);
+
+// Forward declare the function to destroy a service event message for this type.
+ROSIDL_GENERATOR_C_PUBLIC_shopee_interfaces
+bool
+ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_DESTROY_EVENT_MESSAGE_SYMBOL_NAME(
+  rosidl_typesupport_c,
+  shopee_interfaces,
+  srv,
+  PickeeVisionCheckProductInCart
+)(
+  void * event_msg,
+  rcutils_allocator_t * allocator);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // SHOPEE_INTERFACES__SRV__DETAIL__PICKEE_VISION_CHECK_PRODUCT_IN_CART__TYPE_SUPPORT_H_

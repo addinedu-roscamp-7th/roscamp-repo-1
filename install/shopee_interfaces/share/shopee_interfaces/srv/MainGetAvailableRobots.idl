@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/MainGetAvailableRobots.srv
+// generated code does not contain a copyright notice
+
+
+module shopee_interfaces {
+  module srv {
+    struct MainGetAvailableRobots_Request {
+      @verbatim (language="comment", text=
+        "\"pickee\" or \"packee\" or \"\" (empty for all)")
+      string robot_type;
+    };
+    struct MainGetAvailableRobots_Response {
+      sequence<int32> robot_ids;
+
+      boolean success;
+
+      string message;
+    };
+  };
+};

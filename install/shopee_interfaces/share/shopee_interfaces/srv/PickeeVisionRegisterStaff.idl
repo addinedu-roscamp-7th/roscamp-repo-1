@@ -1,0 +1,17 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/PickeeVisionRegisterStaff.srv
+// generated code does not contain a copyright notice
+
+
+module shopee_interfaces {
+  module srv {
+    struct PickeeVisionRegisterStaff_Request {
+      int32 robot_id;
+    };
+    struct PickeeVisionRegisterStaff_Response {
+      boolean accepted;
+
+      string message;
+    };
+  };
+};

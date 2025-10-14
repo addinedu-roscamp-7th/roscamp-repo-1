@@ -1,0 +1,6 @@
+int32 robot_id
+int32 order_id
+string pose_type
+---
+bool accepted
+string message

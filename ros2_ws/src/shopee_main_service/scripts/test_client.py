@@ -11,7 +11,7 @@ import sys
 from typing import Dict, Any
 
 
-class TestClient:
+class MainServiceClient:
     """Main Service TCP 테스트 클라이언트"""
 
     def __init__(self, host: str = "localhost", port: int = 5000):
@@ -342,7 +342,7 @@ class TestClient:
 
 async def main():
     """메인 함수"""
-    client = TestClient(host="localhost", port=5000)
+    client = MainServiceClient(host="localhost", port=5000)
 
     # 인터랙티브 모드 확인
     interactive = "-i" in sys.argv or "--interactive" in sys.argv

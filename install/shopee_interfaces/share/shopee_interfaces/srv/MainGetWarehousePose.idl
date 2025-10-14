@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from shopee_interfaces/srv/MainGetWarehousePose.srv
+// generated code does not contain a copyright notice
+
+#include "shopee_interfaces/msg/Pose2D.idl"
+
+module shopee_interfaces {
+  module srv {
+    struct MainGetWarehousePose_Request {
+      int32 warehouse_id;
+    };
+    struct MainGetWarehousePose_Response {
+      shopee_interfaces::msg::Pose2D pose;
+
+      boolean success;
+
+      string message;
+    };
+  };
+};
