@@ -1,7 +1,7 @@
-# ROS2 빌드 및 설치 디렉토리
-ros2_ws/build/
-ros2_ws/install/
-ros2_ws/log/
+# ROS2 빌드 및 설치 디렉토리 (어디에 있든 무시)
+**/build/
+**/install/
+**/log/
 
 # Python
 __pycache__/
