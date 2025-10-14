@@ -55,17 +55,21 @@ class TestUserServiceLogin:
     async def test_login_failure_wrong_password(self, mock_pwd_context, user_service: UserService, mock_db_manager: MagicMock):
         """Test failed login with an incorrect password."""
         # Arrange
+        mock_pwd_context.reset_mock()  # Reset mock state for test isolation
         mock_pwd_context.verify.return_value = False
         mock_customer = Customer(id="testuser", password=self.PRECOMPUTED_HASH)
         mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_customer
+        # First query returns None (Admin check fails), second query returns Customer
+        mock_session.query.return_value.filter_by.return_value.first.side_effect = [None, mock_customer]
 
         # Act
         result = await user_service.login(user_id="testuser", password="wrongpassword")
 
         # Assert
         assert result is False
-        mock_pwd_context.verify.assert_called_once_with("wrongpassword", self.PRECOMPUTED_HASH)
+        # pwd_context.verify is called twice: once for Admin (None check passes), once for Customer
+        assert mock_pwd_context.verify.call_count == 1  # Only called once for Customer since Admin returns None
+        mock_pwd_context.verify.assert_called_with("wrongpassword", self.PRECOMPUTED_HASH)
 
     async def test_login_failure_user_not_found(self, user_service: UserService, mock_db_manager: MagicMock):
         """Test failed login when the user does not exist."""

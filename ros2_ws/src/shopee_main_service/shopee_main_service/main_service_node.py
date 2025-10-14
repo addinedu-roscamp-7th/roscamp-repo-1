@@ -23,6 +23,13 @@ from .streaming_service import StreamingService
 from .order_service import OrderService
 from .product_service import ProductService
 from .robot_coordinator import RobotCoordinator
+from .robot_state_store import RobotStateStore
+from .robot_allocator import (
+    RobotAllocator,
+    RoundRobinStrategy,
+    LeastWorkloadStrategy,
+    BatteryAwareStrategy,
+)
 from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
@@ -61,15 +68,36 @@ class MainServiceApp:
             timeout=settings.LLM_TIMEOUT
         )  # LLM 서비스 클라이언트
         self._streaming_service = streaming_service or StreamingService(
-            host=settings.API_HOST, 
+            host=settings.API_HOST,
             port=6000  # UDP Port from spec
         ) # UDP 스트리밍 중계기
-        self._robot = robot or RobotCoordinator()  # ROS2 노드 (로봇 통신)
+        self._robot = robot or RobotCoordinator(event_bus=self._event_bus)  # ROS2 노드 (로봇 통신)
+        self._robot_state_store = RobotStateStore()
+
+        # 설정에 따라 전략 선택
+        strategy_name = settings.ROBOT_ALLOCATION_STRATEGY.lower()
+        if strategy_name == "least_workload":
+            strategy = LeastWorkloadStrategy()
+        elif strategy_name == "battery_aware":
+            strategy = BatteryAwareStrategy(min_battery_level=settings.ROBOT_MIN_BATTERY_LEVEL)
+        else:  # 기본값: round_robin
+            strategy = RoundRobinStrategy()
+
+        self._robot_allocator = RobotAllocator(self._robot_state_store, strategy)
+        setter = getattr(self._robot, "set_state_store", None)
+        if callable(setter):
+            setter(self._robot_state_store)
 
         # 도메인 서비스 초기화
         self._user_service = UserService(self._db)
         self._product_service = ProductService(self._db, self._llm)
-        self._order_service = OrderService(self._db, self._robot, self._event_bus)
+        self._order_service = OrderService(
+            self._db,
+            self._robot,
+            self._event_bus,
+            allocator=self._robot_allocator,
+            state_store=self._robot_state_store,
+        )
         self._inventory_service = inventory_service or InventoryService(self._db)
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
 
@@ -544,6 +572,98 @@ class MainServiceApp:
                     "message": "Failed to search robot histories",
                 }
 
+        async def handle_robot_status_request(data, peer=None):
+            """로봇 상태 조회 (예약 정보 포함)"""
+            robot_type_filter = data.get("robot_type")  # "pickee", "packee", or None
+
+            try:
+                if robot_type_filter:
+                    from .constants import RobotType
+                    rt = RobotType.PICKEE if robot_type_filter == "pickee" else RobotType.PACKEE
+                    states = await self._robot_state_store.list_states(robot_type=rt)
+                else:
+                    states = await self._robot_state_store.list_states()
+
+                robots_data = [
+                    {
+                        "robot_id": s.robot_id,
+                        "type": s.robot_type.value,
+                        "status": s.status,
+                        "reserved": s.reserved,
+                        "active_order_id": s.active_order_id,
+                        "battery_level": s.battery_level,
+                        "maintenance_mode": s.maintenance_mode,
+                        "last_update": s.last_update.isoformat() if s.last_update else None,
+                    }
+                    for s in states
+                ]
+
+                return {
+                    "type": "robot_status_response",
+                    "result": True,
+                    "error_code": None,
+                    "data": {
+                        "robots": robots_data,
+                        "total_count": len(robots_data),
+                    },
+                    "message": "Robot status retrieved",
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Robot status request failed: %s", exc)
+                return {
+                    "type": "robot_status_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {"robots": [], "total_count": 0},
+                    "message": "Failed to retrieve robot status",
+                }
+
+        async def handle_robot_maintenance_mode(data, peer=None):
+            """로봇 유지보수 모드 설정/해제"""
+            robot_id = data.get("robot_id")
+            enabled = data.get("enabled", False)
+
+            if robot_id is None:
+                return {
+                    "type": "robot_maintenance_mode_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "robot_id is required",
+                }
+
+            try:
+                success = await self._robot_state_store.set_maintenance_mode(robot_id, enabled)
+
+                if success:
+                    return {
+                        "type": "robot_maintenance_mode_response",
+                        "result": True,
+                        "error_code": None,
+                        "data": {
+                            "robot_id": robot_id,
+                            "maintenance_mode": enabled,
+                        },
+                        "message": f"Maintenance mode {'enabled' if enabled else 'disabled'} for robot {robot_id}",
+                    }
+                else:
+                    return {
+                        "type": "robot_maintenance_mode_response",
+                        "result": False,
+                        "error_code": "ROBOT_001",
+                        "data": {},
+                        "message": f"Robot {robot_id} not found",
+                    }
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to set maintenance mode: %s", exc)
+                return {
+                    "type": "robot_maintenance_mode_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "Failed to set maintenance mode",
+                }
+
         # 핸들러 등록: 메시지 타입 → 처리 함수 매핑
         self._handlers.update(
             {
@@ -560,6 +680,8 @@ class MainServiceApp:
                 "inventory_update": handle_inventory_update,
                 "inventory_delete": handle_inventory_delete,
                 "robot_history_search": handle_robot_history_search,
+                "robot_status_request": handle_robot_status_request,
+                "robot_maintenance_mode": handle_robot_maintenance_mode,
             }
         )
 

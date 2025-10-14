@@ -73,8 +73,9 @@ class TestProductServiceSearch:
         # Assert
         mock_llm_client.generate_search_query.assert_awaited_once_with(query_text)
         mock_session.query.return_value.from_statement.assert_called_once()
-        assert len(results) == 1
-        assert results[0]["name"] == "청사과"
+        assert results["total_count"] == 1
+        assert len(results["products"]) == 1
+        assert results["products"][0]["name"] == "청사과"
 
     async def test_search_with_llm_failure_fallback(self, product_service: ProductService, mock_db_manager: MagicMock, mock_llm_client: AsyncMock):
         """Test product search fallback mechanism when the LLM fails."""
@@ -92,8 +93,9 @@ class TestProductServiceSearch:
         # Assert
         mock_llm_client.generate_search_query.assert_awaited_once_with(query_text)
         mock_session.query.return_value.filter.assert_called_once()
-        assert len(results) == 1
-        assert results[0]["name"] == "오렌지"
+        assert results["total_count"] == 1
+        assert len(results["products"]) == 1
+        assert results["products"][0]["name"] == "오렌지"
 
     async def test_search_no_results(self, product_service: ProductService, mock_db_manager: MagicMock, mock_llm_client: AsyncMock):
         """Test product search that yields no results."""
@@ -108,4 +110,5 @@ class TestProductServiceSearch:
         results = await product_service.search_products(query_text)
 
         # Assert
-        assert len(results) == 0
+        assert results["total_count"] == 0
+        assert len(results["products"]) == 0

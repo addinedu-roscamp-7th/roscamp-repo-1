@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -28,6 +29,9 @@ from shopee_interfaces.msg import ProductLocation
 from .config import settings
 from .database_models import Customer, Order, OrderItem, Product, RobotHistory
 from .event_bus import EventBus
+from .robot_allocator import AllocationContext, RobotAllocator
+from .robot_state_store import RobotStateStore
+from .constants import RobotType, RobotStatus
 
 if TYPE_CHECKING:
     from shopee_interfaces.msg import (
@@ -60,11 +64,22 @@ class OrderService:
         db: "DatabaseManager",
         robot_coordinator: "RobotCoordinator",
         event_bus: EventBus,
+        allocator: Optional[RobotAllocator] = None,
+        state_store: Optional[RobotStateStore] = None,
     ) -> None:
         self._db = db
         self._robot = robot_coordinator
         self._event_bus = event_bus
+        self._allocator = allocator
+        self._state_store = state_store
         self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
+        self._pickee_assignments: Dict[int, int] = {}
+        self._packee_assignments: Dict[int, int] = {}
+        self._reservation_monitors: Dict[tuple, asyncio.Task] = {}  # (order_id, robot_id) -> Task
+
+        # 로봇 장애 이벤트 구독 (자동 복구용)
+        if settings.ROBOT_AUTO_RECOVERY_ENABLED:
+            self._event_bus.subscribe("robot_failure", self.handle_robot_failure)
         self._default_locale_messages = {
             "robot_moving": "상품 위치로 이동 중입니다",
             "robot_arrived": "섹션에 도착했습니다",
@@ -128,11 +143,139 @@ class OrderService:
         )
         return {product.product_id: product for product in products}
 
+    def _build_product_locations(self, session, order_id: int) -> List[ProductLocation]:
+        """주문 항목을 기반으로 ProductLocation 리스트 생성"""
+        locations: List[ProductLocation] = []
+        items = session.query(OrderItem).filter_by(order_id=order_id).all()
+        for item in items:
+            product = (
+                session.query(Product)
+                .filter_by(product_id=item.product_id)
+                .first()
+            )
+            if not product or not product.section or not product.section.shelf:
+                logger.warning(
+                    "Skipping product %s for order %s due to missing section/shelf mapping",
+                    item.product_id,
+                    order_id,
+                )
+                continue
+            locations.append(
+                ProductLocation(
+                    product_id=product.product_id,
+                    location_id=product.section.shelf.location_id,
+                    section_id=product.section_id,
+                    quantity=item.quantity,
+                )
+            )
+        return locations
+
     def _status_progress(self, status: int) -> int:
         return self._status_progress_map.get(status, 0)
 
     def _default_destination(self, status: int) -> str:
         return self._status_destination_map.get(status, "")
+
+    async def _monitor_reservation_timeout(
+        self,
+        robot_id: int,
+        order_id: int,
+        robot_type: RobotType,
+        timeout: float = None,
+    ) -> None:
+        """
+        예약 후 타임아웃 모니터링.
+
+        로봇이 예약 후 일정 시간 내에 WORKING 상태로 전환되지 않으면
+        타임아웃 처리하여 예약을 해제하고 알림을 발행합니다.
+        """
+        if timeout is None:
+            timeout = settings.ROBOT_RESERVATION_TIMEOUT
+
+        logger.debug(
+            "Starting reservation timeout monitor for robot %d, order %d (timeout=%ds)",
+            robot_id, order_id, timeout
+        )
+
+        await asyncio.sleep(timeout)
+
+        # 타임아웃 후 상태 확인
+        if self._state_store:
+            state = await self._state_store.get_state(robot_id)
+            if state and state.status == RobotStatus.IDLE.value and state.reserved:
+                # 아직도 IDLE이면서 예약 상태이면 타임아웃
+                logger.warning(
+                    "Reservation timeout: robot %d still IDLE after %ds for order %d",
+                    robot_id, timeout, order_id
+                )
+
+                # 예약 해제
+                if self._allocator:
+                    await self._allocator.release_robot(robot_id, order_id)
+
+                # 할당 딕셔너리에서 제거
+                if robot_type == RobotType.PICKEE:
+                    self._pickee_assignments.pop(order_id, None)
+                else:
+                    self._packee_assignments.pop(order_id, None)
+
+                # 이벤트 발행
+                await self._event_bus.publish("reservation_timeout", {
+                    "robot_id": robot_id,
+                    "order_id": order_id,
+                    "robot_type": robot_type.value,
+                    "timeout": timeout,
+                })
+
+                # 사용자 알림
+                await self._event_bus.publish(
+                    "app_push",
+                    {
+                        "type": "robot_timeout_notification",
+                        "result": False,
+                        "error_code": "ROBOT_003",
+                        "data": {
+                            "order_id": order_id,
+                            "robot_id": robot_id,
+                            "robot_type": robot_type.value,
+                        },
+                        "message": f"로봇 {robot_id}이(가) 응답하지 않습니다. 다시 시도해주세요.",
+                    },
+                )
+            else:
+                logger.debug(
+                    "Reservation timeout monitor: robot %d is working normally for order %d",
+                    robot_id, order_id
+                )
+
+    def _start_reservation_monitor(
+        self,
+        robot_id: int,
+        order_id: int,
+        robot_type: RobotType,
+    ) -> None:
+        """예약 타임아웃 모니터링 시작"""
+        key = (order_id, robot_id)
+        # 기존 모니터가 있으면 취소
+        if key in self._reservation_monitors:
+            self._reservation_monitors[key].cancel()
+
+        # 새 모니터 시작
+        monitor_task = asyncio.create_task(
+            self._monitor_reservation_timeout(robot_id, order_id, robot_type)
+        )
+        self._reservation_monitors[key] = monitor_task
+
+    def _cancel_reservation_monitor(self, order_id: int, robot_id: int) -> None:
+        """예약 타임아웃 모니터링 취소 (정상 작업 시작 시)"""
+        key = (order_id, robot_id)
+        if key in self._reservation_monitors:
+            self._reservation_monitors[key].cancel()
+            del self._reservation_monitors[key]
+            logger.debug(
+                "Cancelled reservation timeout monitor for robot %d, order %d",
+                robot_id, order_id
+            )
 
     async def _emit_work_info_notification(
         self,
@@ -192,6 +335,9 @@ class OrderService:
         주문 생성 및 Pickee 작업 할당
         """
         logger.info("Creating order for user '%s' with %d items", user_id, len(items))
+        reserved_robot_id: Optional[int] = None
+        order_id: Optional[int] = None
+
         with self._db.session_scope() as session:
             try:
                 customer = session.query(Customer).filter_by(id=user_id).first()
@@ -205,6 +351,20 @@ class OrderService:
                 )
                 session.add(new_order)
                 session.flush()
+                order_id = new_order.order_id
+
+                if self._allocator:
+                    context = AllocationContext(
+                        order_id=order_id,
+                        required_type=RobotType.PICKEE,
+                    )
+                    reserved_state = await self._allocator.reserve_robot(context)
+                    if not reserved_state:
+                        raise RuntimeError("No available Pickee robot.")
+                    robot_id = reserved_state.robot_id
+                    reserved_robot_id = robot_id
+                else:
+                    robot_id = 1  # 기본값 (이전 동작 유지)
 
                 product_locations = []
                 for item in items:
@@ -228,8 +388,7 @@ class OrderService:
                             quantity=quantity,
                         )
                     )
-                
-                robot_id = 1  # TODO: Dynamic robot selection
+
                 request = PickeeWorkflowStartTask.Request(
                     robot_id=robot_id,
                     order_id=new_order.order_id,
@@ -252,19 +411,30 @@ class OrderService:
                         )
                         await self._robot.dispatch_move_to_section(move_req)
                     except Exception as move_exc:  # noqa: BLE001
-                        logger.warning(
+                        logger.error(
                             "Failed to dispatch move_to_section for order %d: %s",
                             new_order.order_id,
                             move_exc,
                         )
+                        # 예약 해제
+                        if self._allocator and reserved_robot_id is not None:
+                            await self._allocator.release_robot(reserved_robot_id, new_order.order_id)
+                            self._pickee_assignments.pop(new_order.order_id, None)
+                        raise  # 주문 생성 실패로 전파
 
                 session.commit()
                 logger.info("Order %d created and dispatched to robot %d", new_order.order_id, robot_id)
+                if self._allocator and reserved_robot_id is not None:
+                    self._pickee_assignments[new_order.order_id] = reserved_robot_id
+                    # 타임아웃 모니터링 시작
+                    self._start_reservation_monitor(reserved_robot_id, new_order.order_id, RobotType.PICKEE)
                 return new_order.order_id, robot_id
 
             except Exception as e:
                 logger.exception("Order creation failed: %s", e)
                 session.rollback()
+                if self._allocator and reserved_robot_id is not None and order_id is not None:
+                    await self._allocator.release_robot(reserved_robot_id, order_id)
                 return None
 
     async def select_product(
@@ -328,7 +498,23 @@ class OrderService:
                     )
                     await self._robot.dispatch_move_to_packaging(move_pack_req)
                 except Exception as pack_exc:  # noqa: BLE001
-                    logger.warning("Failed to dispatch move_to_packaging for order %d: %s", order_id, pack_exc)
+                    logger.error("Failed to dispatch move_to_packaging for order %d: %s", order_id, pack_exc)
+                    # 이 시점에서는 이미 주문 상태가 변경되었으므로
+                    # 사용자에게 알림만 보내고 예약은 유지 (수동 복구 가능하도록)
+                    await self._event_bus.publish(
+                        "app_push",
+                        {
+                            "type": "robot_command_failed",
+                            "result": False,
+                            "error_code": "ROBOT_002",
+                            "data": {
+                                "order_id": order_id,
+                                "robot_id": robot_id,
+                                "command": "move_to_packaging",
+                            },
+                            "message": "로봇 이동 명령이 실패했습니다. 직원이 확인 중입니다.",
+                        },
+                    )
 
             return True, summary
         except Exception as e:
@@ -340,6 +526,10 @@ class OrderService:
         Pickee의 이동 상태 이벤트를 처리합니다.
         """
         logger.info("Handling moving status for order %d", msg.order_id)
+
+        # 타임아웃 모니터 취소 (로봇이 실제로 작업 시작함)
+        self._cancel_reservation_monitor(msg.order_id, msg.robot_id)
+
         # PickeeMoveStatus에는 location_id만 있음
         destination_text = f"LOCATION_{msg.location_id}"
         await self._event_bus.publish(
@@ -520,25 +710,47 @@ class OrderService:
         order_id = msg.order_id
         robot_id = msg.robot_id
         logger.info("Handling cart handover for order %d, starting packing process.", order_id)
+        packee_robot_id: Optional[int] = None
+        allocator_reserved = False
         try:
-            check_req = PackeePackingCheckAvailability.Request()
-            check_res = await self._robot.check_packee_availability(check_req)
+            if self._allocator:
+                context = AllocationContext(
+                    order_id=order_id,
+                    required_type=RobotType.PACKEE,
+                )
+                reserved_state = await self._allocator.reserve_robot(context)
+                if reserved_state:
+                    packee_robot_id = reserved_state.robot_id
+                    allocator_reserved = True
+                    logger.info("Reserved Packee robot %d for order %d via allocator.", packee_robot_id, order_id)
+                else:
+                    logger.info("Allocator could not find available Packee robot for order %d. Falling back to ROS check.", order_id)
             
-            if not check_res.available:
-                logger.error("No available Packee robot for order %d. Reason: %s", order_id, check_res.message)
-                return
+            if packee_robot_id is None:
+                check_req = PackeePackingCheckAvailability.Request()
+                check_res = await self._robot.check_packee_availability(check_req)
+                
+                if not check_res.available:
+                    logger.error("No available Packee robot for order %d. Reason: %s", order_id, check_res.message)
+                    return
 
-            packee_robot_id = check_res.robot_id
-            logger.info("Packee robot %d is available for order %d.", packee_robot_id, order_id)
+                packee_robot_id = check_res.robot_id
+                logger.info("Packee robot %d is available for order %d (ROS service).", packee_robot_id, order_id)
 
             start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
             start_res = await self._robot.dispatch_pack_task(start_req)
 
             if not start_res.success:
                 logger.error("Failed to start packing for order %d. Reason: %s", order_id, start_res.message)
+                if allocator_reserved:
+                    await self._allocator.release_robot(packee_robot_id, order_id)
                 return
             
             logger.info("Successfully dispatched packing task for order %d to robot %d.", order_id, packee_robot_id)
+            if allocator_reserved:
+                self._packee_assignments[order_id] = packee_robot_id
+                # 타임아웃 모니터링 시작
+                self._start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
 
             packing_payload = {
                 "order_status": "PACKING",
@@ -589,9 +801,24 @@ class OrderService:
                     await self._robot.dispatch_return_to_base(return_req)
                 except Exception as return_exc:  # noqa: BLE001
                     logger.warning("Failed to dispatch return_to_base for order %d: %s", order_id, return_exc)
+                    # 복귀 실패는 치명적이지 않음 (이미 작업 완료)
+                    # 로깅만 하고 예약은 정상 해제
+
+            await self._release_pickee(order_id)
 
         except Exception as e:
             logger.exception("Failed to handle cart handover for order %d: %s", order_id, e)
+            if allocator_reserved and packee_robot_id is not None:
+                try:
+                    self._packee_assignments.pop(order_id, None)
+                    await self._allocator.release_robot(packee_robot_id, order_id)
+                except Exception as release_exc:  # noqa: BLE001
+                    logger.warning(
+                        "Failed to release Packee robot %d for order %d after exception: %s",
+                        packee_robot_id,
+                        order_id,
+                        release_exc,
+                    )
 
     async def handle_packee_availability(self, msg: "PackeeAvailability") -> None:
         """
@@ -619,6 +846,10 @@ class OrderService:
         Packee의 포장 완료 이벤트를 처리합니다.
         """
         logger.info("Handling packee complete for order %d. Success: %s", msg.order_id, msg.success)
+
+        # 타임아웃 모니터 취소
+        self._cancel_reservation_monitor(msg.order_id, msg.robot_id)
+
         final_status = 8 if msg.success else 9  # 8: PACKED, 9: FAIL_PACK
         
         product_info = {
@@ -685,9 +916,311 @@ class OrderService:
             destination=self._default_destination(final_status),
         )
         self._detected_product_bbox.pop(msg.order_id, None)
+        await self._release_packee(msg.order_id)
+        await self._release_pickee(msg.order_id)
+
+    async def _release_pickee(self, order_id: int) -> None:
+        """Pickee 예약을 해제합니다."""
+        robot_id = self._pickee_assignments.pop(order_id, None)
+        if robot_id is None:
+            return
+        self._cancel_reservation_monitor(order_id, robot_id)
+        if self._allocator:
+            try:
+                await self._allocator.release_robot(robot_id, order_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to release Pickee robot %d for order %d: %s",
+                    robot_id,
+                    order_id,
+                    exc,
+                )
+        elif self._state_store:
+            try:
+                await self._state_store.release(robot_id, order_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to release Pickee robot %d via state store for order %d: %s",
+                    robot_id,
+                    order_id,
+                    exc,
+                )
+
+    async def _release_packee(self, order_id: int) -> None:
+        """Packee 예약을 해제합니다."""
+        robot_id = self._packee_assignments.pop(order_id, None)
+        if robot_id is None:
+            return
+        self._cancel_reservation_monitor(order_id, robot_id)
+        if self._allocator:
+            try:
+                await self._allocator.release_robot(robot_id, order_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to release Packee robot %d for order %d: %s",
+                    robot_id,
+                    order_id,
+                    exc,
+                )
+        elif self._state_store:
+            try:
+                await self._state_store.release(robot_id, order_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to release Packee robot %d via state store for order %d: %s",
+                    robot_id,
+                    order_id,
+                    exc,
+                )
+
+    async def _reassign_pickee(self, order_id: int, new_robot_id: int) -> bool:
+        """장애 발생 후 Pickee 로봇을 재할당합니다."""
+        try:
+            with self._db.session_scope() as session:
+                order = session.query(Order).filter_by(order_id=order_id).first()
+                if not order or not order.customer:
+                    raise ValueError(f"Cannot reassign pickee: order {order_id} not found or has no customer")
+                user_id = order.customer.id
+                product_locations = self._build_product_locations(session, order_id)
+                if not product_locations:
+                    raise ValueError(f"No product locations available for order {order_id}")
+
+            request = PickeeWorkflowStartTask.Request(
+                robot_id=new_robot_id,
+                order_id=order_id,
+                user_id=user_id,
+                product_list=product_locations,
+            )
+            response = await self._robot.dispatch_pick_task(request)
+            if not response.success:
+                raise RuntimeError(f"Failed to dispatch pick task to robot {new_robot_id}: {response.message}")
+
+            first_location = product_locations[0]
+            try:
+                move_req = PickeeWorkflowMoveToSection.Request(
+                    robot_id=new_robot_id,
+                    order_id=order_id,
+                    location_id=first_location.location_id,
+                    section_id=first_location.section_id,
+                )
+                await self._robot.dispatch_move_to_section(move_req)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to send move_to_section during reassign of order %d to robot %d: %s",
+                    order_id,
+                    new_robot_id,
+                    exc,
+                )
+
+            self._pickee_assignments[order_id] = new_robot_id
+            self._start_reservation_monitor(new_robot_id, order_id, RobotType.PICKEE)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Reassigning pickee robot failed: order=%d, new_robot=%d, reason=%s",
+                order_id,
+                new_robot_id,
+                exc,
+            )
+            return False
+
+    async def _reassign_packee(self, order_id: int, new_robot_id: int) -> bool:
+        """장애 발생 후 Packee 로봇을 재할당합니다."""
+        try:
+            request = PackeePackingStart.Request(robot_id=new_robot_id, order_id=order_id)
+            response = await self._robot.dispatch_pack_task(request)
+            if not response.success:
+                raise RuntimeError(f"Failed to dispatch pack task to robot {new_robot_id}: {response.message}")
+
+            self._packee_assignments[order_id] = new_robot_id
+            self._start_reservation_monitor(new_robot_id, order_id, RobotType.PACKEE)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Reassigning packee robot failed: order=%d, new_robot=%d, reason=%s",
+                order_id,
+                new_robot_id,
+                exc,
+            )
+            return False
+
+    async def _notify_reassignment_success(
+        self,
+        order_id: int,
+        old_robot_id: int,
+        new_robot_id: int,
+        robot_type: str,
+        status: str,
+    ) -> None:
+        """로봇 재할당 성공 알림."""
+        await self._event_bus.publish(
+            "app_push",
+            {
+                "type": "robot_reassignment_notification",
+                "result": True,
+                "error_code": None,
+                "data": {
+                    "order_id": order_id,
+                    "old_robot_id": old_robot_id,
+                    "new_robot_id": new_robot_id,
+                    "robot_type": robot_type,
+                    "reason": f"Robot {old_robot_id} {status}",
+                },
+                "message": (
+                    f"로봇 {old_robot_id}에 문제가 발생하여 로봇 {new_robot_id}으로 교체되었습니다."
+                ),
+            },
+        )
+
+    async def _notify_reassignment_failure(
+        self,
+        order_id: int,
+        robot_id: int,
+        robot_type: str,
+        status: str,
+        reason: str,
+    ) -> None:
+        """로봇 재할당 실패 알림."""
+        await self._event_bus.publish(
+            "app_push",
+            {
+                "type": "robot_failure_notification",
+                "result": False,
+                "error_code": "ROBOT_001",
+                "data": {
+                    "order_id": order_id,
+                    "robot_id": robot_id,
+                    "robot_type": robot_type,
+                    "status": status,
+                    "reason": reason,
+                },
+                "message": self._format_reassignment_failure_message(robot_id, reason),
+            },
+        )
+
+    def _format_reassignment_failure_message(self, robot_id: int, reason: str) -> str:
+        """재할당 실패 메시지를 사유에 따라 생성"""
+        if reason == "no_available_robot":
+            return f"로봇 {robot_id}에 문제가 발생했으며, 현재 가용한 대체 로봇이 없습니다."
+        if reason == "allocator_unavailable":
+            return f"로봇 {robot_id}에 문제가 발생했지만, 관제 시스템에서 자동 재할당을 지원하지 않습니다."
+        return f"로봇 {robot_id}에 문제가 발생했고, 재할당 중 오류가 발생했습니다."
 
     def get_detected_bbox(self, order_id: int, product_id: int) -> Optional[int]:
         """
         최근 상품 인식 결과에서 해당 상품의 bbox 번호를 조회합니다.
         """
         return self._detected_product_bbox.get(order_id, {}).get(product_id)
+
+    async def handle_robot_failure(self, event_data: Dict[str, Any]) -> None:
+        """
+        로봇 장애 이벤트를 처리하여 자동으로 다른 로봇을 할당합니다.
+
+        Args:
+            event_data: {
+                "robot_id": int,
+                "robot_type": str,  # "pickee" or "packee"
+                "status": str,      # "ERROR" or "OFFLINE"
+                "active_order_id": Optional[int]
+            }
+        """
+        robot_id = event_data.get("robot_id")
+        robot_type_str = event_data.get("robot_type")
+        status = event_data.get("status")
+        active_order_id = event_data.get("active_order_id")
+
+        logger.warning(
+            "Handling robot failure: robot_id=%d, type=%s, status=%s, order_id=%s",
+            robot_id,
+            robot_type_str,
+            status,
+            active_order_id,
+        )
+
+        # 활성 주문이 없으면 할당할 필요 없음
+        if not active_order_id:
+            logger.info("No active order for failed robot %d, skipping reallocation", robot_id)
+            return
+
+        # 로봇 타입 확인
+        try:
+            robot_type = RobotType.PICKEE if robot_type_str == "pickee" else RobotType.PACKEE
+        except Exception:  # noqa: BLE001
+            logger.error("Invalid robot type: %s", robot_type_str)
+            return
+
+        # 기존 예약 해제 및 모니터 취소
+        if robot_type == RobotType.PICKEE:
+            self._pickee_assignments.pop(active_order_id, None)
+        else:
+            self._packee_assignments.pop(active_order_id, None)
+        self._cancel_reservation_monitor(active_order_id, robot_id)
+
+        if not self._allocator:
+            logger.warning("No allocator available for robot reallocation")
+            await self._notify_reassignment_failure(
+                active_order_id,
+                robot_id,
+                robot_type_str,
+                status,
+                reason="allocator_unavailable",
+            )
+            return
+
+        context = AllocationContext(order_id=active_order_id, required_type=robot_type)
+        new_robot_state = await self._allocator.reserve_robot(context)
+
+        if not new_robot_state:
+            logger.error(
+                "Failed to reallocate order %d: no available %s robot",
+                active_order_id,
+                robot_type_str,
+            )
+            await self._notify_reassignment_failure(
+                active_order_id,
+                robot_id,
+                robot_type_str,
+                status,
+                reason="no_available_robot",
+            )
+            return
+
+        new_robot_id = new_robot_state.robot_id
+        logger.info(
+            "Attempting to reassign order %d from robot %d to robot %d",
+            active_order_id,
+            robot_id,
+            new_robot_id,
+        )
+
+        try:
+            if robot_type == RobotType.PICKEE:
+                success = await self._reassign_pickee(active_order_id, new_robot_id)
+            else:
+                success = await self._reassign_packee(active_order_id, new_robot_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Unexpected error occurred while reassigning order %d to robot %d: %s",
+                active_order_id,
+                new_robot_id,
+                exc,
+            )
+            success = False
+
+        if success:
+            await self._notify_reassignment_success(
+                active_order_id,
+                robot_id,
+                new_robot_id,
+                robot_type_str,
+                status or "",
+            )
+        else:
+            await self._allocator.release_robot(new_robot_id, active_order_id)
+            await self._notify_reassignment_failure(
+                active_order_id,
+                robot_id,
+                robot_type_str,
+                status,
+                reason="reassignment_failed",
+            )

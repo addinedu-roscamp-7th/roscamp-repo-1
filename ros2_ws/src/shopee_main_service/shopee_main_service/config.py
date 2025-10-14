@@ -59,6 +59,14 @@ class MainServiceConfig(BaseSettings):
     DESTINATION_DELIVERY_NAME: str = "DELIVERY"
     DESTINATION_RETURN_NAME: str = "RETURN"
 
+    # === Robot Fleet Management 설정 ===
+    ROBOT_ALLOCATION_STRATEGY: str = "round_robin"  # round_robin | least_workload | battery_aware
+    ROBOT_RESERVATION_TIMEOUT: float = 30.0  # 초
+    ROBOT_MIN_BATTERY_LEVEL: float = 20.0  # %
+    ROBOT_MAX_PICKEE: int = 10
+    ROBOT_MAX_PACKEE: int = 5
+    ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
+
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Optional[str] = None

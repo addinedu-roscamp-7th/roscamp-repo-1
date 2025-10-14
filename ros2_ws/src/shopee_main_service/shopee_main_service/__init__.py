@@ -10,6 +10,14 @@ from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
 from .product_service import ProductService
 from .robot_coordinator import RobotCoordinator
+from .robot_allocator import (
+    AllocationContext,
+    RobotAllocator,
+    RoundRobinStrategy,
+    LeastWorkloadStrategy,
+    BatteryAwareStrategy,
+)
+from .robot_state_store import RobotState, RobotStateStore
 from .user_service import UserService
 
 __all__ = [
@@ -23,5 +31,12 @@ __all__ = [
     "RobotHistoryService",
     "ProductService",
     "RobotCoordinator",
+    "RobotAllocator",
+    "RoundRobinStrategy",
+    "LeastWorkloadStrategy",
+    "BatteryAwareStrategy",
+    "AllocationContext",
+    "RobotState",
+    "RobotStateStore",
     "UserService",
 ]

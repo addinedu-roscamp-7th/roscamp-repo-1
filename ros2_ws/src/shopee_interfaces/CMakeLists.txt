@@ -46,6 +46,7 @@ set(msg_files
 )
 
 set(srv_files
+  "srv/MainGetAvailableRobots.srv"
   "srv/MainGetProductLocation.srv"
   "srv/MainGetLocationPose.srv"
   "srv/MainGetWarehousePose.srv"

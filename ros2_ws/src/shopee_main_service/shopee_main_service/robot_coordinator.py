@@ -17,6 +17,9 @@ from rclpy.node import Node
 
 from .inventory_service import InventoryService
 from .product_service import ProductService
+from .robot_state_store import RobotState, RobotStateStore
+from .constants import RobotStatus, RobotType
+from .event_bus import EventBus
 
 from shopee_interfaces.msg import (
     PackeeAvailability,
@@ -42,6 +45,7 @@ from shopee_interfaces.srv import (
     PickeeWorkflowReturnToBase,
     PickeeWorkflowReturnToStaff,
     PickeeWorkflowStartTask,
+    MainGetAvailableRobots,
     MainGetProductLocation,
     MainGetLocationPose,
     MainGetWarehousePose,
@@ -63,17 +67,17 @@ class RobotCoordinator(Node):
     - 상태 캐싱 및 콜백 지원
     """
 
-    def __init__(self) -> None:
+    def __init__(self, state_store: Optional[RobotStateStore] = None, event_bus: Optional[EventBus] = None) -> None:
         """
         ROS2 노드 및 통신 채널 초기화
-        
+
         생성되는 것들:
         - 5개의 토픽 구독 (Subscriber)
         - 4개의 서비스 클라이언트
         - 상태 캐시 및 콜백 핸들러
         """
         super().__init__("robot_coordinator")
-        
+
         # 외부에서 등록할 콜백 함수들 (OrderService 등에서 사용)
         self._pickee_status_cb: Optional[Callable[[PickeeRobotStatus], None]] = None
         self._pickee_selection_cb: Optional[Callable[[PickeeProductSelection], None]] = None
@@ -81,6 +85,8 @@ class RobotCoordinator(Node):
         self._packee_status_cb: Optional[Callable[[PackeeRobotStatus], None]] = None
         self._packee_availability_cb: Optional[Callable[[PackeeAvailability], None]] = None
         self._packee_complete_cb: Optional[Callable[[PackeePackingComplete], None]] = None
+        self._state_store: Optional[RobotStateStore] = state_store
+        self._event_bus: Optional[EventBus] = event_bus
 
         # === Pickee 토픽 구독 ===
         # 로봇 상태 (위치, 배터리, 현재 작업 등)
@@ -149,6 +155,9 @@ class RobotCoordinator(Node):
 
         # === ROS2 서비스 서버 ===
         # Main Service가 직접 제공하는 서비스
+        self._get_available_robots_srv = self.create_service(
+            MainGetAvailableRobots, "/main/get_available_robots", self._get_available_robots_callback
+        )
         self._get_product_location_srv = self.create_service(
             MainGetProductLocation, "/main/get_product_location", self._get_product_location_callback
         )
@@ -290,7 +299,153 @@ class RobotCoordinator(Node):
         """
         self._inventory_service = inventory_service
 
+    def set_state_store(self, state_store: RobotStateStore) -> None:
+        """
+        로봇 상태 캐시를 주입합니다.
+
+        향후 로봇 토픽을 받아 상태를 업데이트하기 위한 준비 단계입니다.
+        """
+        self._state_store = state_store
+    
+    def _normalize_status(self, raw: str, default: RobotStatus = RobotStatus.IDLE) -> str:
+        """ROS 메시지의 상태 문자열을 내부 표준 상태로 변환합니다."""
+        if not raw:
+            return default.value
+        normalized = raw.strip().upper()
+        for status in RobotStatus:
+            if normalized in {status.name, status.value}:
+                return status.value
+        return default.value
+
+    def _schedule_state_upsert(
+        self,
+        robot_type: RobotType,
+        robot_id: int,
+        status: str,
+        *,
+        battery_level: Optional[float] = None,
+        active_order_id: Optional[int] = None,
+    ) -> None:
+        """RobotStateStore 에 비동기로 상태를 반영합니다."""
+        if not self._state_store:
+            return
+        normalized_status = self._normalize_status(status)
+        active_id = active_order_id if active_order_id and active_order_id > 0 else None
+        state = RobotState(
+            robot_id=robot_id,
+            robot_type=robot_type,
+            status=normalized_status,
+            battery_level=battery_level,
+            active_order_id=active_id,
+        )
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            loop.create_task(self._state_store.upsert_state(state))
+        else:
+            asyncio.run(self._state_store.upsert_state(state))
+
+    def _publish_robot_failure_event(
+        self,
+        robot_id: int,
+        robot_type: RobotType,
+        status: str,
+        active_order_id: Optional[int] = None,
+    ) -> None:
+        """로봇 장애 이벤트를 EventBus로 발행합니다."""
+        if not self._event_bus:
+            return
+
+        logger.warning(
+            "Robot failure detected: robot_id=%d, type=%s, status=%s, active_order_id=%s",
+            robot_id,
+            robot_type.value,
+            status,
+            active_order_id,
+        )
+
+        # 예약 해제
+        if self._state_store and active_order_id:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                loop.create_task(self._state_store.release(robot_id, active_order_id))
+            else:
+                asyncio.run(self._state_store.release(robot_id, active_order_id))
+
+        # EventBus로 알림 발행
+        event_data = {
+            "robot_id": robot_id,
+            "robot_type": robot_type.value,
+            "status": status,
+            "active_order_id": active_order_id,
+        }
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            loop.create_task(self._event_bus.publish("robot_failure", event_data))
+        else:
+            asyncio.run(self._event_bus.publish("robot_failure", event_data))
+
     # === 서비스 콜백 함수들 ===
+
+    async def _get_available_robots_callback(
+        self, request: MainGetAvailableRobots.Request, response: MainGetAvailableRobots.Response
+    ) -> MainGetAvailableRobots.Response:
+        """/main/get_available_robots 서비스 요청을 처리합니다."""
+        robot_type_str = request.robot_type.strip().lower()
+        logger.info(f"Received request to get available robots (type={robot_type_str or 'all'})")
+
+        if not self._state_store:
+            response.success = False
+            response.message = "RobotStateStore is not initialized in RobotCoordinator."
+            response.robot_ids = []
+            logger.error(response.message)
+            return response
+
+        try:
+            # 타입 필터 적용
+            if robot_type_str == "pickee":
+                robot_type = RobotType.PICKEE
+            elif robot_type_str == "packee":
+                robot_type = RobotType.PACKEE
+            elif robot_type_str == "":
+                robot_type = None
+            else:
+                response.success = False
+                response.message = f"Invalid robot_type: {robot_type_str}. Use 'pickee', 'packee', or empty."
+                response.robot_ids = []
+                logger.warning(response.message)
+                return response
+
+            # 가용 로봇 조회
+            if robot_type:
+                available_robots = await self._state_store.list_available(robot_type)
+            else:
+                # 모든 타입 조회
+                pickee_robots = await self._state_store.list_available(RobotType.PICKEE)
+                packee_robots = await self._state_store.list_available(RobotType.PACKEE)
+                available_robots = pickee_robots + packee_robots
+
+            robot_ids = [r.robot_id for r in available_robots]
+            response.success = True
+            response.robot_ids = robot_ids
+            response.message = f"Found {len(robot_ids)} available robots."
+            logger.info(response.message)
+            return response
+
+        except Exception as exc:
+            logger.exception("Failed to get available robots: %s", exc)
+            response.success = False
+            response.message = "Internal error while fetching available robots."
+            response.robot_ids = []
+            return response
 
     def _get_product_location_callback(
         self, request: MainGetProductLocation.Request, response: MainGetProductLocation.Response
@@ -487,6 +642,24 @@ class RobotCoordinator(Node):
     def _on_pickee_status(self, msg: PickeeRobotStatus) -> None:
         """Pickee 상태 토픽 콜백"""
         self._ros_cache["pickee_status"] = msg
+        self._schedule_state_upsert(
+            RobotType.PICKEE,
+            msg.robot_id,
+            msg.state,
+            battery_level=float(msg.battery_level),
+            active_order_id=msg.current_order_id,
+        )
+
+        # ERROR/OFFLINE 감지 시 자동 복구 이벤트 발행
+        normalized_status = self._normalize_status(msg.state)
+        if normalized_status in [RobotStatus.ERROR.value, RobotStatus.OFFLINE.value]:
+            self._publish_robot_failure_event(
+                robot_id=msg.robot_id,
+                robot_type=RobotType.PICKEE,
+                status=normalized_status,
+                active_order_id=msg.current_order_id if msg.current_order_id > 0 else None,
+            )
+
         if self._pickee_status_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_status_cb):
@@ -547,6 +720,23 @@ class RobotCoordinator(Node):
     def _on_packee_status(self, msg: PackeeRobotStatus) -> None:
         """Packee 상태 토픽 콜백"""
         self._ros_cache["packee_status"] = msg
+        self._schedule_state_upsert(
+            RobotType.PACKEE,
+            msg.robot_id,
+            msg.state,
+            active_order_id=msg.current_order_id,
+        )
+
+        # ERROR/OFFLINE 감지 시 자동 복구 이벤트 발행
+        normalized_status = self._normalize_status(msg.state)
+        if normalized_status in [RobotStatus.ERROR.value, RobotStatus.OFFLINE.value]:
+            self._publish_robot_failure_event(
+                robot_id=msg.robot_id,
+                robot_type=RobotType.PACKEE,
+                status=normalized_status,
+                active_order_id=msg.current_order_id if msg.current_order_id > 0 else None,
+            )
+
         if self._packee_status_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._packee_status_cb):

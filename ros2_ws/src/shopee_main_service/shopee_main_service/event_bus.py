@@ -48,6 +48,13 @@ class EventBus:
         self._listeners[topic].append(handler)
         logger.debug("Listener registered for %s (%d total)", topic, len(self._listeners[topic]))
 
+    def subscribe(self, topic: str, handler: EventHandler) -> None:
+        """
+        register_listener의 alias.
+        기존 코드 호환을 위해 제공됩니다.
+        """
+        self.register_listener(topic, handler)
+
     def unregister_listener(self, topic: str, handler: EventHandler) -> None:
         """
         토픽 구독 해제

@@ -6,3 +6,5 @@ PyMySQL
 passlib
 bcrypt
 httpx
+aiohttp
+cryptography
