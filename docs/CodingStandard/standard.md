@@ -65,19 +65,19 @@ __4. 따옴표 규칙__
 
 1. Packages Names
 
-   `snake-case`
+   `snake_case`
 2. Node/Topic/Service/Action/Parameter Names
 
-   `snake-case`
+   `snake_case`
 3. Type Names
 
    `PascalCase`
 4. Type Field Names
 
-   `snake-case`
+   `snake_case`
 5. Type Constants Names
 
-   `SCREAMING-SNAKE-CASE`
+   `SCREAMING_SNAKE_CASE`
 
 ### C++ Standard
 
@@ -94,38 +94,46 @@ __4. 따옴표 규칙__
 
 1. File Names
 
-   `snake-case`
+   `snake_case`
+
 2. Type Names
 
    `PascalCase`
+
 3. Concept Names
 
    `PascalCase`
+
 4. Function Names
 
    - 기본적으로 `PascalCase`
    - 접근자(`get`/`set`)는 `snake_case`
+
 5. Variable Names
 
    - Class Data Members
-     - `snake-case` + `_`(underscore)
+     - `snake_case` + `_`(underscore)
    - Struct Data Members
-     - `snake-case`
+     - `snake_case`
+
 6. Constant Names
 
    `k` + `PascalCase`
 
    - 정적 저장 기간 변수 = 상수 규칙
    - 자동 저장 기간 변수 = 변수 규칙
+
 7. Enumerator Names
 
    `k` + `PascalCase`
+
 8. Macro Names
 
-   `SCREAMING-SNAKE-CASE`
+   `SCREAMING_SNAKE_CASE`
+
 9. Namespace Names
 
-   `snake-case`
+   `snake_case`
 
    __네임스페이스 추가사항__
 
