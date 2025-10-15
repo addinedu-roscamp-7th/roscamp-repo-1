@@ -1,7 +1,7 @@
 """
 Robot state storage façade.
 
-백엔드 구현(InMemory, Redis 등)을 주입 받아 일관된 API를 제공합니다.
+백엔드 구현을 주입 받아 일관된 API를 제공합니다.
 """
 from __future__ import annotations
 

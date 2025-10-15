@@ -66,10 +66,6 @@ class MainServiceConfig(BaseSettings):
     ROBOT_MAX_PICKEE: int = 10
     ROBOT_MAX_PACKEE: int = 5
     ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
-    ROBOT_STATE_BACKEND: str = "memory"  # memory | redis
-    REDIS_URL: str = "redis://localhost:6379/0"
-    REDIS_KEY_PREFIX: str = "shopee:robot_state"
-    REDIS_SOCKET_TIMEOUT: float = 1.0
 
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"

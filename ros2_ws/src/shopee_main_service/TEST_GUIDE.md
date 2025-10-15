@@ -53,8 +53,7 @@ ros2 run shopee_main_service main_service_node
 
 전체 워크플로우 테스트 (자동):
 ```bash
-cd src/shopee_main_service
-python3 scripts/test_client.py
+python3 src/shopee_main_service/scripts/test_client.py
 ```
 
 전체 워크플로우 테스트 (수동 - 단계별):

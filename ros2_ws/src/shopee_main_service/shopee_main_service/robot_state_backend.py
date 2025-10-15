@@ -1,7 +1,7 @@
 """
 Robot state storage backends.
 
-RobotState 데이터 모델과, 다양한 저장소 구현(인메모리/Redis 등)을 위한
+RobotState 데이터 모델과, 다양한 저장소 구현(예: 인메모리)을 위한
 공통 인터페이스를 제공합니다.
 """
 from __future__ import annotations
