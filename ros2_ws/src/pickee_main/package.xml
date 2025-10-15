@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>shopee_pickee_main</name>
+  <name>pickee_main</name>
   <version>0.0.0</version>
-  <description>The shopee_pickee_main package</description>
+  <description>The pickee_main package</description>
   <maintainer email="wonho9188@gmail.com">wonho9188</maintainer>
   <license>TODO: License declaration</license>
 

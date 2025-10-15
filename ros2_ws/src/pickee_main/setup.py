@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'shopee_pickee_main'
+package_name = 'pickee_main'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'main_controller = shopee_pickee_main.main_controller:main',
+            'main_controller = pickee_main.main_controller:main',
         ],
     },
 )
