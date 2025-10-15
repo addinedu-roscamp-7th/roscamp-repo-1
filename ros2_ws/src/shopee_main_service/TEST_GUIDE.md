@@ -159,6 +159,16 @@ asyncio.run(run_sc_02_4_product_selection())
 PY
 ```
 
+CLI 형태로 바로 실행하고 싶다면 `scripts/scenarios` 경로의 실행기를 사용할 수 있습니다.
+
+- `python3 scripts/scenarios/sc_02_4_product_selection.py`
+- `python3 scripts/scenarios/sc_02_5_shopping_end.py`
+- `python3 scripts/scenarios/sc_05_2_1_inventory_search.py`
+- `python3 scripts/scenarios/sc_05_2_2_inventory_update.py`
+- `python3 scripts/scenarios/sc_05_2_3_inventory_create.py`
+- `python3 scripts/scenarios/sc_05_2_4_inventory_delete.py`
+- `python3 scripts/scenarios/sc_05_3_robot_history_search.py`
+
 Mock 환경에서는 비동기 알림을 검증하기 위해 `MainServiceClient.drain_notifications()`가 사용되므로, ROS2 토픽 이벤트와 TCP 응답이 모두 도착할 시간을 확보한 뒤 호출해주세요.
 
 ## 📊 예상 출력

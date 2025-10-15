@@ -17,7 +17,9 @@ setup(
     maintainer_email='user@todo.todo',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             'main_controller = pickee_main.main_controller:main',
