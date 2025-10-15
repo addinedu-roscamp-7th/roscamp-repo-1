@@ -90,7 +90,10 @@ class InMemoryRobotStateBackend(RobotStateBackend):
             if existing:
                 existing.status = state.status
                 existing.battery_level = state.battery_level
-                existing.active_order_id = state.active_order_id
+                if state.active_order_id is not None:
+                    existing.active_order_id = state.active_order_id
+                elif not existing.reserved:
+                    existing.active_order_id = None
                 existing.last_update = state.last_update
                 # 예약/유지보수 플래그는 외부 흐름에서만 변경합니다.
             else:
@@ -134,7 +137,7 @@ class InMemoryRobotStateBackend(RobotStateBackend):
             state = self._states.get(robot_id)
             if not state:
                 return
-            if order_id is not None and state.active_order_id != order_id:
+            if order_id is not None and state.active_order_id not in (None, order_id):
                 return
             state.reserved = False
             state.active_order_id = None
