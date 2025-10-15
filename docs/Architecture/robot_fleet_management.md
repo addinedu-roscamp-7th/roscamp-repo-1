@@ -1,154 +1,95 @@
-# Robot Fleet Management Plan
+# Robot Fleet Management
 
-이 문서는 `shopee_main_service` 패키지에 가용 로봇을 선별·예약·모니터링하는 로봇 관제 로직을 추가하기 위한 설계 제안이다. 현재 주문 생성 시 Pickee 로봇이 고정 ID(1번)으로 할당되고, Packee 역시 단순 가용 여부만 확인하는 수준에 머물러 있어 다중 로봇 환경이나 장애 상황을 처리할 수 없다. 아래 제안은 상태 캐시를 기반으로 한 일관된 자원 관리 계층을 도입해 이 문제를 해결한다.
+이 문서는 `shopee_main_service` 안에서 구현된 로봇 관제(상태 수집, 예약, 장애 대응) 구조를 기록한다. 2025년 현재 메인 서비스는 인메모리 기반 상태 캐시와 전략형 할당기를 통해 Pickee/Packee 플릿을 관리하고 있으며, Mock 환경에서도 동일한 흐름을 재현한다.
 
-## 목표
-
-- Pickee/Packee 로봇의 최신 상태를 주기적으로 수집하고, 가용 여부를 빠르게 조회할 수 있는 캐시를 유지한다.
-- 주문/포장 작업을 시작하기 전에 로봇을 예약(reserve)하고, 작업 종료 시 해제(release)하여 중복 할당을 방지한다.
-- 로봇 상태 변화(오프라인, 오류 등)를 감지해 예약을 무효화하고 대체 로봇을 자동으로 선택할 수 있는 훅을 마련한다.
-- 기존 모듈(APIController, OrderService, RobotCoordinator, EventBus)와 자연스럽게 연계되도록 계층 구조를 정의한다.
-
-## 전반 구조
+## 전체 개요
 
 ```
 ┌────────────────────┐        ┌────────────────────┐
 │  RobotStateStore   │◄───────│  RobotCoordinator  │
-│  (새로 추가)        │  상태   │  (ROS 통신)         │
+│  (In-memory cache) │  상태   │  (ROS2 interface)  │
 └──────┬─────────────┘        └────────┬───────────┘
-       │ 예약/해제 API                        │ 토픽 콜백
+       │ 예약/조회 API                       │ 토픽 콜백
 ┌──────▼─────────────┐        ┌──────────▼─────────┐
-│  RobotAllocator    │◄───────│  로봇 상태 메시지   │
-│  (전략/정책)         │        └────────────────────┘
+│  RobotAllocator    │◄───────│  Pickee/Packee 상태 │
+│  (전략 플러그인)      │        └────────────────────┘
 └──────┬─────────────┘
-       │ 선택 API
+       │ 예약 API
 ┌──────▼─────────────┐
 │  OrderService      │
-│  (주문/포장 단계)   │
+│  (주문/포장 워크플로) │
 └────────────────────┘
 ```
 
-### 핵심 컴포넌트
+### 핵심 포인트
 
-| 컴포넌트 | 역할 | 주요 책임 |
+- **상태 저장소**: `RobotStateStore`는 비동기 Safe 인메모리 캐시(`InMemoryRobotStateBackend`)를 사용해 Pickee/Packee 전체 상태를 추적한다. Redis 의존성은 제거되었으며, 필요 시 다른 백엔드로 교체할 수 있도록 인터페이스가 남아 있다.
+- **ROS 연동**: `RobotCoordinator`가 ROS2 토픽(`/pickee/robot_status`, `/packee/robot_status`, etc.)을 구독해 상태를 갱신하고, 에러 상태를 감지하면 이벤트를 발생시켜 예약을 해제한다.
+- **로봇 할당**: `RobotAllocator`는 전략 패턴으로 구성되어 라운드로빈, 최소 작업량, 배터리 고려 전략을 지원한다. 환경 설정(`settings.ROBOT_ALLOCATION_STRATEGY`)으로 전략을 전환할 수 있다.
+- **주문 플로우**: `OrderService`는 주문 생성 시 Pickee를 예약하고, 장바구니 전달 후 Packee를 예약하는 흐름을 따라간다. 실패하면 재고 및 예약을 롤백한다.
+- **Mock 지원**: `mock_robot_node`가 1초 간격으로 Pickee/Packee 상태를 퍼블리시하여 실제 로봇이 없는 환경에서도 동일한 로직이 작동한다.
+
+## 주요 컴포넌트
+
+| 모듈 | 파일 | 역할 |
 | --- | --- | --- |
-| `RobotStateStore` (새 클래스) | 로봇 ID → 상태 데이터 캐시 | 로봇 상태 등록/갱신, 예약 플래그 관리, 타임스탬프 기록, 동시성 제어 |
-| `RobotAllocator` (새 클래스) | 로봇 선택 전략 | 상태 스토어에서 후보 로봇을 조회하고, 정책에 따라 하나를 선택/예약 |
-| `RobotCoordinator` (기존) | ROS 토픽/서비스 인터페이스 | 상태 토픽 수신 시 `RobotStateStore` 업데이트, 서비스 호출 실패 시 예약 해제 |
-| `OrderService` (기존) | 비즈니스 플로우 | 주문 생성 및 장바구니 인계 시 로봇 선택/해제 API 호출, 실패 시 롤백 |
+| RobotStateStore | `shopee_main_service/robot_state_store.py` | RobotState CRUD, 예약/해제, 상태 조회 API |
+| RobotStateBackend | `shopee_main_service/robot_state_backend.py` | 상태 모델 정의와 인메모리 구현 |
+| RobotAllocator | `shopee_main_service/robot_allocator.py` | 전략 기반 로봇 선택 및 예약 시도 |
+| RobotCoordinator | `shopee_main_service/robot_coordinator.py` | ROS2 토픽/서비스 브릿지, 상태 캐시 갱신, 장애 이벤트 |
+| OrderService | `shopee_main_service/order_service.py` | 주문/포장 워크플로, 예약 호출 및 롤백 |
+| Mock Robot Node | `shopee_main_service/mock_robot_node.py` | 테스트 환경용 Pickee/Packee 시뮬레이터 |
 
 ## 상태 모델
 
-### Pickee 상태
-
-```json
-{
-  "robot_id": 1,
-  "type": "pickee",
-  "status": "IDLE" | "WORKING" | "ERROR" | "OFFLINE",
-  "reserved": false,
-  "battery_level": 87.5,
-  "active_order_id": 123,
-  "last_update": "2024-01-01T12:34:56Z"
-}
-```
-
-### Packee 상태
-
-Packee 역시 동일 구조를 사용하되 `status` 값과 예약 조건이 다를 수 있다(`AVAILABLE`, `PACKING`, 등). 중복 코드를 줄이기 위해 공통 `RobotState` 데이터 클래스를 두고, 타입·상태 값만 Enum으로 분리한다.
-
-## 예약 알고리즘
-
-### 예약 절차
-
-1. `OrderService.create_order` 호출 시 `RobotAllocator.reserve_pickee(order_context)` 실행.
-2. `RobotAllocator` 는 `RobotStateStore`에서 `type=pickee`, `status=IDLE`, `reserved=False` 인 후보 리스트를 가져온다.
-3. 특정 전략(예: 라운드 로빈, 최소 작업 횟수, 최대 배터리)을 적용하여 대상으로 삼는다.
-4. 선택된 로봇에 대해 `RobotStateStore.try_reserve(robot_id, order_id)` 호출 → 내부적으로 Lock을 사용해 원자적으로 예약.
-5. 예약 성공 시 로봇 ID를 반환하고 주문 생성 로직을 지속한다. 실패하면 다른 후보를 시도하거나 `RobotUnavailableError` 발생.
-
-### 해제 절차
-
-- 주문 취소·실패·타임아웃: `RobotStateStore.release(robot_id, order_id)` 호출.
-- Pickee 가 장바구니 전달을 마쳤을 때, Packee 예약이 성공하면 Pickee는 `ReturnToBase` 명령과 함께 해제된다.
-- `RobotCoordinator` 가 `PickeeRobotStatus` 에서 `status=IDLE` 을 수신하면 자동으로 `active_order_id` 를 지우고 `reserved=False` 로 갱신한다(단, 주문이 아직 진행 중인 상태에서는 OrderService 가 해제를 늦출 수 있도록 플래그로 제어).
-
-## 전략 플러그
-
-다양한 선택 정책을 지원하기 위해 전략 패턴을 적용한다.
+`RobotState` 데이터클래스는 Pickee/Packee 공통으로 사용되며, 예약 여부와 활성 주문 ID, 배터리, 유지보수 모드 등을 포함한다.
 
 ```python
-class BaseAllocationStrategy(Protocol):
-    async def select(self, candidates: list[RobotState], context: AllocationContext) -> RobotState | None: ...
+RobotState(
+    robot_id=1,
+    robot_type=RobotType.PICKEE,
+    status="IDLE",             # RobotStatus Enum 값
+    reserved=False,
+    active_order_id=None,
+    battery_level=82.0,
+    last_update=datetime.utcnow(),
+    maintenance_mode=False,
+)
 ```
 
-기본 전략은 아래를 우선 구현한다.
+상태 전파 흐름:
+1. 로봇 또는 Mock 노드가 `PickeeRobotStatus`/`PackeeRobotStatus` 메시지를 퍼블리시한다.
+2. `RobotCoordinator`가 메시지를 수신해 `_schedule_state_upsert()`로 캐시에 반영한다.
+3. 에러/오프라인 상태가 들어오면 이벤트 버스로 장애 이벤트를 발행하고 예약을 해제한다.
+4. `RobotStateStore`는 상태 객체를 복제해 외부 노출 시 불변성을 유지한다.
 
-1. **RoundRobinStrategy** – 마지막으로 할당한 로봇 ID 기억.
-2. **LeastWorkloadStrategy** – 진행 중인 주문 수/누적 작업 시간 기반.
-3. **BatteryAwareStrategy** – 배터리 임계치 이하 로봇 제외.
+## 예약 & 해제
 
-전략은 설정(`settings` 또는 `.env`)에서 선택할 수 있도록 하고, 필요 시 런타임 중에도 교체 가능하게 만든다.
+- **예약**: `RobotAllocator.reserve_robot()`이 `RobotStateStore.list_available()`로 후보를 조회하고, 전략을 통해 하나를 선택한 뒤 `try_reserve()`를 호출한다.
+- **해제**: 주문 취소/실패, 장바구니 전달 완료, Packee 작업 종료, 장애 이벤트 등에서 `RobotStateStore.release()`를 호출한다.
+- **모니터링**: `OrderService`는 예약 후 일정 시간 동안 로봇 상태 변화를 감시하고, 타임아웃 시 예약 해제와 알림을 트리거한다.
 
-## RobotCoordinator 연동
+## 할당 전략
 
-`RobotCoordinator` 의 토픽 콜백에서 `RobotStateStore` 를 갱신한다.
+현재 제공되는 전략과 동작은 다음과 같다.
 
-- `PickeeRobotStatus`:
-  - `status` 업데이트
-  - 배터리/위치 등 부가 정보 저장
-  - status 가 `ERROR` / `OFFLINE` 이면 예약 해제 후 EventBus 로 알림 발행
-- `PackeeRobotStatus`:
-  - 동일하게 처리
-- `PickeeCartHandover`:
-  - Packee 예약 성공 여부에 따라 Pickee 해제 타이밍 결정
+- `RoundRobinStrategy`: 가장 최근에 사용한 로봇 ID를 기억했다가 다음 후보를 순차적으로 선택.
+- `LeastWorkloadStrategy`: 활성 주문이 없는 로봇을 우선 선택, 모두 작업 중이면 ID가 가장 낮은 로봇을 선택.
+- `BatteryAwareStrategy`: 배터리가 설정 임계치 이상인 로봇 중 가장 높은 배터리를 가진 로봇을 선택.
 
-서비스 호출 실패 시(예: ROS 서비스 타임아웃)에도 예약을 원복해야 하므로 `OrderService` 에서 예외를 캐치해 `RobotStateStore.release` 를 호출한다.
+전략 선택은 `config.settings.ROBOT_ALLOCATION_STRATEGY`(round_robin / least_workload / battery_aware)로 제어한다.
 
-## 데이터 지속성
+## Mock/Test 환경
 
-초기 버전에서는 인메모리 캐시로 충분하지만, 여러 프로세스/컨테이너가 OrderService 를 실행한다면 외부 스토리지(예: 공유 데이터베이스, 분산 KV 스토어 등)로 옮겨야 한다. 설계 시 인터페이스를 추상화하여 저장소를 교체할 수 있도록 한다.
+- `mock_robot_node`는 Pickee/Packee 서비스 호출과 상태 퍼블리시를 모두 시뮬레이션한다.
+- 상태 메시지는 1초 주기로 발행되어 RobotStateStore가 자동으로 채워진다.
+- `scripts/test_client.py`로 전체 플로우(로그인→주문→상품선택→쇼핑 종료)를 검증할 수 있으며, 예약·해제 로그를 확인할 수 있다.
 
-```python
-class RobotStateRepository(Protocol):
-    async def get(self, robot_id: int) -> RobotState | None: ...
-    async def save(self, state: RobotState) -> None: ...
-    async def reserve(self, robot_id: int, order_id: int) -> bool: ...
-```
+## 향후 확장 아이디어
 
-## 실패 처리 & 재시도
+- **외부 저장소**: 멀티 프로세스/분산 환경을 대비해 Redis, SQL, 분산 KV 등을 위한 백엔드 구현체를 추가할 수 있다.
+- **Packee 세분화**: Packee 가용성 판단을 상태 기반으로 고도화하고, 여러 Packee 사이의 우선순위를 전략화할 수 있다.
+- **관리자 API**: `/main/get_available_robots` ROS 서비스나 TCP API를 통해 관리자 UI가 로봇 상태/예약 정보를 조회하도록 확장 가능하다.
+- **장애 자동 복구**: 현재는 이벤트 훅만 제공되므로, 향후 자동 대체 할당이나 재시도 정책을 추가해도 된다.
 
-- 예약 이후 실제 명령(예: `/pickee/workflow/start_task`) 이 실패하면 즉시 해제한다.
-- 예약 후 일정 시간(예: 5초) 동안 로봇 상태가 `WORKING` 으로 전환되지 않으면 타임아웃 → EventBus 에 알림 발행 + 예약 해제.
-- Packee 예약 실패 시, Pickee 예약은 유지하되 사용자가 다시 시도할 수 있도록 알림을 보낸다.
-- 로봇이 `ERROR` 상태로 전환되면, 관제 로직이 자동으로 다음 가용 로봇을 찾아 재시도할 수 있도록 훅을 노출한다.
-
-## API 확장
-
-추후 관리자 UI 나 외부 서비스에서 로봇 상태를 조회할 수 있도록 TCP API 또는 ROS 서비스 확장을 고려한다.
-
-- `/main/get_available_robots` ROS 서비스
-- `robot_status_request` TCP 메시지에 예약 상태 포함
-- 로봇별 작업 히스토리와 연동해 리포트 생성
-
-## 통합 단계
-
-1. **Skeleton 추가**: `RobotStateStore`, `RobotAllocator`, `AllocationStrategy` 인터페이스를 새 파일에 정의한다.
-2. **RobotCoordinator 연결**: 토픽 콜백에서 상태 스토어를 갱신하도록 수정한다.
-3. **OrderService 연계**: 주문 생성/장바구니 인계/종료 경로에서 예약·해제 호출을 추가하고 에러 처리 경로를 정리한다.
-4. **Packee 로직 통합**: `handle_cart_handover` 에서 Packee 예약 로직을 동일 패턴으로 바꾼다.
-5. **테스트 작성**: 
-   - 상태 스토어 단위 테스트 (예약 충돌, 해제, 상태 갱신)
-   - 전략 테스트 (라운드 로빈, 배터리 고려)
-   - OrderService 플로우 테스트에서 가용 로봇 유무에 따른 분기 검증
-6. **문서/설정 업데이트**: `.env`/`config.py` 에 전략 선택, 타임아웃, 풀 크기 등의 설정을 추가하고 README/TEST_GUIDE 갱신.
-
-## 열려 있는 과제
-
-- 실제 ROS 토픽의 상태 정보가 충분한지 확인 필요 (배터리, 에러 코드 등).
-- Packee 의 가용성 판단을 ROS 서비스 호출 대신 상시 상태 모니터링으로 전환할지 결정.
-- 멀티 프로세스 환경에서 상태 스토어를 공유하는 방법 결정 (예: 상태 테이블을 갖춘 DB, 경량 KV 스토어 등).
-- 장애 알림을 어떤 채널(앱 push, 관리자 콘솔, ROS 로그)로 보낼지 결정.
-- 로봇 유지보수/점검 모드(수동에서 제외) 같은 운영 정책 정의.
-
-위 설계를 바탕으로 단계별 구현을 진행하면 다중 로봇 환경에서도 안정적으로 주문을 배정하고, 로봇 상태에 따라 자동으로 복구하는 관제 시스템을 구축할 수 있다.
+현재 구현은 단일 프로세스 기준의 인메모리 캐시를 기반으로 동작하지만, 설계가 인터페이스화되어 있으므로 필요 시 외부 저장소나 고급 전략을 쉽게 추가할 수 있다. Mock 환경과 실제 로봇 환경 모두 위 구조를 공유하며, Redis 의존성이 제거된 최신 구조를 따르고 있다.

@@ -16,12 +16,14 @@ except ImportError:
 try:
     from shopee_interfaces.msg import (
         PackeePackingComplete,
+        PackeeRobotStatus,
         PickeeArrival,
         PickeeCartHandover,
         PickeeMoveStatus,
         PickeeProductDetection,
         PickeeProductSelection,
         PickeeDetectedProduct,
+        PickeeRobotStatus,
     )
     from shopee_interfaces.srv import (
         PackeePackingCheckAvailability,
@@ -41,6 +43,7 @@ except ImportError as e:
     print("Make sure shopee_interfaces is built and sourced.")
     sys.exit(1)
 
+from .constants import RobotStatus
 logger = logging.getLogger("mock_robot_node")
 
 
@@ -53,6 +56,13 @@ class MockRobotNode(Node):
         self.current_order_id: Optional[int] = None
         self.current_robot_id: int = 1
         self.packee_available = True
+        self._pickee_state = RobotStatus.IDLE.value
+        self._pickee_battery = 100.0
+        self._pickee_position = (0.0, 0.0, 0.0)
+        self._packee_state = RobotStatus.IDLE.value
+        self._packee_order_id: Optional[int] = None
+        self._packee_items_in_cart = 0
+        self._packee_robot_id = 10
 
         # === Pickee Services ===
         self.create_service(
@@ -132,6 +142,15 @@ class MockRobotNode(Node):
         self.packee_complete_pub = self.create_publisher(
             PackeePackingComplete, "/packee/packing_complete", 10
         )
+        self.pickee_status_pub = self.create_publisher(
+            PickeeRobotStatus, "/pickee/robot_status", 10
+        )
+        self.packee_status_pub = self.create_publisher(
+            PackeeRobotStatus, "/packee/robot_status", 10
+        )
+
+        # 주기적으로 로봇 상태를 퍼블리시하여 RobotStateStore를 채웁니다.
+        self._status_timer = self.create_timer(1.0, self._publish_robot_status, clock=self.get_clock())
 
         self.get_logger().info("Mock Robot Node initialized")
 
@@ -139,6 +158,8 @@ class MockRobotNode(Node):
         """피킹 작업 시작"""
         self.current_order_id = request.order_id
         self.current_robot_id = request.robot_id
+        self._pickee_state = RobotStatus.WORKING.value
+        self._publish_robot_status()
 
         self.get_logger().info(
             f"[MOCK] Start task: Order={request.order_id}, Robot={request.robot_id}"
@@ -153,6 +174,8 @@ class MockRobotNode(Node):
         self.get_logger().info(
             f"[MOCK] Moving to section: Location={request.location_id}, Section={request.section_id}"
         )
+        self._pickee_state = RobotStatus.MOVING.value
+        self._publish_robot_status()
 
         # 이동 시작 알림
         move_msg = PickeeMoveStatus()
@@ -170,6 +193,8 @@ class MockRobotNode(Node):
             arrival_msg.section_id = request.section_id
             self.pickee_arrival_pub.publish(arrival_msg)
             self.get_logger().info(f"[MOCK] Arrived at section {request.section_id}")
+            self._pickee_state = RobotStatus.WORKING.value
+            self._publish_robot_status()
             timer.cancel()  # 타이머 취소 (한 번만 실행)
 
         timer = self.create_timer(0.5, publish_arrival, clock=self.get_clock())
@@ -183,6 +208,8 @@ class MockRobotNode(Node):
         self.get_logger().info(
             f"[MOCK] Detecting products: {request.product_ids}"
         )
+        self._pickee_state = RobotStatus.WORKING.value
+        self._publish_robot_status()
 
         # 0.3초 후 상품 인식 완료 알림
         def publish_detection():
@@ -211,6 +238,8 @@ class MockRobotNode(Node):
         self.get_logger().info(
             f"[MOCK] Processing selection: Product={request.product_id}, BBox={request.bbox_number}"
         )
+        self._pickee_state = RobotStatus.WORKING.value
+        self._publish_robot_status()
 
         # 0.3초 후 선택 결과 발행
         def publish_selection():
@@ -235,6 +264,9 @@ class MockRobotNode(Node):
     def handle_end_shopping(self, request, response):
         """쇼핑 종료 시뮬레이션"""
         self.get_logger().info(f"[MOCK] Ending shopping: Order={request.order_id}")
+        self.current_order_id = None
+        self._pickee_state = RobotStatus.IDLE.value
+        self._publish_robot_status()
         response.success = True
         response.message = "Shopping ended"
         return response
@@ -242,6 +274,8 @@ class MockRobotNode(Node):
     def handle_move_to_packaging(self, request, response):
         """포장대 이동 시뮬레이션"""
         self.get_logger().info(f"[MOCK] Moving to packaging area")
+        self._pickee_state = RobotStatus.MOVING.value
+        self._publish_robot_status()
 
         # 이동 알림
         move_msg = PickeeMoveStatus()
@@ -260,6 +294,8 @@ class MockRobotNode(Node):
 
             self.pickee_handover_pub.publish(handover_msg)
             self.get_logger().info(f"[MOCK] Cart handover complete")
+            self._pickee_state = RobotStatus.WORKING.value
+            self._publish_robot_status()
             timer.cancel()  # 타이머 취소 (한 번만 실행)
 
         timer = self.create_timer(0.5, publish_handover, clock=self.get_clock())
@@ -271,6 +307,9 @@ class MockRobotNode(Node):
     def handle_return_to_base(self, request, response):
         """복귀 시뮬레이션"""
         self.get_logger().info(f"[MOCK] Returning to base")
+        self.current_order_id = None
+        self._pickee_state = RobotStatus.IDLE.value
+        self._publish_robot_status()
         response.success = True
         response.message = "Returning to base"
         return response
@@ -300,6 +339,10 @@ class MockRobotNode(Node):
     def handle_packing_start(self, request, response):
         """포장 시작 시뮬레이션"""
         self.get_logger().info(f"[MOCK] Packing started: Order={request.order_id}, Robot={request.robot_id}")
+        self.packee_available = False
+        self._packee_state = RobotStatus.WORKING.value
+        self._packee_order_id = request.order_id
+        self._publish_robot_status()
 
         # 1초 후 포장 완료
         def publish_packing_complete():
@@ -311,6 +354,11 @@ class MockRobotNode(Node):
 
             self.packee_complete_pub.publish(complete_msg)
             self.get_logger().info(f"[MOCK] Packing complete for order {request.order_id}")
+            self.packee_available = True
+            self._packee_state = RobotStatus.IDLE.value
+            self._packee_order_id = None
+            self._packee_items_in_cart = 0
+            self._publish_robot_status()
             timer.cancel()  # 타이머 취소 (한 번만 실행)
 
         timer = self.create_timer(1.0, publish_packing_complete, clock=self.get_clock())
@@ -318,6 +366,25 @@ class MockRobotNode(Node):
         response.success = True
         response.message = "Packing started"
         return response
+
+    def _publish_robot_status(self):
+        """Mock 로봇의 현재 상태를 주기적으로 퍼블리시합니다."""
+        pickee_msg = PickeeRobotStatus()
+        pickee_msg.robot_id = self.current_robot_id
+        pickee_msg.state = self._pickee_state
+        pickee_msg.battery_level = float(self._pickee_battery)
+        pickee_msg.current_order_id = self.current_order_id or 0
+        pickee_msg.position_x = float(self._pickee_position[0])
+        pickee_msg.position_y = float(self._pickee_position[1])
+        pickee_msg.orientation_z = float(self._pickee_position[2])
+        self.pickee_status_pub.publish(pickee_msg)
+
+        packee_msg = PackeeRobotStatus()
+        packee_msg.robot_id = self._packee_robot_id
+        packee_msg.state = self._packee_state
+        packee_msg.current_order_id = self._packee_order_id or 0
+        packee_msg.items_in_cart = self._packee_items_in_cart
+        self.packee_status_pub.publish(packee_msg)
 
 
 def main(args=None):
