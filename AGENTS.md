@@ -14,11 +14,11 @@
 코딩 표준을 반드시 준수해주세요 (docs/CodingStandard/standard.md 참조):
 
 ## ROS2 표준:
-- Package Names: snake-case
-- Node/Topic/Service/Action/Parameter Names: snake-case
+- Package Names: snake_case
+- Node/Topic/Service/Action/Parameter Names: snake_case
 - Type Names: PascalCase
-- Type Field Names: snake-case
-- Type Constants Names: SCREAMING-SNAKE-CASE
+- Type Field Names: snake_case
+- Type Constants Names: SCREAMING_SNAKE_CASE
 
 ## Python 표준:
 - Package 및 module 이름: snake_case
@@ -27,13 +27,13 @@
 - Global/Class constants: SCREAMING_SNAKE_CASE
 
 ## C++ 표준:
-- File Names: snake-case
+- File Names: snake_case
 - Type Names: PascalCase
 - Function Names: PascalCase (접근자는 snake_case)
-- Variable Names: snake-case (클래스 멤버는 _suffix)
+- Variable Names: snake_case (클래스 멤버는 _suffix)
 - Constant Names: k + PascalCase
-- Macro Names: SCREAMING-SNAKE-CASE
-- Namespace Names: snake-case
+- Macro Names: SCREAMING_SNAKE_CASE
+- Namespace Names: snake_case
 
 ## 공통 규칙:
 - 주석은 한국어로 작성 (C++: //, Python: #)

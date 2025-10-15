@@ -58,7 +58,7 @@ python3 src/shopee_main_service/scripts/test_client.py
 
 전체 워크플로우 테스트 (수동 - 단계별):
 ```bash
-python3 scripts/test_client.py -i
+python3 src/shopee_main_service/scripts/test_client.py -i
 ```
 
 재고 관리 테스트 (자동):
