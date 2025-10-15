@@ -87,6 +87,7 @@ class OrderService:
         self._default_locale_messages = {
             "robot_moving": "상품 위치로 이동 중입니다",
             "robot_arrived": "섹션에 도착했습니다",
+            "robot_arrived_generic": "목적지에 도착했습니다",
             "product_detected": "상품을 선택해주세요",
             "cart_add_success": "상품이 장바구니에 담겼습니다",
             "cart_add_fail": "상품 담기에 실패했습니다",
@@ -649,7 +650,11 @@ class OrderService:
         """
         Pickee의 도착 이벤트를 처리하고, 상품 인식 단계를 시작합니다.
         """
-        logger.info("Handling arrival notice for order %d at section %d", msg.order_id, msg.section_id)
+        is_section = msg.section_id is not None and msg.section_id >= 0
+        location_desc = f"section {msg.section_id}" if is_section else "non-section location"
+        logger.info("Handling arrival notice for order %d at %s", msg.order_id, location_desc)
+        section_payload = msg.section_id if is_section else -1
+        message_key = "robot_arrived" if is_section else "robot_arrived_generic"
         await self._push_to_user(
             {
                 "type": "robot_arrived_notification",
@@ -659,12 +664,18 @@ class OrderService:
                     "order_id": msg.order_id,
                     "robot_id": msg.robot_id,
                     "location_id": msg.location_id,
-                    "section_id": msg.section_id,
+                    "section_id": section_payload,
                 },
-                "message": self._default_locale_messages["robot_arrived"],
+                "message": self._default_locale_messages[message_key],
             },
             order_id=msg.order_id,
         )
+        if not is_section:
+            logger.debug(
+                "Skipping product detection for order %d because arrival location is not a section",
+                msg.order_id,
+            )
+            return
         try:
             with self._db.session_scope() as session:
                 product_ids = [

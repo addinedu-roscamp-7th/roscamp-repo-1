@@ -1058,7 +1058,7 @@ Main = Shopee Main Service
     "order_id": "int",
     "robot_id": "int",
     "location_id": "int",
-    "section_id": "int"
+    "section_id": "int  # 섹션이 아닌 위치면 -1"
   },
   "message": "string"
 }
@@ -1078,6 +1078,8 @@ Main = Shopee Main Service
   "message": "섹션에 도착했습니다"
 }
 ```
+
+섹션이 아닌 위치(예: 포장대)에 도착한 경우 `section_id`는 `-1`로 전달되며, App은 해당 값을 감지해 별도 UI를 표시해야 합니다.
 
 ### 상품 선택 시작 알림
 
