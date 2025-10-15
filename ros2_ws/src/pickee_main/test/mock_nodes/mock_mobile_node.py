@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
-from shopee_interfaces.msg import PickeeMobileArrival, PickeeMobilePose
-from shopee_interfaces.srv import PickeeMobileMoveToLocation
+from shopee_interfaces.msg import PickeeMobileArrival, PickeeMobilePose, PickeeMobileSpeedControl
+from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileUpdateGlobalPath
 
 class MockMobileNode(Node):
     def __init__(self):
@@ -12,6 +12,12 @@ class MockMobileNode(Node):
             PickeeMobileMoveToLocation,
             '/pickee/mobile/move_to_location',
             self.move_to_location_callback
+        )
+        
+        self.update_global_path_service = self.create_service(
+            PickeeMobileUpdateGlobalPath,
+            '/pickee/mobile/update_global_path',
+            self.update_global_path_callback
         )
         
         # Publisher 생성
@@ -27,8 +33,19 @@ class MockMobileNode(Node):
             10
         )
         
+        # Subscriber 생성 (속도 제어 명령 수신)
+        self.speed_control_sub = self.create_subscription(
+            PickeeMobileSpeedControl,
+            '/pickee/mobile/speed_control',
+            self.speed_control_callback,
+            10
+        )
+        
         # 상태 변수
         self.is_moving = False
+        self.current_speed_mode = "normal"
+        self.target_speed = 1.0
+        self.global_path = []
         
         # 주기적으로 위치 정보 발행
         self.pose_timer = self.create_timer(1.0, self.publish_pose)
@@ -67,6 +84,32 @@ class MockMobileNode(Node):
         # is_moving 필드 제거 (메시지에 없는 필드)
         
         self.pose_pub.publish(msg)
+    
+    def update_global_path_callback(self, request, response):
+        # 전역 경로 업데이트 서비스 콜백
+        self.get_logger().info(f'Received update global path request: location_id={request.location_id}, path_length={len(request.global_path)}')
+        
+        # 전역 경로 저장
+        self.global_path = request.global_path
+        
+        # 모의 응답
+        response.success = True
+        response.message = f'Global path updated with {len(request.global_path)} waypoints'
+        return response
+    
+    def speed_control_callback(self, msg):
+        # 속도 제어 명령 수신 콜백
+        self.get_logger().info(f'Received speed control: mode={msg.speed_mode}, target_speed={msg.target_speed}, reason={msg.reason}')
+        
+        # 속도 제어 상태 업데이트
+        self.current_speed_mode = msg.speed_mode
+        self.target_speed = msg.target_speed
+        
+        # 장애물 정보가 있으면 로그 출력
+        if msg.obstacles:
+            self.get_logger().info(f'Obstacles detected: {len(msg.obstacles)} obstacles')
+            for i, obstacle in enumerate(msg.obstacles):
+                self.get_logger().info(f'  Obstacle {i+1}: type={obstacle.obstacle_type}, distance={obstacle.distance}m')
 
 def main():
     rclpy.init()

@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from shopee_interfaces.msg import PickeeArmTaskStatus
+from shopee_interfaces.msg import PickeeArmTaskStatus, ArmPoseStatus
 from shopee_interfaces.srv import (
     PickeeArmMoveToPose, 
     PickeeArmPickProduct, 
@@ -37,6 +37,12 @@ class MockArmNode(Node):
         )
         
         # Publisher 생성
+        self.pose_status_pub = self.create_publisher(
+            ArmPoseStatus,
+            '/pickee/arm/pose_status',
+            10
+        )
+        
         self.pick_status_pub = self.create_publisher(
             PickeeArmTaskStatus,
             '/pickee/arm/pick_status',
@@ -125,7 +131,19 @@ class MockArmNode(Node):
     
     def simulate_pose_change(self, pose_type):
         """자세 변경 시뮬레이션"""
-        time.sleep(2.0)  # 2초 시뮬레이션
+        # 진행 중 상태 발행
+        self.publish_pose_status(pose_type, 'in_progress', 0.0)
+        
+        # 중간 진행 상황들 발행
+        for progress in [0.3, 0.6, 0.9]:
+            time.sleep(0.5)
+            self.publish_pose_status(pose_type, 'in_progress', progress)
+        
+        time.sleep(0.5)  # 마지막 0.5초
+        
+        # 완료 상태 발행
+        self.publish_pose_status(pose_type, 'completed', 1.0)
+        
         self.current_pose = pose_type
         self.is_busy = False
         self.get_logger().info(f'Moved to {pose_type} pose')
@@ -179,6 +197,26 @@ class MockArmNode(Node):
         
         self.place_status_pub.publish(msg)
         self.get_logger().info(f'Published place status: {product_id} - {status}')
+    
+    def publish_pose_status(self, pose_type, status, progress):
+        """자세 변경 상태 발행"""
+        msg = ArmPoseStatus()
+        msg.robot_id = 1
+        msg.order_id = 1  # TODO: 실제 order_id 사용
+        msg.pose_type = pose_type
+        msg.status = status
+        msg.progress = progress
+        
+        # 상태별 메시지 설정
+        if status == 'in_progress':
+            msg.message = f"Moving to {pose_type} pose"
+        elif status == 'completed':
+            msg.message = f"Reached {pose_type} pose"
+        elif status == 'failed':
+            msg.message = f"Failed to reach {pose_type} pose"
+        
+        self.pose_status_pub.publish(msg)
+        self.get_logger().info(f'Published pose status: {pose_type} - {status} ({progress:.1f})')
 
 
 def main(args=None):
