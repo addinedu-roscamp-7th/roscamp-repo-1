@@ -22,4 +22,6 @@
      - `/pickee/mobile/speed_control` 토픽을 구독(Subscribe)하여 주행 속도를 동적으로 제어하는 로직 구현
      - 목적지 도착 시 `/pickee/mobile/arrival` 토픽 발행
 
+     git test
+
 .
