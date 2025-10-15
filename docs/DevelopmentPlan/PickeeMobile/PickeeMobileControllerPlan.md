@@ -21,3 +21,5 @@
      - 로봇의 현재 위치, 속도, 배터리 상태 등을 `/pickee/mobile/pose` 토픽으로 주기적으로 발행(Publish)
      - `/pickee/mobile/speed_control` 토픽을 구독(Subscribe)하여 주행 속도를 동적으로 제어하는 로직 구현
      - 목적지 도착 시 `/pickee/mobile/arrival` 토픽 발행
+
+.
