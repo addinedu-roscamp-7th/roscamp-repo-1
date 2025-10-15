@@ -2,10 +2,10 @@ from .state import State
 
 
 class WaitingUnloadingState(State):
-    """하차대기중 상태"""
+    # 하차대기중 상태
     
     def on_enter(self):
-        self._node.get_logger().info('Entering WAITING_UNLOADING state')
+        self._node.get_logger().info('WAITING_UNLOADING 상태 진입')
         # TODO: 직원이 상품을 매대에 진열하는 것을 대기
         
     def execute(self):
@@ -14,4 +14,4 @@ class WaitingUnloadingState(State):
         pass
     
     def on_exit(self):
-        self._node.get_logger().info('Exiting WAITING_UNLOADING state')
+        self._node.get_logger().info('WAITING_UNLOADING 상태 탈출')

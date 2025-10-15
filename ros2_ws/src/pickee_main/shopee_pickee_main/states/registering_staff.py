@@ -2,10 +2,10 @@ from .state import State
 
 
 class RegisteringStaffState(State):
-    """직원등록중 상태"""
+    # 직원등록중 상태
     
     def on_enter(self):
-        self._node.get_logger().info('Entering REGISTERING_STAFF state')
+        self._node.get_logger().info('REGISTERING_STAFF 상태 진입')
         # TODO: 재고 보충 직원 등록
         
     def execute(self):
@@ -14,4 +14,4 @@ class RegisteringStaffState(State):
         pass
     
     def on_exit(self):
-        self._node.get_logger().info('Exiting REGISTERING_STAFF state')
+        self._node.get_logger().info('REGISTERING_STAFF 상태 탈출')

@@ -2,10 +2,10 @@ from .state import State
 
 
 class FollowingStaffState(State):
-    """직원추종중 상태"""
+    # 직원추종중 상태
     
     def on_enter(self):
-        self._node.get_logger().info('Entering FOLLOWING_STAFF state')
+        self._node.get_logger().info('FOLLOWING_STAFF 상태 진입')
         # TODO: 직원을 따라 이동
         
     def execute(self):
@@ -14,4 +14,4 @@ class FollowingStaffState(State):
         pass
     
     def on_exit(self):
-        self._node.get_logger().info('Exiting FOLLOWING_STAFF state')
+        self._node.get_logger().info('FOLLOWING_STAFF 상태 탈출')

@@ -2,10 +2,10 @@ from .state import State
 
 
 class MovingToStandbyState(State):
-    """대기장소이동중 상태"""
+    # 대기장소이동중 상태
     
     def on_enter(self):
-        self._node.get_logger().info('Entering MOVING_TO_STANDBY state')
+        self._node.get_logger().info('MOVING_TO_STANDBY 상태 진입')
         # TODO: 지정된 대기 장소로 복귀
         
     def execute(self):
@@ -14,4 +14,4 @@ class MovingToStandbyState(State):
         pass
     
     def on_exit(self):
-        self._node.get_logger().info('Exiting MOVING_TO_STANDBY state')
+        self._node.get_logger().info('MOVING_TO_STANDBY 상태 탈출')

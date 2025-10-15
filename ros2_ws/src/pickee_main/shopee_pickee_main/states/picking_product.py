@@ -2,10 +2,10 @@ from .state import State
 
 
 class PickingProductState(State):
-    """상품담기중 상태"""
+    # 상품담기중 상태
     
     def on_enter(self):
-        self._node.get_logger().info('Entering PICKING_PRODUCT state')
+        self._node.get_logger().info('PICKING_PRODUCT 상태 진입')
         self.pick_started = False
         self.pick_completed = False
         self.place_started = False
@@ -18,26 +18,25 @@ class PickingProductState(State):
     def execute(self):
         if not self.pick_started:
             # 상품 픽업 시작
-            self._node.get_logger().info(f'Starting to pick product: {self.product_id}')
-            # TODO: await self.arm_pick_product(self.product_id, self.target_position)
+            self._node.get_logger().info(f'상품 픽업 시작: {self.product_id}')
+            # TODO: self.arm_pick_product(self.product_id, self.target_position) 호출 필요
             self.pick_started = True
         
         elif not self.pick_completed and hasattr(self._node, 'arm_pick_completed') and self._node.arm_pick_completed:
             # 픽업 완료, 장바구니에 놓기 시작
             self._node.arm_pick_completed = False  # 플래그 리셋
-            self._node.get_logger().info(f'Pick completed, placing product in cart: {self.product_id}')
-            # TODO: await self.arm_place_product(self.product_id)
+            self._node.get_logger().info(f'픽업 완료, 장바구니에 놓기 시작: {self.product_id}')
+            # TODO: self.arm_place_product(self.product_id) 호출 필요
             self.pick_completed = True
             self.place_started = True
         
         elif self.place_started and hasattr(self._node, 'arm_place_completed') and self._node.arm_place_completed:
             # 장바구니에 놓기 완료
             self._node.arm_place_completed = False  # 플래그 리셋
-            self._node.get_logger().info(f'Product placed in cart successfully: {self.product_id}')
+            self._node.get_logger().info(f'장바구니에 상품 놓기 완료: {self.product_id}')
             
             # Main Service에 결과 보고
-            self.publish_product_selection_result(self.product_id, True, 1, "Product picked successfully")
-            
+            self.publish_product_selection_result(self.product_id, True, 1, '상품 픽업 완료')
             # 다음 상품이 있는지 확인
             if hasattr(self._node, 'remaining_products') and self._node.remaining_products:
                 # 다음 매대로 이동
@@ -51,4 +50,4 @@ class PickingProductState(State):
                 self._node.state_machine.transition_to(new_state)
     
     def on_exit(self):
-        self._node.get_logger().info('Exiting PICKING_PRODUCT state')
+        self._node.get_logger().info('PICKING_PRODUCT 상태 탈출')

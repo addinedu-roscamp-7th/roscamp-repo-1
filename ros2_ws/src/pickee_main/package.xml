@@ -4,7 +4,7 @@
   <name>shopee_pickee_main</name>
   <version>0.0.0</version>
   <description>The shopee_pickee_main package</description>
-  <maintainer email="user@todo.todo">user</maintainer>
+  <maintainer email="wonho9188@gmail.com">wonho9188</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
