@@ -21,6 +21,7 @@ setup(
         "httpx",
         "aiohttp",
         "cryptography",
+        "redis>=5.0",
     ],
     zip_safe=True,
     author="Shopee Robotics",
@@ -29,7 +30,7 @@ setup(
     maintainer_email="jinhyuk2me@example.com",
     description="Main Service ROS 2 entry point handling TCP API and robot orchestration.",
     license="Apache License 2.0",
-    tests_require=["pytest", "pytest-asyncio"],
+    tests_require=["pytest", "pytest-asyncio", "fakeredis"],
     entry_points={
         "console_scripts": [
             "main_service_node = shopee_main_service.main_service_node:main",

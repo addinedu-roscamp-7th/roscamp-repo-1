@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         PickeeProductSelection,
     )
     from .database_manager import DatabaseManager
+    from .inventory_service import InventoryService
     from .robot_coordinator import RobotCoordinator
 
 logger = logging.getLogger(__name__)
@@ -66,12 +67,14 @@ class OrderService:
         event_bus: EventBus,
         allocator: Optional[RobotAllocator] = None,
         state_store: Optional[RobotStateStore] = None,
+        inventory_service: Optional["InventoryService"] = None,
     ) -> None:
         self._db = db
         self._robot = robot_coordinator
         self._event_bus = event_bus
         self._allocator = allocator
         self._state_store = state_store
+        self._inventory_service = inventory_service
         self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
         self._pickee_assignments: Dict[int, int] = {}
         self._packee_assignments: Dict[int, int] = {}
@@ -264,7 +267,10 @@ class OrderService:
                     "timeout": timeout,
                 })
 
-                # 사용자 알림
+                # 재고 복구 및 주문 실패 처리
+                await self._fail_order(order_id, f"Robot {robot_id} timeout after {timeout}s")
+
+                # 사용자 알림 (이미 _fail_order에서 발송하지만 타임아웃 전용 메시지 추가)
                 await self._push_to_user(
                     {
                         "type": "robot_timeout_notification",
@@ -374,6 +380,7 @@ class OrderService:
         logger.info("Creating order for user '%s' with %d items", user_id, len(items))
         reserved_robot_id: Optional[int] = None
         order_id: Optional[int] = None
+        reserved_stocks: List[Tuple[int, int]] = []  # (product_id, quantity)
 
         with self._db.session_scope() as session:
             try:
@@ -381,6 +388,37 @@ class OrderService:
                 if not customer:
                     raise ValueError(f"Order creation failed: User '{user_id}' not found.")
 
+                # ===== 1. 재고 확인 및 예약 (추가!) =====
+                if self._inventory_service:
+                    for item in items:
+                        product_id = item["product_id"]
+                        quantity = item["quantity"]
+
+                        # 재고 확인 및 차감
+                        stock_ok = await self._inventory_service.check_and_reserve_stock(
+                            product_id, quantity
+                        )
+
+                        if not stock_ok:
+                            # 재고 부족 시 이미 차감한 재고 복구
+                            for reserved_pid, reserved_qty in reserved_stocks:
+                                await self._inventory_service.release_stock(
+                                    reserved_pid, reserved_qty
+                                )
+
+                            raise ValueError(
+                                f"Insufficient stock for product {product_id}. "
+                                f"Requested: {quantity}"
+                            )
+
+                        # 재고 예약 성공 기록
+                        reserved_stocks.append((product_id, quantity))
+
+                    logger.info("Stock reservation successful for order")
+                else:
+                    logger.warning("InventoryService not available, skipping stock check")
+
+                # ===== 2. 주문 생성 (기존 로직) =====
                 new_order = Order(
                     customer_id=customer.customer_id,
                     start_time=datetime.now(timezone.utc),
@@ -472,6 +510,19 @@ class OrderService:
             except Exception as e:
                 logger.exception("Order creation failed: %s", e)
                 session.rollback()
+
+                # ===== 5. 실패 시 재고 복구 (추가!) =====
+                if self._inventory_service:
+                    for reserved_pid, reserved_qty in reserved_stocks:
+                        try:
+                            await self._inventory_service.release_stock(
+                                reserved_pid, reserved_qty
+                            )
+                        except Exception as release_exc:
+                            logger.error(
+                                f"Failed to release stock for product {reserved_pid}: {release_exc}"
+                            )
+
                 if self._allocator and reserved_robot_id is not None and order_id is not None:
                     await self._allocator.release_robot(reserved_robot_id, order_id)
                 if order_id is not None:
@@ -960,6 +1011,11 @@ class OrderService:
         self._detected_product_bbox.pop(msg.order_id, None)
         await self._release_packee(msg.order_id)
         await self._release_pickee(msg.order_id)
+
+        # 포장 실패 시 재고 복구
+        if not msg.success:
+            await self._release_stock_for_order(msg.order_id)
+
         if msg.success:
             self._clear_order_user(msg.order_id)
 
@@ -1156,6 +1212,72 @@ class OrderService:
         """
         return self._detected_product_bbox.get(order_id, {}).get(product_id)
 
+    async def _release_stock_for_order(self, order_id: int) -> None:
+        """
+        주문의 모든 상품 재고 복구
+
+        Args:
+            order_id: 재고를 복구할 주문 ID
+        """
+        if not self._inventory_service:
+            logger.warning(f"Cannot release stock for order {order_id}: InventoryService not available")
+            return
+
+        try:
+            with self._db.session_scope() as session:
+                items = session.query(OrderItem).filter_by(order_id=order_id).all()
+
+                for item in items:
+                    await self._inventory_service.release_stock(
+                        item.product_id, item.quantity
+                    )
+                    logger.info(
+                        f"Released stock for failed order {order_id}: "
+                        f"product={item.product_id}, qty={item.quantity}"
+                    )
+        except Exception as exc:
+            logger.error(
+                f"Failed to release stock for order {order_id}: {exc}"
+            )
+
+    async def _fail_order(self, order_id: int, reason: str) -> None:
+        """
+        주문을 실패 상태로 변경
+
+        Args:
+            order_id: 실패 처리할 주문 ID
+            reason: 실패 사유
+        """
+        with self._db.session_scope() as session:
+            order = session.query(Order).filter_by(order_id=order_id).first()
+            if order:
+                order.order_status = 9  # FAIL_PACK
+                order.end_time = datetime.now(timezone.utc)
+                order.failure_reason = reason
+                session.commit()
+                logger.info(f"Order {order_id} marked as failed: {reason}")
+
+        # 로봇 예약 해제
+        await self._release_pickee(order_id)
+        await self._release_packee(order_id)
+
+        # 재고 복구
+        await self._release_stock_for_order(order_id)
+
+        # 사용자 알림
+        await self._push_to_user(
+            {
+                "type": "order_failed_notification",
+                "result": False,
+                "error_code": "ORDER_002",
+                "data": {"order_id": order_id, "reason": reason},
+                "message": "주문이 처리되지 못했습니다. 재고가 복구되었습니다.",
+            },
+            order_id=order_id,
+        )
+
+        self._clear_order_user(order_id)
+
     async def handle_robot_failure(self, event_data: Dict[str, Any]) -> None:
         """
         로봇 장애 이벤트를 처리하여 자동으로 다른 로봇을 할당합니다.
@@ -1220,6 +1342,9 @@ class OrderService:
                 active_order_id,
                 robot_type_str,
             )
+            # 재할당 실패 → 재고 복구 및 주문 실패 처리
+            await self._fail_order(active_order_id, f"No available {robot_type_str} robot after failure")
+
             await self._notify_reassignment_failure(
                 active_order_id,
                 robot_id,
@@ -1261,6 +1386,10 @@ class OrderService:
             )
         else:
             await self._allocator.release_robot(new_robot_id, active_order_id)
+
+            # 재할당 실패 → 재고 복구 및 주문 실패 처리
+            await self._fail_order(active_order_id, f"Reassignment to robot {new_robot_id} failed")
+
             await self._notify_reassignment_failure(
                 active_order_id,
                 robot_id,

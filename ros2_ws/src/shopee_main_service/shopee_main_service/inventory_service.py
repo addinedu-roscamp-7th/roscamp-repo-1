@@ -5,11 +5,14 @@
 """
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import and_
 
 from .database_models import Product, Section, Warehouse, Location
+
+logger = logging.getLogger(__name__)
 
 
 class InventoryService:
@@ -243,3 +246,74 @@ class InventoryService:
         if isinstance(value, str):
             return value.lower() in {"true", "1", "yes", "y"}
         return bool(value)
+
+    async def check_and_reserve_stock(
+        self,
+        product_id: int,
+        quantity: int
+    ) -> bool:
+        """
+        재고 확인 및 차감
+
+        Args:
+            product_id: 상품 ID
+            quantity: 차감할 수량
+
+        Returns:
+            True: 재고 충분하여 차감 성공
+            False: 재고 부족
+        """
+        with self._db.session_scope() as session:
+            # SELECT FOR UPDATE로 락 걸기 (동시성 제어)
+            product = session.query(Product).filter_by(
+                product_id=product_id
+            ).with_for_update().first()
+
+            if not product:
+                logger.warning(f"No product found for product_id={product_id}")
+                return False
+
+            if product.quantity < quantity:
+                logger.warning(
+                    f"Insufficient stock for product {product_id}: "
+                    f"requested={quantity}, available={product.quantity}"
+                )
+                return False
+
+            # 재고 차감
+            product.quantity -= quantity
+            session.commit()
+            logger.info(
+                f"Reserved stock: product={product_id}, qty={quantity}, "
+                f"remaining={product.quantity}"
+            )
+            return True
+
+    async def release_stock(
+        self,
+        product_id: int,
+        quantity: int
+    ) -> None:
+        """
+        주문 취소 시 재고 복구
+
+        Args:
+            product_id: 상품 ID
+            quantity: 복구할 수량
+        """
+        with self._db.session_scope() as session:
+            product = session.query(Product).filter_by(
+                product_id=product_id
+            ).first()
+
+            if product:
+                product.quantity += quantity
+                session.commit()
+                logger.info(
+                    f"Released stock: product={product_id}, qty={quantity}, "
+                    f"total={product.quantity}"
+                )
+            else:
+                logger.warning(
+                    f"Cannot release stock: product {product_id} not found"
+                )

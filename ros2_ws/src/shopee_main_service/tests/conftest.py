@@ -8,9 +8,16 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
+
+# Ensure the local source package is used instead of any pre-installed version.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 @pytest.fixture(scope="session")

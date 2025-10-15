@@ -34,6 +34,11 @@ from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
 
+try:  # Redis 백엔드는 선택적 의존성
+    from .redis_robot_state_backend import RedisRobotStateBackend
+except Exception:  # pragma: no cover - redis 미설치 환경 대비
+    RedisRobotStateBackend = None
+
 logger = logging.getLogger("shopee_main_service")
 
 
@@ -71,8 +76,9 @@ class MainServiceApp:
             host=settings.API_HOST,
             port=6000  # UDP Port from spec
         ) # UDP 스트리밍 중계기
+        state_backend = self._create_state_backend()
+        self._robot_state_store = RobotStateStore(state_backend)
         self._robot = robot or RobotCoordinator(event_bus=self._event_bus)  # ROS2 노드 (로봇 통신)
-        self._robot_state_store = RobotStateStore()
 
         # 설정에 따라 전략 선택
         strategy_name = settings.ROBOT_ALLOCATION_STRATEGY.lower()
@@ -91,14 +97,15 @@ class MainServiceApp:
         # 도메인 서비스 초기화
         self._user_service = UserService(self._db)
         self._product_service = ProductService(self._db, self._llm)
+        self._inventory_service = inventory_service or InventoryService(self._db)
         self._order_service = OrderService(
             self._db,
             self._robot,
             self._event_bus,
             allocator=self._robot_allocator,
             state_store=self._robot_state_store,
+            inventory_service=self._inventory_service,
         )
-        self._inventory_service = inventory_service or InventoryService(self._db)
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
 
         # RobotCoordinator에 InventoryService 주입
@@ -160,6 +167,38 @@ class MainServiceApp:
             await self._api.stop()
             self._streaming_service.stop()
             self._robot.destroy_node()
+            try:
+                await self._robot_state_store.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to close robot state store: %s", exc)
+
+    def _create_state_backend(self):
+        """
+        설정에 따라 로봇 상태 저장소 백엔드를 생성합니다.
+
+        Returns:
+            백엔드 인스턴스 또는 None(인메모리 사용)
+        """
+        backend_type = (settings.ROBOT_STATE_BACKEND or "memory").lower()
+
+        if backend_type == "redis":
+            if RedisRobotStateBackend is None:
+                raise RuntimeError(
+                    "Redis backend is requested but redis dependency is not available."
+                )
+            return RedisRobotStateBackend(
+                url=settings.REDIS_URL,
+                key_prefix=settings.REDIS_KEY_PREFIX,
+                socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+            )
+
+        if backend_type != "memory":
+            logger.warning(
+                "Unknown ROBOT_STATE_BACKEND '%s'. Falling back to in-memory backend.",
+                backend_type,
+            )
+
+        return None
 
     def _install_handlers(self) -> None:
         """

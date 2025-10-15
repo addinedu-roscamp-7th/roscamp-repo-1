@@ -20,6 +20,7 @@
 
   <exec_depend>python3-pydantic-settings</exec_depend>
   <exec_depend>python3-pytest-asyncio</exec_depend>
+  <exec_depend>python3-redis</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>
