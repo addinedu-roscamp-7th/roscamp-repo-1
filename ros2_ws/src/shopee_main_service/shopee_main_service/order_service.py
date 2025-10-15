@@ -804,6 +804,8 @@ class OrderService:
         logger.info("Handling cart handover for order %d, starting packing process.", order_id)
         packee_robot_id: Optional[int] = None
         allocator_reserved = False
+        state_reserved = False
+        state_reserved_robot_id: Optional[int] = None
         try:
             if self._allocator:
                 context = AllocationContext(
@@ -817,17 +819,61 @@ class OrderService:
                     logger.info("Reserved Packee robot %d for order %d via allocator.", packee_robot_id, order_id)
                 else:
                     logger.info("Allocator could not find available Packee robot for order %d. Falling back to ROS check.", order_id)
-            
-            if packee_robot_id is None:
-                check_req = PackeePackingCheckAvailability.Request()
-                check_res = await self._robot.check_packee_availability(check_req)
-                
-                if not check_res.available:
-                    logger.error("No available Packee robot for order %d. Reason: %s", order_id, check_res.message)
+
+            if packee_robot_id is None and self._state_store:
+                available_packees = await self._state_store.list_available(RobotType.PACKEE)
+                if not available_packees:
+                    logger.error("No available Packee robot for order %d (state store).", order_id)
                     return
 
-                packee_robot_id = check_res.robot_id
-                logger.info("Packee robot %d is available for order %d (ROS service).", packee_robot_id, order_id)
+                candidate_state = available_packees[0]
+                reserved = await self._state_store.try_reserve(candidate_state.robot_id, order_id)
+                if not reserved:
+                    logger.error(
+                        "Failed to reserve Packee robot %d for order %d via state store.",
+                        candidate_state.robot_id,
+                        order_id,
+                    )
+                    return
+
+                packee_robot_id = candidate_state.robot_id
+                state_reserved = True
+                state_reserved_robot_id = candidate_state.robot_id
+                logger.info(
+                    "Reserved Packee robot %d for order %d via state store fallback.",
+                    packee_robot_id,
+                    order_id,
+                )
+
+            availability_response = None
+            if packee_robot_id is None:
+                check_req = PackeePackingCheckAvailability.Request(
+                    robot_id=0,
+                    order_id=order_id,
+                )
+                availability_response = await self._robot.check_packee_availability(check_req)
+
+                available = getattr(availability_response, "available", None)
+                if available is None:
+                    available = getattr(availability_response, "success", False)
+
+                if not available:
+                    logger.error("No available Packee robot for order %d.", order_id)
+                    if allocator_reserved and packee_robot_id is not None:
+                        await self._allocator.release_robot(packee_robot_id, order_id)
+                    if state_reserved and state_reserved_robot_id is not None:
+                        await self._state_store.release(state_reserved_robot_id, order_id)
+                    return
+
+                provided_robot_id = getattr(availability_response, "robot_id", None)
+                if provided_robot_id:
+                    packee_robot_id = provided_robot_id
+
+            if packee_robot_id is None:
+                logger.error("No Packee robot id available for order %d.", order_id)
+                if state_reserved and state_reserved_robot_id is not None:
+                    await self._state_store.release(state_reserved_robot_id, order_id)
+                return
 
             start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
             start_res = await self._robot.dispatch_pack_task(start_req)
@@ -836,13 +882,14 @@ class OrderService:
                 logger.error("Failed to start packing for order %d. Reason: %s", order_id, start_res.message)
                 if allocator_reserved:
                     await self._allocator.release_robot(packee_robot_id, order_id)
+                if state_reserved:
+                    await self._state_store.release(packee_robot_id, order_id)
                 return
-            
+
             logger.info("Successfully dispatched packing task for order %d to robot %d.", order_id, packee_robot_id)
-            if allocator_reserved:
-                self._packee_assignments[order_id] = packee_robot_id
-                # 타임아웃 모니터링 시작
-                self._start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
+            self._packee_assignments[order_id] = packee_robot_id
+            # 타임아웃 모니터링 시작
+            self._start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
 
             packing_payload = {
                 "order_status": "PACKING",
@@ -908,6 +955,16 @@ class OrderService:
                     logger.warning(
                         "Failed to release Packee robot %d for order %d after exception: %s",
                         packee_robot_id,
+                        order_id,
+                        release_exc,
+                    )
+            if state_reserved and state_reserved_robot_id is not None:
+                try:
+                    await self._state_store.release(state_reserved_robot_id, order_id)
+                except Exception as release_exc:  # noqa: BLE001
+                    logger.warning(
+                        "Failed to release Packee robot %d via state store for order %d after exception: %s",
+                        state_reserved_robot_id,
                         order_id,
                         release_exc,
                     )

@@ -249,7 +249,12 @@ class MainServiceApp:
             bbox_number = data.get("bbox_number")
             product_id = data.get("product_id")
 
-            if not all([order_id, robot_id, bbox_number, product_id]):
+            if (
+                order_id is None
+                or robot_id is None
+                or bbox_number is None
+                or product_id is None
+            ):
                 return {
                     "type": "product_selection_response",
                     "result": False,

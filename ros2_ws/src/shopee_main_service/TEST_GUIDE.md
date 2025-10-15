@@ -139,6 +139,28 @@ Main Service의 TCP API를 테스트하는 클라이언트입니다.
    - 재고 수정
    - 재고 삭제
 
+### 시나리오별 자동화 유틸리티
+
+`shopee_main_service/scenario_suite.py`에는 SequenceDiagram 명세에 맞춘 비동기 실행 함수가 정리돼 있습니다. 개별 시나리오만 빠르게 검증하고 싶을 때 활용하세요.
+
+- `run_sc_02_4_product_selection`: 상품 선택 및 장바구니 반영 (SC_02_4)
+- `run_sc_02_5_shopping_end`: 쇼핑 종료 플로우 (SC_02_5)
+- `run_sc_05_2_1_inventory_search` ~ `run_sc_05_2_4_inventory_delete`: 관리자 재고 관리 시나리오들 (SC_05_2_x)
+- `run_sc_05_3_robot_history_search`: 관리자 작업 이력 조회 (SC_05_3)
+
+실행 예시는 아래와 같습니다.
+
+```bash
+python3 - <<'PY'
+import asyncio
+from shopee_main_service.scenario_suite import run_sc_02_4_product_selection
+
+asyncio.run(run_sc_02_4_product_selection())
+PY
+```
+
+Mock 환경에서는 비동기 알림을 검증하기 위해 `MainServiceClient.drain_notifications()`가 사용되므로, ROS2 토픽 이벤트와 TCP 응답이 모두 도착할 시간을 확보한 뒤 호출해주세요.
+
 ## 📊 예상 출력
 
 ### Mock Robot Node
