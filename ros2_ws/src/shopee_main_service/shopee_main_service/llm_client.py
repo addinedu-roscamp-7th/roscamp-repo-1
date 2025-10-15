@@ -7,10 +7,13 @@ LLM 서비스 클라이언트
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, Optional
 
 import httpx
+
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,56 @@ class LLMClient:
         self._base_url = base_url
         self._timeout = timeout
 
+    async def _post_with_retry(self, endpoint: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        POST 요청을 설정 기반으로 재시도합니다.
+        """
+        attempts = max(1, settings.LLM_MAX_RETRIES)
+        delay = max(0.0, settings.LLM_RETRY_BACKOFF)
+
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        endpoint,
+                        json=payload,
+                        timeout=self._timeout
+                    )
+                    response.raise_for_status()
+                    return response.json()
+            except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+                last_error = exc
+                logger.warning(
+                    "LLM request failed (attempt %d/%d) to %s: %s",
+                    attempt,
+                    attempts,
+                    endpoint,
+                    exc,
+                )
+                if attempt == attempts:
+                    break
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                    delay *= 2
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                logger.exception("Unexpected error in LLMClient: %s", exc)
+                break
+
+        if isinstance(last_error, httpx.HTTPStatusError):
+            logger.error(
+                "LLM service returned error status %d: %s",
+                last_error.response.status_code,
+                last_error.response.text,
+            )
+        elif isinstance(last_error, httpx.RequestError):
+            logger.error("Failed to connect to LLM service at %s: %s", last_error.request.url, last_error)
+        elif last_error:
+            logger.error("LLMClient request failed: %s", last_error)
+        return None
+
     async def generate_search_query(self, text: str) -> Optional[str]:
         """
         검색어 → SQL 쿼리 생성
@@ -46,34 +99,15 @@ class LLMClient:
         
         logger.debug("LLM search_query request to %s with text='%s'", endpoint, text)
         
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    endpoint,
-                    json=payload,
-                    timeout=self._timeout
-                )
-                response.raise_for_status()  # 2xx 이외의 상태 코드에 대해 예외 발생
-                
-                data = response.json()
-                sql_query = data.get("sql_query")
-                
-                if sql_query:
-                    logger.info("LLM generated SQL: %s", sql_query)
-                    return sql_query
-                else:
-                    logger.warning("LLM response does not contain 'sql_query'")
-                    return None
-
-        except httpx.HTTPStatusError as e:
-            logger.error("LLM service returned error status %d: %s", e.response.status_code, e.response.text)
+        data = await self._post_with_retry(endpoint, payload)
+        if not data:
             return None
-        except httpx.RequestError as e:
-            logger.error("Failed to connect to LLM service at %s: %s", e.request.url, e)
-            return None
-        except Exception as e:
-            logger.exception("An unexpected error occurred in LLMClient: %s", e)
-            return None
+        sql_query = data.get("sql_query")
+        if sql_query:
+            logger.info("LLM generated SQL: %s", sql_query)
+            return sql_query
+        logger.warning("LLM response does not contain 'sql_query'")
+        return None
 
     async def detect_intent(self, text: str) -> Optional[Dict[str, Any]]:
         """자연어 문장의 의도와 엔티티를 추출한다."""
@@ -82,21 +116,8 @@ class LLMClient:
 
         logger.debug("LLM intent_detection request to %s with text='%s'", endpoint, text)
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(endpoint, json=payload, timeout=self._timeout)
-                response.raise_for_status()
-                data = response.json()
-                if not data.get("intent"):
-                    logger.warning("LLM intent response missing 'intent': %s", data)
-                    return None
-                return data
-        except httpx.HTTPStatusError as e:
-            logger.error("LLM service returned error status %d: %s", e.response.status_code, e.response.text)
+        data = await self._post_with_retry(endpoint, payload)
+        if not data or not data.get("intent"):
+            logger.warning("LLM intent response missing 'intent': %s", data)
             return None
-        except httpx.RequestError as e:
-            logger.error("Failed to connect to LLM service at %s: %s", e.request.url, e)
-            return None
-        except Exception as e:  # noqa: BLE001
-            logger.exception("An unexpected error occurred in LLMClient.detect_intent: %s", e)
-            return None
+        return data

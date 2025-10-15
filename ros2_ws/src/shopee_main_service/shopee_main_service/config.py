@@ -52,6 +52,9 @@ class MainServiceConfig(BaseSettings):
     # === ROS2 설정 ===
     ROS_SPIN_TIMEOUT: float = 0.1
     ROS_SERVICE_TIMEOUT: float = 1.0
+    ROS_SERVICE_RETRY_ATTEMPTS: int = 3
+    ROS_SERVICE_RETRY_BASE_DELAY: float = 0.2
+    ROS_STATUS_HEALTH_TIMEOUT: float = 10.0
     
     PICKEE_PACKING_LOCATION_ID: int = 0
     PICKEE_HOME_LOCATION_ID: int = 0

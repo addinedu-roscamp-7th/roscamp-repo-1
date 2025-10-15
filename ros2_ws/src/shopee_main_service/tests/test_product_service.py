@@ -112,3 +112,19 @@ class TestProductServiceSearch:
         # Assert
         assert results["total_count"] == 0
         assert len(results["products"]) == 0
+
+    async def test_search_with_unsafe_llm_clause_fallback(self, product_service: ProductService, mock_db_manager: MagicMock, mock_llm_client: AsyncMock):
+        """LLM이 유효하지 않은 WHERE 절을 반환하면 기본 검색으로 대체한다."""
+        query_text = "사과"
+        mock_llm_client.generate_search_query.return_value = "name; DROP TABLE product"
+
+        mock_product = self._create_mock_product(3, "사과주스")
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.filter.return_value.all.return_value = [mock_product]
+
+        results = await product_service.search_products(query_text)
+
+        mock_session.query.return_value.from_statement.assert_not_called()
+        mock_session.query.return_value.filter.assert_called_once()
+        assert results["total_count"] == 1
+        assert results["products"][0]["name"] == "사과주스"
