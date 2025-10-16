@@ -70,6 +70,10 @@ class MainServiceConfig(BaseSettings):
     ROBOT_MAX_PACKEE: int = 5
     ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
 
+    # === 대시보드 설정 ===
+    GUI_ENABLED: bool = False
+    GUI_SNAPSHOT_INTERVAL: float = 1.0
+
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Optional[str] = None
