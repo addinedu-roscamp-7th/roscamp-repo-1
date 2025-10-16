@@ -15,7 +15,7 @@ data_handler = HTTP_Util()
 # app.route 조건이 충족되었을 때 실행시킬 search_query 함수
 def search_query():
     print("상품 정보 요청 수신")
-    data = {"sql_query": "SELECT * FROM product WHERE name LIKE '%사과%'"}
+    data = {"sql_query": "name LIKE '%사과%'"}
     query_data = data_handler.data_to_json(data)
     return query_data   
 # ------------------------------ 상품 픽업 요청 처리  ------------------------------
@@ -27,7 +27,7 @@ def bbox():
     data = {"bbox": "2"}
     pickup_data = data_handler.data_to_json(data)
     return pickup_data
-# ------------------------------ 발화 의도 분석 --------------------------------------
+# ------------------------------ 발화 의도 분석 ------------------------------
 # 클라이언트에서 /llm/intent_detection 경로로 GET 요청이 들어오면 app.route에 등록된 함수가 실행
 @app.route('/llm/intent_detection', methods=['GET'])
 # app.route 조건이 충족되었을 때 실행시킬 intent_dectection 함수
@@ -40,6 +40,6 @@ def intent_detection():
             "action" : "move"}}
     intent_data = data_handler.data_to_json(data)
     return intent_data
-# ---------------------------------- 서버 실행 --------------------------------------
+# ------------------------------ 서버 실행 ------------------------------
 # port 5000번으로 서버 실행
-app.run(host="0.0.0.0",port=5000)
+app.run(host="192.168.0.154",port=5001)
