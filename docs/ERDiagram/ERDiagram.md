@@ -67,6 +67,7 @@ entity "order" {
   order_status : tinyint
   failure_reason : VARCHAR(50) (nullable)
   created_at : datetime
+  box : json
 }
 
 entity "order_item" {
