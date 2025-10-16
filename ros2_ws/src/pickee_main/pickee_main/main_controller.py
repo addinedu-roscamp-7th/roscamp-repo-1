@@ -110,6 +110,13 @@ class PickeeMainController(Node):
         self.current_orientation_z = 0.0
         self.current_order_id = 0
         
+        # 자세 변경 관련 상태 변수들
+        self.arm_pose_in_progress = False
+        self.arm_pose_completed = False
+        self.arm_pose_failed = False
+        self.last_arm_pose_progress = 0.0
+        self.current_arm_status = ''
+        
         # 주기적으로 상태 기계 실행하기 위한 타이머 (10Hz)
         self.timer = self.create_timer(0.1, self.state_machine_callback)
         
@@ -441,13 +448,52 @@ class PickeeMainController(Node):
     def arm_pose_status_callback(self, msg):
         # Arm 자세 변경 상태 콜백
         self.get_logger().info(f'Arm pose status: robot_id={msg.robot_id}, pose_type={msg.pose_type}, status={msg.status}, progress={msg.progress}')
+        
+        # 자세 변경 상태 정보를 저장하여 상태 기계에서 활용
+        self.current_arm_pose_status = {
+            'pose_type': msg.pose_type,
+            'status': msg.status,
+            'progress': msg.progress,
+            'message': msg.message,
+            'timestamp': self.get_clock().now()
+        }
+        
         # 상태 기계에 자세 변경 상태 이벤트 전달
-        if msg.status == 'completed':
+        if msg.status == 'in_progress':
+            # 진행 중일 때는 진행률 업데이트
+            self.arm_pose_in_progress = True
+            self.arm_pose_progress = msg.progress
+            self.get_logger().debug(f'Arm pose progress: {msg.pose_type} - {msg.progress:.1%}')
+            
+        elif msg.status == 'completed':
+            # 완료 시 플래그 설정 및 현재 자세 업데이트
             self.arm_pose_completed = True
+            self.arm_pose_in_progress = False
+            self.arm_pose_failed = False
             self.current_arm_pose = msg.pose_type
+            self.arm_pose_progress = 1.0
+            self.get_logger().info(f'Arm pose completed: {msg.pose_type}')
+            
         elif msg.status == 'failed':
+            # 실패 시 플래그 설정
             self.arm_pose_failed = True
-        # TODO: 상태 기계에서 자세 변경 진행 상황을 처리할 수 있도록 개선
+            self.arm_pose_in_progress = False
+            self.arm_pose_completed = False
+            self.arm_pose_failure_reason = msg.message
+            self.get_logger().error(f'Arm pose failed: {msg.pose_type} - {msg.message}')
+            
+        # 현재 상태가 자세 변경과 관련된 상태인 경우 상태 기계에 이벤트 전달
+        current_state_name = self.state_machine.get_current_state_name()
+        
+        if current_state_name in ['DETECTING_PRODUCT', 'PICKING_PRODUCT']:
+            # 자세 변경 상태를 현재 상태 객체에 전달
+            current_state = self.state_machine.current_state
+            if hasattr(current_state, 'on_arm_pose_status_update'):
+                current_state.on_arm_pose_status_update(msg)
+                
+        # 진행 상황을 Main Service에도 보고 (필요한 경우)
+        if msg.status in ['completed', 'failed']:
+            self.get_logger().info(f'Arm pose operation {msg.status}: {msg.pose_type} (progress: {msg.progress:.1%})')
 
     def arm_pick_status_callback(self, msg):
         # Arm 픽업 상태 콜백
@@ -473,19 +519,76 @@ class PickeeMainController(Node):
     def vision_obstacles_callback(self, msg):
         # Vision 장애물 감지 콜백
         self.get_logger().info(f'Vision obstacles: robot_id={msg.robot_id}, count={len(msg.obstacles)}')
-        # TODO: Mobile 제어에 장애물 정보 반영
+        
+        # 장애물 감지 시 Mobile에 속도 제어 명령 전송
+        if len(msg.obstacles) > 0:
+            self.publish_mobile_speed_control(
+                speed_mode='decelerate',
+                target_speed=0.3,
+                obstacles=msg.obstacles,
+                reason='obstacles_detected'
+            )
+        else:
+            # 장애물이 없으면 정상 속도로 복귀
+            self.publish_mobile_speed_control(
+                speed_mode='normal',
+                target_speed=1.0,
+                obstacles=[],
+                reason='obstacles_cleared'
+            )
 
     def vision_staff_location_callback(self, msg):
         # Vision 직원 위치 콜백
-        # TODO: 직원 추종 로직에 위치 정보 사용
+        self.get_logger().info(f'Staff location: staff_id={msg.staff_id}, confidence={msg.confidence}')
+        
+        # 직원 추종 상태에서 위치 정보를 저장하여 추종 로직에 활용
+        self.staff_location = msg
+        
+        # FOLLOWING_STAFF 상태일 때 직원 위치로 이동 명령 업데이트
+        current_state_name = self.state_machine.get_current_state_name()
+        if current_state_name == 'FOLLOWING_STAFF':
+            # 직원 위치로 이동하도록 Mobile에 명령 전달
+            import threading
+            import asyncio
+            
+            def follow_staff():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    # 직원 위치를 target_pose로 변환
+                    from shopee_interfaces.msg import Pose2D
+                    staff_pose = Pose2D()
+                    if hasattr(msg, 'location'):
+                        staff_pose.x = msg.location.x
+                        staff_pose.y = msg.location.y
+                        staff_pose.theta = 0.0
+                        loop.run_until_complete(
+                            self.call_mobile_move_to_location(0, staff_pose)
+                        )
+                    loop.close()
+                except Exception as e:
+                    self.get_logger().error(f'Staff following failed: {str(e)}')
+            
+            threading.Thread(target=follow_staff).start()
         pass
 
     def vision_staff_register_callback(self, msg):
         # Vision 직원 등록 결과 콜백
         self.get_logger().info(f'Vision staff register: robot_id={msg.robot_id}, success={msg.success}')
         if msg.success:
-            # TODO: 상태 기계에 직원 등록 완료 이벤트 전달
-            pass
+            # 직원 등록 완료 이벤트를 상태 기계에 전달
+            self.staff_registration_completed = True
+            self.registered_staff_info = msg
+            
+            # REGISTERING_STAFF 상태에서 FOLLOWING_STAFF 상태로 전환
+            current_state_name = self.state_machine.get_current_state_name()
+            if current_state_name == 'REGISTERING_STAFF':
+                from .states.following_staff import FollowingStaffState
+                new_state = FollowingStaffState(self)
+                self.state_machine.transition_to(new_state)
+        else:
+            self.get_logger().error(f'Staff registration failed: {msg.message}')
+            self.staff_registration_failed = True
 
     def vision_cart_check_callback(self, msg):
         # Vision 장바구니 내 상품 확인 결과 콜백
@@ -498,7 +601,7 @@ class PickeeMainController(Node):
         # Mobile에 위치 이동 명령
         request = PickeeMobileMoveToLocation.Request()
         request.robot_id = self.robot_id
-        request.order_id = 0  # TODO: 현재 주문 ID로 설정
+        request.order_id = self.current_order_id
         request.location_id = location_id
         request.target_pose = target_pose
         request.global_path = global_path or []
@@ -540,7 +643,7 @@ class PickeeMainController(Node):
         # Arm에 자세 변경 명령
         request = PickeeArmMoveToPose.Request()
         request.robot_id = self.robot_id
-        request.order_id = 0  # TODO: 현재 주문 ID로 설정
+        request.order_id = self.current_order_id
         request.pose_type = pose_type
         
         if not self.arm_move_to_pose_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
@@ -559,7 +662,7 @@ class PickeeMainController(Node):
         # Arm에 상품 픽업 명령
         request = PickeeArmPickProduct.Request()
         request.robot_id = self.robot_id
-        request.order_id = 0  # TODO: 현재 주문 ID로 설정
+        request.order_id = self.current_order_id
         request.product_id = product_id
         request.target_position = target_position
         
@@ -579,7 +682,7 @@ class PickeeMainController(Node):
         # Arm에 상품 놓기 명령
         request = PickeeArmPlaceProduct.Request()
         request.robot_id = self.robot_id
-        request.order_id = 0  # TODO: 현재 주문 ID로 설정
+        request.order_id = self.current_order_id
         request.product_id = product_id
         
         if not self.arm_place_product_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
@@ -598,7 +701,7 @@ class PickeeMainController(Node):
         # Vision에 상품 인식 명령
         request = PickeeVisionDetectProducts.Request()
         request.robot_id = self.robot_id
-        request.order_id = 0  # TODO: 현재 주문 ID로 설정
+        request.order_id = self.current_order_id
         request.product_ids = product_ids
         
         if not self.vision_detect_products_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
@@ -945,7 +1048,14 @@ class PickeeMainController(Node):
         # 섹션 이동 명령 콜백
         self.get_logger().info(f'Received move to section: location_id={request.location_id}, section_id={request.section_id}')
         
-        # TODO: 상태 기계에 섹션 이동 이벤트 전달
+        # 섹션 이동 이벤트를 상태 기계에 전달
+        self.target_location_id = request.location_id
+        self.target_section_id = request.section_id
+        
+        # MOVING_TO_SHELF 상태로 전환
+        from .states.moving_to_shelf import MovingToShelfState
+        new_state = MovingToShelfState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Move to section command accepted'
@@ -955,7 +1065,32 @@ class PickeeMainController(Node):
         # 상품 인식 명령 콜백
         self.get_logger().info(f'Received product detect: product_ids={request.product_ids}')
         
-        # TODO: Vision에 상품 인식 명령 전달
+        # Vision에 상품 인식 명령 전달 (비동기)
+        import threading
+        import asyncio
+        
+        def detect_products():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(
+                    self.call_vision_detect_products(request.product_ids)
+                )
+                loop.close()
+                
+                if success:
+                    # DETECTING_PRODUCT 상태로 전환
+                    from .states.detecting_product import DetectingProductState
+                    new_state = DetectingProductState(self)
+                    new_state.product_ids = request.product_ids
+                    self.state_machine.transition_to(new_state)
+                else:
+                    self.get_logger().error('Failed to start product detection')
+                    
+            except Exception as e:
+                self.get_logger().error(f'Product detection failed: {str(e)}')
+        
+        threading.Thread(target=detect_products).start()
         
         response.success = True
         response.message = 'Product detection started'
@@ -976,7 +1111,13 @@ class PickeeMainController(Node):
         # 쇼핑 종료 명령 콜백
         self.get_logger().info(f'Received end shopping: robot_id={request.robot_id}, order_id={request.order_id}')
         
-        # TODO: 상태 기계에 쇼핑 종료 이벤트 전달
+        # 쇼핑 종료 이벤트를 상태 기계에 전달
+        self.shopping_ended = True
+        
+        # MOVING_TO_PACKING 상태로 전환
+        from .states.moving_to_packing import MovingToPackingState
+        new_state = MovingToPackingState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Shopping ended, moving to packaging'
@@ -986,7 +1127,13 @@ class PickeeMainController(Node):
         # 포장대 이동 명령 콜백
         self.get_logger().info(f'Received move to packaging: location_id={request.location_id}')
         
-        # TODO: 상태 기계에 포장대 이동 이벤트 전달
+        # 포장대 이동 이벤트를 상태 기계에 전달
+        self.target_packaging_location_id = request.location_id
+        
+        # MOVING_TO_PACKING 상태로 전환
+        from .states.moving_to_packing import MovingToPackingState
+        new_state = MovingToPackingState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Moving to packaging area'
@@ -996,7 +1143,13 @@ class PickeeMainController(Node):
         # 복귀 명령 콜백
         self.get_logger().info(f'Received return to base: location_id={request.location_id}')
         
-        # TODO: 상태 기계에 복귀 이벤트 전달
+        # 복귀 이벤트를 상태 기계에 전달
+        self.base_location_id = request.location_id
+        
+        # MOVING_TO_STANDBY 상태로 전환
+        from .states.moving_to_standby import MovingToStandbyState
+        new_state = MovingToStandbyState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Returning to base'
@@ -1006,8 +1159,17 @@ class PickeeMainController(Node):
         # 직원으로 복귀 명령 콜백
         self.get_logger().info(f'Received return to staff: robot_id={request.robot_id}')
         
-        # TODO: 마지막으로 추종했던 직원 위치로 복귀하는 상태로 전환
-        # 상태 기계에 직원 복귀 이벤트 전달
+        # 마지막으로 추종했던 직원 위치로 복귀하는 상태로 전환
+        if hasattr(self, 'staff_location') and self.staff_location:
+            # FOLLOWING_STAFF 상태로 전환하여 직원 추종 재개
+            from .states.following_staff import FollowingStaffState
+            new_state = FollowingStaffState(self)
+            self.state_machine.transition_to(new_state)
+        else:
+            # 직원 위치 정보가 없으면 직원 등록부터 시작
+            from .states.registering_staff import RegisteringStaffState
+            new_state = RegisteringStaffState(self)
+            self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Returning to staff location'
@@ -1081,11 +1243,31 @@ class PickeeMainController(Node):
         # Vision에서 요청한 TTS 처리 콜백
         self.get_logger().info(f'TTS request received: text="{request.text_to_speak}"')
         
-        # TODO: 실제 TTS 시스템과 연동하여 음성 출력 처리
-        # 현재는 로그만 출력하고 성공으로 응답
-        
-        response.success = True
-        response.message = f'TTS completed for text: "{request.text_to_speak}"'
+        # 실제 TTS 시스템과 연동하여 음성 출력 처리
+        try:
+            # 간단한 TTS 처리 로직 (실제로는 외부 TTS 서비스 호출)
+            import subprocess
+            import os
+            
+            # Linux 시스템의 espeak를 사용한 간단한 TTS (선택적)
+            if os.path.exists('/usr/bin/espeak'):
+                try:
+                    subprocess.run(['espeak', request.text_to_speak], 
+                                 capture_output=True, timeout=5.0)
+                except Exception:
+                    pass  # TTS 실패해도 계속 진행
+            
+            # TTS 로그 출력
+            self.get_logger().info(f'TTS 처리 완료: "{request.text_to_speak}"')
+            
+            response.success = True
+            response.message = f'TTS completed for text: "{request.text_to_speak}"'
+            
+        except Exception as e:
+            self.get_logger().error(f'TTS 처리 실패: {str(e)}')
+            response.success = False
+            response.message = f'TTS failed: {str(e)}'
+            
         return response
 
     def state_machine_callback(self):

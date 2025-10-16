@@ -19,14 +19,48 @@ class PickingProductState(State):
         if not self.pick_started:
             # 상품 픽업 시작
             self._node.get_logger().info(f'상품 픽업 시작: {self.product_id}')
-            # TODO: self.arm_pick_product(self.product_id, self.target_position) 호출 필요
+            # Arm에 픽업 명령 전달 (비동기)
+            import threading
+            import asyncio
+            
+            def pick_product():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(
+                        self._node.call_arm_pick_product(self.product_id, self.target_position)
+                    )
+                    loop.close()
+                    if not success:
+                        self._node.get_logger().error('상품 픽업 명령 전달 실패')
+                except Exception as e:
+                    self._node.get_logger().error(f'상품 픽업 실패: {str(e)}')
+            
+            threading.Thread(target=pick_product).start()
             self.pick_started = True
         
         elif not self.pick_completed and hasattr(self._node, 'arm_pick_completed') and self._node.arm_pick_completed:
             # 픽업 완료, 장바구니에 놓기 시작
             self._node.arm_pick_completed = False  # 플래그 리셋
             self._node.get_logger().info(f'픽업 완료, 장바구니에 놓기 시작: {self.product_id}')
-            # TODO: self.arm_place_product(self.product_id) 호출 필요
+            # Arm에 놓기 명령 전달 (비동기)
+            import threading
+            import asyncio
+            
+            def place_product():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(
+                        self._node.call_arm_place_product(self.product_id)
+                    )
+                    loop.close()
+                    if not success:
+                        self._node.get_logger().error('상품 놓기 명령 전달 실패')
+                except Exception as e:
+                    self._node.get_logger().error(f'상품 놓기 실패: {str(e)}')
+            
+            threading.Thread(target=place_product).start()
             self.pick_completed = True
             self.place_started = True
         

@@ -26,7 +26,10 @@ class DetectingProductState(State):
             result = self.future.result()
             if not result or not result.success:
                 self._node.get_logger().error(f'{self.phase}단계 실패. 더 이상 진행하지 않음.')
-                # TODO: 실패 처리 로직 필요
+                # 실패 시 CHARGING_AVAILABLE 상태로 복귀
+                from .charging_available import ChargingAvailableState
+                new_state = ChargingAvailableState(self._node)
+                self.transition_to(new_state)
                 self.future = None
                 return
 

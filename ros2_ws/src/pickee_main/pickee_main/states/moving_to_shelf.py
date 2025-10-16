@@ -43,7 +43,15 @@ class MovingToShelfState(State):
                     self.is_moving = True
                 else:
                     self._node.get_logger().error(f'위치 ID에 대한 좌표 수신 실패: {self.target_location_id}')
-                    # TODO: 실패 상태로 전환하는 로직 필요
+                    
+                    # 실패 상태로 전환 (대기 상태로 돌아감)
+                    from .waiting_loading import WaitingLoadingState
+                    new_state = WaitingLoadingState(self._node)
+                    self._node.state_machine.transition_to(new_state)
+                    
+                    # TTS로 실패 알림
+                    self._node.speak_text(f'위치 {self.target_location_id}번의 좌표를 찾을 수 없습니다.')
+                    return
                 
                 self.pose_future = None # Future 처리 완료
 
