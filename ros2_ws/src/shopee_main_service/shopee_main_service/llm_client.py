@@ -34,31 +34,46 @@ class LLMClient:
         self._base_url = base_url
         self._timeout = timeout
 
-    async def _post_with_retry(self, endpoint: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _request_with_retry(
+        self,
+        method: str,
+        endpoint: str,
+        payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
         """
-        POST 요청을 설정 기반으로 재시도합니다.
+        HTTP 요청을 재시도하며 수행한다.
         """
         attempts = max(1, settings.LLM_MAX_RETRIES)
         delay = max(0.0, settings.LLM_RETRY_BACKOFF)
-
         last_error: Optional[Exception] = None
+        method_upper = method.upper()
 
         for attempt in range(1, attempts + 1):
             try:
                 async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        endpoint,
-                        json=payload,
-                        timeout=self._timeout
-                    )
+                    if method_upper == 'GET':
+                        response = await client.get(
+                            endpoint,
+                            params=payload,
+                            timeout=self._timeout,
+                        )
+                    else:
+                        response = await client.post(
+                            endpoint,
+                            json=payload,
+                            timeout=self._timeout,
+                        )
                     response.raise_for_status()
+                    if response.headers.get('content-length') == '0':
+                        return {}
                     return response.json()
             except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                 last_error = exc
                 logger.warning(
-                    "LLM request failed (attempt %d/%d) to %s: %s",
+                    'LLM request failed (attempt %d/%d) to %s %s: %s',
                     attempt,
                     attempts,
+                    method_upper,
                     endpoint,
                     exc,
                 )
@@ -69,19 +84,23 @@ class LLMClient:
                     delay *= 2
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
-                logger.exception("Unexpected error in LLMClient: %s", exc)
+                logger.exception('Unexpected error in LLMClient: %s', exc)
                 break
 
         if isinstance(last_error, httpx.HTTPStatusError):
             logger.error(
-                "LLM service returned error status %d: %s",
+                'LLM service returned error status %d: %s',
                 last_error.response.status_code,
                 last_error.response.text,
             )
         elif isinstance(last_error, httpx.RequestError):
-            logger.error("Failed to connect to LLM service at %s: %s", last_error.request.url, last_error)
+            logger.error(
+                'Failed to connect to LLM service at %s: %s',
+                last_error.request.url,
+                last_error,
+            )
         elif last_error:
-            logger.error("LLMClient request failed: %s", last_error)
+            logger.error('LLMClient request failed: %s', last_error)
         return None
 
     async def generate_search_query(self, text: str) -> Optional[str]:
@@ -94,30 +113,52 @@ class LLMClient:
         Returns:
             str: LLM이 생성한 SQL 쿼리 문자열 또는 None (실패 시)
         """
-        endpoint = f"{self._base_url}/llm_service/search_query"
-        payload = {"text": text}
-        
-        logger.debug("LLM search_query request to %s with text='%s'", endpoint, text)
-        
-        data = await self._post_with_retry(endpoint, payload)
+        endpoint = f'{self._base_url}/llm/search_query'
+        payload = {'text': text}
+
+        logger.debug('LLM search_query request to %s with text=%r', endpoint, text)
+
+        data = await self._request_with_retry('GET', endpoint, payload)
         if not data:
             return None
-        sql_query = data.get("sql_query")
+        sql_query = data.get('sql_query')
         if sql_query:
-            logger.info("LLM generated SQL: %s", sql_query)
+            logger.info('LLM generated SQL: %s', sql_query)
             return sql_query
         logger.warning("LLM response does not contain 'sql_query'")
         return None
 
+    async def extract_bbox_number(self, text: str) -> Optional[int]:
+        """자연어 문장에서 bbox 번호를 추출한다."""
+        endpoint = f'{self._base_url}/llm/bbox'
+        payload = {'text': text}
+
+        logger.debug('LLM bbox request to %s with text=%r', endpoint, text)
+
+        data = await self._request_with_retry('GET', endpoint, payload)
+        if not data:
+            return None
+
+        bbox_value = data.get('bbox')
+        if bbox_value is None:
+            logger.debug('LLM bbox response missing bbox field: %s', data)
+            return None
+
+        try:
+            return int(bbox_value)
+        except (TypeError, ValueError):
+            logger.warning('LLM bbox response has invalid value: %s', bbox_value)
+            return None
+
     async def detect_intent(self, text: str) -> Optional[Dict[str, Any]]:
         """자연어 문장의 의도와 엔티티를 추출한다."""
-        endpoint = f"{self._base_url}/llm_service/intent_detection"
-        payload = {"text": text}
+        endpoint = f'{self._base_url}/llm/intent_detection'
+        payload = {'text': text}
 
-        logger.debug("LLM intent_detection request to %s with text='%s'", endpoint, text)
+        logger.debug('LLM intent_detection request to %s with text=%r', endpoint, text)
 
-        data = await self._post_with_retry(endpoint, payload)
-        if not data or not data.get("intent"):
-            logger.warning("LLM intent response missing 'intent': %s", data)
+        data = await self._request_with_retry('GET', endpoint, payload)
+        if not data or not data.get('intent'):
+            logger.warning('LLM intent response missing intent: %s', data)
             return None
         return data

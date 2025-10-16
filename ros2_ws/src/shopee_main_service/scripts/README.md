@@ -12,8 +12,9 @@
 - **`setup_database.sh`** - 🔧 **최초 설정용** (사용자/DB 생성 + 스키마 + 데이터)
 - **`reset_database.sh`** - 🔄 **리셋용** (데이터 삭제 후 재생성)
 
-### 테스트 스크립트
+### 테스트/모의 스크립트
 - **`test_client.py`** - Main Service TCP API 테스트 클라이언트
+- **`interactive_mock_app.py`** - App ↔ Main Service TCP 인터랙티브 모의 클라이언트
 
 ## 🚀 사용 방법
 
@@ -120,17 +121,24 @@ EOF
 # 터미널 1 - Mock LLM Server
 ros2 run shopee_main_service mock_llm_server
 
-# 터미널 2 - Mock Robot Node
+# 터미널 2 - Mock Robot Node (Pickee/Packee 또는 선택적 실행)
 ros2 run shopee_main_service mock_robot_node
+# ros2 run shopee_main_service mock_robot_node --mode pickee
+# ros2 run shopee_main_service mock_robot_node --mode packee
 
 # 터미널 3 - Main Service
 ros2 run shopee_main_service main_service_node
 
 # 3. 테스트 실행 (새 터미널)
 cd scripts
-python3 test_client.py              # 자동 모드
-python3 test_client.py -i           # 인터랙티브 모드
-python3 test_client.py inventory    # 재고 관리 테스트
+python3 test_client.py                       # 자동 모드 (기본: 텍스트 기반 상품 선택 포함)
+python3 test_client.py --interactive         # 인터랙티브 모드
+python3 test_client.py --no-speech-selection # bbox 기반 테스트만 수행
+python3 test_client.py --speech-selection "사과 가져다줘"  # 텍스트 문장 변경
+python3 test_client.py inventory             # 재고 관리 테스트
+
+# 필요 시 각 인터랙티브 Mock 실행
+python3 interactive_mock_app.py              # App ↔ Main Service TCP 모의
 ```
 
 ## 🔍 데이터베이스 접속
@@ -178,6 +186,7 @@ scripts/
 ├── init_schema.sql        # 테이블 스키마
 ├── sample_data.sql        # 샘플 데이터
 ├── test_client.py         # API 테스트 클라이언트
+├── interactive_mock_app.py      # App용 인터랙티브 모의 클라이언트
 └── README.md              # 이 문서
 ```
 
@@ -190,4 +199,3 @@ scripts/
 ---
 
 **마지막 업데이트:** 2025-10-12
-

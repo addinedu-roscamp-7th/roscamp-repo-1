@@ -37,6 +37,8 @@ setup(
             "main_service_node = shopee_main_service.main_service_node:main",
             "mock_llm_server = shopee_main_service.mock_llm_server:main",
             "mock_robot_node = shopee_main_service.mock_robot_node:main",
+            "mock_pickee_node = shopee_main_service.mock_pickee_node:main",
+            "mock_packee_node = shopee_main_service.mock_packee_node:main",
         ],
     },
 )

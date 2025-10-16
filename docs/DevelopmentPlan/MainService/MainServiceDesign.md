@@ -206,8 +206,9 @@ Order -> EventBus: cart_update_notification
 | 이벤트 | `push_event` | `robot_moving_notification`, `robot_arrived_notification`, `packing_info_notification`, ... | `EventBus` |
 
 ### 6.2 Main ↔ LLM
-- `/llm_service/search-query`: POST `{ text }` → `{ sql_query }`
-- `/llm_service/intent-detection`: POST `{ text }` → `{ intent, entities }`
+- `/llm/search_query`: GET `text` → `{ sql_query }`
+- `/llm/bbox`: GET `text` → `{ bbox }`
+- `/llm/intent_detection`: GET `text` → `{ intent, entities }`
 - 401/500 응답 시 fallback 사용, 로그 기록.
 
 ### 6.3 ROS 인터페이스

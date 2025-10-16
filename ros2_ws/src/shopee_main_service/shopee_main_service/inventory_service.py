@@ -31,15 +31,19 @@ class InventoryService:
         Returns:
             좌표 정보를 담은 딕셔너리 또는 None
         """
+        return self.get_location_pose_sync(location_id)
+
+    def get_location_pose_sync(self, location_id: int) -> Optional[Dict[str, float]]:
+        """동기 방식 좌표 조회"""
         with self._db.session_scope() as session:
             location = session.query(Location).filter(Location.location_id == location_id).first()
-            if location:
-                return {
-                    "x": location.location_x,
-                    "y": location.location_y,
-                    "theta": location.location_theta,
-                }
-            return None
+            if not location:
+                return None
+            return {
+                "x": location.location_x,
+                "y": location.location_y,
+                "theta": location.location_theta,
+            }
 
     async def get_warehouse_pose(self, warehouse_id: int) -> Optional[Dict[str, float]]:
         """
@@ -51,6 +55,10 @@ class InventoryService:
         Returns:
             좌표 정보를 담은 딕셔너리 또는 None
         """
+        return self.get_warehouse_pose_sync(warehouse_id)
+
+    def get_warehouse_pose_sync(self, warehouse_id: int) -> Optional[Dict[str, float]]:
+        """동기 방식 창고 좌표 조회"""
         with self._db.session_scope() as session:
             warehouse = (
                 session.query(Warehouse)
@@ -76,6 +84,10 @@ class InventoryService:
         Returns:
             좌표 정보를 담은 딕셔너리 또는 None
         """
+        return self.get_section_pose_sync(section_id)
+
+    def get_section_pose_sync(self, section_id: int) -> Optional[Dict[str, float]]:
+        """동기 방식 섹션 좌표 조회"""
         with self._db.session_scope() as session:
             section = (
                 session.query(Section)

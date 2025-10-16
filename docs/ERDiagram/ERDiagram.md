@@ -50,6 +50,12 @@ entity "product" {
   is_vegan_friendly : bool
   section_id : int <<FK>>
   warehouse_id : int <<FK>>
+  length : int
+  width : int
+  height : int
+  weight : int
+  fragile : bool
+  img_paht : VARCHAR(50)
 }
 
 entity "order" {
@@ -61,6 +67,15 @@ entity "order" {
   order_status : tinyint
   failure_reason : VARCHAR(50) (nullable)
   created_at : datetime
+  box : int <<FK>>
+}
+
+entity "box" {
+  * box_id : int <<PK>>
+  --
+  width : int
+  depth : int
+  height : int
 }
 
 entity "order_item" {

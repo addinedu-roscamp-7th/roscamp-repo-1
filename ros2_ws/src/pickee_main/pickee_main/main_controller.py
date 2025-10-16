@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from .state_machine import StateMachine
-from .states.initializing import InitializingState
+from pickee_main.states.initializing import InitializingState
 
 # 구독자(Subscriber)용 메시지 타입 임포트
 from shopee_interfaces.msg import (
@@ -1013,26 +1013,68 @@ class PickeeMainController(Node):
         response.message = 'Returning to staff location'
         return response
 
-    async def video_start_callback(self, request, response):
+    def video_start_callback(self, request, response):
         # 영상 송출 시작 명령 콜백
         self.get_logger().info(f'Received video start: user_type={request.user_type}, user_id={request.user_id}')
         
-        # Vision에 영상 송출 시작 명령 전달
-        success = await self.call_vision_video_stream_start(request.user_type, request.user_id)
+        # Vision에 영상 송출 시작 명령 전달 (스레드에서 비동기 실행)
+        import threading
+        import asyncio
         
-        response.success = success
-        response.message = 'Video streaming started' if success else 'Failed to start video streaming'
+        def run_async_video_start():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(
+                    self.call_vision_video_stream_start(request.user_type, request.user_id)
+                )
+                loop.close()
+                
+                if success:
+                    self.get_logger().info(f'Video streaming started successfully for {request.user_type}:{request.user_id}')
+                else:
+                    self.get_logger().error(f'Failed to start video streaming for {request.user_type}:{request.user_id}')
+                    
+            except Exception as e:
+                self.get_logger().error(f'Video start service call failed: {str(e)}')
+        
+        # 비동기 작업을 별도 스레드에서 실행
+        threading.Thread(target=run_async_video_start).start()
+        
+        response.success = True
+        response.message = 'Video streaming request accepted'
         return response
 
-    async def video_stop_callback(self, request, response):
+    def video_stop_callback(self, request, response):
         # 영상 송출 중지 명령 콜백
         self.get_logger().info(f'Received video stop: user_type={request.user_type}, user_id={request.user_id}')
         
-        # Vision에 영상 송출 중지 명령 전달
-        success = await self.call_vision_video_stream_stop(request.user_type, request.user_id)
+        # Vision에 영상 송출 중지 명령 전달 (스레드에서 비동기 실행)
+        import threading
+        import asyncio
         
-        response.success = success
-        response.message = 'Video streaming stopped' if success else 'Failed to stop video streaming'
+        def run_async_video_stop():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(
+                    self.call_vision_video_stream_stop(request.user_type, request.user_id)
+                )
+                loop.close()
+                
+                if success:
+                    self.get_logger().info(f'Video streaming stopped successfully for {request.user_type}:{request.user_id}')
+                else:
+                    self.get_logger().error(f'Failed to stop video streaming for {request.user_type}:{request.user_id}')
+                    
+            except Exception as e:
+                self.get_logger().error(f'Video stop service call failed: {str(e)}')
+        
+        # 비동기 작업을 별도 스레드에서 실행
+        threading.Thread(target=run_async_video_stop).start()
+        
+        response.success = True
+        response.message = 'Video streaming stop request accepted'
         return response
 
     def tts_request_callback(self, request, response):

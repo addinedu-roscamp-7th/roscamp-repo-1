@@ -2,8 +2,10 @@
 Unit tests for the OrderService.
 """
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from shopee_interfaces.msg import PickeeArrival, PickeeCartHandover, PickeeMoveStatus, PackeePackingComplete
 from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
@@ -454,6 +456,76 @@ class TestHandleRobotFailure:
             and args.args[1].get("type") == "robot_failure_notification"
         ]
         assert failure_calls
+
+
+class TestOrderServiceDashboardHelpers:
+    """대시보드용 헬퍼 메서드 테스트 모음."""
+
+    async def test_get_active_orders_snapshot_basic(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+    ):
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+
+        order = MagicMock()
+        order.order_id = 101
+        order.order_status = 2
+        order.customer = MagicMock(id="customer001")
+        order.start_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+        query_mock = MagicMock()
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.all.return_value = [order]
+        mock_session.query.return_value = query_mock
+
+        order_service._pickee_assignments[101] = 5
+        order_service._detected_product_bbox[101] = {77: 1}
+
+        original_calc = order_service._calculate_order_summary
+        order_service._calculate_order_summary = MagicMock(return_value=(3, 12900))
+
+        snapshot = await order_service.get_active_orders_snapshot()
+
+        order_service._calculate_order_summary = original_calc
+
+        assert snapshot["summary"]["total_active"] == 1
+        first = snapshot["orders"][0]
+        assert first["order_id"] == 101
+        assert first["pickee_robot_id"] == 5
+        assert first["detected_products"] == [77]
+
+    async def test_get_recent_failed_orders(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+    ):
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+
+        failed_order = MagicMock()
+        failed_order.order_id = 202
+        failed_order.order_status = 9
+        failed_order.failure_reason = "robot timeout"
+        failed_order.end_time = datetime.now(timezone.utc)
+
+        query_mock = MagicMock()
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.limit.return_value = query_mock
+        query_mock.all.return_value = [failed_order]
+        mock_session.query.return_value = query_mock
+
+        original_calc = order_service._calculate_order_summary
+        order_service._calculate_order_summary = MagicMock(return_value=(2, 5000))
+
+        payload = await order_service.get_recent_failed_orders(limit=5)
+
+        order_service._calculate_order_summary = original_calc
+
+        assert payload
+        assert payload[0]["order_id"] == 202
+        assert payload[0]["failure_reason"] == "robot timeout"
 
     async def test_reassign_without_allocator_sends_failure(
         self,

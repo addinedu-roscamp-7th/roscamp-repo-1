@@ -8,9 +8,31 @@ pydantic-settings를 사용하여 환경 변수 및 .env 파일에서 설정을 
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def _resolve_env_file() -> Optional[str]:
+    """환경 변수 파일 경로를 탐색한다."""
+    candidates: list[Path] = [
+        BASE_DIR / '.env',
+    ]
+    for parent in Path(__file__).resolve().parents:
+        candidates.append(parent / 'src/shopee_main_service/.env')
+    candidates.append(Path.cwd() / '.env')
+
+    checked: set[Path] = set()
+    for candidate in candidates:
+        if candidate in checked:
+            continue
+        checked.add(candidate)
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 class MainServiceConfig(BaseSettings):
@@ -25,10 +47,10 @@ class MainServiceConfig(BaseSettings):
     
     # pydantic-settings 설정
     model_config = SettingsConfigDict(
-        env_file=".env",                # .env 파일 사용
-        env_file_encoding="utf-8",      # 인코딩
-        env_prefix="SHOPEE_",           # 환경 변수 접두사
-        case_sensitive=False,           # 대소문자 구분 안함
+        env_file=_resolve_env_file(),    # .env 파일 탐색 결과
+        env_file_encoding='utf-8',       # 인코딩
+        env_prefix='SHOPEE_',            # 환경 변수 접두사
+        case_sensitive=False,            # 대소문자 구분 안함
     )
     
     # === API 서버 설정 ===
@@ -37,7 +59,7 @@ class MainServiceConfig(BaseSettings):
     API_MAX_CONNECTIONS: int = 100
     
     # === LLM 서비스 설정 ===
-    LLM_BASE_URL: str = "http://localhost:8000"
+    LLM_BASE_URL: str = "http://192.168.0.154:5001"
     LLM_TIMEOUT: float = 1.5
     LLM_MAX_RETRIES: int = 2
     LLM_RETRY_BACKOFF: float = 0.5
@@ -51,12 +73,12 @@ class MainServiceConfig(BaseSettings):
     
     # === ROS2 설정 ===
     ROS_SPIN_TIMEOUT: float = 0.1
-    ROS_SERVICE_TIMEOUT: float = 1.0
+    ROS_SERVICE_TIMEOUT: float = 5.0
     ROS_SERVICE_RETRY_ATTEMPTS: int = 3
     ROS_SERVICE_RETRY_BASE_DELAY: float = 0.2
     ROS_STATUS_HEALTH_TIMEOUT: float = 10.0
     
-    PICKEE_PACKING_LOCATION_ID: int = 0
+    PICKEE_PACKING_LOCATION_ID: int = 2
     PICKEE_HOME_LOCATION_ID: int = 0
     DESTINATION_PACKING_NAME: str = "PACKING_AREA_A"
     DESTINATION_DELIVERY_NAME: str = "DELIVERY"
@@ -69,6 +91,10 @@ class MainServiceConfig(BaseSettings):
     ROBOT_MAX_PICKEE: int = 10
     ROBOT_MAX_PACKEE: int = 5
     ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
+
+    # === 대시보드 설정 ===
+    GUI_ENABLED: bool = False
+    GUI_SNAPSHOT_INTERVAL: float = 1.0
 
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"
