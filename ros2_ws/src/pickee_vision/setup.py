@@ -24,7 +24,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'product_recognition = pickee_vision.product_recognition:main'
+            'obstacle_detector = pickee_vision.obstacle_detector_node:main',
+            'product_detector = pickee_vision.product_detector_node:main',
+            'staff_tracker = pickee_vision.staff_tracker_node:main',
+            'camera_service = pickee_vision.camera_service_node:main',
         ],
     },
 )

@@ -101,6 +101,11 @@ class VisionStreamingClient:
             self._transport.close()
             logging.info("UDP 클라이언트 종료.")
 
+    async def start_and_stream(self):
+        """start()와 stream_frames()를 순차적으로 실행하는 헬퍼 메서드"""
+        await self.start()
+        await self.stream_frames()
+
 async def main():
     """메인 실행 함수"""
     client = VisionStreamingClient(HOST, PORT, IMAGE_PATH)
