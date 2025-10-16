@@ -612,6 +612,18 @@ class MockRobotNode(Node):
         self.get_logger().info(
             f'[MOCK] Packing started: Order={request.order_id}, Robot={request.robot_id}'
         )
+        
+        # Log received product details
+        if request.products:
+            self.get_logger().info(f'[MOCK] Received {len(request.products)} product types for packing.')
+            for p in request.products:
+                self.get_logger().info(
+                    f'  - Product ID: {p.product_id}, Qty: {p.quantity}, '
+                    f'Size: {p.length}x{p.width}x{p.height}, Weight: {p.weight}'
+                )
+        else:
+            self.get_logger().info('[MOCK] No product details received for packing.')
+
         self.packee_available = False
         self._packee_state = RobotStatus.WORKING.value
         self._packee_order_id = request.order_id

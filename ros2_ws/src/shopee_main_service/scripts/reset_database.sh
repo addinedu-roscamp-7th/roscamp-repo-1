@@ -133,7 +133,9 @@ SELECT '창고 (Warehouse)', COUNT(*) FROM warehouse
 UNION ALL
 SELECT '선반 (Shelf)', COUNT(*) FROM shelf
 UNION ALL
-SELECT '섹션 (Section)', COUNT(*) FROM section;
+SELECT '섹션 (Section)', COUNT(*) FROM section
+UNION ALL
+SELECT '박스 (Box)', COUNT(*) FROM box;
 EOF
 
 echo ""

@@ -24,7 +24,7 @@ from shopee_interfaces.srv import (
     PickeeWorkflowReturnToBase,
     PickeeWorkflowStartTask,
 )
-from shopee_interfaces.msg import ProductLocation
+from shopee_interfaces.msg import ProductLocation, ProductInfo
 
 from .config import settings
 from .database_models import Box, Customer, Order, OrderItem, Product, RobotHistory
@@ -939,15 +939,14 @@ class OrderService:
             #    string message
             # =================================================================================
             
-            # 위 인터페이스 수정이 완료되었다고 가정하고 요청을 생성합니다.
-            # 현재는 인터페이스가 변경되지 않았으므로, 원본 요청을 그대로 사용합니다.
-            # 추후 인터페이스가 변경되면 아래 주석을 해제하고 `products` 인자를 채워야 합니다.
-            start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
-            # from shopee_interfaces.msg import ProductInfo
-            # start_req.products = [ProductInfo(**detail) for detail in product_details_for_packee] # 인터페이스 변경 후 활성화
-
+            # 인터페이스가 수정되었으므로, 조회한 상품 정보를 요청에 담습니다.
+            start_req = PackeePackingStart.Request(
+                robot_id=packee_robot_id,
+                order_id=order_id
+            )
+            start_req.products = [ProductInfo(**detail) for detail in product_details_for_packee]
+            
             start_res = await self._robot.dispatch_pack_task(start_req)
-
             if not start_res.success:
                 logger.error("Failed to start packing for order %d. Reason: %s", order_id, start_res.message)
                 if allocator_reserved:

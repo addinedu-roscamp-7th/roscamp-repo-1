@@ -7,6 +7,7 @@
 DROP TABLE IF EXISTS robot_history;
 DROP TABLE IF EXISTS order_item;
 DROP TABLE IF EXISTS `order`;
+DROP TABLE IF EXISTS box;
 DROP TABLE IF EXISTS robot;
 DROP TABLE IF EXISTS product;
 DROP TABLE IF EXISTS section;
@@ -115,23 +116,41 @@ CREATE TABLE product (
     is_vegan_friendly BOOLEAN NOT NULL,
     section_id INT NOT NULL,
     warehouse_id INT NOT NULL,
+    length INT,
+    width INT,
+    height INT,
+    weight INT,
+    fragile BOOLEAN,
+    img_path VARCHAR(50),
     FOREIGN KEY (allergy_info_id) REFERENCES allergy_info(allergy_info_id),
     FOREIGN KEY (section_id) REFERENCES section(section_id),
     FOREIGN KEY (warehouse_id) REFERENCES warehouse(warehouse_id)
 );
 
 -- ========================================
--- 9. Order Table
+-- 9. Box Table
+-- ========================================
+CREATE TABLE box (
+    box_id INT AUTO_INCREMENT PRIMARY KEY,
+    width INT NOT NULL,
+    depth INT NOT NULL,
+    height INT NOT NULL
+);
+
+-- ========================================
+-- 10. Order Table
 -- ========================================
 CREATE TABLE `order` (
     order_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
+    box_id INT,
     start_time DATETIME NOT NULL,
     end_time DATETIME,
     order_status TINYINT NOT NULL,
     failure_reason VARCHAR(50),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customer(customer_id)
+    FOREIGN KEY (customer_id) REFERENCES customer(customer_id),
+    FOREIGN KEY (box_id) REFERENCES box(box_id)
 );
 
 -- ========================================

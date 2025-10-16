@@ -42,6 +42,7 @@ set(msg_files
   "msg/Point3D.msg"
   "msg/Pose2D.msg"
   "msg/ProductLocation.msg"
+  "msg/ProductInfo.msg"
   "msg/Vector2D.msg"
 )
 
