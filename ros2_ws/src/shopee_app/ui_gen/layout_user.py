@@ -277,9 +277,9 @@ class Ui_Form_user(object):
         self.horizontalLayout_4.addWidget(self.label_5)
         spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_4.addItem(spacerItem4)
-        self.pushButton = QtWidgets.QPushButton(parent=self.cart_header)
-        self.pushButton.setObjectName("pushButton")
-        self.horizontalLayout_4.addWidget(self.pushButton)
+        self.btn_pay = QtWidgets.QPushButton(parent=self.cart_header)
+        self.btn_pay.setObjectName("btn_pay")
+        self.horizontalLayout_4.addWidget(self.btn_pay)
         self.verticalLayout_7.addWidget(self.cart_header)
         self.verticalLayout_13.addWidget(self.cart_frame)
         self.verticalLayout_13.setStretch(0, 10)
@@ -392,7 +392,7 @@ class Ui_Form_user(object):
 
         self.retranslateUi(Form_user)
         self.stack_side_bar.setCurrentIndex(0)
-        self.stacked_content.setCurrentIndex(1)
+        self.stacked_content.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(Form_user)
 
     def retranslateUi(self, Form_user):
@@ -428,7 +428,7 @@ class Ui_Form_user(object):
         self.label_4.setText(_translate("Form_user", "총액:"))
         self.label.setText(_translate("Form_user", "19,100"))
         self.label_5.setText(_translate("Form_user", "원"))
-        self.pushButton.setText(_translate("Form_user", "결제하기"))
+        self.btn_pay.setText(_translate("Form_user", "결제하기"))
         self.label_8.setText(_translate("Form_user", "마트지도"))
         self.label_13.setText(_translate("Form_user", "지도"))
         self.label_10.setText(_translate("Form_user", "로봇 시야"))
