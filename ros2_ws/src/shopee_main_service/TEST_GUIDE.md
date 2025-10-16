@@ -72,9 +72,14 @@ python3 src/shopee_main_service/scripts/test_client.py
 python3 src/shopee_main_service/scripts/test_client.py -i
 ```
 
-텍스트 기반 상품 선택 포함:
+텍스트 기반 상품 선택 문장 변경:
 ```bash
 python3 src/shopee_main_service/scripts/test_client.py --speech-selection "사과 가져다줘"
+```
+
+bbox 기반만 확인하려면:
+```bash
+python3 src/shopee_main_service/scripts/test_client.py --no-speech-selection
 ```
 
 재고 관리 테스트 (자동):

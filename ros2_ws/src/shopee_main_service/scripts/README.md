@@ -131,10 +131,11 @@ ros2 run shopee_main_service main_service_node
 
 # 3. 테스트 실행 (새 터미널)
 cd scripts
-python3 test_client.py              # 자동 모드
+python3 test_client.py              # 자동 모드 (기본: 텍스트 기반 상품 선택 포함)
 python3 test_client.py -i           # 인터랙티브 모드
+python3 test_client.py --no-speech-selection   # bbox 기반 테스트만 수행
+python3 test_client.py --speech-selection "사과 가져다줘"  # 텍스트 문장 변경
 python3 test_client.py inventory    # 재고 관리 테스트
-python3 test_client.py --speech-selection "사과 가져다줘"  # 텍스트 기반 상품 선택
 # LLM 연동 전용 테스트
 python3 test_llm_flows.py                   # 기본 음성 담기 + LLM 직접 점검
 python3 test_llm_flows.py --skip-direct     # Main Service 연동만 점검
