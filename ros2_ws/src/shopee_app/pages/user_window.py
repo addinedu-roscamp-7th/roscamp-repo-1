@@ -21,6 +21,12 @@ class UserWindow(QWidget):
         self._cart_toggle_button = None
         self._product_scroll = None
         self._cart_expanded = False
+        self._cart_layout = None
+        self._cart_margin_left = 0
+        self._cart_margin_right = 0
+        self._cart_margin_bottom = 0
+        self._cart_margin_collapsed_top = 0
+        self._cart_margin_expanded_top = 24
         self._setup_cart_section()
         self.ui.btn_to_login_page.clicked.connect(self.close)
 
@@ -40,6 +46,15 @@ class UserWindow(QWidget):
         if not self._cart_frame:
             return
 
+        self._cart_layout = self._cart_container.layout() if self._cart_container else None
+        if self._cart_layout is not None:
+            margins = self._cart_layout.contentsMargins()
+            self._cart_margin_left = margins.left()
+            self._cart_margin_right = margins.right()
+            self._cart_margin_bottom = margins.bottom()
+            self._cart_margin_collapsed_top = margins.top()
+            self._cart_margin_expanded_top = self._cart_margin_collapsed_top + max(8, self._cart_margin_expanded_top)
+
         self._cart_frame.setAttribute(
             QtCore.Qt.WidgetAttribute.WA_StyledBackground,
             True,
@@ -54,6 +69,8 @@ class UserWindow(QWidget):
 
         if self._product_scroll is not None:
             self._product_scroll.show()
+
+        self._apply_cart_state()
 
     def on_cart_toggle_clicked(self):
         if self._cart_toggle_button is None:
@@ -73,3 +90,16 @@ class UserWindow(QWidget):
 
         if self._product_scroll is not None:
             self._product_scroll.setVisible(not self._cart_expanded)
+
+        if self._cart_layout is not None:
+            top_margin = (
+                self._cart_margin_expanded_top
+                if self._cart_expanded
+                else self._cart_margin_collapsed_top
+            )
+            self._cart_layout.setContentsMargins(
+                self._cart_margin_left,
+                top_margin,
+                self._cart_margin_right,
+                self._cart_margin_bottom,
+            )

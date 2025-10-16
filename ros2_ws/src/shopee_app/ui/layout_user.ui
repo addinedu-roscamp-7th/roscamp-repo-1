@@ -143,7 +143,7 @@
       </property>
       <item>
        <widget class="QWidget" name="side_bar" native="true">
-        <layout class="QVBoxLayout" name="verticalLayout_4" stretch="1,5">
+        <layout class="QVBoxLayout" name="verticalLayout_4" stretch="1,8">
          <property name="spacing">
           <number>0</number>
          </property>
@@ -192,7 +192,7 @@
            </item>
           </layout>
          </item>
-         <item alignment="Qt::AlignTop">
+         <item>
           <widget class="QStackedWidget" name="stack_side_bar">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -209,7 +209,7 @@
            <property name="currentIndex">
             <number>0</number>
            </property>
-           <widget class="QWidget" name="shop_page">
+           <widget class="QWidget" name="side_allergy_filter_page">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -255,7 +255,7 @@
              </item>
             </layout>
            </widget>
-           <widget class="QWidget" name="pick_page">
+           <widget class="QWidget" name="side_pick_page">
             <layout class="QVBoxLayout" name="verticalLayout_8">
              <property name="spacing">
               <number>0</number>
@@ -273,10 +273,70 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QLabel" name="label_3">
-               <property name="text">
-                <string>진행 정보</string>
+              <widget class="QScrollArea" name="scrollArea_2">
+               <property name="widgetResizable">
+                <bool>true</bool>
                </property>
+               <widget class="QWidget" name="scrollAreaWidgetContents">
+                <property name="geometry">
+                 <rect>
+                  <x>0</x>
+                  <y>0</y>
+                  <width>188</width>
+                  <height>661</height>
+                 </rect>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_11">
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_8">
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="label_15">
+                     <property name="text">
+                      <string>진행정보</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="text_progress">
+                     <property name="text">
+                      <string>80%</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
+                  <widget class="QProgressBar" name="shop_progressBar">
+                   <property name="value">
+                    <number>24</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_3">
+                   <property name="text">
+                    <string>원격 선택 상품</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QListWidget" name="listWidget_2"/>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_14">
+                   <property name="text">
+                    <string>자동 선택 상품</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QListWidget" name="listWidget_3"/>
+                 </item>
+                </layout>
+               </widget>
               </widget>
              </item>
             </layout>
@@ -292,7 +352,7 @@
          <enum>QFrame::StyledPanel</enum>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="page_content_user">
          <property name="sizePolicy">
@@ -483,8 +543,7 @@
                 <item>
                  <widget class="QFrame" name="cart_body">
                   <property name="styleSheet">
-                   <string notr="true">
-</string>
+                   <string notr="true"/>
                   </property>
                   <property name="frameShape">
                    <enum>QFrame::NoFrame</enum>
@@ -537,8 +596,7 @@
                    </size>
                   </property>
                   <property name="styleSheet">
-                   <string notr="true">
-</string>
+                   <string notr="true"/>
                   </property>
                   <property name="frameShape">
                    <enum>QFrame::NoFrame</enum>
@@ -606,7 +664,7 @@
                    <item>
                     <widget class="QPushButton" name="pushButton">
                      <property name="text">
-                      <string>PushButton</string>
+                      <string>결제하기</string>
                      </property>
                     </widget>
                    </item>
@@ -621,7 +679,7 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="page_content_cart">
+        <widget class="QWidget" name="page_content_pick">
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <property name="spacing">
            <number>0</number>
@@ -651,81 +709,145 @@
               <number>0</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="topMargin">
               <number>0</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="bottomMargin">
               <number>0</number>
              </property>
              <item>
-              <widget class="QWidget" name="widget" native="true">
-               <layout class="QVBoxLayout" name="verticalLayout_11">
-                <property name="spacing">
-                 <number>0</number>
-                </property>
-                <property name="leftMargin">
-                 <number>0</number>
-                </property>
-                <property name="topMargin">
-                 <number>0</number>
-                </property>
-                <property name="rightMargin">
-                 <number>0</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>0</number>
-                </property>
+              <widget class="QFrame" name="frame_2">
+               <property name="frameShape">
+                <enum>QFrame::StyledPanel</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Raised</enum>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="8,10">
+                <item>
+                 <widget class="QWidget" name="map_area" native="true">
+                  <layout class="QVBoxLayout" name="verticalLayout_12">
+                   <item>
+                    <widget class="QLabel" name="label_8">
+                     <property name="text">
+                      <string>마트지도</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_13">
+                     <property name="text">
+                      <string>지도</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QWidget" name="widget" native="true">
+                  <layout class="QVBoxLayout" name="verticalLayout_15" stretch="5,3">
+                   <item>
+                    <widget class="QWidget" name="robot_view" native="true">
+                     <layout class="QVBoxLayout" name="verticalLayout_14">
+                      <item>
+                       <layout class="QHBoxLayout" name="horizontalLayout_7">
+                        <item>
+                         <widget class="QLabel" name="label_10">
+                          <property name="text">
+                           <string>로봇 시야</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QPushButton" name="btn_view_front">
+                          <property name="text">
+                           <string>전면</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QPushButton" name="btn_view_arm">
+                          <property name="text">
+                           <string>로봇팔</string>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="label_9">
+                        <property name="text">
+                         <string>로봇 영상</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QWidget" name="order_select_area" native="true">
+                     <layout class="QVBoxLayout" name="verticalLayout_17">
+                      <item>
+                       <widget class="QLabel" name="label_11">
+                        <property name="text">
+                         <string>주문 선택지</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="label_12">
+                        <property name="text">
+                         <string>이동중입니다</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
                </layout>
               </widget>
              </item>
              <item>
-              <widget class="QWidget" name="widget_2" native="true">
+              <widget class="QWidget" name="pick_bottom_sheet" native="true">
+               <property name="styleSheet">
+                <string notr="true">#widget_2 {
+      border: 2px solid #dddddd;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      border-bottom-left-radius: 0px;
+      border-bottom-right-radius: 0px;
+      background-color: white;
+  }</string>
+               </property>
                <layout class="QHBoxLayout" name="horizontalLayout_5">
                 <property name="spacing">
                  <number>0</number>
                 </property>
                 <property name="leftMargin">
-                 <number>0</number>
+                 <number>10</number>
                 </property>
                 <property name="topMargin">
                  <number>0</number>
                 </property>
                 <property name="rightMargin">
-                 <number>0</number>
+                 <number>10</number>
                 </property>
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QPushButton" name="pushButton_3">
-                  <property name="text">
-                   <string>접기</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
                  <widget class="QLabel" name="label_7">
                   <property name="text">
-                   <string>총액 : </string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_8">
-                  <property name="text">
-                   <string>19,100</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_9">
-                  <property name="text">
-                   <string>원</string>
+                   <string>현재 쇼피패키 감자칩 60g 으로 이동중</string>
                   </property>
                  </widget>
                 </item>
@@ -743,9 +865,9 @@
                  </spacer>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="pushButton_9">
+                 <widget class="QPushButton" name="btn_auto_pick">
                   <property name="text">
-                   <string>결제하기</string>
+                   <string>자동 선택</string>
                   </property>
                  </widget>
                 </item>
