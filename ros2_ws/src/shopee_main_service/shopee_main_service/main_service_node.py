@@ -33,7 +33,7 @@ from .robot_allocator import (
 from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
-from .dashboard import DashboardController, DashboardDataProvider
+from .dashboard import DashboardController, DashboardDataProvider, start_dashboard_gui
 
 logger = logging.getLogger('shopee_main_service')
 
@@ -150,6 +150,7 @@ class MainServiceApp:
 
         if settings.GUI_ENABLED:
             await self._start_dashboard_controller()
+            start_dashboard_gui(self._dashboard_controller)
 
         await self._api.start()
         await self._streaming_service.start()

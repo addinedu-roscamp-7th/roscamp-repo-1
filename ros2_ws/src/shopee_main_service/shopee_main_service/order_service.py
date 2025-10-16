@@ -433,7 +433,7 @@ class OrderService:
                 # ===== 2. 주문 생성 (기존 로직) =====
                 new_order = Order(
                     customer_id=customer.customer_id,
-                    start_time=datetime.now(timezone.utc),
+                    start_time=datetime.now(),  # 로컬 시간 사용
                     order_status=1,  # 1: PAID
                 )
                 session.add(new_order)
@@ -1084,7 +1084,7 @@ class OrderService:
                 return
 
             order.order_status = final_status
-            order.end_time = datetime.now(timezone.utc)
+            order.end_time = datetime.now()  # 로컬 시간 사용
             if not msg.success:
                 order.failure_reason = msg.message
             
@@ -1384,7 +1384,7 @@ class OrderService:
             order = session.query(Order).filter_by(order_id=order_id).first()
             if order:
                 order.order_status = 9  # FAIL_PACK
-                order.end_time = datetime.now(timezone.utc)
+                order.end_time = datetime.now()  # 로컬 시간 사용
                 order.failure_reason = reason
                 session.commit()
                 logger.info(f"Order {order_id} marked as failed: {reason}")
@@ -1532,20 +1532,27 @@ class OrderService:
 
     async def get_active_orders_snapshot(self) -> Dict[str, Any]:
         """
-        대시보드 표시용 진행 중 주문 스냅샷을 반환한다.
+        대시보드 표시용 진행 중 주문 + 최근 완료 주문 스냅샷을 반환한다.
 
         Returns:
             진행 중 주문 목록과 간단한 요약 정보
         """
-        now_utc = datetime.now(timezone.utc)
+        from datetime import timedelta
+
+        now = datetime.now()
         active_orders: List[Dict[str, Any]] = []
         status_counter: Dict[int, int] = {}
 
         with self._db.session_scope() as session:
+            # 진행 중 주문 + 최근 30분 이내 완료된 주문
+            recent_completed_cutoff = now - timedelta(minutes=30)
             orders = (
                 session.query(Order)
-                .filter(Order.order_status < 8)  # 8=PACKED 이상은 완료 상태로 간주
-                .order_by(Order.start_time.asc())
+                .filter(
+                    (Order.order_status < 8) |  # 진행 중
+                    ((Order.order_status >= 8) & (Order.end_time >= recent_completed_cutoff))  # 최근 완료
+                )
+                .order_by(Order.start_time.desc())  # 최신 순
                 .all()
             )
 
@@ -1582,7 +1589,7 @@ class OrderService:
                         "progress": self._status_progress(order.order_status),
                         "started_at": order.start_time.isoformat() if order.start_time else None,
                         "elapsed_seconds": (
-                            (now_utc - order.start_time).total_seconds()
+                            (now - order.start_time).total_seconds()
                             if order.start_time
                             else None
                         ),
@@ -1624,7 +1631,7 @@ class OrderService:
             failed_orders = (
                 session.query(Order)
                 .filter(Order.order_status == 9)  # FAIL_PACK
-                .order_by(Order.end_time.desc().nullslast(), Order.created_at.desc())
+                .order_by(Order.created_at.desc())
                 .limit(limit)
                 .all()
             )
