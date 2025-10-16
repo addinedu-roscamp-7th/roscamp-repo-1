@@ -169,7 +169,7 @@ ros2 service call /pickee/vision/set_mode shopee_interfaces/srv/PickeeVisionSetM
 # Vision 직원 추적
 ros2 service call /pickee/vision/track_staff shopee_interfaces/srv/PickeeVisionTrackStaff "{
   robot_id: 1,
-  track: true
+  track: true,
 }"
 
 # Vision 장바구니 존재 확인
@@ -330,11 +330,11 @@ ros2 topic echo /pickee/mobile/arrival
 ros2 topic echo /pickee/mobile/pose
 
 # Vision 결과 모니터링
-ros2 topic echo /pickee/vision/detection_result
-ros2 topic echo /pickee/vision/cart_check_result
-ros2 topic echo /pickee/vision/obstacle_detected
-ros2 topic echo /pickee/vision/staff_location
-ros2 topic echo /pickee/vision/register_staff_result
+ros2 topic echo /pickee/vision/detection_result         #
+ros2 topic echo /pickee/vision/cart_check_result        # 되지만 필요 없음
+ros2 topic echo /pickee/vision/obstacle_detected        #
+ros2 topic echo /pickee/vision/staff_location           # set_mode
+ros2 topic echo /pickee/vision/register_staff_result    # 
 ```
 
 ## 🎯 실용적인 테스트 시나리오
@@ -376,7 +376,7 @@ ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeM
 ros2 topic echo /pickee/vision/detection_result &
 
 # 2. Vision 모드 설정
-ros2 service call /pickee/vision/set_mode shopee_interfaces/srv/PickeeVisionSetMode "{robot_id: 1, mode: 'detect_products'}"
+ros2 service call /pickee/vision/set_mode shopee_interfaces/srv/PickeeVisionSetMode "{robot_id: 1, mode: 'track_staff'}"
 
 # 3. 제품 감지 요청 (1초 후 PickeeDetectedProduct 배열이 포함된 응답 토픽 발행됨)
 ros2 service call /pickee/vision/detect_products shopee_interfaces/srv/PickeeVisionDetectProducts "{robot_id: 1, order_id: 123, product_ids: [1, 2, 3]}"

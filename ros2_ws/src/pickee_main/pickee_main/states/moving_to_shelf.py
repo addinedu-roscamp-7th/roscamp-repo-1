@@ -26,8 +26,20 @@ class MovingToShelfState(State):
                     target_pose = response.pose
                     self._node.get_logger().info(f'좌표 수신 ({target_pose.x}, {target_pose.y}), 로봇 이동 명령 전달.')
                     
-                    # 3. Mobile에 이동 명령 전달
-                    self._node.call_mobile_move_to_location(self.target_location_id, target_pose)
+                    # 3. Mobile에 이동 명령 전달 (스레드에서 비동기 실행)
+                    import threading
+                    import asyncio
+                    
+                    def run_async():
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(self._node.call_mobile_move_to_location(self.target_location_id, target_pose))
+                            loop.close()
+                        except Exception as e:
+                            self._node.get_logger().error(f'Mobile 이동 명령 실패: {str(e)}')
+                    
+                    threading.Thread(target=run_async).start()
                     self.is_moving = True
                 else:
                     self._node.get_logger().error(f'위치 ID에 대한 좌표 수신 실패: {self.target_location_id}')
