@@ -11,6 +11,7 @@ class LocalizationComponent:
     '''
 
     def __init__(self, node: Node):
+        print('LocalizationComponent init')
         self.node = node
         self.pose_publisher = self.node.create_publisher(
             PickeeMobilePose,
@@ -29,28 +30,31 @@ class LocalizationComponent:
         self.current_linear_velocity = 0.0
         self.current_angular_velocity = 0.0
         self.current_battery_level = 100.0
-        self.current_status = 'IDLE'
+        self.current_state = 'IDLE'
 
-    def update_pose(self, robot_state: str):
+    def update_pose(self, current_state: str):
         '''
         로봇의 현재 위치를 업데이트하고 발행합니다.
         실제 구현 시 센서 데이터를 처리하여 위치를 추정합니다.
         '''
         # 임시 로직: 간단한 이동 시뮬레이션
         # 실제 구현 시 센서 융합 및 위치 추정 알고리즘 적용
-        if robot_state == 'MOVING':
-            self.current_pose.x += 0.01 * math.cos(self.current_theta)
-            self.current_pose.y += 0.01 * math.sin(self.current_theta)
+
+        self.node.get_logger().info(f'Publishing pose')
+
+        if current_state == 'MOVING':
+            self.current_pose.x += 0.01 * math.cos(self.current_pose.theta)
+            self.current_pose.y += 0.01 * math.sin(self.current_pose.theta)
             self.current_pose.theta += 0.005
             self.current_linear_velocity = 0.1
             self.current_angular_velocity = 0.05
-            self.battery_percentage -= 0.01 # 배터리 소모 시뮬레이션
+            self.current_battery_level -= 0.01 # 배터리 소모 시뮬레이션
         else:
             self.current_linear_velocity = 0.0
             self.current_angular_velocity = 0.0
 
-        if self.battery_percentage < 0:
-            self.battery_percentage = 0.0
+        if self.current_battery_level < 0:
+            self.current_battery_level = 0.0
 
         pose_msg = PickeeMobilePose()
         # pose_msg.header.stamp = self.node.get_clock().now().to_msg()
@@ -59,20 +63,20 @@ class LocalizationComponent:
         pose_msg.current_pose = self.current_pose
         pose_msg.linear_velocity = self.current_linear_velocity
         pose_msg.angular_velocity = self.current_angular_velocity
-        pose_msg.battery_percentage = self.current_battery_level
-        pose_msg.robot_state = self.current_status # 현재 로봇 상태를 메시지에 포함
+        pose_msg.battery_level = self.current_battery_level
+        pose_msg.status = self.current_state # 현재 로봇 상태를 메시지에 포함
 
         self.pose_publisher.publish(pose_msg)
-        self.node.get_logger().debug(f'robot_id: {self.robot_id}, order_id: {self.order_id}, pose: ({self.current_pose.x:.2f}, {self.current_pose.y:.2f}, {self.current_pose.theta:.2f}), linear_velocity: {self.current_linear_velocity:.2f}, angular_velocity: {self.current_angular_velocity:.2f}, battery: {self.current_battery_level:.2f}%, state: {self.current_status}')
+        self.node.get_logger().info(f'robot_id: {self.robot_id}, order_id: {self.order_id}, pose: ({self.current_pose.x:.2f}, {self.current_pose.y:.2f}, {self.current_pose.theta:.2f}), linear_velocity: {self.current_linear_velocity:.2f}, angular_velocity: {self.current_angular_velocity:.2f}, battery: {self.current_battery_level:.2f}%, state: {self.current_state}')
 
     def get_current_pose(self):
         '''
         현재 추정된 로봇의 위치 정보를 반환합니다.
         '''
-        return self.current_x, self.current_y, self.current_theta
+        return self.current_pose.x, self.current_pose.y, self.current_pose.theta
 
-    def get_battery_percentage(self):
+    def get_battery_level(self):
         '''
         현재 배터리 잔량을 반환합니다.
         '''
-        return self.battery_percentage
+        return self.battery_level

@@ -1,8 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from shopee_interfaces.msg import PickeeMoveStatus, Pose2D, PickeeMobilePose
-from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileUpdateGlobalPath
-from geometry_msgs.msg import Pose2D # ROS2 표준 메시지 사용
+from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileUpdateGlobalPath # ROS2 표준 메시지 사용
 import math # math 모듈 추가
 from pickee_mobile.states import MovingState # MovingState 임포트
 
@@ -14,12 +13,12 @@ class PathPlanningComponent:
 
     def __init__(self, node: Node):
         self.node = node
-        self.local_path_publisher = self.node.create_publisher(
-            PickeeMoveStatus,
-            '/pickee/mobile/local_path', # 내부 토픽으로 지역 경로 발행
-            10
-        )
-        self.node.get_logger().info('Path Planning Component 초기화 완료.')
+        # self.local_path_publisher = self.node.create_publisher(
+        #     PickeeMoveStatus,
+        #     '/pickee/mobile/local_path', # 내부 토픽으로 지역 경로 발행
+        #     10
+        # )
+        # self.node.get_logger().info('Path Planning Component 초기화 완료.')
 
         self.global_path = [] # 전역 경로 (Pose2D 리스트)
         self.target_pose = None # 최종 목표 포즈 (Pose2D)
@@ -44,16 +43,29 @@ class PathPlanningComponent:
         Pickee Main Controller로부터 이동 명령을 수신합니다.
         '''
 
-        self.robot_id = request.robot_id
-        self.order_id = request.order_id
-        self.location_id = request.location_id
-        self.target_pose = request.target_pose
-        self.global_path = request.global_path # 전역 경로 저장
-        self.navigation_mode = request.navigation_mode
+        # Request 내용 출력
+        self.node.get_logger().info("===== Get Goal Location =====")
+        self.node.get_logger().info(f"robot_id       : {request.robot_id}")
+        self.node.get_logger().info(f"order_id       : {request.order_id}")
+        self.node.get_logger().info(f"location_id    : {request.location_id}")
 
-        self.node.get_logger().info(f'이동 명령 수신: robot_id={self.robot_id}, order_id={self.order_id}, location_id={self.location_id}, target_pose=({self.target_pose.x}, {self.target_pose.y}, {self.target_pose.theta}), navigation_mode={self.navigation_mode}')
-        self.node.get_logger().info(f'전역 경로 길이: {len(self.global_path)}')
-        self.node.get_logger().info(f'전역 경로: {[ (pose.x, pose.y, pose.theta) for pose in self.global_path ]}')
+        # target_pose 읽기
+        target = request.target_pose
+        self.node.get_logger().info(f"target_pose    : (x={target.x}, y={target.y}, theta={target.theta})")
+
+        # global_path (Pose2D[]) 읽기
+        self.node.get_logger().info("global_path:")
+        for i, pose in enumerate(request.global_path):
+            self.node.get_logger().info(f"  [{i}] x={pose.x}, y={pose.y}, theta={pose.theta}")
+
+        self.node.get_logger().info(f"navigation_mode: {request.navigation_mode}")
+        self.node.get_logger().info("========================")
+
+        # 응답 생성
+        response.success = True
+        response.message = f"요청 정상 처리 완료. 총 {len(request.global_path)}개의 경로점 수신."
+        return response
+
 
         # self.node.get_logger().info(f'이동 명령 수신: target_pose=({request.target_pose.x}, {request.target_pose.y}, {request.target_pose.theta})')
         # self.target_pose = request.target_pose
@@ -64,27 +76,19 @@ class PathPlanningComponent:
         # # mobile_controller의 상태 기계를 MOVING 상태로 전환
         # self.node.state_machine.transition_to(MovingState(self.node)) # self.node.state_machine에 접근
 
-        response.success = True
-        response.message = '이동 명령 수신 완료.'
-        return response
-
     def update_global_path_callback(self, request, response):
         '''
         Pickee Main Controller로부터 전역 경로 업데이트 명령을 수신합니다.
         '''
 
-        self.robot_id = request.robot_id
-        self.order_id = request.order_id
-        self.location_id = request.location_id
-        self.global_path = request.global_path # 전역 경로 저장
+        self.node.get_logger().info("===== Global Path Update =====")
+        self.node.get_logger().info(f"robot_id       : {request.robot_id}")
+        self.node.get_logger().info(f"order_id       : {request.order_id}")
+        self.node.get_logger().info(f"location_id    : {request.location_id}")
 
-        self.node.get_logger().info(f'이동 명령 수신: robot_id={self.robot_id}, order_id={self.order_id}, location_id={self.location_id}, {self.target_pose.y}, {self.target_pose.theta})')
-        self.node.get_logger().info(f'전역 경로 길이: {len(self.global_path)}')
-        self.node.get_logger().info(f'전역 경로: {[ (pose.x, pose.y, pose.theta) for pose in self.global_path ]}')
-
-
-        self.response.success = True
-        self.response.message = '이동 명령 수신 완료.'
+        self.node.get_logger().info("global_path:")
+        for i, pose in enumerate(request.global_path):
+            self.node.get_logger().info(f"  [{i}] x={pose.x}, y={pose.y}, theta={pose.theta}")
 
         # self.node.get_logger().info('전역 경로 업데이트 명령 수신.')
         # self.global_path = request.new_global_path # 전역 경로 업데이트
@@ -123,3 +127,20 @@ class PathPlanningComponent:
         현재 목표 포즈를 반환합니다.
         '''
         return self.target_pose
+    
+# def main(args=None):
+#     rclpy.init(args=args)
+#     mobile_controller = None # mobile_controller 변수 초기화
+#     try:
+#         mobile_controller = PathPlanningComponent()
+#         rclpy.spin(mobile_controller)
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         if mobile_controller is not None:
+#             mobile_controller.destroy_node()
+#         rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
