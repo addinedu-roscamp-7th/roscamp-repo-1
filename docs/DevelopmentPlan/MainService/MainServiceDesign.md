@@ -207,7 +207,7 @@ Order -> EventBus: cart_update_notification
 
 ### 6.2 Main ↔ LLM
 - `/llm/search_query`: GET `text` → `{ sql_query }`
-- `/llm/box`: GET `text` → `{ bbox }`
+- `/llm/bbox`: GET `text` → `{ bbox }`
 - `/llm/intent_detection`: GET `text` → `{ intent, entities }`
 - 401/500 응답 시 fallback 사용, 로그 기록.
 

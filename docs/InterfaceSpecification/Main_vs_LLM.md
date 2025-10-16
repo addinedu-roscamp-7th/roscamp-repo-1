@@ -5,6 +5,8 @@
 > 두 클라이언트 모두 동일한 REST 엔드포인트를 사용합니다.\
 > 현재 문서는 학습/프로토타입 용도로 작성되었으며 별도의 인증·레이트 리미트 정책은 정의하지 않습니다.
 
+main -> llm 포트: 5001
+
 ## HTTP 상태 코드
 
 | 코드 (status_code) | 요청 결과 |
@@ -36,7 +38,7 @@
 #### Response
 ```json
 {
-  "sql_query": "SELECT * FROM product WHERE name LIKE '%사과%'"
+  "sql_query": "name LIKE '%사과%'"
 }
 ```
 
@@ -45,7 +47,7 @@
 ### bbox 번호 추출
 
 **Function:** bbox 번호 추출
-**Endpoint:** `GET /llm/box`
+**Endpoint:** `GET /llm/bbox`
 
 #### 요청 (Request)
 ```json
