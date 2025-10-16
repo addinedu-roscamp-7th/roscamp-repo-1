@@ -46,25 +46,21 @@ class MobileController(Node):
         예외 발생 시 노드 종료 없이 로깅 후 계속 실행합니다.
         '''
         self.count += 1
-        self.get_logger().info(f'업데이트 카운트: {self.count}')
-        if self.count  > 5:
-            self.publish_arrival(move_status)
-        else:
+        
+        if self.count < 5:
+            self.get_logger().info(f'업데이트 카운트: {self.count}')
             try:
                 # 상태 기계 실행
                 self.state_machine.execute_current_state()
-
                 # 현재 상태 이름 전달 (각 상태 클래스에 name 속성 사용)
-                state_name = type(self.state_machine.current_state).__name__.replace('State', '').upper()
+                state_name = 'MOVING'
                 self.localization_component.update_pose(state_name)
-
+                
                 # Path Planning 컴포넌트 업데이트
                 current_pose = self.localization_component.get_current_pose()
                 move_status = self.path_planning_component.plan_local_path(current_pose) # plan_local_path가 move_status를 반환하도록 수정 필요
-
                 # Motion Control 컴포넌트 업데이트
                 self.motion_control_component.control_robot()
-
                 # 도착 여부 확인 및 메시지 발행
                 if move_status and move_status.is_arrived and not self.has_arrived:
                     self.publish_arrival(move_status)
@@ -75,6 +71,13 @@ class MobileController(Node):
 
             except Exception as e:
                 self.get_logger().error(f'update_state 실행 중 오류 발생: {e}')
+
+        elif self.count == 5:
+            self.get_logger().info(f'업데이트 카운트: {self.count}')
+            move_status = 1
+            self.publish_arrival(move_status)
+        else:
+            pass
 
     def publish_arrival(self, move_status):
         '''
@@ -94,8 +97,7 @@ class MobileController(Node):
         arrival_msg.message = '도착 테스트 메시지입니다.'
         # arrival_msg.travel_time = ... # 이동 시간은 현재 계산하지 않음
         self.arrival_publisher.publish(arrival_msg)
-        self.get_logger().info(f'도착 메시지 발행: final_x={arrival_msg.final_x:.2f}, error={arrival_msg.position_error:.2f}')
-
+        self.get_logger().info(f'도착 메시지 발행: robot_id={arrival_msg.robot_id}, order_id={arrival_msg.order_id}, location_id={arrival_msg.location_id}, message="{arrival_msg.message}"')
 def main(args=None):
     rclpy.init(args=args)
     mobile_controller = None # mobile_controller 변수 초기화
