@@ -4,7 +4,7 @@
   <name>packee_arm</name>
   <version>0.0.0</version>
   <description>Packee arm controller node for Shopee robot system</description>
-  <maintainer email="wonho9188@gmail.com">wonho9188</maintainer>
+  <maintainer email="park619412@gmail.com">park619412</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
