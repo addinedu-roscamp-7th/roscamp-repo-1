@@ -1,3 +1,4 @@
+from typing import List
 from typing import Optional
 
 import rclpy
@@ -24,11 +25,19 @@ class MockPackeeMain(Node):
         self.declare_parameter('order_id', 100)
         self.declare_parameter('product_id', 501)
         self.declare_parameter('arm_side', 'left')
+        self.declare_parameter('arm_sides', 'left,right')
 
         self.robot_id = self.get_parameter('robot_id').get_parameter_value().integer_value
         self.order_id = self.get_parameter('order_id').get_parameter_value().integer_value
-        self.product_id = self.get_parameter('product_id').get_parameter_value().integer_value
+        self.base_product_id = self.get_parameter('product_id').get_parameter_value().integer_value
         self.arm_side = self.get_parameter('arm_side').get_parameter_value().string_value
+
+        arm_sides_param = self.get_parameter('arm_sides').get_parameter_value().string_value
+        parsed_arm_sides = [side.strip() for side in arm_sides_param.split(',') if side.strip()]
+        if not parsed_arm_sides:
+            parsed_arm_sides = [self.arm_side]
+        self.arm_sides: List[str] = parsed_arm_sides
+        self.current_arm_index = 0
 
         # 서비스 클라이언트 생성
         self.move_client = self.create_client(PackeeArmMoveToPose, '/packee/arm/move_to_pose')
@@ -49,7 +58,7 @@ class MockPackeeMain(Node):
 
         self.get_logger().info(
             f'Packee Arm 통신 모의 테스트를 시작합니다. robot_id={self.robot_id}, order_id={self.order_id}, '
-            f'product_id={self.product_id}, arm_side={self.arm_side}'
+            f'product_id 시작값={self.base_product_id}, arm_sides={self.arm_sides}'
         )
 
     def pose_status_callback(self, status_msg: ArmPoseStatus):
@@ -83,8 +92,11 @@ class MockPackeeMain(Node):
         elif self.state == 'await_move':
             self.handle_future('자세 변경')
         elif self.state == 'request_pick':
-            self.send_pick_request()
-            self.state = 'await_pick'
+            if self.current_arm_index >= len(self.arm_sides):
+                self.state = 'completed'
+            else:
+                self.send_pick_request()
+                self.state = 'await_pick'
         elif self.state == 'await_pick':
             self.handle_future('상품 픽업')
         elif self.state == 'request_place':
@@ -121,7 +133,15 @@ class MockPackeeMain(Node):
         elif action_name == '상품 픽업':
             self.state = 'request_place'
         elif action_name == '상품 담기':
-            self.state = 'completed'
+            self.current_arm_index += 1
+            if self.current_arm_index < len(self.arm_sides):
+                self.get_logger().info(
+                    f'다음 팔 테스트 준비: arm_side={self.current_arm_side()}, '
+                    f'product_id={self.current_product_id()}'
+                )
+                self.state = 'request_pick'
+            else:
+                self.state = 'completed'
 
     def send_move_request(self):
         # 자세 변경 서비스 요청
@@ -136,8 +156,8 @@ class MockPackeeMain(Node):
         request = PackeeArmPickProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.order_id
-        request.product_id = self.product_id
-        request.arm_side = self.arm_side
+        request.product_id = self.current_product_id()
+        request.arm_side = self.current_arm_side()
         request.target_position = self.create_point3d(0.3, 0.1, 0.75)
         request.bbox = self.create_bbox(120, 180, 250, 320)
         self.current_future = self.pick_client.call_async(request)
@@ -147,10 +167,20 @@ class MockPackeeMain(Node):
         request = PackeeArmPlaceProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.order_id
-        request.product_id = self.product_id
-        request.arm_side = self.arm_side
+        request.product_id = self.current_product_id()
+        request.arm_side = self.current_arm_side()
         request.box_position = self.create_point3d(0.5, 0.2, 0.2)
         self.current_future = self.place_client.call_async(request)
+
+    def current_arm_side(self) -> str:
+        # 현재 테스트할 팔 구분 반환
+        if 0 <= self.current_arm_index < len(self.arm_sides):
+            return self.arm_sides[self.current_arm_index]
+        return self.arm_side
+
+    def current_product_id(self) -> int:
+        # 현재 테스트 대상 상품 ID 반환
+        return self.base_product_id + self.current_arm_index
 
     def create_point3d(self, x_value: float, y_value: float, z_value: float) -> Point3D:
         # Point3D 메시지 생성 유틸리티
