@@ -31,7 +31,7 @@ from .database_models import Customer, Order, OrderItem, Product, RobotHistory
 from .event_bus import EventBus
 from .robot_allocator import AllocationContext, RobotAllocator
 from .robot_state_store import RobotStateStore
-from .constants import RobotType, RobotStatus
+from .constants import OrderStatus, RobotType, RobotStatus
 
 if TYPE_CHECKING:
     from shopee_interfaces.msg import (
@@ -1290,6 +1290,12 @@ class OrderService:
         최근 상품 인식 결과에서 해당 상품의 bbox 번호를 조회합니다.
         """
         return self._detected_product_bbox.get(order_id, {}).get(product_id)
+
+    def list_detected_products(self, order_id: int) -> Dict[int, int]:
+        """
+        주문별로 인식된 상품과 bbox 매핑을 반환한다.
+        """
+        return dict(self._detected_product_bbox.get(order_id, {}))
 
     async def _release_stock_for_order(self, order_id: int) -> None:
         """

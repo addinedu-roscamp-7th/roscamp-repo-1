@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from .state_machine import StateMachine
-from .states.initializing import InitializingState
+from pickee_main.states.initializing import InitializingState
 
 # 구독자(Subscriber)용 메시지 타입 임포트
 from shopee_interfaces.msg import (
