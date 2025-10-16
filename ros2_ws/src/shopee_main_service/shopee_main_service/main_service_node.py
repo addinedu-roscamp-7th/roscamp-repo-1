@@ -34,7 +34,7 @@ from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
 
-logger = logging.getLogger("shopee_main_service")
+logger = logging.getLogger('shopee_main_service')
 
 
 class MainServiceApp:

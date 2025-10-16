@@ -66,10 +66,10 @@ Robot ..> [Pickee/Packee] : ROS2
 ### 2.4. `OrderService`
 - **책임**: 주문 라이프사이클 총괄.
 - **기능**:
-  - `create_order(customer_id, cart_items, payment_info)` 주문/아이템 저장.
-  - `process_order(order_id)` 상태 머신 실행(피킹→포장).
-  - `handle_robot_status_update(event)` ROS 이벤트에 따른 상태 전환.
-  - `finalize_order(order_id, status)` 최종 상태/결제 정산 처리.
+  - `create_order(user_id, items)` 주문/아이템 저장 및 로봇 예약.
+  - `handle_moving_status`, `handle_arrival_notice`, `handle_cart_handover`, `handle_packee_complete` 등 이벤트 기반 상태 전환.
+  - `handle_robot_failure(event_data)` 장애 감지 시 재할당·롤백.
+  - 사용자 알림, 재고 예약/복구, 주문 히스토리 기록을 비동기적으로 조율.
 
 ### 2.5. `RobotCoordinator`
 - **책임**: Pickee/Packee와의 ROS2 통신 추상화.
@@ -82,7 +82,7 @@ Robot ..> [Pickee/Packee] : ROS2
 - **책임**: ORM 기반 데이터 접근.
 - **기능**:
   - SQLAlchemy 세션 팩토리 제공 (`session_scope` 컨텍스트).
-  - 공통 CRUD 헬퍼 (`save_order`, `get_product_by_id`, `append_robot_history` 등).
+  - 세션 수명·커밋/롤백을 일관되게 관리하며, 구체적인 CRUD 로직은 각 서비스(`OrderService`, `InventoryService`, `RobotHistoryService` 등)가 담당.
 
 ### 2.7. `EventBus`
 - **책임**: 내부 비동기 이벤트 중계.
@@ -98,11 +98,11 @@ Robot ..> [Pickee/Packee] : ROS2
 | --- | --- | --- | --- |
 | UR_01 / SR_01 | 로그인 | `APIController.handle_user_login`, `UserService.login` | App_vs_Main.md |
 | UR_02 / SR_04 | 상품 검색 | `handle_product_search`, `ProductService.search_products` | App_vs_Main.md, Main_vs_LLM.md |
-| UR_03 / SR_07~SR_09 | 원격 쇼핑 주문/피킹 | `OrderService.create_order`, `process_order`, `RobotCoordinator.dispatch_pick_task` | SequenceDiagram/SC_01_3.md, SC_02_x |
-| UR_04 / SR_10~SR_12 | 모니터링/알림 | `EventBus.publish_robot_event`, `APIController.push_event` | App_vs_Main.md (이벤트) |
-| UR_05 / SR_13 | 포장 보조 | `RobotCoordinator.dispatch_pack_task`, `OrderService.finalize_packing` | SequenceDiagram/SC_03_x |
-| UR_07~UR_10 | 주문/작업/로봇/상품 관리 | `OrderService.get_order`, `RobotCoordinator.get_robot_snapshot`, `ProductService.inventory_*` | App_vs_Main.md |
-| UR_11~UR_13 | 복귀·충전·주행 이벤트 수신 | `RobotCoordinator.handle_pickee_state_change` | Main_vs_Pic_Main.md |
+| UR_03 / SR_07~SR_09 | 원격 쇼핑 주문/피킹 | `OrderService.create_order`, `OrderService.handle_* 이벤트`, `RobotCoordinator.dispatch_pick_task` | SequenceDiagram/SC_01_3.md, SC_02_x |
+| UR_04 / SR_10~SR_12 | 모니터링/알림 | `EventBus.publish`, `OrderService._push_to_user`, `APIController.push_event` | App_vs_Main.md (이벤트) |
+| UR_05 / SR_13 | 포장 보조 | `RobotCoordinator.dispatch_pack_task`, `OrderService.handle_packee_complete` | SequenceDiagram/SC_03_x |
+| UR_07~UR_10 | 주문/작업/로봇/상품 관리 | `OrderService` 조회 API, `RobotStateStore.list_states`, `ProductService.inventory_*` | App_vs_Main.md |
+| UR_11~UR_13 | 복귀·충전·주행 이벤트 수신 | `RobotCoordinator` 토픽 콜백(`_on_pickee_status`, `_on_pickee_move`, 등) | Main_vs_Pic_Main.md |
 
 추적되지 않은 요구는 백로그에 등록하여 설계 보완 시 반영합니다.
 
@@ -113,8 +113,9 @@ Robot ..> [Pickee/Packee] : ROS2
 ### 4.1 APIController 파이프라인
 1. 소켓 수락 → 연결별 Reader/Writer 생성.
 2. JSON 파싱 → 스키마 검증 → 라우팅 테이블에서 핸들러 호출.
-3. 응답 전송 시 correlation_id, timestamp 추가.
-4. 비동기 이벤트: `EventBus` 구독 → 전송 실패 시 재시도(3회, 지수 백오프).
+3. 응답 전송: 메시지 구조(`type/result/error_code/data/message`)에 `correlation_id`·`timestamp`를 자동 부여해 추적성을 확보.
+4. 비동기 이벤트: `EventBus` 구독 → 전송 실패 시 최대 3회 지수 백오프 재시도 후 세션을 정리.
+   - 재시도 파라미터는 `ROS_SERVICE_RETRY_ATTEMPTS`, `ROS_SERVICE_RETRY_BASE_DELAY` 설정으로 조정.
 
 ### 4.2 OrderService ↔ RobotCoordinator
 - 주문 상태 머신
@@ -124,9 +125,9 @@ Robot ..> [Pickee/Packee] : ROS2
 - Pickee 작업 완료 후 Packee 작업 자동 트리거.
 
 ### 4.3 ProductService ↔ LLM
-- REST 호출 타임아웃 1.5s, 최대 2회 재시도.
-- LLM 응답 SQL을 파싱하여 허용된 컬럼/조건만 사용.
-- Fallback: 키워드 매칭 기반 `LIKE` 쿼리 빌더.
+- REST 호출 타임아웃 1.5s, 설정 기반 재시도(`LLM_MAX_RETRIES`, `LLM_RETRY_BACKOFF`).
+- LLM이 반환한 WHERE 절은 허용된 컬럼·연산만 포함하는지 화이트리스트 검증 후 실행하며, 미통과 시 기본 LIKE 검색으로 대체.
+- 모든 실패 경로에서는 키워드 매칭 기반 `LIKE` 쿼리 빌더로 fallback.
 
 ### 4.4 DatabaseManager
 - `session_scope()` 컨텍스트 매니저: 예외 발생 시 rollback, 종료 시 commit.
@@ -235,11 +236,11 @@ ROS 메시지는 InterfaceSpecification 문서 기반 DTO로 역직렬화하여 
   - `ProductModel` ↔ `product`
   - `RobotHistoryModel` ↔ `robot_history`
 - **트랜잭션 경계**:
-  - 주문 생성/아이템 삽입/로봇 할당을 단일 트랜잭션으로 묶어 원자성 보장.
-  - 주문 상태 업데이트는 해당 주문 레코드 `SELECT ... FOR UPDATE` 후 변경.
-  - 히스토리 기록은 Append 전용 테이블 사용.
+  - 주문 생성/아이템 삽입은 단일 세션 안에서 수행되며, 로봇 예약 결과는 실패 시 롤백·재고 복구로 일관성 유지.
+  - 주문 상태 업데이트는 세션 컨텍스트 내에서 수행되고, 재고 변경은 `InventoryService.check_and_reserve_stock()`/`release_stock()`가 `SELECT ... FOR UPDATE`로 잠금을 적용.
+  - 히스토리 기록은 전용 테이블에 Append 방식으로 저장.
 - **동시성 제어**:
-  - 동시 주문이 동일 로봇을 요구할 때 `find_available_pickee`에서 optimistic locking.
+  - 로봇 할당은 `RobotStateStore` + `InMemoryRobotStateBackend`의 `asyncio.Lock`과 `try_reserve()`를 사용해 원자성을 보장.
   - TCP 처리 스레드와 ROS 콜백이 동시에 DB에 접근하므로 세션은 스레드 로컬이 아닌 컨텍스트 기반으로 관리.
 
 ---
@@ -247,19 +248,19 @@ ROS 메시지는 InterfaceSpecification 문서 기반 DTO로 역직렬화하여 
 ## 8. 오류 처리 및 복구
 
 - 입력 검증 실패: `result=false`, `error_code` 설정, 상세 메시지 로그 저장.
-- LLM 호출 실패: 2회 재시도 후 fallback, 모든 실패 시 오류 이벤트 전송.
-- ROS 서비스 실패: 3회 재시도, 실패 시 주문 상태 `FAIL_*`, 관리자 알림.
-- ROS 토픽 타임아웃: 헬스체크(10초)로 감시, 끊김 감지 시 로봇 상태 `UNKNOWN`.
-- TCP 연결 해제: 미전송 이벤트는 큐에 보관, 60초 내 재연결 시 재전송.
+- LLM 호출 실패: 즉시 로그 후 기본 LIKE 검색으로 fallback, 모든 경로가 실패하면 오류 이벤트 발행.
+- ROS 서비스 실패: 단일 호출에서 예외가 발생하면 해당 주문 흐름에서 장애 처리·예약 해제·사용자 알림을 수행.
+- ROS 토픽 타임아웃: `RobotHealthMonitor`가 `ROS_STATUS_HEALTH_TIMEOUT` 기준으로 상태 토픽 미수신 로봇을 감지하여 `mark_offline` 및 장애 이벤트를 트리거.
+- TCP 연결 해제: 전송 실패 시 최대 3회 재시도 후 연결을 정리한다.
 
 ---
 
 ## 9. 비기능 요구 사항
 
 - **성능**: 동시 세션 200, 주문 생성 지연 2초 이하, ROS 명령 RTT 500ms 이하 목표.
-- **가용성**: 로봇/LLM 장애 시 자동 graceful degradation (`retry`, `fallback`, 관리자 알림).
-- **보안**: 비밀번호 해시, 관리자 API 권한 검사, 향후 TLS 적용.
-- **감시**: 구조화 로그(JSON), Prometheus 지표(요청 지연, 상태 전환 카운터), Slack/Email 알림.
+- **가용성**: 로봇/LLM 장애 시 재시도·fallback·사용자 알림으로 대응한다.
+- **보안**: 비밀번호 해시, 관리자 API 권한 검사 중심으로 운영한다.
+- **감시**: 기본 로그 기반으로 사건을 추적합니다.
 - **테스트**: 단위 테스트 + ROS 인터페이스 Mock 통합 테스트 + 시나리오 별 E2E 테스트.
 
 ---

@@ -261,6 +261,28 @@ class TestHandleArrivalNotice:
         assert isinstance(call_args, PickeeProductDetect.Request)
         assert list(call_args.product_ids) == [101]
 
+    async def test_skips_detection_for_non_section_location(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+        mock_robot_coordinator: AsyncMock,
+        mock_event_bus: AsyncMock,
+    ) -> None:
+        """섹션이 아닌 위치에서는 상품 인식을 수행하지 않는다."""
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.filter_by.return_value.all.return_value = [OrderItem(product_id=202)]
+
+        arrival_msg = PickeeArrival(robot_id=3, order_id=55, location_id=900, section_id=-1)
+        order_service._order_user_map[55] = "user55"
+
+        await order_service.handle_arrival_notice(arrival_msg)
+
+        payload = find_push_payload(mock_event_bus, "robot_arrived_notification")
+        assert payload is not None
+        assert payload["data"]["section_id"] == -1
+        assert payload["message"] == "목적지에 도착했습니다"
+        mock_robot_coordinator.dispatch_product_detect.assert_not_awaited()
+
 
 class TestHandleCartHandover:
     """Test suite for the OrderService.handle_cart_handover method."""

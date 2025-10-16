@@ -8,6 +8,8 @@ Pic Main = Pickee Main Controller
 ### `/pickee/arrival_notice`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeArrival.msg`
 
+> **참고**: 섹션이 아닌 위치(포장대, 대기 영역 등)에 도착한 경우 `section_id`는 `-1`로 전달됩니다.
+
 ### `/pickee/product_detected`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeProductDetection.msg`
 
@@ -71,7 +73,7 @@ Pic Main = Pickee Main Controller
 |---|---|---|---|---|---|
 | **Topic** |
 | 이동 시작 알림 | `/pickee/moving_status` | Pic Main | Main | `int32 robot_id`<br>`int32 order_id`<br>`int32 location_id` |
-| 도착 보고 | `/pickee/arrival_notice` | Pic Main | Main | `int32 robot_id`<br>`int32 order_id`<br>`int32 location_id`<br>`int32 section_id` |
+| 도착 보고 | `/pickee/arrival_notice` | Pic Main | Main | `int32 robot_id`<br>`int32 order_id`<br>`int32 location_id`<br>`int32 section_id # 섹션이 아니면 -1` |
 | 상품 위치 인식 완료 | `/pickee/product_detected` | Pic Main | Main | `int32 robot_id`<br>`int32 order_id`<br>`DetectedProduct[] products`<br><br>`# DetectedProduct`<br>`int32 product_id`<br>`int32 bbox_number`<br>`BBox bbox_coords`<br>`float32 confidence`<br><br>`# BBox`<br>`int32 x1`<br>`int32 y1`<br>`int32 x2`<br>`int32 y2` |
 | 장바구니 교체 완료 | `/pickee/cart_handover_complete` | Pic Main | Main | `int32 robot_id`<br>`int32 order_id` |
 | 로봇 상태 전송 | `/pickee/robot_status` | Pic Main | Main | `int32 robot_id`<br>`string state # Pickee 상태 코드 (예: "PK_S10")`<br>`float32 battery_level`<br>`int32 current_order_id`<br>`float32 position_x`<br>`float32 position_y`<br>`float32 orientation_z` |

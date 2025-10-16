@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
@@ -105,7 +107,12 @@ class APIController:
                 
                 # 요청 처리 및 응답 생성
                 response = await self._dispatch(line.decode(), peer)
-                await self._send_to_client(writer, response)
+                try:
+                    await self._send_to_client(writer, response)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Failed to send response to %s: %s", peer, exc)
+                    self._unregister_client(writer)
+                    break
                 
         except asyncio.CancelledError:
             raise  # 정상 종료
@@ -166,19 +173,23 @@ class APIController:
 
         # 핸들러 실행
         try:
-            import time
             start_time = time.perf_counter()
             response = await handler(data, peer)
             elapsed = (time.perf_counter() - start_time) * 1000  # ms
-            
+
+            enriched_response = self._with_metadata(response)
+
             # 응답 로그
-            logger.info("← Sending [%s] result=%s (%.1fms): %s", 
-                       response.get('type', 'unknown'),
-                       response.get('result', False),
-                       elapsed,
-                       response.get('message', ''))
-            
-            return response
+            logger.info(
+                "← Sending [%s] result=%s (%.1fms, id=%s): %s",
+                enriched_response.get("type", "unknown"),
+                enriched_response.get("result", False),
+                elapsed,
+                enriched_response.get("correlation_id"),
+                enriched_response.get("message", ""),
+            )
+
+            return enriched_response
         except Exception:  # noqa: BLE001
             logger.exception("Handler failure for %s", msg_type)
             return {
@@ -223,11 +234,10 @@ class APIController:
         """
         session = self._clients.get(writer)
         if not session:
-            return
+            raise ConnectionError("Client session not found.")
 
         if session.writer.is_closing():
-            self._unregister_client(writer)
-            return
+            raise ConnectionError("Client connection already closing.")
 
         if isinstance(payload, (bytes, bytearray)):
             serialized = bytes(payload)
@@ -240,9 +250,8 @@ class APIController:
             async with session.lock:
                 session.writer.write(serialized)
                 await session.writer.drain()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to send message to %s: %s", session.peer, exc)
-            self._unregister_client(writer)
+        except Exception:
+            raise
 
     async def _handle_push_event(self, message: Dict[str, Any]) -> None:
         """
@@ -274,5 +283,55 @@ class APIController:
             return
 
         logger.debug("Broadcasting push event to %d clients: %s", len(recipients), message)
+        base_correlation = message.get("correlation_id") or uuid.uuid4().hex
+        base_timestamp = message.get("timestamp") or int(time.time() * 1000)
+
         for writer in recipients:
-            await self._send_to_client(writer, message)
+            enriched_message = self._with_metadata(message, base_correlation, base_timestamp)
+            await self._send_with_retry(writer, enriched_message)
+
+    async def _send_with_retry(
+        self,
+        writer: asyncio.StreamWriter,
+        payload: Dict[str, Any],
+        *,
+        max_attempts: int = 3,
+        base_delay: float = 0.1,
+    ) -> bool:
+        """지수 백오프를 적용한 전송 재시도 로직."""
+        attempt = 1
+        delay = base_delay
+        while attempt <= max_attempts:
+            try:
+                await self._send_to_client(writer, payload)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                if attempt == max_attempts:
+                    logger.warning(
+                        "Failed to deliver push after %d attempts: %s",
+                        attempt,
+                        exc,
+                    )
+                    self._unregister_client(writer)
+                    return False
+                await asyncio.sleep(delay)
+                delay *= 2
+                attempt += 1
+        return False
+
+    def _with_metadata(
+        self,
+        payload: Dict[str, Any],
+        correlation_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        응답/이벤트 페이로드에 상관관계 ID와 타임스탬프를 부여합니다.
+        기존 값을 덮어쓰지 않으며 새 딕셔너리를 반환합니다.
+        """
+        enriched = dict(payload)
+        if "correlation_id" not in enriched or correlation_id is not None:
+            enriched["correlation_id"] = correlation_id or enriched.get("correlation_id") or uuid.uuid4().hex
+        if "timestamp" not in enriched or timestamp_ms is not None:
+            enriched["timestamp"] = timestamp_ms or enriched.get("timestamp") or int(time.time() * 1000)
+        return enriched

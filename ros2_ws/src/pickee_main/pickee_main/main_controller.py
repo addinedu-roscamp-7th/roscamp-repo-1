@@ -8,10 +8,12 @@ from shopee_interfaces.msg import (
     PickeeMobileArrival,
     PickeeMobilePose,
     PickeeArmTaskStatus,
+    ArmPoseStatus,
     PickeeVisionDetection,
     PickeeVisionObstacles,
     PickeeVisionStaffLocation,
-    PickeeVisionStaffRegister
+    PickeeVisionStaffRegister,
+    PickeeVisionCartCheck
 )
 
 # 발행자(Publisher)용 메시지 타입 임포트 (Main Service 연동)
@@ -20,18 +22,28 @@ from shopee_interfaces.msg import (
     PickeeArrival,
     PickeeProductDetection,
     PickeeCartHandover,
-    PickeeProductSelection
+    PickeeProductSelection,
+    PickeeMoveStatus,
+    PickeeProductLoaded,
+    PickeeMobileSpeedControl
 )
 
 # 서비스 클라이언트용 서비스 타입 임포트
 from shopee_interfaces.srv import (
     PickeeMobileMoveToLocation,
+    PickeeMobileUpdateGlobalPath,
     PickeeArmMoveToPose,
     PickeeArmPickProduct,
     PickeeArmPlaceProduct,
     PickeeVisionDetectProducts,
     PickeeVisionSetMode,
-    PickeeVisionTrackStaff
+    PickeeVisionTrackStaff,
+    PickeeVisionCheckProductInCart,
+    PickeeVisionCheckCartPresence,
+    PickeeVisionVideoStreamStart,
+    PickeeVisionVideoStreamStop,
+    PickeeVisionRegisterStaff,
+    PickeeTtsRequest
 )
 
 # 서비스 서버용 서비스 타입 임포트 (Main Service 연동)
@@ -43,10 +55,13 @@ from shopee_interfaces.srv import (
     PickeeWorkflowEndShopping,
     PickeeWorkflowMoveToPackaging,
     PickeeWorkflowReturnToBase,
+    PickeeWorkflowReturnToStaff,
     PickeeMainVideoStreamStart,
     PickeeMainVideoStreamStop,
     MainGetProductLocation,
-    MainGetLocationPose
+    MainGetLocationPose,
+    MainGetWarehousePose,
+    MainGetSectionPose
 )
 
 
@@ -121,6 +136,13 @@ class PickeeMainController(Node):
         )
         
         # Arm에서 발행하는 토픽들
+        self.arm_pose_status_sub = self.create_subscription(
+            ArmPoseStatus,
+            '/pickee/arm/pose_status',
+            self.arm_pose_status_callback,
+            10
+        )
+        
         self.arm_pick_status_sub = self.create_subscription(
             PickeeArmTaskStatus,
             '/pickee/arm/pick_status',
@@ -163,6 +185,13 @@ class PickeeMainController(Node):
             self.vision_staff_register_callback,
             10
         )
+        
+        self.vision_cart_check_sub = self.create_subscription(
+            PickeeVisionCartCheck,
+            '/pickee/vision/cart_check_result',
+            self.vision_cart_check_callback,
+            10
+        )
 
     def setup_internal_service_clients(self):
         # 내부 컴포넌트 서비스 클라이언트 설정
@@ -170,6 +199,11 @@ class PickeeMainController(Node):
         self.mobile_move_client = self.create_client(
             PickeeMobileMoveToLocation,
             '/pickee/mobile/move_to_location'
+        )
+        
+        self.mobile_update_global_path_client = self.create_client(
+            PickeeMobileUpdateGlobalPath,
+            '/pickee/mobile/update_global_path'
         )
         
         # Arm 서비스 클라이언트
@@ -202,6 +236,31 @@ class PickeeMainController(Node):
         self.vision_track_staff_client = self.create_client(
             PickeeVisionTrackStaff,
             '/pickee/vision/track_staff'
+        )
+        
+        self.vision_check_product_in_cart_client = self.create_client(
+            PickeeVisionCheckProductInCart,
+            '/pickee/vision/check_product_in_cart'
+        )
+        
+        self.vision_check_cart_presence_client = self.create_client(
+            PickeeVisionCheckCartPresence,
+            '/pickee/vision/check_cart_presence'
+        )
+        
+        self.vision_video_stream_start_client = self.create_client(
+            PickeeVisionVideoStreamStart,
+            '/pickee/vision/video_stream_start'
+        )
+        
+        self.vision_video_stream_stop_client = self.create_client(
+            PickeeVisionVideoStreamStop,
+            '/pickee/vision/video_stream_stop'
+        )
+        
+        self.vision_register_staff_client = self.create_client(
+            PickeeVisionRegisterStaff,
+            '/pickee/vision/register_staff'
         )
 
     def setup_external_publishers(self):
@@ -238,6 +297,27 @@ class PickeeMainController(Node):
         self.product_selection_pub = self.create_publisher(
             PickeeProductSelection,
             '/pickee/product/selection_result',
+            10
+        )
+        
+        # 이동 시작 알림
+        self.moving_status_pub = self.create_publisher(
+            PickeeMoveStatus,
+            '/pickee/moving_status',
+            10
+        )
+        
+        # 창고 물품 적재 완료 보고
+        self.product_loaded_pub = self.create_publisher(
+            PickeeProductLoaded,
+            '/pickee/product/loaded',
+            10
+        )
+        
+        # Mobile 속도 제어 (내부 컴포넌트 제어용)
+        self.mobile_speed_control_pub = self.create_publisher(
+            PickeeMobileSpeedControl,
+            '/pickee/mobile/speed_control',
             10
         )
 
@@ -306,6 +386,20 @@ class PickeeMainController(Node):
             self.video_stop_callback
         )
         
+        # 직원으로 복귀 명령
+        self.return_to_staff_service = self.create_service(
+            PickeeWorkflowReturnToStaff,
+            '/pickee/workflow/return_to_staff',
+            self.return_to_staff_callback
+        )
+        
+        # TTS 요청 처리 (Vision에서 Main으로)
+        self.tts_request_service = self.create_service(
+            PickeeTtsRequest,
+            '/pickee/tts_request',
+            self.tts_request_callback
+        )
+        
         # Main Service에 상품 위치 조회를 위한 클라이언트
         self.get_product_location_client = self.create_client(
             MainGetProductLocation,
@@ -315,6 +409,16 @@ class PickeeMainController(Node):
         self.get_location_pose_client = self.create_client(
             MainGetLocationPose,
             '/main/get_location_pose'
+        )
+        
+        self.get_warehouse_pose_client = self.create_client(
+            MainGetWarehousePose,
+            '/main/get_warehouse_pose'
+        )
+        
+        self.get_section_pose_client = self.create_client(
+            MainGetSectionPose,
+            '/main/get_section_pose'
         )
 
     # Mobile 관련 콜백 함수들
@@ -334,6 +438,17 @@ class PickeeMainController(Node):
         self.current_battery_level = msg.battery_level
 
     # Arm 관련 콜백 함수들
+    def arm_pose_status_callback(self, msg):
+        # Arm 자세 변경 상태 콜백
+        self.get_logger().info(f'Arm pose status: robot_id={msg.robot_id}, pose_type={msg.pose_type}, status={msg.status}, progress={msg.progress}')
+        # 상태 기계에 자세 변경 상태 이벤트 전달
+        if msg.status == 'completed':
+            self.arm_pose_completed = True
+            self.current_arm_pose = msg.pose_type
+        elif msg.status == 'failed':
+            self.arm_pose_failed = True
+        # TODO: 상태 기계에서 자세 변경 진행 상황을 처리할 수 있도록 개선
+
     def arm_pick_status_callback(self, msg):
         # Arm 픽업 상태 콜백
         self.get_logger().info(f'Arm pick status: robot_id={msg.robot_id}, status={msg.status}')
@@ -372,6 +487,12 @@ class PickeeMainController(Node):
             # TODO: 상태 기계에 직원 등록 완료 이벤트 전달
             pass
 
+    def vision_cart_check_callback(self, msg):
+        # Vision 장바구니 내 상품 확인 결과 콜백
+        self.get_logger().info(f'Vision cart check: robot_id={msg.robot_id}, product_id={msg.product_id}, found={msg.found}')
+        # 상태 기계에 장바구니 확인 결과 이벤트 전달
+        self.cart_check_result = msg
+
     # Service Client 래퍼 함수들
     async def call_mobile_move_to_location(self, location_id, target_pose, global_path=None, navigation_mode='normal'):
         # Mobile에 위치 이동 명령
@@ -393,6 +514,26 @@ class PickeeMainController(Node):
             return response.success
         except Exception as e:
             self.get_logger().error(f'Mobile move service call failed: {str(e)}')
+            return False
+
+    async def call_mobile_update_global_path(self, location_id, global_path):
+        # Mobile에 전역 경로 업데이트 명령
+        request = PickeeMobileUpdateGlobalPath.Request()
+        request.robot_id = self.robot_id
+        request.order_id = self.current_order_id
+        request.location_id = location_id
+        request.global_path = global_path
+        
+        if not self.mobile_update_global_path_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Mobile update global path service not available')
+            return False
+        
+        try:
+            future = self.mobile_update_global_path_client.call_async(request)
+            response = await future
+            return response.success
+        except Exception as e:
+            self.get_logger().error(f'Mobile update global path service call failed: {str(e)}')
             return False
 
     async def call_arm_move_to_pose(self, pose_type):
@@ -508,6 +649,100 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Vision track staff service call failed: {str(e)}')
             return False
 
+    async def call_vision_check_product_in_cart(self, product_id):
+        # Vision에 장바구니 내 상품 확인 명령
+        request = PickeeVisionCheckProductInCart.Request()
+        request.robot_id = self.robot_id
+        request.order_id = self.current_order_id
+        request.product_id = product_id
+        
+        if not self.vision_check_product_in_cart_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Vision check product in cart service not available')
+            return False
+        
+        try:
+            future = self.vision_check_product_in_cart_client.call_async(request)
+            response = await future
+            return response.success
+        except Exception as e:
+            self.get_logger().error(f'Vision check product in cart service call failed: {str(e)}')
+            return False
+
+    async def call_vision_check_cart_presence(self):
+        # Vision에 장바구니 존재 확인 명령
+        request = PickeeVisionCheckCartPresence.Request()
+        request.robot_id = self.robot_id
+        request.order_id = self.current_order_id
+        
+        if not self.vision_check_cart_presence_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Vision check cart presence service not available')
+            return None
+        
+        try:
+            future = self.vision_check_cart_presence_client.call_async(request)
+            response = await future
+            if response.success:
+                return response.cart_present
+            return None
+        except Exception as e:
+            self.get_logger().error(f'Vision check cart presence service call failed: {str(e)}')
+            return None
+
+    async def call_vision_video_stream_start(self, user_type, user_id):
+        # Vision에 영상 송출 시작 명령
+        request = PickeeVisionVideoStreamStart.Request()
+        request.user_type = user_type
+        request.user_id = user_id
+        request.robot_id = self.robot_id
+        
+        if not self.vision_video_stream_start_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Vision video stream start service not available')
+            return False
+        
+        try:
+            future = self.vision_video_stream_start_client.call_async(request)
+            response = await future
+            return response.success
+        except Exception as e:
+            self.get_logger().error(f'Vision video stream start service call failed: {str(e)}')
+            return False
+
+    async def call_vision_video_stream_stop(self, user_type, user_id):
+        # Vision에 영상 송출 중지 명령
+        request = PickeeVisionVideoStreamStop.Request()
+        request.user_type = user_type
+        request.user_id = user_id
+        request.robot_id = self.robot_id
+        
+        if not self.vision_video_stream_stop_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Vision video stream stop service not available')
+            return False
+        
+        try:
+            future = self.vision_video_stream_stop_client.call_async(request)
+            response = await future
+            return response.success
+        except Exception as e:
+            self.get_logger().error(f'Vision video stream stop service call failed: {str(e)}')
+            return False
+
+    async def call_vision_register_staff(self):
+        # Vision에 직원 등록 명령
+        request = PickeeVisionRegisterStaff.Request()
+        request.robot_id = self.robot_id
+        
+        if not self.vision_register_staff_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Vision register staff service not available')
+            return False
+        
+        try:
+            future = self.vision_register_staff_client.call_async(request)
+            response = await future
+            return response.accepted
+        except Exception as e:
+            self.get_logger().error(f'Vision register staff service call failed: {str(e)}')
+            return False
+
     # Publisher 메소드들
     def publish_robot_status(self):
         # 로봇 상태를 주기적으로 발행
@@ -565,6 +800,41 @@ class PickeeMainController(Node):
         self.product_selection_pub.publish(msg)
         self.get_logger().info(f'Published product selection result: product_id={product_id}, success={success}')
 
+    def publish_moving_status(self, location_id):
+        # 이동 시작 알림 발행
+        msg = PickeeMoveStatus()
+        msg.robot_id = self.robot_id
+        msg.order_id = self.current_order_id
+        msg.location_id = location_id
+        
+        self.moving_status_pub.publish(msg)
+        self.get_logger().info(f'Published moving status: location_id={location_id}')
+
+    def publish_product_loaded(self, product_id, quantity, success, message=''):
+        # 창고 물품 적재 완료 보고 발행
+        msg = PickeeProductLoaded()
+        msg.robot_id = self.robot_id
+        msg.product_id = product_id
+        msg.quantity = quantity
+        msg.success = success
+        msg.message = message
+        
+        self.product_loaded_pub.publish(msg)
+        self.get_logger().info(f'Published product loaded: product_id={product_id}, success={success}')
+
+    def publish_mobile_speed_control(self, speed_mode, target_speed, obstacles=None, reason=''):
+        # Mobile 속도 제어 명령 발행
+        msg = PickeeMobileSpeedControl()
+        msg.robot_id = self.robot_id
+        msg.order_id = self.current_order_id
+        msg.speed_mode = speed_mode  # "normal", "decelerate", "stop"
+        msg.target_speed = target_speed
+        msg.obstacles = obstacles or []
+        msg.reason = reason
+        
+        self.mobile_speed_control_pub.publish(msg)
+        self.get_logger().info(f'Published mobile speed control: mode={speed_mode}, target_speed={target_speed}, reason={reason}')
+
     async def get_product_location(self, product_id):
         # Main Service에서 상품 위치 조회
         request = MainGetProductLocation.Request()
@@ -604,6 +874,44 @@ class PickeeMainController(Node):
             return None
         except Exception as e:
             self.get_logger().error(f'Get location pose service call failed: {str(e)}')
+            return None
+
+    async def call_get_warehouse_pose(self, warehouse_id):
+        # Main Service에서 창고 Pose 조회
+        request = MainGetWarehousePose.Request()
+        request.warehouse_id = warehouse_id
+        
+        if not self.get_warehouse_pose_client.wait_for_service(timeout_sec=self.get_parameter('main_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Get warehouse pose service not available')
+            return None
+        
+        try:
+            future = self.get_warehouse_pose_client.call_async(request)
+            response = await future
+            if response.success:
+                return response.pose
+            return None
+        except Exception as e:
+            self.get_logger().error(f'Get warehouse pose service call failed: {str(e)}')
+            return None
+
+    async def call_get_section_pose(self, section_id):
+        # Main Service에서 섹션 Pose 조회
+        request = MainGetSectionPose.Request()
+        request.section_id = section_id
+        
+        if not self.get_section_pose_client.wait_for_service(timeout_sec=self.get_parameter('main_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Get section pose service not available')
+            return None
+        
+        try:
+            future = self.get_section_pose_client.call_async(request)
+            response = await future
+            if response.success:
+                return response.pose
+            return None
+        except Exception as e:
+            self.get_logger().error(f'Get section pose service call failed: {str(e)}')
             return None
 
     # Service Server 콜백 함수들
@@ -694,24 +1002,48 @@ class PickeeMainController(Node):
         response.message = 'Returning to base'
         return response
 
-    def video_start_callback(self, request, response):
+    def return_to_staff_callback(self, request, response):
+        # 직원으로 복귀 명령 콜백
+        self.get_logger().info(f'Received return to staff: robot_id={request.robot_id}')
+        
+        # TODO: 마지막으로 추종했던 직원 위치로 복귀하는 상태로 전환
+        # 상태 기계에 직원 복귀 이벤트 전달
+        
+        response.success = True
+        response.message = 'Returning to staff location'
+        return response
+
+    async def video_start_callback(self, request, response):
         # 영상 송출 시작 명령 콜백
         self.get_logger().info(f'Received video start: user_type={request.user_type}, user_id={request.user_id}')
         
-        # TODO: Vision에 영상 송출 시작 명령 전달
+        # Vision에 영상 송출 시작 명령 전달
+        success = await self.call_vision_video_stream_start(request.user_type, request.user_id)
         
-        response.success = True
-        response.message = 'Video streaming started'
+        response.success = success
+        response.message = 'Video streaming started' if success else 'Failed to start video streaming'
         return response
 
-    def video_stop_callback(self, request, response):
+    async def video_stop_callback(self, request, response):
         # 영상 송출 중지 명령 콜백
         self.get_logger().info(f'Received video stop: user_type={request.user_type}, user_id={request.user_id}')
         
-        # TODO: Vision에 영상 송출 중지 명령 전달
+        # Vision에 영상 송출 중지 명령 전달
+        success = await self.call_vision_video_stream_stop(request.user_type, request.user_id)
+        
+        response.success = success
+        response.message = 'Video streaming stopped' if success else 'Failed to stop video streaming'
+        return response
+
+    def tts_request_callback(self, request, response):
+        # Vision에서 요청한 TTS 처리 콜백
+        self.get_logger().info(f'TTS request received: text="{request.text_to_speak}"')
+        
+        # TODO: 실제 TTS 시스템과 연동하여 음성 출력 처리
+        # 현재는 로그만 출력하고 성공으로 응답
         
         response.success = True
-        response.message = 'Video streaming stopped'
+        response.message = f'TTS completed for text: "{request.text_to_speak}"'
         return response
 
     def state_machine_callback(self):
