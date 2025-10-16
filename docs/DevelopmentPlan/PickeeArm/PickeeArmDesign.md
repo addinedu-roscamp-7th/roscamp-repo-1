@@ -92,7 +92,7 @@ classDiagram
 
 ## 5. Pickee Arm 내부 상태 머신
 
-`pickee_arm`은 `pick_product`, `place_product` 등의 서비스 요청을 처리하는 동안 다음과 같은 내부 상태를 가집니다.
+`pick_product`, `place_product` 등의 서비스 요청을 처리하는 동안 `pickee_arm`은 다음과 같은 내부 상태를 가집니다.
 
 ```mermaid
 stateDiagram-v2
@@ -105,11 +105,12 @@ stateDiagram-v2
     PICK_PLANNING --> PICK_APPROACHING: Plan OK
     PICK_APPROACHING --> PICK_GRASPING: Reached
     PICK_GRASPING --> PICK_LIFTING: Grasp OK
-    PICK_LIFTING --> IDLE: Success
+    PICK_LIFTING --> IDLE: Pick Only Task Success
     
     PICK_LIFTING --> PLACE_PLANNING: place_product()
     PLACE_PLANNING --> PLACE_MOVING: Plan OK
-    PLACE_MOVING --> PLACE_RELEASING: Reached
+    PLACE_MOVING --> PLACING: Reached
+    PLACING --> PLACE_RELEASING: Place OK
     PLACE_RELEASING --> IDLE: Success
 
     state "실패" as FAILED
@@ -118,6 +119,7 @@ stateDiagram-v2
     PICK_GRASPING --> FAILED
     PLACE_PLANNING --> FAILED
     PLACE_MOVING --> FAILED
+    PLACING --> FAILED
     FAILED --> IDLE
 ```
 
