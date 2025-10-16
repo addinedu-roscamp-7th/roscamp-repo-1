@@ -7,7 +7,7 @@
 **목표**: 패키지 환경과 노드 뼈대를 갖추고 Packee Main과 공유되는 파라미터/코딩 표준을 정비한다.
 
 - **Step 1.1: ROS2 패키지 정비**
-  - `packee_arm` 패키지의 `package.xml`, `setup.py`, `setup.cfg` 의존성 확인 (`rclcpp`, `rclpy`, `shopee_interfaces`).
+  - `packee_arm` 패키지의 `package.xml`, `CMakeLists.txt` 의존성 확인 (`rclcpp`, `shopee_interfaces`).
   - 코딩 표준(`docs/CodingStandard/standard.md`) 적용 상태 점검, 코드 포맷 통일.
 - **Step 1.2: 노드 및 파라미터 뼈대 구현**
   - `PackeeArmController` 클래스 구성, `main()` 진입점/노드 초기화.
@@ -27,7 +27,7 @@
   - `/packee/arm/pose_status`, `/packee/arm/pick_status`, `/packee/arm/place_status` 발행 로직 구현.
   - 진행률/단계 상수 정의, Packee Main 상태 전이 조건과 조율.
 - **Step 2.3: Packee Main Mock 연동 테스트**
-  - `mock_packee_main.py`를 활용하여 정상/거부 시나리오를 검증.
+  - C++ Mock 노드(`ros2 run packee_arm mock_packee_main`)를 활용하여 정상/거부 시나리오를 검증.
   - QoS와 타임아웃 설정을 Packee Main Controller와 합의한 값으로 맞춤.
 
 ## Phase 3: 실행 매니저 및 하드웨어 추상화

@@ -11,7 +11,7 @@
 
 ## 2. 노드 아키텍처
 - **노드 이름**: `packee_arm_controller`
-- **실행 파일**: `lib/packee_arm/packee_arm_controller` (C++), `lib/packee_arm/arm_controller.py` (테스트용 rclpy 래퍼)
+- **실행 파일**: `lib/packee_arm/packee_arm_controller`
 - **실행 방식**: `ros2 run packee_arm packee_arm_controller`
 - **배치 위치**: Packee 로봇 Arm Control Device (`docs/Architecture/SWArchitecture.md` 참고)
 
@@ -39,7 +39,7 @@ PackeeArmController (rclcpp::Node)
      ├─ HealthMonitor
      └─ OperationLogger
 ```
-- 현재 구현은 단일 Python 파일 구조이나, 상기 모듈 분리를 기준으로 리팩터링을 진행한다.
+- 현재 구현은 C++ 기반 단일 노드 구조이며, 상기 모듈 분리를 기준으로 리팩터링을 진행한다.
 - `ExecutionManager`는 Packee Main이 다수의 명령을 순차/부분 병렬로 내릴 때 충돌 없이 처리하도록 책임진다.
 
 ## 5. 인터페이스 상세
@@ -120,7 +120,7 @@ PackeeArmController (rclcpp::Node)
 
 ## 10. 테스트 전략
 - **단위 테스트**: 서비스 입력 검증, 진행률 계산, 상태 전이 함수에 대해 gtest+rclcpp 기반 테스트 작성.
-- **통합 테스트**: `mock_packee_main.py`와 상호 작용하여 정상/실패 시나리오 반복 실행 (Sequence Diagram 재현).
+- **통합 테스트**: `ros2 run packee_arm mock_packee_main` 노드와 상호 작용하여 정상/실패 시나리오 반복 실행 (Sequence Diagram 재현).
 - **시뮬레이션 테스트**: Gazebo/Isaac Sim에서 좌/우 팔 모델과 연동하여 충돌 회피, 동기화 검증.
 - **HIL 테스트**: 실제 로봇 팔/그리퍼와 연결해 속도/힘 제한, 예외 처리, 복구 시나리오 검증.
 - 테스트 결과는 Packee Main Controller 테스트와 함께 QA 리뷰에 제출한다.
