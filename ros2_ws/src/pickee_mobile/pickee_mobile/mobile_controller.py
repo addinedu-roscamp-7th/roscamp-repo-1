@@ -17,8 +17,7 @@ class MobileController(Node):
         super().__init__('pickee_mobile_controller')
         self.get_logger().info('Pickee Mobile Controller 노드가 시작되었습니다.')
 
-        # 파라미터 선언
-        self.declare_parameter('arrival_position_tolerance', 0.05)
+        # 파라미터 선언 (PathPlanningComponent에서 선언되므로 여기서는 제거)
 
         # 컴포넌트 초기화
         self.localization_component = LocalizationComponent(self)
@@ -87,13 +86,15 @@ class MobileController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
+    mobile_controller = None # mobile_controller 변수 초기화
     try:
         mobile_controller = MobileController()
         rclpy.spin(mobile_controller)
     except KeyboardInterrupt:
         pass
     finally:
-        mobile_controller.destroy_node()
+        if mobile_controller is not None:
+            mobile_controller.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
