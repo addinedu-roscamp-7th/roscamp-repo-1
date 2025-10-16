@@ -25,7 +25,14 @@ setup(
     entry_points={
         'console_scripts': [
             'mobile_controller = pickee_mobile.mobile_controller:main',
-            'mock_main_controller = pickee_mobile.mock_main_controller:main',
+            'path_planning_component = pickee_mobile.path_planning_component:main',
+            'mock_speed_control_publisher = pickee_mobile.mock_speed_control_publisher:main',
+            'mock_move_to_location_client = pickee_mobile.mock_move_to_location_client:main',
+            'mock_update_global_path_client = pickee_mobile.mock_update_global_path_client:main',
+            'mock_pose_subscriber = pickee_mobile.mock_pose_subscriber:main',
+            'mock_arrival_and_move_status_subscriber = pickee_mobile.mock_arrival_and_move_status_subscriber:main',
+            'test_server = pickee_mobile.test_server:main',
+            'test_client = pickee_mobile.test_client:main',
         ],
     },
 )
