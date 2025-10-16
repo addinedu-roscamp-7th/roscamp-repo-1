@@ -291,8 +291,7 @@ Pic Arm
 # Request
 int32 robot_id
 int32 order_id
-int32 product_id
-Point3D target_position
+DetectedProduct target_product
 ---
 # Response
 bool accepted
@@ -302,8 +301,12 @@ string message
 # Request
 robot_id: 1
 order_id: 3
-product_id: 4
-target_position: {x: 0.5, y: 0.3, z: 1.2}
+target_product: {
+    product_id: 4
+    bbox_number: 1
+    bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+    confidence: 0.95
+  }
 # Response
 accepted: true
 message: "Pick command accepted"
