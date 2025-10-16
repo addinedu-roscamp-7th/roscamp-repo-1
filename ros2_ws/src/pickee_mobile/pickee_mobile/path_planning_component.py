@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from shopee_interfaces.msg import PickeeMoveStatus
+from shopee_interfaces.msg import PickeeMoveStatus, Pose2D, PickeeMobilePose
 from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileUpdateGlobalPath
 from geometry_msgs.msg import Pose2D # ROS2 표준 메시지 사용
 import math # math 모듈 추가
@@ -43,12 +43,26 @@ class PathPlanningComponent:
         '''
         Pickee Main Controller로부터 이동 명령을 수신합니다.
         '''
-        self.node.get_logger().info(f'이동 명령 수신: target_pose=({request.target_pose.x}, {request.target_pose.y}, {request.target_pose.theta})')
+
+        self.robot_id = request.robot_id
+        self.order_id = request.order_id
+        self.location_id = request.location_id
         self.target_pose = request.target_pose
         self.global_path = request.global_path # 전역 경로 저장
+        self.navigation_mode = request.navigation_mode
 
-        # mobile_controller의 상태 기계를 MOVING 상태로 전환
-        self.node.state_machine.transition_to(MovingState(self.node)) # self.node.state_machine에 접근
+        self.node.get_logger().info(f'이동 명령 수신: robot_id={self.robot_id}, order_id={self.order_id}, location_id={self.location_id}, target_pose=({self.target_pose.x}, {self.target_pose.y}, {self.target_pose.theta}), navigation_mode={self.navigation_mode}')
+        self.node.get_logger().info(f'전역 경로 길이: {len(self.global_path)}')
+        self.node.get_logger().info(f'전역 경로: {[ (pose.x, pose.y, pose.theta) for pose in self.global_path ]}')
+
+        # self.node.get_logger().info(f'이동 명령 수신: target_pose=({request.target_pose.x}, {request.target_pose.y}, {request.target_pose.theta})')
+        # self.target_pose = request.target_pose
+        # self.global_path = request.global_path # 전역 경로 저장
+
+        
+
+        # # mobile_controller의 상태 기계를 MOVING 상태로 전환
+        # self.node.state_machine.transition_to(MovingState(self.node)) # self.node.state_machine에 접근
 
         response.success = True
         response.message = '이동 명령 수신 완료.'
@@ -58,8 +72,22 @@ class PathPlanningComponent:
         '''
         Pickee Main Controller로부터 전역 경로 업데이트 명령을 수신합니다.
         '''
-        self.node.get_logger().info('전역 경로 업데이트 명령 수신.')
-        self.global_path = request.new_global_path # 전역 경로 업데이트
+
+        self.robot_id = request.robot_id
+        self.order_id = request.order_id
+        self.location_id = request.location_id
+        self.global_path = request.global_path # 전역 경로 저장
+
+        self.node.get_logger().info(f'이동 명령 수신: robot_id={self.robot_id}, order_id={self.order_id}, location_id={self.location_id}, {self.target_pose.y}, {self.target_pose.theta})')
+        self.node.get_logger().info(f'전역 경로 길이: {len(self.global_path)}')
+        self.node.get_logger().info(f'전역 경로: {[ (pose.x, pose.y, pose.theta) for pose in self.global_path ]}')
+
+
+        self.response.success = True
+        self.response.message = '이동 명령 수신 완료.'
+
+        # self.node.get_logger().info('전역 경로 업데이트 명령 수신.')
+        # self.global_path = request.new_global_path # 전역 경로 업데이트
 
         response.success = True
         response.message = '전역 경로 업데이트 완료.'
@@ -75,7 +103,7 @@ class PathPlanningComponent:
         # 임시 로직: 현재 위치에서 목표 포즈까지의 간단한 이동 상태 발행
         # 실제 구현 시 DWA, TEB 등의 알고리즘 적용
         move_status_msg = PickeeMoveStatus()
-        move_status_msg.header.stamp = self.node.get_clock().now().to_msg()
+        # move_status_msg.header.stamp = self.node.get_clock().now().to_msg()
         move_status_msg.current_x = current_pose[0]
         move_status_msg.current_y = current_pose[1]
         move_status_msg.current_theta = current_pose[2]
