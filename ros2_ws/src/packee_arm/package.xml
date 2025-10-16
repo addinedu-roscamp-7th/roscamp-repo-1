@@ -7,8 +7,16 @@
   <maintainer email="wonho9188@gmail.com">wonho9188</maintainer>
   <license>TODO: License declaration</license>
 
-  <depend>rclpy</depend>
-  <depend>shopee_interfaces</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>ament_cmake_python</build_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>shopee_interfaces</build_depend>
+
+  <exec_depend>python3</exec_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>shopee_interfaces</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
@@ -16,6 +24,6 @@
   <test_depend>python3-pytest</test_depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
