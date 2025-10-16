@@ -1,21 +1,21 @@
-# Shopee Main Service Embedded Dev Dashboard 설계서
+# Shopee Main Service Monitoring Dashboard 설계서
 
-**작성일**: 2025-10-16  
-**버전**: 3.0  
-**담당**: Main Service Team  
-**용도**: 개발자용 실시간 관찰 및 디버깅
+**작성일**: 2025-10-16
+**버전**: 4.0
+**담당**: Main Service Team
+**용도**: 개발자용 실시간 모니터링 및 관찰
 
 ---
 
 ## 1. 개요
 
 ### 1.1 목표
-메인 서비스를 실행할 때 PyQt6 기반 대시보드를 자동으로 함께 기동시켜, 로봇 상태·주문 흐름·이벤트 로그·설정 파라미터를 바로 확인하고 실험할 수 있도록 한다. 운영 환경이 아닌 개발 환경에서 사용한다.
+메인 서비스를 실행할 때 PyQt6 기반 대시보드를 자동으로 함께 기동시켜, 로봇 상태·주문 흐름·이벤트 로그를 실시간으로 확인할 수 있도록 한다. 개발 환경에서 시스템 동작을 관찰하기 위한 **읽기 전용 모니터링 도구**이다.
 
 ### 1.2 범위
-- **표시**: 로봇 상태, 주문/상태 머신 흐름, 이벤트 로그, LLM 요청 통계, 재시도/헬스체크 현황, 주요 설정 값.
-- **조작(개발용)**: mock 이벤트 발행, 특정 주문 강제 진행/취소, 설정 값(예: 배터리 임계치, 재시도 횟수) 임시 조정.
-- **제외**: 운영자 승인 기능, 영구 설정 변경, 외부 배포.
+- **표시**: 로봇 상태, 주문/상태 머신 흐름, 이벤트 로그, 통계 정보
+- **제외**: 설정 변경, 주문 조작, Mock 이벤트 발행 등 쓰기 작업
+- **환경**: 개발 환경 전용 (운영 환경에서는 기본적으로 비활성화)
 
 ---
 
@@ -23,16 +23,13 @@
 
 | 구분 | 항목 | 설명 |
 | --- | --- | --- |
-| 기능 | 로봇 상태 | `RobotStateStore` 스냅샷, 헬스 모니터 타임아웃 상태, 현재 할당 주문 |
-| 기능 | 주문 흐름 | 진행 중 주문 목록, 상태 머신 단계별 체류 시간, 재시도 횟수 |
-| 기능 | 이벤트 로그 | EventBus `app_push` 및 `robot_failure` 이벤트 실시간 표시 |
-| 기능 | Mock 컨트롤 | Mock 로봇/LLM 토글, 특정 이벤트 발행, 샘플 주문 생성 버튼 |
-| 기능 | 설정 패널 | `settings` 파라미터(예: `ROS_SERVICE_RETRY_ATTEMPTS`)를 세션 한정으로 조정하고 반영 |
-| 기능 | LLM/재시도 통계 | 최근 LLM 요청 성공/실패, 서비스 재시도 횟수, 헬스 타임아웃 발생 로그 |
-| 기능 | ROS 상태 | Pickee/Packee 토픽 수신 시간, 마지막 상태 메시지, 헬스 타임아웃 카운트 |
+| 기능 | 로봇 상태 | `RobotStateStore` 스냅샷, 상태, 배터리, 예약 정보, 활성 주문 |
+| 기능 | 주문 흐름 | 진행 중 주문 목록, 상태 머신 단계, 경과 시간, 할당 로봇 |
+| 기능 | 이벤트 로그 | EventBus `app_push`, `robot_failure` 등 이벤트 실시간 표시 |
+| 기능 | 통계 정보 | 최근 실패 주문, 예약 타임아웃 모니터 상태 |
 | 비기능 | 실행 조건 | `settings.GUI_ENABLED=True`일 때만 GUI 기동 (기본 False) |
 | 비기능 | 자원 격리 | GUI 스레드 예외가 Core Service에 영향 주지 않음 |
-| 비기능 | 권한 | 개발 환경/Mock 모드에서만 조작 기능 노출 |
+| 비기능 | 읽기 전용 | 모든 표시는 읽기 전용, 시스템 상태 변경 불가 |
 
 ---
 
@@ -44,118 +41,261 @@
 │                                                       │
 │  ┌─────────────────────┐      ┌────────────────────┐  │
 │  │ asyncio + ROS2 Loop │      │ Qt GUI Thread      │  │
-│  │ (MainServiceApp)    │      │ (PyQt6)            │  │
+│  │ (MainServiceApp)    │◄─────┤ (PyQt6)            │  │
 │  └────────┬────────────┘      └────────┬───────────┘  │
-│           │ 공유 객체                    │             │
+│           │                             │             │
+│           │ 데이터 수집 (읽기 전용)        │             │
 │           ▼                             ▼             │
-│   RobotStateStore (async)      DashboardController     │
-│   OrderService                 ├─RobotPanel            │
-│   EventBus                     ├─OrderPanel            │
-│   Config(Settings)             ├─EventLogPanel         │
-│   Mock Services                └─ControlPanel          │
+│   RobotStateStore          DashboardBridge            │
+│   OrderService             DashboardController        │
+│   EventBus                 DashboardWindow            │
+│                            ├─RobotPanel               │
+│                            ├─OrderPanel               │
+│                            └─EventLogPanel            │
 └───────────────────────────────────────────────────────┘
 ```
 
-- `DashboardController`: 메인 스레드 데이터를 thread-safe 방식으로 읽고 Qt 시그널로 전달.
-- `DashboardEventListener`: EventBus에 등록돼 GUI에 이벤트 전달.
-- GUI 스레드는 PyQt6 `QApplication` + `QMainWindow` 구성.
+### 주요 컴포넌트
+
+1. **DashboardBridge**: asyncio 루프와 Qt GUI 스레드 간 thread-safe 통신
+2. **DashboardController**: 주기적 데이터 수집 및 이벤트 포워딩
+3. **DashboardDataProvider**: 스냅샷 데이터 수집 헬퍼
+4. **DashboardWindow**: PyQt6 메인 윈도우 및 패널 레이아웃
 
 ---
 
-## 4. UI 및 기능 구성
+## 4. UI 구성
 
-| 영역 | 위젯 | 상세 |
-| --- | --- | --- |
-| 상단 상태바 | StatusBar | GUI 연결 여부, 마지막 갱신 시각, 헬스 타임아웃 카운트 |
-| 좌측 상단 | RobotPanel | Pickee/Packee 테이블, 상태, battery, active_order_id, 헬스 타임아웃 여부 |
-| 좌측 하단 | ROSHealthPanel | 마지막 토픽 수신 시각, 서비스 재시도 통계, 헬스 타임아웃 로그 |
-| 중앙 | OrderPanel | 진행 중 주문, 상태 머신 단계, 시작/갱신/완료 시간, 재시도 횟수 |
-| 우측 상단 | LLMPanel | 최근 LLM 쿼리, 성공/실패, fallback 사용 여부 |
-| 우측 하단 | ControlPanel | Mock 로봇/주문 생성, 특정 이벤트 발행, 설정 값 조절 슬라이더 |
-| 하단 전체 | EventLogPanel | `app_push`, `robot_failure`, Mock 이벤트 로그 (최신 200건) |
+### 4.1 전체 레이아웃
 
-Mock 관련 조작 버튼은 `settings.MOCK_ENABLED`가 True일 때만 활성화.
+```
+┌─────────────────────────────────────────────────────┐
+│ Shopee Main Service Dashboard                       │
+│ 상태: 연결됨 | 마지막 갱신: 2025-10-16 14:30:25      │
+├──────────────────────┬──────────────────────────────┤
+│  RobotPanel          │  OrderPanel                  │
+│  (로봇 상태 테이블)    │  (진행 중 주문)               │
+│                      │                              │
+│  ID | Type  | Status │  ID | Status  | Robot | Time │
+│  1  | Pickee| IDLE   │  15 | MOVING  | 1     | 30s  │
+│  2  | Pickee| WORKING│  16 | PACKING | 3     | 45s  │
+│  3  | Packee| IDLE   │                              │
+│                      │                              │
+├──────────────────────┴──────────────────────────────┤
+│  EventLogPanel (이벤트 로그)                         │
+│  [14:30:20] robot_moving: Robot 1 → Location 5      │
+│  [14:30:15] product_detected: Order 15, 3 products  │
+│  [14:30:10] cart_add_success: Order 15, Product 42  │
+└─────────────────────────────────────────────────────┘
+```
+
+### 4.2 패널 상세
+
+#### RobotPanel (좌측 상단)
+- Pickee/Packee 로봇 목록 테이블
+- 컬럼: Robot ID, Type, Status, Battery, Reserved, Active Order, Last Update
+- 1초 주기 자동 갱신
+
+#### OrderPanel (우측 상단)
+- 진행 중 주문 목록 (status < 8)
+- 컬럼: Order ID, Customer, Status, Progress(%), Started, Elapsed, Pickee, Packee
+- 타임아웃 모니터 활성 여부 표시
+
+#### EventLogPanel (하단 전체)
+- `app_push`, `robot_failure`, `reservation_timeout` 등 이벤트 로그
+- 최신 200건 표시, 자동 스크롤
+- 타임스탬프, 이벤트 타입, 메시지
 
 ---
 
 ## 5. 데이터 연동
 
-### 5.1 Robot/Order 스냅샷
-- `DashboardController`가 1초 주기로 `RobotStateStore.list_states()`와 주문 헬퍼(예: `OrderService.debug_list_active_orders()`, 필요 시 새 헬퍼 추가)를 호출.
-- 이 호출은 `asyncio.run_coroutine_threadsafe` 혹은 thread-safe 큐로 처리해 Qt 스레드와 충돌을 피함.
+### 5.1 스냅샷 수집 (1초 주기)
+
+`DashboardController`가 다음 데이터를 수집:
+
+```python
+# DashboardDataProvider.collect_snapshot()
+{
+    'orders': {
+        'orders': [...],  # OrderService.get_active_orders_snapshot()
+        'summary': {...}
+    },
+    'robots': [...],      # RobotStateStore.list_states()
+    'metrics': {
+        'failed_orders': [...]  # OrderService.get_recent_failed_orders()
+    }
+}
+```
 
 ### 5.2 EventBus 연동
-- `EventBus.register_listener`로 GUI 전용 listener를 추가.
-- 각 이벤트는 `DashboardController.enqueue_event()`로 전달, Qt 스레드에서 로그 갱신.
 
-### 5.3 설정 조절
-- GUI에서 설정 값을 조정하면 `DashboardController.apply_temp_setting(key, value)`가 호출되고, 이는 `settings` 객체의 세션 범위 변수에 반영(예: `ROS_SERVICE_RETRY_ATTEMPTS` 조정).
-- 엔지니어가 쉽게 원상 복구할 수 있도록 “Reset Settings” 버튼 제공.
+- `app_push`, `robot_failure` 이벤트를 구독
+- `DashboardController._forward_event()`로 GUI에 전달
+- `DashboardBridge`를 통해 thread-safe 전송
 
-### 5.4 Mock 컨트롤
-- `ControlPanel` 버튼이 눌리면 `order_service.create_order()` 등 내부 API를 호출하거나 Mock 로봇 이벤트를 발행 (Mock 모드에서만 허용).
-- 허용되지 않는 환경(운영)에서는 버튼 비활성화.
+### 5.3 데이터 흐름
+
+```
+asyncio 루프                Qt GUI 스레드
+    │                           │
+    │  1초마다 collect_snapshot  │
+    ├──────────────────────────►│ 테이블 갱신
+    │                           │
+    │  이벤트 발생               │
+    ├──────────────────────────►│ 로그 추가
+    │                           │
+```
 
 ---
 
 ## 6. 안전성 및 종료 처리
 
-- GUI 스레드에서 발생한 예외는 로그로만 남기고, 메인 서비스는 계속 동작.
-- 메인 서비스 종료 시 `DashboardController.stop()`을 호출해 타이머·listener 제거 후 Qt 이벤트 루프 종료.
-- GUI 창에서 닫기 버튼을 누르면 메인 서비스에도 종료 신호를 전달하거나, GUI만 종료할 수 있도록 옵션 제공.
+### 6.1 예외 격리
+- GUI 스레드 예외는 로그로만 남기고 메인 서비스는 계속 동작
+- `try-except`로 각 패널 갱신 로직 보호
+
+### 6.2 종료 처리
+1. 메인 서비스 종료 시 `DashboardController.stop()` 호출
+2. 이벤트 리스너 제거
+3. 브릿지 종료 (`DashboardBridge.close()`)
+4. Qt 이벤트 루프 종료
+
+### 6.3 GUI 창 닫기
+- 사용자가 창 닫기 버튼 클릭 시 GUI만 종료 (메인 서비스는 계속 실행)
+- `closeEvent()`에서 적절히 처리
 
 ---
 
-## 7. 설정 및 실행
+## 7. 구현 세부사항
 
 ### 7.1 의존성
-- `PyQt6>=6.7.0` (이미 개발 환경에서 설치).
-- (선택) `pytest-qt` 테스트 목적으로 개발 requirements에 추가.
-
-### 7.2 실행 흐름 (의사코드)
-
-```python
-def main():
-    rclpy.init()
-    app = MainServiceApp()
-
-    if settings.GUI_ENABLED:
-        start_dashboard_gui(app)  # Qt 스레드 생성
-
-    asyncio.run(app.run())
+```bash
+pip install PyQt6>=6.9.0
 ```
 
-`start_dashboard_gui` 내부:
-- Qt QApplication 생성.
-- `DashboardController` 인스턴스에 `state_store`, `event_bus`, `order_service`, `settings` 등을 주입.
-- `DashboardWindow`를 띄우고 별도 스레드에서 `app.exec()` 실행.
+### 7.2 파일 구조
+```
+shopee_main_service/
+├── dashboard/
+│   ├── __init__.py
+│   ├── controller.py       # DashboardController, Bridge, DataProvider
+│   ├── window.py           # DashboardWindow (메인 윈도우)
+│   ├── panels.py           # RobotPanel, OrderPanel, EventLogPanel
+│   └── launcher.py         # start_dashboard_gui() 함수
+```
+
+### 7.3 실행 흐름
+
+```python
+# main_service_node.py의 MainServiceApp.run()
+async def run(self):
+    self._install_handlers()
+    self._robot.set_asyncio_loop(asyncio.get_running_loop())
+
+    # 대시보드 시작
+    if settings.GUI_ENABLED:
+        await self._start_dashboard_controller()
+        start_dashboard_gui(self._dashboard_controller)  # 별도 스레드
+
+    await self._api.start()
+
+    try:
+        while rclpy.ok():
+            rclpy.spin_once(self._robot, timeout_sec=0.1)
+            await asyncio.sleep(0)
+    finally:
+        if self._dashboard_controller:
+            await self._dashboard_controller.stop()
+        # ... 정리
+```
+
+### 7.4 GUI 부트스트랩
+
+```python
+# dashboard/launcher.py
+import threading
+from PyQt6.QtWidgets import QApplication
+
+def start_dashboard_gui(controller: DashboardController):
+    """
+    별도 스레드에서 Qt GUI를 실행한다.
+
+    Args:
+        controller: 초기화된 DashboardController 인스턴스
+    """
+    def gui_thread_main():
+        app = QApplication([])
+        window = DashboardWindow(controller.bridge)
+        window.show()
+        app.exec()
+
+    thread = threading.Thread(target=gui_thread_main, daemon=True)
+    thread.start()
+```
 
 ---
 
 ## 8. 테스트
 
-- **수동**: GUI가 자동으로 표시되는지, 각 패널이 갱신되는지, 설정 변경과 Mock 버튼이 실제로 작동하는지 확인.
-- **자동(선택)**: `pytest-qt`를 이용해 `DashboardController`의 데이터 처리 로직과 이벤트 처리 로직 테스트.
+### 8.1 수동 테스트
+1. `.env`에 `SHOPEE_GUI_ENABLED=1` 설정
+2. 메인 서비스 실행: `ros2 run shopee_main_service main`
+3. 대시보드 창이 자동으로 표시되는지 확인
+4. 로봇 상태, 주문 목록이 실시간으로 갱신되는지 확인
+5. 이벤트 로그가 정상적으로 추가되는지 확인
+6. 창 닫기 후에도 메인 서비스가 계속 실행되는지 확인
+
+### 8.2 자동 테스트 (선택)
+- `pytest-qt`를 이용한 GUI 컴포넌트 테스트
+- `DashboardController` 유닛 테스트
 
 ---
 
-## 9. 일정 및 담당
+## 9. 구현 일정
 
-| 단계 | 내용 | 담당 |
+| 단계 | 내용 | 예상 소요 |
 | --- | --- | --- |
-| 1 | Qt 스레드 부트스트랩 및 기본 레이아웃 | Main Service Team |
-| 2 | Robot/Order/ROS 패널 데이터 연동 | Main Service Team |
-| 3 | EventBus listener + 이벤트 로그 | Main Service Team |
-| 4 | ControlPanel 기능(설정 조정·Mock) 추가 | Main Service Team |
-| 5 | 종료 처리, 테스트 정리 | Main Service Team |
+| 1 | 메인 윈도우 및 레이아웃 구현 (`window.py`) | 1-2시간 |
+| 2 | RobotPanel 구현 (로봇 상태 테이블) | 1-2시간 |
+| 3 | OrderPanel 구현 (주문 목록) | 1-2시간 |
+| 4 | EventLogPanel 구현 (이벤트 로그) | 1시간 |
+| 5 | GUI 런처 구현 (`launcher.py`) | 1시간 |
+| 6 | 메인 서비스 통합 및 테스트 | 1-2시간 |
 
-총 소요: 개발자의 경험에 따라 2~3일 예상.
+**총 예상 시간**: 6-10시간 (1일 이내)
 
 ---
 
 ## 10. 배포/운영
 
-- 개발 환경에서는 `.env`에 `SHOPEE_GUI_ENABLED=1` 설정.
-- 운영 환경에서는 기본 False 유지.
-- README에 “개발용 대시보드” 섹션 추가(설정 방법, 기능 요약).
+### 10.1 개발 환경
+```bash
+# .env
+SHOPEE_GUI_ENABLED=1
+SHOPEE_GUI_SNAPSHOT_INTERVAL=1.0
+```
 
+### 10.2 운영 환경
+```bash
+# .env
+SHOPEE_GUI_ENABLED=0  # 또는 설정하지 않음 (기본값)
+```
+
+### 10.3 README 문서화
+- 대시보드 활성화 방법
+- 화면 구성 설명
+- 문제 해결 가이드
+
+---
+
+## 11. 향후 확장 가능성 (현재 범위 외)
+
+추후 필요 시 추가 가능한 기능:
+- 실패한 주문 상세 정보 팝업
+- 로봇 상태 필터링 (예: IDLE만 보기)
+- 이벤트 로그 필터링 및 검색
+- 통계 차트 (주문 처리 시간, 성공률 등)
+- 설정 조정 패널 (읽기/쓰기)
+
+**현재는 최소 기능으로 구현하여 빠르게 활용 가능하도록 한다.**

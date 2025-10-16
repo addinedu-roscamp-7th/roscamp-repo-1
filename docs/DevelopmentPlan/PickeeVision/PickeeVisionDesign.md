@@ -34,4 +34,39 @@ SC_06_3 음성 명령
  - 기능: 추종 중지
  - 통신_서비스: 직원 추종 중지 (/pickee/vision/track_staff)
 
+  
+ ---------------------------------------------------------------------
  
+ 
+# pickee_vision 패키지 노드별 인터페이스
+
+  1. obstacle_detector_node
+   * 토픽 발행 (Publisher)
+       * /pickee/vision/obstacle_detected
+
+  2. product_detector_node
+   * 서비스 제공 (Service Server)
+       * /pickee/vision/detect_products
+       * /pickee/vision/check_product_in_cart
+       * /pickee/vision/check_cart_presence
+   * 토픽 발행 (Publisher)
+       * /pickee/vision/detection_result
+       * /pickee/vision/cart_check_result
+
+  3. staff_tracker_node
+   * 서비스 제공 (Service Server)
+       * /pickee/vision/set_mode
+       * /pickee/vision/register_staff
+       * /pickee/vision/track_staff
+   * 토픽 발행 (Publisher)
+       * /pickee/vision/register_staff_result
+       * /pickee/vision/staff_location
+   * 서비스 호출 (Service Client)
+       * /pickee/tts_request
+
+  4. camera_service_node
+   * 서비스 제공 (Service Server)
+       * /pickee/vision/video_stream_start
+       * /pickee/vision/video_stream_stop
+   * (내부 기능)
+       * UDP 영상 스트림 송출 (포트 6000)
