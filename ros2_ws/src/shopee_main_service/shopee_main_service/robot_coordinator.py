@@ -65,9 +65,15 @@ class RobotHealthMonitor:
     """로봇 상태 토픽 헬스체크를 담당하는 보조 클래스."""
 
     def __init__(self, timeout: float) -> None:
-        self._timeout = timeout
+        self._timeout = max(0.0, timeout)
         self._last_seen: Dict[Tuple[RobotType, int], float] = {}
         self._notified: set[Tuple[RobotType, int]] = set()
+        # 장애 복구 직후 즉시 재감지되는 것을 막기 위한 유예 시간
+        self._grace_after_recovery = 0.0
+        if self._timeout > 0.0:
+            # 최소 1초, 최대 5초 범위 내에서 timeout의 20%를 유예로 사용
+            self._grace_after_recovery = min(max(self._timeout * 0.2, 1.0), 5.0)
+        self._recovery_deadline: Dict[Tuple[RobotType, int], float] = {}
 
     @property
     def timeout(self) -> float:
@@ -77,8 +83,14 @@ class RobotHealthMonitor:
         """마지막 상태 수신 시각을 기록합니다."""
         timestamp = now if now is not None else time.monotonic()
         key = (robot_type, robot_id)
+        was_offline = key in self._notified
         self._last_seen[key] = timestamp
         self._notified.discard(key)
+        if was_offline and self._grace_after_recovery > 0.0:
+            # 복구 후 일정 기간(타임아웃 + 유예) 동안은 재알림을 억제한다.
+            self._recovery_deadline[key] = timestamp + self._timeout + self._grace_after_recovery
+        else:
+            self._recovery_deadline.pop(key, None)
 
     def detect_unresponsive(self, now: Optional[float] = None) -> List[Tuple[RobotType, int]]:
         """타임아웃을 초과한 로봇 목록을 반환합니다."""
@@ -87,10 +99,16 @@ class RobotHealthMonitor:
         timestamp = now if now is not None else time.monotonic()
         offline: List[Tuple[RobotType, int]] = []
         for key, last_seen in self._last_seen.items():
-            if timestamp - last_seen > self._timeout and key not in self._notified:
+            if key in self._notified:
+                continue
+            deadline = self._recovery_deadline.get(key)
+            if deadline is not None and timestamp <= deadline:
+                continue
+            if timestamp - last_seen > self._timeout:
                 offline.append(key)
         for key in offline:
             self._notified.add(key)
+            self._recovery_deadline.pop(key, None)
         return offline
 
 
