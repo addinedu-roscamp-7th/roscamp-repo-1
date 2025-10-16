@@ -1,7 +1,19 @@
 import rclpy
 from rclpy.node import Node
-from .state_machine import StateMachine
-from pickee_main.states.initializing import InitializingState
+import threading
+import asyncio
+import subprocess
+import os
+from pickee_main.state_machine import StateMachine
+from pickee_main.states import (
+    InitializingState,
+    MovingToShelfState,
+    DetectingProductState,
+    FollowingStaffState,
+    RegisteringStaffState,
+    MovingToPackingState,
+    MovingToStandbyState
+)
 
 # 구독자(Subscriber)용 메시지 타입 임포트
 from shopee_interfaces.msg import (
@@ -13,7 +25,8 @@ from shopee_interfaces.msg import (
     PickeeVisionObstacles,
     PickeeVisionStaffLocation,
     PickeeVisionStaffRegister,
-    PickeeVisionCartCheck
+    PickeeVisionCartCheck,
+    Pose2D
 )
 
 # 발행자(Publisher)용 메시지 타입 임포트 (Main Service 연동)
@@ -547,16 +560,12 @@ class PickeeMainController(Node):
         # FOLLOWING_STAFF 상태일 때 직원 위치로 이동 명령 업데이트
         current_state_name = self.state_machine.get_current_state_name()
         if current_state_name == 'FOLLOWING_STAFF':
-            # 직원 위치로 이동하도록 Mobile에 명령 전달
-            import threading
-            import asyncio
-            
+            # 직원 위치로 이동하도록 Mobile에 명령 전달         
             def follow_staff():
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     # 직원 위치를 target_pose로 변환
-                    from shopee_interfaces.msg import Pose2D
                     staff_pose = Pose2D()
                     if hasattr(msg, 'location'):
                         staff_pose.x = msg.location.x
@@ -583,7 +592,6 @@ class PickeeMainController(Node):
             # REGISTERING_STAFF 상태에서 FOLLOWING_STAFF 상태로 전환
             current_state_name = self.state_machine.get_current_state_name()
             if current_state_name == 'REGISTERING_STAFF':
-                from .states.following_staff import FollowingStaffState
                 new_state = FollowingStaffState(self)
                 self.state_machine.transition_to(new_state)
         else:
@@ -1036,7 +1044,6 @@ class PickeeMainController(Node):
             self.target_product_ids = [first_product.product_id]
             
             # MOVING_TO_SHELF 상태로 전환
-            from .states.moving_to_shelf import MovingToShelfState
             new_state = MovingToShelfState(self)
             self.state_machine.transition_to(new_state)
         
@@ -1053,7 +1060,6 @@ class PickeeMainController(Node):
         self.target_section_id = request.section_id
         
         # MOVING_TO_SHELF 상태로 전환
-        from .states.moving_to_shelf import MovingToShelfState
         new_state = MovingToShelfState(self)
         self.state_machine.transition_to(new_state)
         
@@ -1064,11 +1070,8 @@ class PickeeMainController(Node):
     def product_detect_callback(self, request, response):
         # 상품 인식 명령 콜백
         self.get_logger().info(f'Received product detect: product_ids={request.product_ids}')
-        
+
         # Vision에 상품 인식 명령 전달 (비동기)
-        import threading
-        import asyncio
-        
         def detect_products():
             try:
                 loop = asyncio.new_event_loop()
@@ -1080,7 +1083,6 @@ class PickeeMainController(Node):
                 
                 if success:
                     # DETECTING_PRODUCT 상태로 전환
-                    from .states.detecting_product import DetectingProductState
                     new_state = DetectingProductState(self)
                     new_state.product_ids = request.product_ids
                     self.state_machine.transition_to(new_state)
@@ -1115,7 +1117,6 @@ class PickeeMainController(Node):
         self.shopping_ended = True
         
         # MOVING_TO_PACKING 상태로 전환
-        from .states.moving_to_packing import MovingToPackingState
         new_state = MovingToPackingState(self)
         self.state_machine.transition_to(new_state)
         
@@ -1131,7 +1132,6 @@ class PickeeMainController(Node):
         self.target_packaging_location_id = request.location_id
         
         # MOVING_TO_PACKING 상태로 전환
-        from .states.moving_to_packing import MovingToPackingState
         new_state = MovingToPackingState(self)
         self.state_machine.transition_to(new_state)
         
@@ -1147,7 +1147,6 @@ class PickeeMainController(Node):
         self.base_location_id = request.location_id
         
         # MOVING_TO_STANDBY 상태로 전환
-        from .states.moving_to_standby import MovingToStandbyState
         new_state = MovingToStandbyState(self)
         self.state_machine.transition_to(new_state)
         
@@ -1162,12 +1161,10 @@ class PickeeMainController(Node):
         # 마지막으로 추종했던 직원 위치로 복귀하는 상태로 전환
         if hasattr(self, 'staff_location') and self.staff_location:
             # FOLLOWING_STAFF 상태로 전환하여 직원 추종 재개
-            from .states.following_staff import FollowingStaffState
             new_state = FollowingStaffState(self)
             self.state_machine.transition_to(new_state)
         else:
             # 직원 위치 정보가 없으면 직원 등록부터 시작
-            from .states.registering_staff import RegisteringStaffState
             new_state = RegisteringStaffState(self)
             self.state_machine.transition_to(new_state)
         
@@ -1180,9 +1177,6 @@ class PickeeMainController(Node):
         self.get_logger().info(f'Received video start: user_type={request.user_type}, user_id={request.user_id}')
         
         # Vision에 영상 송출 시작 명령 전달 (스레드에서 비동기 실행)
-        import threading
-        import asyncio
-        
         def run_async_video_start():
             try:
                 loop = asyncio.new_event_loop()
@@ -1212,9 +1206,6 @@ class PickeeMainController(Node):
         self.get_logger().info(f'Received video stop: user_type={request.user_type}, user_id={request.user_id}')
         
         # Vision에 영상 송출 중지 명령 전달 (스레드에서 비동기 실행)
-        import threading
-        import asyncio
-        
         def run_async_video_stop():
             try:
                 loop = asyncio.new_event_loop()
@@ -1246,9 +1237,6 @@ class PickeeMainController(Node):
         # 실제 TTS 시스템과 연동하여 음성 출력 처리
         try:
             # 간단한 TTS 처리 로직 (실제로는 외부 TTS 서비스 호출)
-            import subprocess
-            import os
-            
             # Linux 시스템의 espeak를 사용한 간단한 TTS (선택적)
             if os.path.exists('/usr/bin/espeak'):
                 try:
