@@ -34,31 +34,31 @@
 ### 4.1. 외부 인터페이스 (vs. Main Service)
 
 #### Publishers
-- `/packee/packing_complete` (`PickeeRobotStatus.msg`): 포장 완료 시 발행.
-- `/packee/robot_status` (`PickeeArrival.msg`): 현재 로봇의 상태, 위치, 배터리 등을 주기적으로 발행.
-- `/packee/availability_result` (`PickeeProductDetection.msg`): 패키 작업 가능 여부 확인 후 가능 여부와 함께 발행.
+- `/packee/packing_complete` (`PackeePackingComplete.msg`): 포장 완료 시 발행.
+- `/packee/robot_status` (`PackeeRobotStatus.msg`): 현재 로봇의 상태, 위치, 배터리 등을 주기적으로 발행.
+- `/packee/availability_result` (`PackeeTaskChecking.msg`): 패키 작업 가능 여부 확인 후 가능 여부와 함께 발행.
 
 #### Service Clients
-- `/packee/packing/check_availability` (`MainGetProductLocation.srv`): (필요시) 작업 가능 여부를 Main Service에 질의.
-- `/packee/packing/start` (`MainGetProductLocation.srv`): 포장 시작 명령을 받고 시작 했다고 알림.
+- `/packee/packing/check_availability` (`MainGetTaskChecking.srv`): (필요시) 작업 가능 여부를 Main Service에 질의.
+- `/packee/packing/start` (`MainGetPackingStart.srv`): 포장 시작 명령을 받고 시작 했다고 알림.
 
 ### 4.2. 내부 인터페이스 (vs. Arm, Vision)
 
 #### Service Clients.
 - **vs. Arm**
-  - `/packee/arm/move_to_pose` (`PickeeArmMoveToPose.srv`): 'checking_cart', 'standby' 등 특정 자세로 변경을 명령.
-  - `/packee/arm/pick_product` (`PickeeArmPickProduct.srv`): '좌측 팔' 또는 '우측 팔'에 특정 위치의 상품을 피킹하도록 명령.
-  - `/packee/arm/place_product` (`PickeeArmPlaceProduct.srv`): 좌측 팔' 또는 '우측 팔'에피킹한 상품을 장바구니에 담도록 명령.
+  - `/packee/arm/move_to_pose` (`PackeeArmMoveToPose.srv`): 'checking_cart', 'standby' 등 특정 자세로 변경을 명령.
+  - `/packee/arm/pick_product` (`PackeeArmPickProduct.srv`): '좌측 팔' 또는 '우측 팔'에 특정 위치의 상품을 피킹하도록 명령.
+  - `/packee/arm/place_product` (`PackeeArmPlaceProduct.srv`): 좌측 팔' 또는 '우측 팔'에피킹한 상품을 장바구니에 담도록 명령.
 - **vs. Vision**
-  - `/packee/vision/check_cart_presence` (`PickeeVisionDetectProducts.srv`): 장바구니 유무를 확인.
-  - `/packee/vision/detect_products_in_cart` (`PickeeVisionSetMode.srv`): 장바구니 내 상품의 위치를 확인.
-  - `/packee/vision/verify_packing_complete` (`PickeeVisionTrackStaff.srv`): 포장 완료 여부를 확인.
+  - `/packee/vision/check_cart_presence` (`PackeeVisionDetectCart.srv`): 장바구니 유무를 확인.
+  - `/packee/vision/detect_products_in_cart` (`PackeeVisionSetProduct.srv`): 장바구니 내 상품의 위치를 확인.
+  - `/packee/vision/verify_packing_complete` (`PickeeVisionPackingComplete.srv`): 포장 완료 여부를 확인.
 
 #### Subscribers
 - **from Arm**
-  - `/packee/arm/pose_status` (`PickeeArmTaskStatus.msg`): 'in_progress', 'completed', 'failed' 자세 연병 상태 확인
-  - `/packee/arm/pick_status` (`PickeeArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
-  - `/packee/arm/place_status` (`PickeeArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
+  - `/packee/arm/pose_status` (`PackeeArmPoseChangeStatus.msg`): 'in_progress', 'completed', 'failed' 자세 변경 상태 확인
+  - `/packee/arm/pick_status` (`PickeeArmPickupStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
+  - `/packee/arm/place_status` (`PickeeArmStackingStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
 
 ## 5. 주요 기능 로직 (Key Logic)
 
