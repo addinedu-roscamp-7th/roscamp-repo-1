@@ -57,7 +57,7 @@
 #### Subscribers
 - **from Arm**
   - `/packee/arm/pose_status` (`PackeeArmPoseChangeStatus.msg`): 'in_progress', 'completed', 'failed' 자세 변경 상태 확인
-  - `/packee/arm/pick_status` (`PickeeArmPickupStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
+  - `/packee/arm/pick_status` (`PackeeArmPickupStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
   - `/packee/arm/place_status` (`PackeeArmStackingStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
 
 ## 5. 주요 기능 로직 (Key Logic)
