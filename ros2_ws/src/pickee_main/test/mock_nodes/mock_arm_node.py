@@ -101,7 +101,7 @@ class MockArmNode(Node):
         # 비동기적으로 픽업 시뮬레이션
         threading.Thread(
             target=self.simulate_pick_operation,
-            args=(request.product_id, request.pick_pose)
+            args=(request.product_id, request.target_position)
         ).start()
         
         response.accepted = True
@@ -122,7 +122,7 @@ class MockArmNode(Node):
         # 비동기적으로 놓기 시뮬레이션
         threading.Thread(
             target=self.simulate_place_operation,
-            args=(request.product_id, request.place_pose)
+            args=(request.product_id,)
         ).start()
         
         response.accepted = True
@@ -148,7 +148,7 @@ class MockArmNode(Node):
         self.is_busy = False
         self.get_logger().info(f'Moved to {pose_type} pose')
     
-    def simulate_pick_operation(self, product_id, pick_pose):
+    def simulate_pick_operation(self, product_id, target_position):
         """픽업 동작 시뮬레이션"""
         # 진행 상황 발행
         self.publish_pick_status(product_id, 'in_progress')
@@ -160,9 +160,9 @@ class MockArmNode(Node):
         
         self.current_pose = 'transport'
         self.is_busy = False
-        self.get_logger().info(f'Pick operation completed: {product_id}')
+        self.get_logger().info(f'Pick operation completed: product_id={product_id}, target_position=({target_position.x:.2f}, {target_position.y:.2f}, {target_position.z:.2f})')
     
-    def simulate_place_operation(self, product_id, place_pose):
+    def simulate_place_operation(self, product_id):
         """놓기 동작 시뮬레이션"""
         # 진행 상황 발행
         self.publish_place_status(product_id, 'in_progress')
@@ -180,9 +180,12 @@ class MockArmNode(Node):
         """픽업 상태 발행"""
         msg = PickeeArmTaskStatus()
         msg.robot_id = 1
+        msg.order_id = 1  # TODO: 실제 order_id 사용
         msg.product_id = product_id
         msg.status = status
-        msg.timestamp = self.get_clock().now().to_msg()
+        msg.current_phase = 'pick_operation'
+        msg.progress = 1.0 if status == 'completed' else 0.5
+        msg.message = f'Pick {status}'
         
         self.pick_status_pub.publish(msg)
         self.get_logger().info(f'Published pick status: {product_id} - {status}')
@@ -191,9 +194,12 @@ class MockArmNode(Node):
         """놓기 상태 발행"""
         msg = PickeeArmTaskStatus()
         msg.robot_id = 1
+        msg.order_id = 1  # TODO: 실제 order_id 사용
         msg.product_id = product_id
         msg.status = status
-        msg.timestamp = self.get_clock().now().to_msg()
+        msg.current_phase = 'place_operation'
+        msg.progress = 1.0 if status == 'completed' else 0.5
+        msg.message = f'Place {status}'
         
         self.place_status_pub.publish(msg)
         self.get_logger().info(f'Published place status: {product_id} - {status}')

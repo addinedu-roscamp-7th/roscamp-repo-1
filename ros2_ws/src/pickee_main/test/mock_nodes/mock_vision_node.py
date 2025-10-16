@@ -5,7 +5,9 @@ from shopee_interfaces.msg import (
     PickeeVisionObstacles,
     PickeeVisionStaffLocation,
     PickeeVisionStaffRegister,
-    PickeeVisionCartCheck
+    PickeeVisionCartCheck,
+    PickeeDetectedProduct,
+    BBox
 )
 from shopee_interfaces.srv import (
     PickeeVisionDetectProducts,
@@ -18,6 +20,7 @@ from shopee_interfaces.srv import (
     PickeeVisionRegisterStaff,
     PickeeTtsRequest
 )
+import threading
 
 class MockVisionNode(Node):
     def __init__(self):
@@ -123,10 +126,10 @@ class MockVisionNode(Node):
         asyncio.create_task(self.call_tts_request("테스트 음성 메시지입니다."))
     
     def detect_products_callback(self, request, response):
-        self.get_logger().info(f'Received detect products request: location_id={request.location_id}')
+        self.get_logger().info(f'Received detect products request: product_ids={request.product_ids}')
         
-        # 1초 후에 제품 감지 메시지 발행
-        self.create_timer(1.0, lambda: self.publish_detection(request.location_id))
+        # 1초 후에 제품 감지 메시지 발행 (1회만)
+        threading.Timer(1.0, lambda: self.publish_detection(request.product_ids)).start()
         
         response.success = True
         response.message = 'Detection started'
@@ -140,10 +143,10 @@ class MockVisionNode(Node):
         return response
     
     def track_staff_callback(self, request, response):
-        self.get_logger().info(f'Received track staff request: staff_id={request.staff_id}')
+        self.get_logger().info(f'Received track staff request: robot_id={request.robot_id}')
         
-        # 2초 후에 직원 위치 메시지 발행
-        self.create_timer(2.0, lambda: self.publish_staff_location(request.staff_id))
+        # 2초 후에 직원 위치 메시지 발행 (1회만)
+        threading.Timer(2.0, lambda: self.publish_staff_location(request.robot_id)).start()
         
         response.success = True
         response.message = 'Staff tracking started'
@@ -152,8 +155,8 @@ class MockVisionNode(Node):
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Received check product in cart request: product_id={request.product_id}')
         
-        # 1초 후에 장바구니 확인 결과 발행
-        self.create_timer(1.0, lambda: self.publish_cart_check_result(request.product_id))
+        # 1초 후에 장바구니 확인 결과 발행 (1회만)
+        threading.Timer(1.0, lambda: self.publish_cart_check_result(request.product_id)).start()
         
         response.success = True
         response.message = 'Cart product check started'
@@ -185,23 +188,43 @@ class MockVisionNode(Node):
     def register_staff_callback(self, request, response):
         self.get_logger().info(f'Received register staff request')
         
-        # 2초 후에 직원 등록 결과 발행
-        self.create_timer(2.0, self.publish_staff_register_result)
+        # 2초 후에 직원 등록 결과 발행 (1회만)
+        threading.Timer(2.0, self.publish_staff_register_result).start()
         
         response.accepted = True
         response.message = 'Staff registration process accepted'
         return response
     
-    def publish_detection(self, location_id):
+    def publish_detection(self, product_ids):
         msg = PickeeVisionDetection()
         msg.robot_id = 1
-        msg.location_id = location_id
-        msg.product_id = 'P001'
-        msg.confidence = 0.95
+        msg.order_id = 123  # TODO: 실제 order_id 사용
+        msg.success = True
+        msg.products = []
+        
+        # product_ids를 PickeeDetectedProduct 배열로 변환
+        for i, product_id in enumerate(product_ids):
+            detected_product = PickeeDetectedProduct()
+            detected_product.product_id = product_id
+            detected_product.bbox_number = i + 1
+            
+            # BBox 좌표 설정 (모의 값)
+            bbox = BBox()
+            bbox.x1 = 100 + i * 50
+            bbox.y1 = 100 + i * 30
+            bbox.x2 = 200 + i * 50
+            bbox.y2 = 200 + i * 30
+            detected_product.bbox_coords = bbox
+            
+            detected_product.confidence = 0.85 + (i * 0.05)  # 0.85, 0.90, 0.95...
+            
+            msg.products.append(detected_product)
+        
+        msg.message = f'Detected {len(product_ids)} products'
         
         self.detection_pub.publish(msg)
-        self.get_logger().info(f'Published detection: location_id={location_id}, product_id=P001')
-    
+        self.get_logger().info(f'Published detection: {len(product_ids)} products detected')
+
     def publish_obstacles(self):
         msg = PickeeVisionObstacles()
         msg.robot_id = 1
@@ -212,17 +235,19 @@ class MockVisionNode(Node):
         # 로그도 간소화
         # self.get_logger().info('Published obstacles info')
     
-    def publish_staff_location(self, staff_id):
+    def publish_staff_location(self, robot_id):
         msg = PickeeVisionStaffLocation()
-        msg.robot_id = 1
-        msg.staff_id = staff_id
+        msg.robot_id = robot_id
+        msg.relative_position.x = 2.0
+        msg.relative_position.y = 3.0
         # 실제 메시지 구조에 따라 location 필드 설정
         # msg.location.x = 2.0
         # msg.location.y = 3.0
-        msg.confidence = 0.9
+        msg.distance = 0.9
+        msg.is_tracking = True
         
         self.staff_location_pub.publish(msg)
-        self.get_logger().info(f'Published staff location: staff_id={staff_id}')
+        self.get_logger().info(f'Published distance: distance={msg.distance}')
     
     def publish_cart_check_result(self, product_id):
         msg = PickeeVisionCartCheck()
