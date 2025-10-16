@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'mobile_controller = pickee_mobile.mobile_controller:main',
+            'mock_main_controller = pickee_mobile.mock_main_controller:main',
         ],
     },
 )
