@@ -289,8 +289,6 @@ class MockRobotNode(Node):
             handover_msg = PickeeCartHandover()
             handover_msg.robot_id = request.robot_id
             handover_msg.order_id = request.order_id
-            handover_msg.success = True
-            handover_msg.message = "Cart handed over"
 
             self.pickee_handover_pub.publish(handover_msg)
             self.get_logger().info(f"[MOCK] Cart handover complete")
