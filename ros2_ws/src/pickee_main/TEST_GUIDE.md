@@ -333,7 +333,7 @@ ros2 topic echo /pickee/mobile/pose
 ros2 topic echo /pickee/vision/detection_result         #
 ros2 topic echo /pickee/vision/cart_check_result        # 되지만 필요 없음
 ros2 topic echo /pickee/vision/obstacle_detected        #
-ros2 topic echo /pickee/vision/staff_location           # set_mode
+ros2 topic echo /pickee/vision/staff_location           # set_mode 선행
 ros2 topic echo /pickee/vision/register_staff_result    # 
 ```
 
