@@ -1291,6 +1291,12 @@ class OrderService:
         """
         return self._detected_product_bbox.get(order_id, {}).get(product_id)
 
+    def list_detected_products(self, order_id: int) -> Dict[int, int]:
+        """
+        주문별로 인식된 상품과 bbox 매핑을 반환한다.
+        """
+        return dict(self._detected_product_bbox.get(order_id, {}))
+
     async def _release_stock_for_order(self, order_id: int) -> None:
         """
         주문의 모든 상품 재고 복구

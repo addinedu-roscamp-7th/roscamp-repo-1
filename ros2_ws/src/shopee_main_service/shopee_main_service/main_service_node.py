@@ -301,33 +301,41 @@ class MainServiceApp:
                     "message": "order_id, robot_id, and speech are required.",
                 }
 
-            intent_data = await self._llm.detect_intent(speech)
-            if not intent_data:
-                return {
-                    "type": "product_selection_by_text_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to analyze speech command",
-                }
+            detected_map = self._order_service.list_detected_products(int(order_id))
 
-            entities = intent_data.get("entities") or {}
-            product_id = entities.get("product_id")
-            product_name = entities.get("product_name")
+            resolved_product: Optional[int] = None
+            bbox_number: Optional[int] = None
 
-            resolved_product = None
-            if product_id is not None:
-                try:
-                    resolved_product = int(product_id)
-                except (TypeError, ValueError):
-                    resolved_product = None
-
-            if resolved_product is None and product_name:
-                product_info = await self._product_service.get_product_by_name(product_name)
-                if product_info:
-                    resolved_product = product_info["product_id"]
+            detected_bbox_number = await self._llm.extract_bbox_number(speech)
+            if detected_bbox_number is not None:
+                for product_key, candidate_bbox in detected_map.items():
+                    if candidate_bbox == detected_bbox_number:
+                        resolved_product = int(product_key)
+                        bbox_number = int(candidate_bbox)
+                        break
 
             if resolved_product is None:
+                intent_data = await self._llm.detect_intent(speech)
+                if intent_data:
+                    entities = intent_data.get("entities") or {}
+                    product_id_entity = entities.get("product_id")
+                    product_name = entities.get("product_name")
+
+                    if product_id_entity is not None:
+                        try:
+                            resolved_product = int(product_id_entity)
+                        except (TypeError, ValueError):
+                            resolved_product = None
+
+                    if resolved_product is None and product_name:
+                        product_info = await self._product_service.get_product_by_name(product_name)
+                        if product_info:
+                            resolved_product = product_info["product_id"]
+
+            if resolved_product is not None and bbox_number is None:
+                bbox_number = self._order_service.get_detected_bbox(int(order_id), int(resolved_product))
+
+            if resolved_product is None or bbox_number is None:
                 return {
                     "type": "product_selection_by_text_response",
                     "result": False,
@@ -336,20 +344,10 @@ class MainServiceApp:
                     "message": "Could not determine product from speech.",
                 }
 
-            bbox_number = self._order_service.get_detected_bbox(int(order_id), int(resolved_product))
-            if bbox_number is None:
-                return {
-                    "type": "product_selection_by_text_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "No detected product matches the request.",
-                }
-
             success = await self._order_service.select_product(
                 int(order_id),
                 int(robot_id),
-                bbox_number,
+                int(bbox_number),
                 int(resolved_product),
             )
 
@@ -358,7 +356,8 @@ class MainServiceApp:
                 "result": success,
                 "error_code": None if success else "ROBOT_002",
                 "data": {
-                    "bbox": bbox_number,
+                    "bbox": int(bbox_number),
+                    "product_id": int(resolved_product),
                 },
                 "message": "Product selection processed" if success else "Failed to process selection",
             }
