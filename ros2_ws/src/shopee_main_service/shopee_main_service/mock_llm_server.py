@@ -19,7 +19,7 @@ logger = logging.getLogger("mock_llm_server")
 class MockLLMServer:
     """Mock LLM HTTP 서버"""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8000):
+    def __init__(self, host: str = "0.0.0.0", port: int = 5001):
         self.host = host
         self.port = port
         self.app = web.Application()
@@ -29,7 +29,7 @@ class MockLLMServer:
         """API 라우트 설정"""
         self.app.router.add_get("/llm/search_query", self.handle_search_query)
         self.app.router.add_get("/llm/intent_detection", self.handle_detect_intent)
-        self.app.router.add_get("/llm/box", self.handle_bbox_extract)
+        self.app.router.add_get("/llm/bbox", self.handle_bbox_extract)
 
     async def handle_search_query(self, request):
         """상품 검색 쿼리 생성"""
@@ -181,14 +181,14 @@ def main():
 ╚══════════════════════════════════════════════════════════╝
 
 Endpoints:
-  GET http://localhost:8000/llm/search_query
-  GET http://localhost:8000/llm/intent_detection
-  GET http://localhost:8000/llm/box
+  GET http://localhost:5001/llm/search_query
+  GET http://localhost:5001/llm/intent_detection
+  GET http://localhost:5001/llm/bbox
 
 Press Ctrl+C to stop
 """)
 
-    server = MockLLMServer(host="0.0.0.0", port=8000)
+    server = MockLLMServer(host="0.0.0.0", port=5001)
     try:
         server.run()
     except KeyboardInterrupt:

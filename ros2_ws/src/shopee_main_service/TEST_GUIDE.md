@@ -72,6 +72,16 @@ python3 src/shopee_main_service/scripts/test_client.py
 python3 src/shopee_main_service/scripts/test_client.py -i
 ```
 
+텍스트 기반 상품 선택 문장 변경:
+```bash
+python3 src/shopee_main_service/scripts/test_client.py --speech-selection "사과 가져다줘"
+```
+
+bbox 기반만 확인하려면:
+```bash
+python3 src/shopee_main_service/scripts/test_client.py --no-speech-selection
+```
+
 재고 관리 테스트 (자동):
 ```bash
 python3 scripts/test_client.py inventory
@@ -80,6 +90,17 @@ python3 scripts/test_client.py inventory
 재고 관리 테스트 (수동 - 단계별):
 ```bash
 python3 scripts/test_client.py inventory -i
+```
+
+LLM 및 음성 기반 담기 시나리오 테스트:
+```bash
+python3 src/shopee_main_service/scripts/test_llm_flows.py
+python3 src/shopee_main_service/scripts/test_llm_flows.py --llm-base-url http://192.168.0.154:5001
+```
+
+Main Service 연동만 확인하려면:
+```bash
+python3 src/shopee_main_service/scripts/test_llm_flows.py --skip-direct
 ```
 
 **옵션:**

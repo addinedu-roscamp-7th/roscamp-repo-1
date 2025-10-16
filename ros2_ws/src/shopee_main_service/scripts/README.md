@@ -14,6 +14,7 @@
 
 ### 테스트 스크립트
 - **`test_client.py`** - Main Service TCP API 테스트 클라이언트
+- **`test_llm_flows.py`** - LLM 연동 및 음성 기반 담기 시나리오 점검 스크립트
 
 ## 🚀 사용 방법
 
@@ -130,9 +131,16 @@ ros2 run shopee_main_service main_service_node
 
 # 3. 테스트 실행 (새 터미널)
 cd scripts
-python3 test_client.py              # 자동 모드
+python3 test_client.py              # 자동 모드 (기본: 텍스트 기반 상품 선택 포함)
 python3 test_client.py -i           # 인터랙티브 모드
+python3 test_client.py --no-speech-selection   # bbox 기반 테스트만 수행
+python3 test_client.py --speech-selection "사과 가져다줘"  # 텍스트 문장 변경
 python3 test_client.py inventory    # 재고 관리 테스트
+# LLM 연동 전용 테스트
+python3 test_llm_flows.py                   # 기본 음성 담기 + LLM 직접 점검
+python3 test_llm_flows.py --skip-direct     # Main Service 연동만 점검
+python3 test_llm_flows.py --speech "2번 상품 담아줘"   # 테스트 문장 변경
+python3 test_llm_flows.py --llm-base-url http://192.168.0.154:5001  # 실 서버로 직접 호출
 ```
 
 ## 🔍 데이터베이스 접속
@@ -180,6 +188,7 @@ scripts/
 ├── init_schema.sql        # 테이블 스키마
 ├── sample_data.sql        # 샘플 데이터
 ├── test_client.py         # API 테스트 클라이언트
+├── test_llm_flows.py      # LLM 연동 시나리오 테스트
 └── README.md              # 이 문서
 ```
 

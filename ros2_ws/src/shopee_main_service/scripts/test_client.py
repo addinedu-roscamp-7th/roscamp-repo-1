@@ -7,11 +7,15 @@ Mock 환경에서 로그인 → 상품 검색 → 주문 생성 → 상품 선�
 """
 import argparse
 import asyncio
+from typing import Optional
 
 from shopee_main_service.client_utils import MainServiceClient
 
 
-async def run_full_workflow(host: str, port: int, interactive: bool) -> None:
+DEFAULT_SPEECH_SELECTION = '1번 상품 담아줘'
+
+
+async def run_full_workflow(host: str, port: int, interactive: bool, speech_selection: Optional[str]) -> None:
     """전체 워크플로우를 순차적으로 실행합니다."""
     client = MainServiceClient(host=host, port=port)
     await client.connect()
@@ -73,15 +77,25 @@ async def run_full_workflow(host: str, port: int, interactive: bool) -> None:
 
         await wait_step(5, 'Testing Product Selection')
         await asyncio.sleep(1.0)
-        await client.send_request(
-            'product_selection',
-            {
-                'order_id': order_id,
-                'robot_id': robot_id,
-                'bbox_number': 1,
-                'product_id': 1,
-            },
-        )
+        if speech_selection:
+            await client.send_request(
+                'product_selection_by_text',
+                {
+                    'order_id': order_id,
+                    'robot_id': robot_id,
+                    'speech': speech_selection,
+                },
+            )
+        else:
+            await client.send_request(
+                'product_selection',
+                {
+                    'order_id': order_id,
+                    'robot_id': robot_id,
+                    'bbox_number': 1,
+                    'product_id': 1,
+                },
+            )
         await asyncio.sleep(1.0)
 
         await wait_step(6, 'Testing Shopping End')
@@ -107,13 +121,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--host', default='localhost', help='TCP 서버 호스트 (기본값: localhost)')
     parser.add_argument('--port', type=int, default=5000, help='TCP 서버 포트 (기본값: 5000)')
     parser.add_argument('--interactive', action='store_true', help='단계별 사용자 입력 대기 모드')
+    parser.add_argument(
+        '--speech-selection',
+        default=DEFAULT_SPEECH_SELECTION,
+        help='텍스트 기반 상품 선택 시 사용할 음성 문장 (예: "사과 가져다줘")',
+    )
+    parser.add_argument(
+        '--no-speech-selection',
+        action='store_true',
+        help='텍스트 기반 상품 선택 단계를 비활성화하고 기존 bbox 기반 플로우만 수행',
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     """엔트리포인트."""
     args = parse_args()
-    asyncio.run(run_full_workflow(args.host, args.port, args.interactive))
+    speech_value = None if args.no_speech_selection else args.speech_selection
+    asyncio.run(run_full_workflow(args.host, args.port, args.interactive, speech_value))
 
 
 if __name__ == '__main__':

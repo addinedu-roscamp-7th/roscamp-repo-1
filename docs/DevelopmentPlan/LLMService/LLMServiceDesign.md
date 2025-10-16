@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | UR_02 / SR_04 | 상품 탐색 | 자연어 기반 상품 검색 | `/llm/search_query`, `QueryGenerationService` |
 | UR_06 / SR_14 | 재고 보충 보조 | 직원 음성 명령 해석 | `/llm/intent_detection`, `IntentDetectionService` |
-| UR_08 | bbox 선택 명령 지원 | 음성에서 bbox 번호 추출 | `/llm/box`, `BoundingBoxExtractionService` |
+| UR_08 | bbox 선택 명령 지원 | 음성에서 bbox 번호 추출 | `/llm/bbox`, `BoundingBoxExtractionService` |
 
 
 ## 2. 내부 아키텍처
@@ -75,7 +75,7 @@ SafetyGuard ..> [Shopee DB Schema\n(product 등)] : 참조
 ### 3.3 컨트롤러 계층 (`app/api.py`)
 - 엔드포인트: 
   - `GET /llm/search_query`: `SearchQueryRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
-  - `GET /llm/box`: bbox 추출 요청, 200/401/503 응답 관리.
+  - `GET /llm/bbox`: bbox 추출 요청, 200/401/503 응답 관리.
   - `GET /llm/intent_detection`: `IntentDetectionRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
 - 공통 예외 처리:
   - `ValidationError` → 400.
