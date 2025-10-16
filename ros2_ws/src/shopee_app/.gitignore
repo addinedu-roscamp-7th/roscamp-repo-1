@@ -1,0 +1,60 @@
+# ===================================
+# Python / ROS2 + PyQt6 GUI Project
+# ===================================
+
+# ---- Python 기본 ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- 가상환경 ----
+.venv/
+.venv_gui/
+venv/
+ENV/
+env/
+env.bak/
+
+# ---- 빌드 / 배포 산출물 ----
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+*.manifest
+*.spec
+
+# ---- 로그 / 캐시 / 임시 ----
+*.log
+*.tmp
+*.swp
+.DS_Store
+.cache/
+pytest_cache/
+__pypackages__/
+
+# ---- IDE / 에디터 ----
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ---- ROS2 관련 ----
+install/
+log/
+build/
+colcon_ws/
+*.launch.pyc
+
+# ---- UI / 리소스 자동 생성물 ----
+# pyuic6로 변환된 파일은 명시적으로 관리할지 여부에 따라 선택
+# 보통 변환된 파일(app/main_window.py)은 직접 수정하지 않으므로 버전관리 O
+# 대신 UI 원본(.ui)은 반드시 포함해야 함
+# *.qrc 변환 결과는 자동 생성 시 제외
+*_rc.py
+
+# ---- 시스템 / 기타 ----
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
