@@ -133,7 +133,7 @@ class Tool_function():
             # 픽업 상품 메시지 제작
             move_info_message = self.data_handler.make_intent_detection_message(result)
             # llm 반환값 return
-            return result
+            return move_info_message
         # 에러가 발생하면
         except Exception as e:
             # 에러 print
@@ -161,7 +161,7 @@ class LLM_response():
         tools = [
             Tool(name='item_info'  , func=self.tool_function.item_info,   description="상품 정보 문의 관련 요청에만 답변"),
             Tool(name='pickup_info', func=self.tool_function.pickup_info, description="상품 선택 관련 요청에만 답변"),
-            Tool(name='move_info'  , func=self.tool_function.move_info,   description="이동 부호 + 이동 거리 + m(미터) 형식으로 이동 명령이 주어지면 이동거리 + 방향만 추출하여 반환 (+는 전진, -는 후진)")]
+            Tool(name='move_info'  , func=self.tool_function.move_info,   description="장소가 포함된 이동 명령 관련 요청에만 답변")]
         # llm 객체 설정
         # llama3.1 모델 사용
         llm = ChatOllama(model="llama3.1")
