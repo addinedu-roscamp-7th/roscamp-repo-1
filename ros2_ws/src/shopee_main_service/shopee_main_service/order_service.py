@@ -105,6 +105,17 @@ class OrderService:
             8: 100,
             9: 100,
         }
+        self._status_label_map = {
+            1: OrderStatus.PAID.value,
+            2: OrderStatus.MOVING.value,
+            3: OrderStatus.PICKED_UP.value,
+            4: OrderStatus.MOVING_TO_PACK.value,
+            5: OrderStatus.PACKING.value,
+            6: OrderStatus.PACKING.value,
+            7: OrderStatus.PACKING.value,
+            8: OrderStatus.PACKED.value,
+            9: OrderStatus.FAIL_PACK.value,
+        }
         self._status_destination_map = {
             1: "PAYMENT",
             2: "SHELF",
@@ -1465,3 +1476,116 @@ class OrderService:
                 status,
                 reason="reassignment_failed",
             )
+
+    async def get_active_orders_snapshot(self) -> Dict[str, Any]:
+        """
+        대시보드 표시용 진행 중 주문 스냅샷을 반환한다.
+
+        Returns:
+            진행 중 주문 목록과 간단한 요약 정보
+        """
+        now_utc = datetime.now(timezone.utc)
+        active_orders: List[Dict[str, Any]] = []
+        status_counter: Dict[int, int] = {}
+
+        with self._db.session_scope() as session:
+            orders = (
+                session.query(Order)
+                .filter(Order.order_status < 8)  # 8=PACKED 이상은 완료 상태로 간주
+                .order_by(Order.start_time.asc())
+                .all()
+            )
+
+            for order in orders:
+                total_items, total_price = self._calculate_order_summary(session, order.order_id)
+
+                pickee_robot_id = self._pickee_assignments.get(order.order_id)
+                packee_robot_id = self._packee_assignments.get(order.order_id)
+
+                pickee_monitor = (
+                    self._reservation_monitors.get((order.order_id, pickee_robot_id))
+                    if pickee_robot_id is not None
+                    else None
+                )
+                packee_monitor = (
+                    self._reservation_monitors.get((order.order_id, packee_robot_id))
+                    if packee_robot_id is not None
+                    else None
+                )
+
+                detected_products = list(
+                    (self._detected_product_bbox.get(order.order_id) or {}).keys()
+                )
+
+                active_orders.append(
+                    {
+                        "order_id": order.order_id,
+                        "customer_id": order.customer.id if order.customer else None,
+                        "status_code": order.order_status,
+                        "status": self._status_label_map.get(
+                            order.order_status,
+                            OrderStatus.PAID.value,
+                        ),
+                        "progress": self._status_progress(order.order_status),
+                        "started_at": order.start_time.isoformat() if order.start_time else None,
+                        "elapsed_seconds": (
+                            (now_utc - order.start_time).total_seconds()
+                            if order.start_time
+                            else None
+                        ),
+                        "pickee_robot_id": pickee_robot_id,
+                        "packee_robot_id": packee_robot_id,
+                        "reservation_watch": {
+                            "pickee_active": bool(pickee_monitor) and not pickee_monitor.done(),
+                            "packee_active": bool(packee_monitor) and not packee_monitor.done(),
+                        },
+                        "total_items": total_items,
+                        "total_price": total_price,
+                        "detected_products": detected_products,
+                    }
+                )
+
+                status_counter[order.order_status] = status_counter.get(order.order_status, 0) + 1
+
+        status_summary = {
+            self._status_label_map.get(code, str(code)): count
+            for code, count in status_counter.items()
+        }
+
+        return {
+            "orders": active_orders,
+            "summary": {
+                "total_active": len(active_orders),
+                "status_counts": status_summary,
+            },
+        }
+
+    async def get_recent_failed_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        최근 실패한 주문 목록을 반환한다.
+
+        Args:
+            limit: 조회할 최대 개수
+        """
+        with self._db.session_scope() as session:
+            failed_orders = (
+                session.query(Order)
+                .filter(Order.order_status == 9)  # FAIL_PACK
+                .order_by(Order.end_time.desc().nullslast(), Order.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+
+            payload: List[Dict[str, Any]] = []
+            for order in failed_orders:
+                total_items, total_price = self._calculate_order_summary(session, order.order_id)
+                payload.append(
+                    {
+                        "order_id": order.order_id,
+                        "failure_reason": order.failure_reason,
+                        "ended_at": order.end_time.isoformat() if order.end_time else None,
+                        "total_items": total_items,
+                        "total_price": total_price,
+                    }
+                )
+            return payload

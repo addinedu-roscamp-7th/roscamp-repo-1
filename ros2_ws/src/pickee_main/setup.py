@@ -20,7 +20,9 @@ setup(
     maintainer_email='wonho9188@gmail.com',
     description='Main controller for Pickee robot',
     license='Apache License 2.0',
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             'main_controller = pickee_main.main_controller:main',
