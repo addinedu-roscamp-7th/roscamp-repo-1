@@ -429,20 +429,30 @@ class MainServiceApp:
 
             logger.info(f"Stopping video stream for robot {robot_id}")
 
-            # 1. 로봇에게 영상 송출 중지 명령
             req = PickeeMainVideoStreamStop.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
-            res = await self._robot.dispatch_video_stream_stop(req)
-            
-            # 2. UDP 릴레이 중지
+
+            success = False
+            message = "Failed to stop stream"
+            try:
+                res = await self._robot.dispatch_video_stream_stop(req)
+                success = res.success
+                if res.message:
+                    message = res.message
+                elif success:
+                    message = "Video stream stopped"
+                else:
+                    message = "Failed to stop stream"
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Video stream stop request failed: %s", exc)
+
             self._streaming_service.stop_relay()
 
-            success = res.success
             return {
                 "type": "video_stream_stop_response",
                 "result": success,
                 "error_code": None if success else "SYS_001",
                 "data": {},
-                "message": res.message if success else "Failed to stop stream",
+                "message": message,
             }
 
         async def handle_inventory_search(data, peer=None):

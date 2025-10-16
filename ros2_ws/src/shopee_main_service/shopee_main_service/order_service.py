@@ -31,7 +31,7 @@ from .database_models import Customer, Order, OrderItem, Product, RobotHistory
 from .event_bus import EventBus
 from .robot_allocator import AllocationContext, RobotAllocator
 from .robot_state_store import RobotStateStore
-from .constants import RobotType, RobotStatus
+from .constants import OrderStatus, RobotType, RobotStatus
 
 if TYPE_CHECKING:
     from shopee_interfaces.msg import (
