@@ -12,9 +12,9 @@
 
 ## 2. 노드 아키텍처 (Node Architecture)
 
-- **노드 이름**: `pickee_main_controller`
-- **실행 파일**: `shopee_pickee_main/main_controller.py` (가칭)
-- **실행 방식**: `ros2 run shopee_pickee_main main_controller`
+- **노드 이름**: `packee_main_controller`
+- **실행 파일**: `shopee_packee_main/main_controller.py` (가칭)
+- **실행 방식**: `ros2 run shopee_packee_main main_controller`
 
 ## 3. 상태 관리 (State Management)
 
