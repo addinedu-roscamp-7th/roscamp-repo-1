@@ -130,7 +130,7 @@ class LLMClient:
 
     async def extract_bbox_number(self, text: str) -> Optional[int]:
         """자연어 문장에서 bbox 번호를 추출한다."""
-        endpoint = f'{self._base_url}/llm/box'
+        endpoint = f'{self._base_url}/llm/bbox'
         payload = {'text': text}
 
         logger.debug('LLM bbox request to %s with text=%r', endpoint, text)
