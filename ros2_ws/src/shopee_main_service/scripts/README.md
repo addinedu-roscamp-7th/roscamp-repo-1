@@ -120,8 +120,10 @@ EOF
 # 터미널 1 - Mock LLM Server
 ros2 run shopee_main_service mock_llm_server
 
-# 터미널 2 - Mock Robot Node
+# 터미널 2 - Mock Robot Node (Pickee/Packee 또는 선택적 실행)
 ros2 run shopee_main_service mock_robot_node
+# ros2 run shopee_main_service mock_robot_node --mode pickee
+# ros2 run shopee_main_service mock_robot_node --mode packee
 
 # 터미널 3 - Main Service
 ros2 run shopee_main_service main_service_node
@@ -190,4 +192,3 @@ scripts/
 ---
 
 **마지막 업데이트:** 2025-10-12
-

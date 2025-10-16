@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import socket
 import time
 import uuid
 from dataclasses import dataclass
@@ -72,6 +73,15 @@ class APIController:
         self._server = await asyncio.start_server(self._handle_client, self._host, self._port)
         addr = ", ".join(str(sock.getsockname()) for sock in self._server.sockets or [])
         logger.info("APIController listening on %s", addr)
+
+        # 추가: 실제 네트워크 접근 가능한 IP 안내
+        try:
+            candidate_ips = self._discover_ip_addresses()
+            if candidate_ips:
+                targets = ", ".join(f"{ip}:{self._port}" for ip in candidate_ips)
+                logger.info("APIController reachable via: %s", targets)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to list accessible IP addresses: %s", exc)
 
     async def stop(self) -> None:
         """
@@ -335,3 +345,33 @@ class APIController:
         if "timestamp" not in enriched or timestamp_ms is not None:
             enriched["timestamp"] = timestamp_ms or enriched.get("timestamp") or int(time.time() * 1000)
         return enriched
+
+    def _discover_ip_addresses(self) -> Tuple[str, ...]:
+        """
+        로컬 머신의 접근 가능한 IP 주소를 추정한다.
+        """
+        ips: set[str] = set()
+
+        # 우선, 외부로 연결해본 뒤 소켓이 사용하는 IP 확인
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.connect(("8.8.8.8", 80))
+                local_ip = sock.getsockname()[0]
+                if local_ip:
+                    ips.add(local_ip)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 호스트 이름 기반 IP
+        try:
+            host_ip = socket.gethostbyname(socket.gethostname())
+            if host_ip and host_ip != "127.0.0.1":
+                ips.add(host_ip)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 루프백은 마지막에 포함
+        if not ips:
+            ips.add("127.0.0.1")
+
+        return tuple(sorted(ips))

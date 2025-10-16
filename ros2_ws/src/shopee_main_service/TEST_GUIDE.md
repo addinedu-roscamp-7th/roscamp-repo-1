@@ -39,7 +39,18 @@ ros2 run shopee_main_service mock_llm_server
 
 **터미널 2 - Mock Robot Node 시작:**
 ```bash
+# Pickee와 Packee를 모두 시뮬레이션
 ros2 run shopee_main_service mock_robot_node
+
+# Pickee만 모의 (Packee는 실제 노드와 연동 시)
+ros2 run shopee_main_service mock_pickee_node
+# 또는
+ros2 run shopee_main_service mock_robot_node --mode pickee
+
+# Packee만 모의 (Pickee는 실제 노드와 연동 시)
+ros2 run shopee_main_service mock_packee_node
+# 또는
+ros2 run shopee_main_service mock_robot_node --mode packee
 ```
 
 **터미널 3 - Main Service 시작:**
@@ -186,14 +197,15 @@ Mock 환경에서는 비동기 알림을 검증하기 위해 `MainServiceClient.
 - 명세: `docs/InterfaceSpecification/Main_vs_LLM.md`
 - 도구: `ros2 run shopee_main_service mock_llm_server` 또는 실제 LLM 엔드포인트
 - 검증 포인트:
-  - `LLMClient.generate_search_query("비건 사과")` → SQL WHERE 절 응답
-  - `LLMClient.detect_intent("사과 가져다줘")` → `{"intent": "fetch_product", ...}`
+- `LLMClient.generate_search_query("비건 사과")` → SQL WHERE 절 응답
+- `LLMClient.extract_bbox_number("2번 집어줘")` → `{"bbox": 2}`
+- `LLMClient.detect_intent("피키야, A존으로 이동해줘")` → 이동 의도/엔티티 응답
   - 실패 시 fallback 검색(`ProductService._basic_keyword_search`)이 호출되는지 로그 확인
 
 ### Main Service ↔ Pickee Main (ROS2)
 - 명세: `docs/InterfaceSpecification/Main_vs_Pic_Main.md`
 - 도구:
-  - Mock 환경: `ros2 run shopee_main_service mock_robot_node`
+  - Mock 환경: `ros2 run shopee_main_service mock_robot_node` (또는 `mock_pickee_node`)
   - 실제/시뮬레이션 로봇: Pickee Main 노드
 - 테스트 항목:
   - `/pickee/workflow/start_task` 서비스 호출 (주문 생성 시 자동)
@@ -203,7 +215,7 @@ Mock 환경에서는 비동기 알림을 검증하기 위해 `MainServiceClient.
 ### Main Service ↔ Packee Main (ROS2)
 - 명세: `docs/InterfaceSpecification/Main_vs_Pac_Main.md`
 - 도구:
-  - Mock 환경: `mock_robot_node` (Packee 흐름 포함)
+  - Mock 환경: `mock_robot_node` (Packee 흐름 포함) 또는 `mock_packee_node`
   - 실제/시뮬레이션 로봇: Packee Main 노드
 - 테스트 항목:
   - `/packee/packing/check_availability`, `/packee/packing/start` 서비스 호출
@@ -321,7 +333,9 @@ Mock 환경 테스트 성공 후:
 
 ## 🔗 관련 파일
 
-- `shopee_main_service/mock_robot_node.py` - Mock 로봇
+- `shopee_main_service/mock_robot_node.py` - Mock 로봇 (Pickee/Packee 선택 가능)
+- `shopee_main_service/mock_pickee_node.py` - Pickee 전용 Mock 노드
+- `shopee_main_service/mock_packee_node.py` - Packee 전용 Mock 노드
 - `shopee_main_service/mock_llm_server.py` - Mock LLM
 - `scripts/test_client.py` - 테스트 클라이언트
 - `.env.example` - 환경 설정 템플릿
