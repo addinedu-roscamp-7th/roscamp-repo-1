@@ -2,6 +2,8 @@ import rclpy
 from rclpy.node import Node
 from shopee_interfaces.msg import PickeeMobileArrival, PickeeMobilePose, PickeeMobileSpeedControl
 from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileUpdateGlobalPath
+import threading
+import time
 
 class MockMobileNode(Node):
     def __init__(self):
@@ -57,18 +59,33 @@ class MockMobileNode(Node):
         
         self.is_moving = True
         
-        # 2초 후에 도착 메시지 발행하도록 타이머 설정
-        self.create_timer(2.0, lambda: self.publish_arrival(request.location_id))
+        # 2초 후에 도착 메시지를 한 번만 발행하도록 스레드 사용
+        threading.Thread(
+            target=self.delayed_arrival_publish,
+            args=(request.location_id,),
+            daemon=True
+        ).start()
         
         response.success = True
         response.message = 'Move command accepted'
         return response
     
+    def delayed_arrival_publish(self, location_id):
+        # 2초 대기 후 한 번만 도착 메시지 발행
+        time.sleep(2.0)
+        self.publish_arrival(location_id)
+    
     def publish_arrival(self, location_id):
         msg = PickeeMobileArrival()
         msg.robot_id = 1
+        msg.order_id = 123  # 테스트용 order_id
         msg.location_id = location_id
-        msg.success = True
+        msg.final_pose.x = 10.5  # 테스트용 최종 위치
+        msg.final_pose.y = 5.2
+        msg.final_pose.theta = 1.57
+        msg.position_error = 0.05  # 5cm 오차
+        msg.travel_time = 15.5  # 15.5초 이동 시간
+        msg.message = f"Successfully arrived at location {location_id}"
         
         self.arrival_pub.publish(msg)
         self.is_moving = False
