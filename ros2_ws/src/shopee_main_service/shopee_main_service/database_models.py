@@ -99,15 +99,30 @@ class Product(Base):
     is_vegan_friendly = Column(Boolean, nullable=False)
     section_id = Column(Integer, ForeignKey('section.section_id'), nullable=False)
     warehouse_id = Column(Integer, ForeignKey('warehouse.warehouse_id'), nullable=False)
+    length = Column(Integer, nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    weight = Column(Integer, nullable=True)
+    fragile = Column(Boolean, nullable=True)
+    img_path = Column(String(50), nullable=True)
 
     allergy_info = relationship("AllergyInfo")
     section = relationship("Section")
     warehouse = relationship("Warehouse")
 
+class Box(Base):
+    __tablename__ = 'box'
+    box_id = Column(Integer, primary_key=True, autoincrement=True)
+    width = Column(Integer, nullable=False)
+    depth = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+
+
 class Order(Base):
     __tablename__ = 'order'
     order_id = Column(Integer, primary_key=True, autoincrement=True)
     customer_id = Column(Integer, ForeignKey('customer.customer_id'), nullable=False)
+    box_id = Column(Integer, ForeignKey('box.box_id'), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=True)
     order_status = Column(mysql.TINYINT, nullable=False)
@@ -116,6 +131,7 @@ class Order(Base):
 
     customer = relationship("Customer")
     items = relationship("OrderItem", back_populates="order")
+    box = relationship("Box")
 
 class OrderItem(Base):
     __tablename__ = 'order_item'

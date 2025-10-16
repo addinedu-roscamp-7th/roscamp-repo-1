@@ -176,6 +176,12 @@ class InventoryService:
                 is_vegan_friendly=self._to_bool(payload["is_vegan_friendly"]),
                 section_id=int(payload["section_id"]),
                 warehouse_id=warehouse_id,
+                length=int(payload["length"]) if payload.get("length") is not None else None,
+                width=int(payload["width"]) if payload.get("width") is not None else None,
+                height=int(payload["height"]) if payload.get("height") is not None else None,
+                weight=int(payload["weight"]) if payload.get("weight") is not None else None,
+                fragile=self._to_bool(payload["fragile"]) if payload.get("fragile") is not None else None,
+                img_path=str(payload["img_path"]) if payload.get("img_path") else None,
             )
             session.add(product)
 
@@ -190,28 +196,23 @@ class InventoryService:
             if not product:
                 return False
 
-            for field in ("barcode", "name", "category"):
+            for field in ("barcode", "name", "category", "img_path"):
                 if field in payload and payload[field] is not None:
                     setattr(product, field, str(payload[field]))
 
-            if "quantity" in payload and payload["quantity"] is not None:
-                product.quantity = int(payload["quantity"])
-
-            if "price" in payload and payload["price"] is not None:
-                product.price = int(payload["price"])
-
-            if "allergy_info_id" in payload and payload["allergy_info_id"] is not None:
-                product.allergy_info_id = int(payload["allergy_info_id"])
+            for field in ("quantity", "price", "allergy_info_id", "discount_rate", "length", "width", "height", "weight"):
+                if field in payload and payload[field] is not None:
+                    setattr(product, field, int(payload[field]))
 
             if "is_vegan_friendly" in payload and payload["is_vegan_friendly"] is not None:
                 product.is_vegan_friendly = self._to_bool(payload["is_vegan_friendly"])
+            
+            if "fragile" in payload and payload["fragile"] is not None:
+                product.fragile = self._to_bool(payload["fragile"])
 
             if "section_id" in payload and payload["section_id"] is not None:
                 product.section_id = int(payload["section_id"])
                 product.warehouse_id = self._resolve_warehouse_id(session, product.section_id, fallback=product.warehouse_id)
-
-            if "discount_rate" in payload and payload["discount_rate"] is not None:
-                product.discount_rate = int(payload["discount_rate"])
 
             return True
 
@@ -235,6 +236,12 @@ class InventoryService:
             "category": product.category,
             "allergy_info_id": product.allergy_info_id,
             "is_vegan_friendly": product.is_vegan_friendly,
+            "length": product.length,
+            "width": product.width,
+            "height": product.height,
+            "weight": product.weight,
+            "fragile": product.fragile,
+            "img_path": product.img_path,
         }
 
     def _resolve_warehouse_id(self, session, section_id: int, fallback: Optional[int] = None) -> int:

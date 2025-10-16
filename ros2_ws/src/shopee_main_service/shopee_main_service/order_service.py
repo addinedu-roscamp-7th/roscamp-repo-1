@@ -27,7 +27,7 @@ from shopee_interfaces.srv import (
 from shopee_interfaces.msg import ProductLocation
 
 from .config import settings
-from .database_models import Customer, Order, OrderItem, Product, RobotHistory
+from .database_models import Box, Customer, Order, OrderItem, Product, RobotHistory
 from .event_bus import EventBus
 from .robot_allocator import AllocationContext, RobotAllocator
 from .robot_state_store import RobotStateStore
@@ -897,7 +897,55 @@ class OrderService:
                     await self._state_store.release(state_reserved_robot_id, order_id)
                 return
 
+            # [BOX SELECTION - INFO GATHERING]
+            # Packee가 상자를 결정할 수 있도록, 주문에 포함된 모든 상품의 상세 정보를 조회합니다.
+            product_details_for_packee = []
+            with self._db.session_scope() as session:
+                items_with_products = session.query(OrderItem, Product).join(Product, OrderItem.product_id == Product.product_id).filter(OrderItem.order_id == order_id).all()
+                for order_item, product in items_with_products:
+                    product_details_for_packee.append({
+                        "product_id": product.product_id,
+                        "quantity": order_item.quantity,
+                        "length": product.length or 0,
+                        "width": product.width or 0,
+                        "height": product.height or 0,
+                        "weight": product.weight or 0,
+                        "fragile": product.fragile or False,
+                    })
+            
+            logger.info(f"Passing {len(product_details_for_packee)} product details to Packee for order {order_id}")
+
+            # =================================================================================
+            # !! 중요 !!: 아래 코드가 동작하려면 ROS2 인터페이스 파일 수정이 반드시 필요합니다.
+            # 
+            # 1. `shopee_interfaces` 패키지에 `ProductInfo.msg` 파일을 생성해야 합니다. (이미 있다면 생략)
+            #    int32 product_id
+            #    int32 quantity
+            #    int32 length
+            #    int32 width
+            #    int32 height
+            #    int32 weight
+            #    bool fragile
+            #
+            # 2. `shopee_interfaces/srv/PackeePackingStart.srv` 파일의 요청(request) 부분에
+            #    `ProductInfo[] products` 필드를 추가해야 합니다.
+            #
+            #    ---
+            #    int32 robot_id
+            #    int32 order_id
+            #    shopee_interfaces/ProductInfo[] products  # <--- 이 라인 추가
+            #    ---
+            #    bool success
+            #    string message
+            # =================================================================================
+            
+            # 위 인터페이스 수정이 완료되었다고 가정하고 요청을 생성합니다.
+            # 현재는 인터페이스가 변경되지 않았으므로, 원본 요청을 그대로 사용합니다.
+            # 추후 인터페이스가 변경되면 아래 주석을 해제하고 `products` 인자를 채워야 합니다.
             start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
+            # from shopee_interfaces.msg import ProductInfo
+            # start_req.products = [ProductInfo(**detail) for detail in product_details_for_packee] # 인터페이스 변경 후 활성화
+
             start_res = await self._robot.dispatch_pack_task(start_req)
 
             if not start_res.success:
