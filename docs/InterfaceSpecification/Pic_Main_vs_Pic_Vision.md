@@ -26,10 +26,10 @@ Pic Vision = Pickee Vision AI Service
 ### `/pickee/vision/check_cart_presence`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionCheckCartPresence.srv`
 
-### `/pickee/video_stream/start`
+### `/pickee/vision/video_stream_start`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionVideoStreamStart.srv`
 
-### `/pickee/video_stream/stop`
+### `/pickee/vision/video_stream_stop`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionVideoStreamStop.srv`
 
 ### `/pickee/vision/register_staff`
@@ -398,7 +398,7 @@ message: "Cart not detected"
 
 영상 송출 시작 명령
 
-/pickee/video_stream/start
+/pickee/vision/video_stream_start
 
 Pic Main
 
@@ -425,7 +425,7 @@ message: "video streaming started"
 
 영상 송출 중지 명령
 
-/pickee/video_stream/stop
+/pickee/vision/video_stream_stop
 
 Pic Main
 

@@ -52,6 +52,9 @@ class MainServiceConfig(BaseSettings):
     # === ROS2 설정 ===
     ROS_SPIN_TIMEOUT: float = 0.1
     ROS_SERVICE_TIMEOUT: float = 1.0
+    ROS_SERVICE_RETRY_ATTEMPTS: int = 3
+    ROS_SERVICE_RETRY_BASE_DELAY: float = 0.2
+    ROS_STATUS_HEALTH_TIMEOUT: float = 10.0
     
     PICKEE_PACKING_LOCATION_ID: int = 0
     PICKEE_HOME_LOCATION_ID: int = 0
@@ -66,6 +69,10 @@ class MainServiceConfig(BaseSettings):
     ROBOT_MAX_PICKEE: int = 10
     ROBOT_MAX_PACKEE: int = 5
     ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
+
+    # === 대시보드 설정 ===
+    GUI_ENABLED: bool = False
+    GUI_SNAPSHOT_INTERVAL: float = 1.0
 
     # === 로깅 설정 ===
     LOG_LEVEL: str = "INFO"

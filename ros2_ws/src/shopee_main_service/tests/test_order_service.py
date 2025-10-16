@@ -2,8 +2,10 @@
 Unit tests for the OrderService.
 """
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from shopee_interfaces.msg import PickeeArrival, PickeeCartHandover, PickeeMoveStatus, PackeePackingComplete
 from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
@@ -261,6 +263,28 @@ class TestHandleArrivalNotice:
         assert isinstance(call_args, PickeeProductDetect.Request)
         assert list(call_args.product_ids) == [101]
 
+    async def test_skips_detection_for_non_section_location(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+        mock_robot_coordinator: AsyncMock,
+        mock_event_bus: AsyncMock,
+    ) -> None:
+        """섹션이 아닌 위치에서는 상품 인식을 수행하지 않는다."""
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.filter_by.return_value.all.return_value = [OrderItem(product_id=202)]
+
+        arrival_msg = PickeeArrival(robot_id=3, order_id=55, location_id=900, section_id=-1)
+        order_service._order_user_map[55] = "user55"
+
+        await order_service.handle_arrival_notice(arrival_msg)
+
+        payload = find_push_payload(mock_event_bus, "robot_arrived_notification")
+        assert payload is not None
+        assert payload["data"]["section_id"] == -1
+        assert payload["message"] == "목적지에 도착했습니다"
+        mock_robot_coordinator.dispatch_product_detect.assert_not_awaited()
+
 
 class TestHandleCartHandover:
     """Test suite for the OrderService.handle_cart_handover method."""
@@ -432,6 +456,76 @@ class TestHandleRobotFailure:
             and args.args[1].get("type") == "robot_failure_notification"
         ]
         assert failure_calls
+
+
+class TestOrderServiceDashboardHelpers:
+    """대시보드용 헬퍼 메서드 테스트 모음."""
+
+    async def test_get_active_orders_snapshot_basic(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+    ):
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+
+        order = MagicMock()
+        order.order_id = 101
+        order.order_status = 2
+        order.customer = MagicMock(id="customer001")
+        order.start_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+        query_mock = MagicMock()
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.all.return_value = [order]
+        mock_session.query.return_value = query_mock
+
+        order_service._pickee_assignments[101] = 5
+        order_service._detected_product_bbox[101] = {77: 1}
+
+        original_calc = order_service._calculate_order_summary
+        order_service._calculate_order_summary = MagicMock(return_value=(3, 12900))
+
+        snapshot = await order_service.get_active_orders_snapshot()
+
+        order_service._calculate_order_summary = original_calc
+
+        assert snapshot["summary"]["total_active"] == 1
+        first = snapshot["orders"][0]
+        assert first["order_id"] == 101
+        assert first["pickee_robot_id"] == 5
+        assert first["detected_products"] == [77]
+
+    async def test_get_recent_failed_orders(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+    ):
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+
+        failed_order = MagicMock()
+        failed_order.order_id = 202
+        failed_order.order_status = 9
+        failed_order.failure_reason = "robot timeout"
+        failed_order.end_time = datetime.now(timezone.utc)
+
+        query_mock = MagicMock()
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.limit.return_value = query_mock
+        query_mock.all.return_value = [failed_order]
+        mock_session.query.return_value = query_mock
+
+        original_calc = order_service._calculate_order_summary
+        order_service._calculate_order_summary = MagicMock(return_value=(2, 5000))
+
+        payload = await order_service.get_recent_failed_orders(limit=5)
+
+        order_service._calculate_order_summary = original_calc
+
+        assert payload
+        assert payload[0]["order_id"] == 202
+        assert payload[0]["failure_reason"] == "robot timeout"
 
     async def test_reassign_without_allocator_sends_failure(
         self,

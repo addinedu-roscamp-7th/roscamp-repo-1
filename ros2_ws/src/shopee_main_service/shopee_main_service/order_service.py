@@ -87,6 +87,7 @@ class OrderService:
         self._default_locale_messages = {
             "robot_moving": "상품 위치로 이동 중입니다",
             "robot_arrived": "섹션에 도착했습니다",
+            "robot_arrived_generic": "목적지에 도착했습니다",
             "product_detected": "상품을 선택해주세요",
             "cart_add_success": "상품이 장바구니에 담겼습니다",
             "cart_add_fail": "상품 담기에 실패했습니다",
@@ -103,6 +104,17 @@ class OrderService:
             7: 95,
             8: 100,
             9: 100,
+        }
+        self._status_label_map = {
+            1: OrderStatus.PAID.value,
+            2: OrderStatus.MOVING.value,
+            3: OrderStatus.PICKED_UP.value,
+            4: OrderStatus.MOVING_TO_PACK.value,
+            5: OrderStatus.PACKING.value,
+            6: OrderStatus.PACKING.value,
+            7: OrderStatus.PACKING.value,
+            8: OrderStatus.PACKED.value,
+            9: OrderStatus.FAIL_PACK.value,
         }
         self._status_destination_map = {
             1: "PAYMENT",
@@ -649,7 +661,11 @@ class OrderService:
         """
         Pickee의 도착 이벤트를 처리하고, 상품 인식 단계를 시작합니다.
         """
-        logger.info("Handling arrival notice for order %d at section %d", msg.order_id, msg.section_id)
+        is_section = msg.section_id is not None and msg.section_id >= 0
+        location_desc = f"section {msg.section_id}" if is_section else "non-section location"
+        logger.info("Handling arrival notice for order %d at %s", msg.order_id, location_desc)
+        section_payload = msg.section_id if is_section else -1
+        message_key = "robot_arrived" if is_section else "robot_arrived_generic"
         await self._push_to_user(
             {
                 "type": "robot_arrived_notification",
@@ -659,12 +675,18 @@ class OrderService:
                     "order_id": msg.order_id,
                     "robot_id": msg.robot_id,
                     "location_id": msg.location_id,
-                    "section_id": msg.section_id,
+                    "section_id": section_payload,
                 },
-                "message": self._default_locale_messages["robot_arrived"],
+                "message": self._default_locale_messages[message_key],
             },
             order_id=msg.order_id,
         )
+        if not is_section:
+            logger.debug(
+                "Skipping product detection for order %d because arrival location is not a section",
+                msg.order_id,
+            )
+            return
         try:
             with self._db.session_scope() as session:
                 product_ids = [
@@ -804,6 +826,8 @@ class OrderService:
         logger.info("Handling cart handover for order %d, starting packing process.", order_id)
         packee_robot_id: Optional[int] = None
         allocator_reserved = False
+        state_reserved = False
+        state_reserved_robot_id: Optional[int] = None
         try:
             if self._allocator:
                 context = AllocationContext(
@@ -817,17 +841,61 @@ class OrderService:
                     logger.info("Reserved Packee robot %d for order %d via allocator.", packee_robot_id, order_id)
                 else:
                     logger.info("Allocator could not find available Packee robot for order %d. Falling back to ROS check.", order_id)
-            
-            if packee_robot_id is None:
-                check_req = PackeePackingCheckAvailability.Request()
-                check_res = await self._robot.check_packee_availability(check_req)
-                
-                if not check_res.available:
-                    logger.error("No available Packee robot for order %d. Reason: %s", order_id, check_res.message)
+
+            if packee_robot_id is None and self._state_store:
+                available_packees = await self._state_store.list_available(RobotType.PACKEE)
+                if not available_packees:
+                    logger.error("No available Packee robot for order %d (state store).", order_id)
                     return
 
-                packee_robot_id = check_res.robot_id
-                logger.info("Packee robot %d is available for order %d (ROS service).", packee_robot_id, order_id)
+                candidate_state = available_packees[0]
+                reserved = await self._state_store.try_reserve(candidate_state.robot_id, order_id)
+                if not reserved:
+                    logger.error(
+                        "Failed to reserve Packee robot %d for order %d via state store.",
+                        candidate_state.robot_id,
+                        order_id,
+                    )
+                    return
+
+                packee_robot_id = candidate_state.robot_id
+                state_reserved = True
+                state_reserved_robot_id = candidate_state.robot_id
+                logger.info(
+                    "Reserved Packee robot %d for order %d via state store fallback.",
+                    packee_robot_id,
+                    order_id,
+                )
+
+            availability_response = None
+            if packee_robot_id is None:
+                check_req = PackeePackingCheckAvailability.Request(
+                    robot_id=0,
+                    order_id=order_id,
+                )
+                availability_response = await self._robot.check_packee_availability(check_req)
+
+                available = getattr(availability_response, "available", None)
+                if available is None:
+                    available = getattr(availability_response, "success", False)
+
+                if not available:
+                    logger.error("No available Packee robot for order %d.", order_id)
+                    if allocator_reserved and packee_robot_id is not None:
+                        await self._allocator.release_robot(packee_robot_id, order_id)
+                    if state_reserved and state_reserved_robot_id is not None:
+                        await self._state_store.release(state_reserved_robot_id, order_id)
+                    return
+
+                provided_robot_id = getattr(availability_response, "robot_id", None)
+                if provided_robot_id:
+                    packee_robot_id = provided_robot_id
+
+            if packee_robot_id is None:
+                logger.error("No Packee robot id available for order %d.", order_id)
+                if state_reserved and state_reserved_robot_id is not None:
+                    await self._state_store.release(state_reserved_robot_id, order_id)
+                return
 
             start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
             start_res = await self._robot.dispatch_pack_task(start_req)
@@ -836,13 +904,14 @@ class OrderService:
                 logger.error("Failed to start packing for order %d. Reason: %s", order_id, start_res.message)
                 if allocator_reserved:
                     await self._allocator.release_robot(packee_robot_id, order_id)
+                if state_reserved:
+                    await self._state_store.release(packee_robot_id, order_id)
                 return
-            
+
             logger.info("Successfully dispatched packing task for order %d to robot %d.", order_id, packee_robot_id)
-            if allocator_reserved:
-                self._packee_assignments[order_id] = packee_robot_id
-                # 타임아웃 모니터링 시작
-                self._start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
+            self._packee_assignments[order_id] = packee_robot_id
+            # 타임아웃 모니터링 시작
+            self._start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
 
             packing_payload = {
                 "order_status": "PACKING",
@@ -908,6 +977,16 @@ class OrderService:
                     logger.warning(
                         "Failed to release Packee robot %d for order %d after exception: %s",
                         packee_robot_id,
+                        order_id,
+                        release_exc,
+                    )
+            if state_reserved and state_reserved_robot_id is not None:
+                try:
+                    await self._state_store.release(state_reserved_robot_id, order_id)
+                except Exception as release_exc:  # noqa: BLE001
+                    logger.warning(
+                        "Failed to release Packee robot %d via state store for order %d after exception: %s",
+                        state_reserved_robot_id,
                         order_id,
                         release_exc,
                     )
@@ -1397,3 +1476,116 @@ class OrderService:
                 status,
                 reason="reassignment_failed",
             )
+
+    async def get_active_orders_snapshot(self) -> Dict[str, Any]:
+        """
+        대시보드 표시용 진행 중 주문 스냅샷을 반환한다.
+
+        Returns:
+            진행 중 주문 목록과 간단한 요약 정보
+        """
+        now_utc = datetime.now(timezone.utc)
+        active_orders: List[Dict[str, Any]] = []
+        status_counter: Dict[int, int] = {}
+
+        with self._db.session_scope() as session:
+            orders = (
+                session.query(Order)
+                .filter(Order.order_status < 8)  # 8=PACKED 이상은 완료 상태로 간주
+                .order_by(Order.start_time.asc())
+                .all()
+            )
+
+            for order in orders:
+                total_items, total_price = self._calculate_order_summary(session, order.order_id)
+
+                pickee_robot_id = self._pickee_assignments.get(order.order_id)
+                packee_robot_id = self._packee_assignments.get(order.order_id)
+
+                pickee_monitor = (
+                    self._reservation_monitors.get((order.order_id, pickee_robot_id))
+                    if pickee_robot_id is not None
+                    else None
+                )
+                packee_monitor = (
+                    self._reservation_monitors.get((order.order_id, packee_robot_id))
+                    if packee_robot_id is not None
+                    else None
+                )
+
+                detected_products = list(
+                    (self._detected_product_bbox.get(order.order_id) or {}).keys()
+                )
+
+                active_orders.append(
+                    {
+                        "order_id": order.order_id,
+                        "customer_id": order.customer.id if order.customer else None,
+                        "status_code": order.order_status,
+                        "status": self._status_label_map.get(
+                            order.order_status,
+                            OrderStatus.PAID.value,
+                        ),
+                        "progress": self._status_progress(order.order_status),
+                        "started_at": order.start_time.isoformat() if order.start_time else None,
+                        "elapsed_seconds": (
+                            (now_utc - order.start_time).total_seconds()
+                            if order.start_time
+                            else None
+                        ),
+                        "pickee_robot_id": pickee_robot_id,
+                        "packee_robot_id": packee_robot_id,
+                        "reservation_watch": {
+                            "pickee_active": bool(pickee_monitor) and not pickee_monitor.done(),
+                            "packee_active": bool(packee_monitor) and not packee_monitor.done(),
+                        },
+                        "total_items": total_items,
+                        "total_price": total_price,
+                        "detected_products": detected_products,
+                    }
+                )
+
+                status_counter[order.order_status] = status_counter.get(order.order_status, 0) + 1
+
+        status_summary = {
+            self._status_label_map.get(code, str(code)): count
+            for code, count in status_counter.items()
+        }
+
+        return {
+            "orders": active_orders,
+            "summary": {
+                "total_active": len(active_orders),
+                "status_counts": status_summary,
+            },
+        }
+
+    async def get_recent_failed_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        최근 실패한 주문 목록을 반환한다.
+
+        Args:
+            limit: 조회할 최대 개수
+        """
+        with self._db.session_scope() as session:
+            failed_orders = (
+                session.query(Order)
+                .filter(Order.order_status == 9)  # FAIL_PACK
+                .order_by(Order.end_time.desc().nullslast(), Order.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+
+            payload: List[Dict[str, Any]] = []
+            for order in failed_orders:
+                total_items, total_price = self._calculate_order_summary(session, order.order_id)
+                payload.append(
+                    {
+                        "order_id": order.order_id,
+                        "failure_reason": order.failure_reason,
+                        "ended_at": order.end_time.isoformat() if order.end_time else None,
+                        "total_items": total_items,
+                        "total_price": total_price,
+                    }
+                )
+            return payload

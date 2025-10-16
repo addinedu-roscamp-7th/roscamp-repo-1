@@ -330,9 +330,10 @@ class MockRobotNode(Node):
 
     def handle_check_availability(self, request, response):
         """Packee 가용성 확인"""
-        self.get_logger().info("[MOCK] Checking Packee availability")
-        response.available = self.packee_available
-        response.robot_id = 10
+        self.get_logger().info(
+            f"[MOCK] Checking Packee availability for order {request.order_id} (robot {request.robot_id})"
+        )
+        response.success = self.packee_available
         response.message = "Packee available" if self.packee_available else "All busy"
         return response
 

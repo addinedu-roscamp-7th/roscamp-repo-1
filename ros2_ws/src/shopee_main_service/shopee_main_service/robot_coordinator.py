@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import time
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from typing import Callable, Dict, Optional, Awaitable
+from typing import Callable, Dict, Optional, Awaitable, List, Tuple
 
 import rclpy
 from rclpy.node import Node
@@ -22,6 +23,7 @@ from .product_service import ProductService
 from .robot_state_store import RobotState, RobotStateStore
 from .constants import RobotStatus, RobotType
 from .event_bus import EventBus
+from .config import settings
 
 from shopee_interfaces.msg import (
     PackeeAvailability,
@@ -59,6 +61,85 @@ from shopee_interfaces.srv import (
 logger = logging.getLogger(__name__)
 
 
+class RobotHealthMonitor:
+    """로봇 상태 토픽 헬스체크를 담당하는 보조 클래스."""
+
+    def __init__(self, timeout: float) -> None:
+        self._timeout = timeout
+        self._last_seen: Dict[Tuple[RobotType, int], float] = {}
+        self._notified: set[Tuple[RobotType, int]] = set()
+
+    @property
+    def timeout(self) -> float:
+        return self._timeout
+
+    def record(self, robot_type: RobotType, robot_id: int, now: Optional[float] = None) -> None:
+        """마지막 상태 수신 시각을 기록합니다."""
+        timestamp = now if now is not None else time.monotonic()
+        key = (robot_type, robot_id)
+        self._last_seen[key] = timestamp
+        self._notified.discard(key)
+
+    def detect_unresponsive(self, now: Optional[float] = None) -> List[Tuple[RobotType, int]]:
+        """타임아웃을 초과한 로봇 목록을 반환합니다."""
+        if self._timeout <= 0:
+            return []
+        timestamp = now if now is not None else time.monotonic()
+        offline: List[Tuple[RobotType, int]] = []
+        for key, last_seen in self._last_seen.items():
+            if timestamp - last_seen > self._timeout and key not in self._notified:
+                offline.append(key)
+        for key in offline:
+            self._notified.add(key)
+        return offline
+
+
+async def _call_service_with_retry(
+    client,
+    request,
+    *,
+    timeout_sec: float,
+    max_attempts: int,
+    base_delay: float,
+) -> object:
+    """ROS2 서비스 호출에 재시도 로직을 적용합니다."""
+    attempts = max(1, max_attempts)
+    delay = max(0.0, base_delay)
+    last_exc: Optional[Exception] = None
+    srv_name = getattr(client, 'srv_name', 'unknown')
+
+    for attempt in range(1, attempts + 1):
+        try:
+            if not client.wait_for_service(timeout_sec=timeout_sec):
+                raise RuntimeError(f'Service {srv_name} unavailable')
+
+            future = client.call_async(request)
+            try:
+                response = await asyncio.wait_for(future, timeout=timeout_sec)
+            except asyncio.TimeoutError as timeout_error:
+                future.cancel()
+                raise timeout_error
+            return response
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning(
+                'Service call failed (attempt %d/%d) for %s: %s',
+                attempt,
+                attempts,
+                srv_name,
+                exc,
+            )
+            if attempt == attempts:
+                break
+            if delay > 0:
+                await asyncio.sleep(delay)
+                delay *= 2
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f'Service {srv_name} failed without specific exception')
+
+
 class RobotCoordinator(Node):
     """
     ROS2 로봇 코디네이터 노드
@@ -90,6 +171,14 @@ class RobotCoordinator(Node):
         self._state_store: Optional[RobotStateStore] = state_store
         self._event_bus: Optional[EventBus] = event_bus
         self._asyncio_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._service_retry_attempts = max(1, settings.ROS_SERVICE_RETRY_ATTEMPTS)
+        self._service_retry_base_delay = max(0.0, settings.ROS_SERVICE_RETRY_BASE_DELAY)
+        self._service_timeout = settings.ROS_SERVICE_TIMEOUT
+        self._health_monitor = RobotHealthMonitor(settings.ROS_STATUS_HEALTH_TIMEOUT)
+        self._health_timer = None
+        if settings.ROS_STATUS_HEALTH_TIMEOUT > 0:
+            interval = max(settings.ROS_STATUS_HEALTH_TIMEOUT / 2.0, 1.0)
+            self._health_timer = self.create_timer(interval, self._check_robot_health)
 
         # === Pickee 토픽 구독 ===
         # 로봇 상태 (위치, 배터리, 현재 작업 등)
@@ -422,6 +511,44 @@ class RobotCoordinator(Node):
         else:
             current_loop.create_task(func(*args, **kwargs))
 
+    def _check_robot_health(self) -> None:
+        """상태 토픽 헬스체크 타이머 콜백."""
+        if not self._health_monitor:
+            return
+        offline = self._health_monitor.detect_unresponsive()
+        if not offline:
+            return
+        for robot_type, robot_id in offline:
+            logger.warning(
+                'Robot %s:%d has been silent for %.1fs',
+                robot_type.value,
+                robot_id,
+                self._health_monitor.timeout,
+            )
+            self._submit_coroutine(self._handle_robot_health_timeout, robot_type, robot_id)
+
+    async def _handle_robot_health_timeout(self, robot_type: RobotType, robot_id: int) -> None:
+        """헬스체크 타임아웃 시 상태 스토어 및 이벤트를 갱신한다."""
+        if not self._state_store:
+            return
+        active_order_id: Optional[int] = None
+        try:
+            state = await self._state_store.get_state(robot_id)
+            if state:
+                active_order_id = state.active_order_id
+        except Exception as exc:  # noqa: BLE001
+            logger.exception('Failed to fetch robot state for timeout handling (%s:%d): %s', robot_type.value, robot_id, exc)
+        try:
+            await self._state_store.mark_offline(robot_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception('Failed to mark robot %d offline after timeout: %s', robot_id, exc)
+        self._publish_robot_failure_event(
+            robot_id=robot_id,
+            robot_type=robot_type,
+            status=RobotStatus.OFFLINE.value,
+            active_order_id=active_order_id,
+        )
+
     @staticmethod
     def _run_in_new_loop(
         func: Callable[..., Awaitable[object]],
@@ -727,16 +854,21 @@ class RobotCoordinator(Node):
         Raises:
             RuntimeError: 서비스가 1초 내에 준비되지 않으면 발생
         """
-        if not client.wait_for_service(timeout_sec=1.0):
-            raise RuntimeError(f"Service {client.srv_name} unavailable")
-        future = client.call_async(request)
-        await future
-        return future.result()
+        response = await _call_service_with_retry(
+            client,
+            request,
+            timeout_sec=self._service_timeout,
+            max_attempts=self._service_retry_attempts,
+            base_delay=self._service_retry_base_delay,
+        )
+        return response
 
     # === 토픽 콜백 함수들 ===
     
     def _on_pickee_status(self, msg: PickeeRobotStatus) -> None:
         """Pickee 상태 토픽 콜백"""
+        if self._health_monitor:
+            self._health_monitor.record(RobotType.PICKEE, msg.robot_id)
         self._ros_cache["pickee_status"] = msg
         self._schedule_state_upsert(
             RobotType.PICKEE,
@@ -815,6 +947,8 @@ class RobotCoordinator(Node):
 
     def _on_packee_status(self, msg: PackeeRobotStatus) -> None:
         """Packee 상태 토픽 콜백"""
+        if self._health_monitor:
+            self._health_monitor.record(RobotType.PACKEE, msg.robot_id)
         self._ros_cache["packee_status"] = msg
         self._schedule_state_upsert(
             RobotType.PACKEE,

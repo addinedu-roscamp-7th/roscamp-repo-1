@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, Dict
+from typing import Awaitable, Callable, Dict, Optional
 
 import rclpy
 
@@ -33,8 +33,9 @@ from .robot_allocator import (
 from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
+from .dashboard import DashboardController, DashboardDataProvider
 
-logger = logging.getLogger("shopee_main_service")
+logger = logging.getLogger('shopee_main_service')
 
 
 class MainServiceApp:
@@ -101,6 +102,7 @@ class MainServiceApp:
             inventory_service=self._inventory_service,
         )
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
+        self._dashboard_controller: Optional[DashboardController] = None
 
         # RobotCoordinator에 InventoryService 주입
         self._robot.set_inventory_service(self._inventory_service)
@@ -146,6 +148,9 @@ class MainServiceApp:
             packee_complete_cb=self._order_service.handle_packee_complete
         )
 
+        if settings.GUI_ENABLED:
+            await self._start_dashboard_controller()
+
         await self._api.start()
         await self._streaming_service.start()
         
@@ -157,6 +162,9 @@ class MainServiceApp:
                 # asyncio 이벤트 루프에 제어권 양보
                 await asyncio.sleep(0)
         finally:
+            if self._dashboard_controller:
+                await self._dashboard_controller.stop()
+                self._dashboard_controller = None
             # 정리 작업
             await self._api.stop()
             self._streaming_service.stop()
@@ -249,7 +257,12 @@ class MainServiceApp:
             bbox_number = data.get("bbox_number")
             product_id = data.get("product_id")
 
-            if not all([order_id, robot_id, bbox_number, product_id]):
+            if (
+                order_id is None
+                or robot_id is None
+                or bbox_number is None
+                or product_id is None
+            ):
                 return {
                     "type": "product_selection_response",
                     "result": False,
@@ -694,6 +707,37 @@ class MainServiceApp:
                 "robot_maintenance_mode": handle_robot_maintenance_mode,
             }
         )
+
+    async def _start_dashboard_controller(self) -> None:
+        """
+        대시보드 컨트롤러를 초기화하고 주기적 데이터 수집을 시작한다.
+        """
+        if self._dashboard_controller:
+            return
+
+        loop = asyncio.get_running_loop()
+
+        async def metrics_provider() -> Dict[str, object]:
+            """대시보드 메트릭 스냅샷."""
+            failed_orders = await self._order_service.get_recent_failed_orders(limit=5)
+            return {
+                "failed_orders": failed_orders,
+            }
+
+        data_provider = DashboardDataProvider(
+            order_service=self._order_service,
+            robot_state_store=self._robot_state_store,
+            metrics_provider=metrics_provider,
+        )
+
+        controller = DashboardController(
+            loop,
+            data_provider,
+            self._event_bus,
+            interval=settings.GUI_SNAPSHOT_INTERVAL,
+        )
+        await controller.start()
+        self._dashboard_controller = controller
 
 
 def main() -> None:
