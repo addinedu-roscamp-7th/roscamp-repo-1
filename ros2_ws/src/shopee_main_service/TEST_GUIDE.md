@@ -4,12 +4,12 @@
 
 ## 📋 개요
 
-Mock 컴포넌트를 사용하여 실제 로봇, LLM, 데이터베이스 없이도 Main Service의 모든 기능을 테스트할 수 있습니다.
+Mock 컴포넌트를 사용하여 실제 로봇, LLM, 데이터베이스 없이도 Main Service의 주요 기능을 테스트할 수 있습니다.
 
-### Mock 컴포넌트
-1. **Mock Robot Node** - Pickee/Packee 로봇 시뮬레이터
-2. **Mock LLM Server** - LLM API 시뮬레이터
-3. **Test Client** - TCP API 테스트 클라이언트
+### Mock/테스트 도구
+1. **Test Client** (`scripts/test_client.py`) – App ↔ Main Service TCP 흐름을 자동/수동으로 검증
+2. **Interactive Mock App** (`scripts/interactive_mock_app.py`) – App 측 메시지를 단계적으로 수동 전송
+3. **Mock Robot Node** (`ros2 run shopee_main_service mock_robot_node`) – ROS2 상호작용을 자동으로 흉내 내는 기존 일괄 시뮬레이터
 
 ## 🚀 빠른 시작
 
@@ -32,12 +32,12 @@ cp .env.example .env
 
 ### 3. Mock 컴포넌트 실행
 
-**터미널 1 - Mock LLM Server 시작:**
+**터미널 1 - Mock LLM Server 시작 (자동 모드):**
 ```bash
 ros2 run shopee_main_service mock_llm_server
 ```
 
-**터미널 2 - Mock Robot Node 시작:**
+**터미널 2 - Mock Robot Node 시작 (자동 모드):**
 ```bash
 # Pickee와 Packee를 모두 시뮬레이션
 ros2 run shopee_main_service mock_robot_node
@@ -69,7 +69,7 @@ python3 src/shopee_main_service/scripts/test_client.py
 
 전체 워크플로우 테스트 (수동 - 단계별):
 ```bash
-python3 src/shopee_main_service/scripts/test_client.py -i
+python3 src/shopee_main_service/scripts/test_client.py --interactive
 ```
 
 텍스트 기반 상품 선택 문장 변경:
@@ -89,22 +89,24 @@ python3 scripts/test_client.py inventory
 
 재고 관리 테스트 (수동 - 단계별):
 ```bash
-python3 scripts/test_client.py inventory -i
-```
-
-LLM 및 음성 기반 담기 시나리오 테스트:
-```bash
-python3 src/shopee_main_service/scripts/test_llm_flows.py
-python3 src/shopee_main_service/scripts/test_llm_flows.py --llm-base-url http://192.168.0.154:5001
-```
-
-Main Service 연동만 확인하려면:
-```bash
-python3 src/shopee_main_service/scripts/test_llm_flows.py --skip-direct
+python3 scripts/test_client.py inventory --interactive
 ```
 
 **옵션:**
 - `-i`, `--interactive`: 인터랙티브 모드 - 각 단계마다 Enter를 눌러야 진행
+- `--no-speech-selection`: 텍스트 기반 상품 선택 단계를 비활성화하고 bbox 기반으로만 테스트
+- `--speech-selection`: 텍스트 기반 선택 시 사용할 문장 지정
+
+### 5. 인터랙티브 Mock 활용
+
+보다 세밀하게 흐름을 조정하고 싶다면 다음 스크립트를 활용하세요.
+
+```bash
+# App ↔ Main Service TCP 메시지를 한 단계씩 전송
+python3 src/shopee_main_service/scripts/interactive_mock_app.py
+```
+
+각 스크립트는 명령어 도움말을 콘솔에 안내하며, SequenceDiagram 및 InterfaceSpecification에 명시된 메시지들을 그대로 트리거할 수 있습니다.
 
 ## 🔍 상세 가이드
 
@@ -139,7 +141,8 @@ LLM API를 시뮬레이션하는 HTTP 서버입니다.
 - "비건 사과" → `name LIKE '%사과%' AND is_vegan_friendly = true`
 - "사과 가져다줘" → `{"intent": "fetch_product", "entities": {"product_name": "사과"}}`
 
-**포트:** 8000 (설정 파일에서 변경 가능)
+**포트:** 5001 (설정 파일에서 변경 가능)
+
 
 ### Test Client
 
@@ -170,6 +173,10 @@ Main Service의 TCP API를 테스트하는 클라이언트입니다.
    - 재고 검색
    - 재고 수정
    - 재고 삭제
+
+### 인터랙티브 Mock 스크립트
+
+- `interactive_mock_app.py`: App에서 전송하는 TCP 메시지를 직접 구성하여 Main Service 응답과 비동기 알림을 확인할 수 있습니다.
 
 ### 시나리오별 자동화 유틸리티
 
