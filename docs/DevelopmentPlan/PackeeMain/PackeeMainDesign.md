@@ -52,13 +52,13 @@
 - **vs. Vision**
   - `/packee/vision/check_cart_presence` (`PackeeVisionDetectCart.srv`): 장바구니 유무를 확인.
   - `/packee/vision/detect_products_in_cart` (`PackeeVisionSetProduct.srv`): 장바구니 내 상품의 위치를 확인.
-  - `/packee/vision/verify_packing_complete` (`PickeeVisionPackingComplete.srv`): 포장 완료 여부를 확인.
+  - `/packee/vision/verify_packing_complete` (`PackeeVisionPackingComplete.srv`): 포장 완료 여부를 확인.
 
 #### Subscribers
 - **from Arm**
   - `/packee/arm/pose_status` (`PackeeArmPoseChangeStatus.msg`): 'in_progress', 'completed', 'failed' 자세 변경 상태 확인
   - `/packee/arm/pick_status` (`PickeeArmPickupStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
-  - `/packee/arm/place_status` (`PickeeArmStackingStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
+  - `/packee/arm/place_status` (`PackeeArmStackingStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
 
 ## 5. 주요 기능 로직 (Key Logic)
 
