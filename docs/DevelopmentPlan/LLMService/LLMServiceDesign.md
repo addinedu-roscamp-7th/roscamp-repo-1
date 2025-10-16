@@ -8,8 +8,9 @@
 
 | 요구사항 ID | 출처 | 설명 | LLM Service 대응 요소 |
 | --- | --- | --- | --- |
-| UR_02 / SR_04 | 상품 탐색 | 자연어 기반 상품 검색 | `/llm_service/search_query`, `QueryGenerationService` |
-| UR_06 / SR_14 | 재고 보충 보조 | 직원 음성 명령 해석 | `/llm_service/intent_detection`, `IntentDetectionService` |
+| UR_02 / SR_04 | 상품 탐색 | 자연어 기반 상품 검색 | `/llm/search_query`, `QueryGenerationService` |
+| UR_06 / SR_14 | 재고 보충 보조 | 직원 음성 명령 해석 | `/llm/intent_detection`, `IntentDetectionService` |
+| UR_08 | bbox 선택 명령 지원 | 음성에서 bbox 번호 추출 | `/llm/box`, `BoundingBoxExtractionService` |
 
 
 ## 2. 내부 아키텍처
@@ -67,14 +68,15 @@ SafetyGuard ..> [Shopee DB Schema\n(product 등)] : 참조
 - 의존성 주입(Dependency Injection)으로 `QueryGenerationService`, `IntentDetectionService`를 공급.
 
 ### 3.2 스키마 정의 (`app/schemas.py`)
-- `SearchQueryRequest`, `SearchQueryResponse`, `IntentDetectionRequest`, `IntentDetectionResponse` Pydantic 모델을 정의.
+- `SearchQueryRequest`, `SearchQueryResponse`, `IntentDetectionRequest`, `IntentDetectionResponse`, `BBoxExtractionResponse` Pydantic 모델을 정의.
 - 공통 필드: `text: constr(strip_whitespace=True, min_length=1, max_length=512)`.
-- `IntentDetectionResponse.entities`는 `Dict[str, Union[str, int, float]]` 형태로 선언하고, 주요 키(`product_name`, `quantity`, `destination_section`)에 대한 선택적 검증 로직을 후처리에서 수행.
+- `IntentDetectionResponse.entities`는 `Dict[str, Union[str, int, float]]` 형태로 선언하고, 주요 키(`product_name`, `quantity`, `destination_section`, `place_name`)에 대한 선택적 검증 로직을 후처리에서 수행.
 
 ### 3.3 컨트롤러 계층 (`app/api.py`)
 - 엔드포인트: 
-  - `POST /llm_service/search_query`: `SearchQueryRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
-  - `POST /llm_service/intent_detection`: `IntentDetectionRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
+  - `GET /llm/search_query`: `SearchQueryRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
+  - `GET /llm/box`: bbox 추출 요청, 200/401/503 응답 관리.
+  - `GET /llm/intent_detection`: `IntentDetectionRequest` 검증 후 서비스 호출, 200/400/503 응답 관리.
 - 공통 예외 처리:
   - `ValidationError` → 400.
   - `ModelNotReadyError` → 503.
@@ -100,9 +102,17 @@ SafetyGuard ..> [Shopee DB Schema\n(product 등)] : 참조
   1. `PromptBuilder`가 시퀀스 다이어그램(`SC_06_1`, `SC_06_3`, `SC_06_5`)에 정의된 명령 패턴을 포함한 few-shot 프롬프트를 생성.
   2. `ModelRuntime.generate()`로 JSON 형태 응답을 생성(temperature 0.3, top_p 0.8).
   3. `IntentPostProcessor`가 JSON 파싱, 키 보정, 수량 정수화, 목적지 정상화(`/main/get_warehouse_pose` 연동을 위한 `warehouse_id` 후보 포함).
-  4. `SafetyGuard`가 의도 화이트리스트(`fetch_product`, `transport_product`, `stop_following`, `resume_following`, `confirm`, `reject`)를 적용하고, 미확인 의도 시 `fallback_intent = 'unknown'`으로 반환.
+  4. `SafetyGuard`가 의도 화이트리스트(`fetch_product`, `transport_product`, `stop_following`, `resume_following`, `confirm`, `reject`, `Move_place`)를 적용하고, 미확인 의도 시 `fallback_intent = 'unknown'`으로 반환.
   5. `RuleBasedFallback`이 가중치 기반 키워드 분류기를 통해 최소한의 의도 식별 제공.
 - 응답 지연 상한: 600ms (P95). 400ms 초과 시 경고 로그 남김.
+
+#### 3.4.3 `BoundingBoxExtractionService`
+- 책임: 사용자 발화에서 번호/순서를 파싱해 Pickee가 감지한 bbox 번호와 매칭되도록 지원.
+- 절차:
+  1. 텍스트 전처리 후 정규표현식 기반으로 숫자/순번 추출.
+  2. 복수 후보 시 컨텍스트(예: "첫 번째", "두 번째")를 가중치로 정렬.
+  3. 확실하지 않은 경우 `fallback_bbox = None` 반환해 Main Service가 다른 시도를 하도록 한다.
+- 응답: `{"bbox": <int>}` 또는 빈 객체.
 
 ### 3.5 모델 관리 (`app/model_manager.py`)
 - `ModelManager` 싱글톤이 모델/토크나이저를 로드.
@@ -122,14 +132,14 @@ SafetyGuard ..> [Shopee DB Schema\n(product 등)] : 참조
 ## 4. 데이터 처리 흐름
 
 ### 4.1 상품 검색 쿼리 생성 흐름
-1. Main Service가 `POST /llm_service/search_query` 호출(`SC_01_2` 기준).
+1. Main Service가 `GET /llm/search_query` 호출(`SC_01_2` 기준).
 2. FastAPI가 요청을 검증하고 `QueryGenerationService` 호출.
 3. LLM 추론 결과가 SQL 검증을 통과하면 응답, 실패 시 규칙 기반 Fallback 적용.
 4. 최종 SQL을 `SearchQueryResponse.sql_query`로 반환.
 5. Telemetry가 요청 ID, 지연 시간, 가드 결과를 기록.
 
 ### 4.2 발화 의도 분석 흐름
-1. Pickee Main Controller가 `POST /llm_service/intent_detection` 호출(`SC_06_1`, `SC_06_3`, `SC_06_5`).
+1. Pickee Main Controller가 `GET /llm/intent_detection` 호출(`SC_06_1`, `SC_06_3`, `SC_06_5`).
 2. `IntentDetectionService`가 텍스트를 정규화 후 프롬프트 생성.
 3. LLM 추론 → 후처리 → 의도/개체 검증, 미해결 시 Fallback.
 4. 응답 페이로드는 `intent`, `entities` 키를 포함하며, 불확실 시 `confidence` 필드(0.0~1.0)를 추가.

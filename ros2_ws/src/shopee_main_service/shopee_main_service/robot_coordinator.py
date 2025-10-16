@@ -475,10 +475,18 @@ class RobotCoordinator(Node):
 
     # === 서비스 콜백 함수들 ===
 
-    def _run_coroutine_threadsafe(self, coro: asyncio.Future, timeout: float = 2.0):
+    def _run_coroutine_threadsafe(
+        self,
+        coro: asyncio.Future,
+        timeout: float | None = None,
+    ):
         """Async helper executed from synchronous ROS service callbacks."""
         if not self._asyncio_loop:
             raise RuntimeError("Asyncio loop is not set for RobotCoordinator.")
+        if timeout is None or timeout <= 0:
+            timeout = settings.ROS_SERVICE_TIMEOUT
+            if timeout <= 0:
+                timeout = 5.0
         future = asyncio.run_coroutine_threadsafe(coro, self._asyncio_loop)
         return future.result(timeout=timeout)
 
@@ -672,14 +680,7 @@ class RobotCoordinator(Node):
             return response
 
         try:
-            pose_info = self._run_coroutine_threadsafe(
-                self._inventory_service.get_location_pose(location_id)
-            )
-        except FuturesTimeoutError:
-            response.success = False
-            response.message = "Timeout while fetching location pose."
-            logger.error(response.message)
-            return response
+            pose_info = self._inventory_service.get_location_pose_sync(location_id)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to get location pose: %s", exc)
             response.success = False
@@ -711,14 +712,7 @@ class RobotCoordinator(Node):
             return response
 
         try:
-            pose_info = self._run_coroutine_threadsafe(
-                self._inventory_service.get_warehouse_pose(warehouse_id)
-            )
-        except FuturesTimeoutError:
-            response.success = False
-            response.message = "Timeout while fetching warehouse pose."
-            logger.error(response.message)
-            return response
+            pose_info = self._inventory_service.get_warehouse_pose_sync(warehouse_id)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to get warehouse pose: %s", exc)
             response.success = False
@@ -750,14 +744,7 @@ class RobotCoordinator(Node):
             return response
 
         try:
-            pose_info = self._run_coroutine_threadsafe(
-                self._inventory_service.get_section_pose(section_id)
-            )
-        except FuturesTimeoutError:
-            response.success = False
-            response.message = "Timeout while fetching section pose."
-            logger.error(response.message)
-            return response
+            pose_info = self._inventory_service.get_section_pose_sync(section_id)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to get section pose: %s", exc)
             response.success = False

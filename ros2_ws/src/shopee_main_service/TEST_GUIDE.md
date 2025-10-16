@@ -39,7 +39,18 @@ ros2 run shopee_main_service mock_llm_server
 
 **터미널 2 - Mock Robot Node 시작:**
 ```bash
+# Pickee와 Packee를 모두 시뮬레이션
 ros2 run shopee_main_service mock_robot_node
+
+# Pickee만 모의 (Packee는 실제 노드와 연동 시)
+ros2 run shopee_main_service mock_pickee_node
+# 또는
+ros2 run shopee_main_service mock_robot_node --mode pickee
+
+# Packee만 모의 (Pickee는 실제 노드와 연동 시)
+ros2 run shopee_main_service mock_packee_node
+# 또는
+ros2 run shopee_main_service mock_robot_node --mode packee
 ```
 
 **터미널 3 - Main Service 시작:**
@@ -171,6 +182,60 @@ CLI 형태로 바로 실행하고 싶다면 `scripts/scenarios` 경로의 실행
 
 Mock 환경에서는 비동기 알림을 검증하기 위해 `MainServiceClient.drain_notifications()`가 사용되므로, ROS2 토픽 이벤트와 TCP 응답이 모두 도착할 시간을 확보한 뒤 호출해주세요.
 
+## 🔗 컴포넌트별 통신 테스트 체크리스트 (Main Service 기준)
+
+### Shopee App ↔ Main Service (TCP)
+- 명세: `docs/InterfaceSpecification/App_vs_Main.md`
+- 도구: `shopee_main_service/client_utils.py` (`MainServiceClient`)
+- 절차:
+  1. `ros2 run shopee_main_service main_service_node`
+  2. 별도 터미널에서 `python3 -m shopee_main_service.client_utils` 또는 시나리오 스크립트 실행
+  3. `user_login`, `product_search`, `order_create`, `product_selection`, `shopping_end`, `video_stream_start/stop`, `inventory_*`, `robot_status_request` 등 메시지 전송
+  4. `MainServiceClient.drain_notifications()`로 `robot_moving_notification`, `cart_update_notification` 등 푸시 이벤트 수신 확인
+
+### Main Service ↔ LLM 서비스 (HTTP)
+- 명세: `docs/InterfaceSpecification/Main_vs_LLM.md`
+- 도구: `ros2 run shopee_main_service mock_llm_server` 또는 실제 LLM 엔드포인트
+- 검증 포인트:
+- `LLMClient.generate_search_query("비건 사과")` → SQL WHERE 절 응답
+- `LLMClient.extract_bbox_number("2번 집어줘")` → `{"bbox": 2}`
+- `LLMClient.detect_intent("피키야, A존으로 이동해줘")` → 이동 의도/엔티티 응답
+  - 실패 시 fallback 검색(`ProductService._basic_keyword_search`)이 호출되는지 로그 확인
+
+### Main Service ↔ Pickee Main (ROS2)
+- 명세: `docs/InterfaceSpecification/Main_vs_Pic_Main.md`
+- 도구:
+  - Mock 환경: `ros2 run shopee_main_service mock_robot_node` (또는 `mock_pickee_node`)
+  - 실제/시뮬레이션 로봇: Pickee Main 노드
+- 테스트 항목:
+  - `/pickee/workflow/start_task` 서비스 호출 (주문 생성 시 자동)
+  - `/pickee/moving_status`, `/pickee/arrival_notice`, `/pickee/product_detected`, `/pickee/product/selection_result`, `/pickee/cart_handover_complete`
+  - 각 토픽을 `ros2 topic echo`로 모니터링하면서 OrderService 핸들러 동작(`handle_moving_status`, `handle_arrival_notice` 등) 확인
+
+### Main Service ↔ Packee Main (ROS2)
+- 명세: `docs/InterfaceSpecification/Main_vs_Pac_Main.md`
+- 도구:
+  - Mock 환경: `mock_robot_node` (Packee 흐름 포함) 또는 `mock_packee_node`
+  - 실제/시뮬레이션 로봇: Packee Main 노드
+- 테스트 항목:
+  - `/packee/packing/check_availability`, `/packee/packing/start` 서비스 호출
+  - `/packee/packing_complete` 토픽 수신 후 `OrderService.handle_packee_complete`에서 상태 전환/알림 확인
+
+### UDP 영상 스트림 (App ↔ Main)
+- 명세: `docs/InterfaceSpecification/App_vs_Main_UDP.md`
+- 절차:
+  1. UDP 포트 6000에서 수신하는 간단한 socket 스크립트를 준비
+  2. App용 TCP 핸들러에서 `video_stream_start` 전송
+  3. `/pickee/video_stream/start` 서비스 성공 시 `StreamingService`가 6000/UDP로 프레임 헤더 송신
+  4. `video_stream_stop` 호출 후 스트림 중단 확인
+
+### 내부 이벤트/헬스 모니터
+- EventBus 토픽: `app_push`, `robot_failure`, `reservation_timeout`
+- 확인 방법:
+  - `tests/test_dashboard_controller.py` 예시처럼 EventBus에 mock listener 등록
+  - `RobotStateStore.list_states()`와 `OrderService.get_active_orders_snapshot()`으로 현재 상태 스냅샷 공유
+  - `settings.ROS_STATUS_HEALTH_TIMEOUT`을 줄여 헬스 체크 타임아웃을 빠르게 재현
+
 ## 📊 예상 출력
 
 ### Mock Robot Node
@@ -268,7 +333,9 @@ Mock 환경 테스트 성공 후:
 
 ## 🔗 관련 파일
 
-- `shopee_main_service/mock_robot_node.py` - Mock 로봇
+- `shopee_main_service/mock_robot_node.py` - Mock 로봇 (Pickee/Packee 선택 가능)
+- `shopee_main_service/mock_pickee_node.py` - Pickee 전용 Mock 노드
+- `shopee_main_service/mock_packee_node.py` - Packee 전용 Mock 노드
 - `shopee_main_service/mock_llm_server.py` - Mock LLM
 - `scripts/test_client.py` - 테스트 클라이언트
 - `.env.example` - 환경 설정 템플릿

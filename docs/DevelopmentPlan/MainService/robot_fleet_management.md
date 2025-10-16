@@ -27,7 +27,7 @@
 - **ROS 연동**: `RobotCoordinator`가 ROS2 토픽(`/pickee/robot_status`, `/packee/robot_status`, etc.)을 구독해 상태를 갱신하고, 에러 상태를 감지하면 이벤트를 발생시켜 예약을 해제한다.
 - **로봇 할당**: `RobotAllocator`는 전략 패턴으로 구성되어 라운드로빈, 최소 작업량, 배터리 고려 전략을 지원한다. 환경 설정(`settings.ROBOT_ALLOCATION_STRATEGY`)으로 전략을 전환할 수 있다.
 - **주문 플로우**: `OrderService`는 주문 생성 시 Pickee를 예약하고, 장바구니 전달 후 Packee를 예약하는 흐름을 따라간다. 실패하면 재고 및 예약을 롤백한다.
-- **Mock 지원**: `mock_robot_node`가 1초 간격으로 Pickee/Packee 상태를 퍼블리시하여 실제 로봇이 없는 환경에서도 동일한 로직이 작동한다.
+- **Mock 지원**: `mock_robot_node`가 1초 간격으로 Pickee/Packee 상태를 퍼블리시하며, 필요 시 `mock_pickee_node`/`mock_packee_node`로 개별 시뮬레이션이 가능하다.
 
 ## 주요 컴포넌트
 
@@ -39,6 +39,8 @@
 | RobotCoordinator | `shopee_main_service/robot_coordinator.py` | ROS2 토픽/서비스 브릿지, 상태 캐시 갱신, 장애 이벤트 |
 | OrderService | `shopee_main_service/order_service.py` | 주문/포장 워크플로, 예약 호출 및 롤백 |
 | Mock Robot Node | `shopee_main_service/mock_robot_node.py` | 테스트 환경용 Pickee/Packee 시뮬레이터 |
+| Mock Pickee Node | `shopee_main_service/mock_pickee_node.py` | Pickee 전용 Mock 노드 |
+| Mock Packee Node | `shopee_main_service/mock_packee_node.py` | Packee 전용 Mock 노드 |
 
 ## 상태 모델
 

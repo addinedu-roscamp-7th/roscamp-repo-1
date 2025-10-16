@@ -50,6 +50,12 @@ entity "product" {
   is_vegan_friendly : bool
   section_id : int <<FK>>
   warehouse_id : int <<FK>>
+  length : int
+  width : int
+  height : int
+  weight : int
+  fragile : bool
+  img_paht : VARCHAR(50)
 }
 
 entity "order" {

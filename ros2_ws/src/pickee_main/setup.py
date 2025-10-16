@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from glob import glob
 import os
 
@@ -7,7 +7,7 @@ package_name = 'pickee_main'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=[package_name, 'test', 'test.mock_nodes', 'test.integration'],
+    packages=find_packages(exclude=['test', 'test.*']),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -20,7 +20,9 @@ setup(
     maintainer_email='wonho9188@gmail.com',
     description='Main controller for Pickee robot',
     license='Apache License 2.0',
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             'main_controller = pickee_main.main_controller:main',

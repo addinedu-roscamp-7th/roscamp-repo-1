@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, Dict
+from typing import Awaitable, Callable, Dict, Optional
 
 import rclpy
 
@@ -33,6 +33,7 @@ from .robot_allocator import (
 from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
+from .dashboard import DashboardController, DashboardDataProvider
 
 logger = logging.getLogger('shopee_main_service')
 
@@ -101,6 +102,7 @@ class MainServiceApp:
             inventory_service=self._inventory_service,
         )
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
+        self._dashboard_controller: Optional[DashboardController] = None
 
         # RobotCoordinator에 InventoryService 주입
         self._robot.set_inventory_service(self._inventory_service)
@@ -146,6 +148,9 @@ class MainServiceApp:
             packee_complete_cb=self._order_service.handle_packee_complete
         )
 
+        if settings.GUI_ENABLED:
+            await self._start_dashboard_controller()
+
         await self._api.start()
         await self._streaming_service.start()
         
@@ -157,6 +162,9 @@ class MainServiceApp:
                 # asyncio 이벤트 루프에 제어권 양보
                 await asyncio.sleep(0)
         finally:
+            if self._dashboard_controller:
+                await self._dashboard_controller.stop()
+                self._dashboard_controller = None
             # 정리 작업
             await self._api.stop()
             self._streaming_service.stop()
@@ -293,33 +301,41 @@ class MainServiceApp:
                     "message": "order_id, robot_id, and speech are required.",
                 }
 
-            intent_data = await self._llm.detect_intent(speech)
-            if not intent_data:
-                return {
-                    "type": "product_selection_by_text_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to analyze speech command",
-                }
+            detected_map = self._order_service.list_detected_products(int(order_id))
 
-            entities = intent_data.get("entities") or {}
-            product_id = entities.get("product_id")
-            product_name = entities.get("product_name")
+            resolved_product: Optional[int] = None
+            bbox_number: Optional[int] = None
 
-            resolved_product = None
-            if product_id is not None:
-                try:
-                    resolved_product = int(product_id)
-                except (TypeError, ValueError):
-                    resolved_product = None
-
-            if resolved_product is None and product_name:
-                product_info = await self._product_service.get_product_by_name(product_name)
-                if product_info:
-                    resolved_product = product_info["product_id"]
+            detected_bbox_number = await self._llm.extract_bbox_number(speech)
+            if detected_bbox_number is not None:
+                for product_key, candidate_bbox in detected_map.items():
+                    if candidate_bbox == detected_bbox_number:
+                        resolved_product = int(product_key)
+                        bbox_number = int(candidate_bbox)
+                        break
 
             if resolved_product is None:
+                intent_data = await self._llm.detect_intent(speech)
+                if intent_data:
+                    entities = intent_data.get("entities") or {}
+                    product_id_entity = entities.get("product_id")
+                    product_name = entities.get("product_name")
+
+                    if product_id_entity is not None:
+                        try:
+                            resolved_product = int(product_id_entity)
+                        except (TypeError, ValueError):
+                            resolved_product = None
+
+                    if resolved_product is None and product_name:
+                        product_info = await self._product_service.get_product_by_name(product_name)
+                        if product_info:
+                            resolved_product = product_info["product_id"]
+
+            if resolved_product is not None and bbox_number is None:
+                bbox_number = self._order_service.get_detected_bbox(int(order_id), int(resolved_product))
+
+            if resolved_product is None or bbox_number is None:
                 return {
                     "type": "product_selection_by_text_response",
                     "result": False,
@@ -328,20 +344,10 @@ class MainServiceApp:
                     "message": "Could not determine product from speech.",
                 }
 
-            bbox_number = self._order_service.get_detected_bbox(int(order_id), int(resolved_product))
-            if bbox_number is None:
-                return {
-                    "type": "product_selection_by_text_response",
-                    "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": "No detected product matches the request.",
-                }
-
             success = await self._order_service.select_product(
                 int(order_id),
                 int(robot_id),
-                bbox_number,
+                int(bbox_number),
                 int(resolved_product),
             )
 
@@ -350,7 +356,8 @@ class MainServiceApp:
                 "result": success,
                 "error_code": None if success else "ROBOT_002",
                 "data": {
-                    "bbox": bbox_number,
+                    "bbox": int(bbox_number),
+                    "product_id": int(resolved_product),
                 },
                 "message": "Product selection processed" if success else "Failed to process selection",
             }
@@ -421,20 +428,30 @@ class MainServiceApp:
 
             logger.info(f"Stopping video stream for robot {robot_id}")
 
-            # 1. 로봇에게 영상 송출 중지 명령
             req = PickeeMainVideoStreamStop.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
-            res = await self._robot.dispatch_video_stream_stop(req)
-            
-            # 2. UDP 릴레이 중지
+
+            success = False
+            message = "Failed to stop stream"
+            try:
+                res = await self._robot.dispatch_video_stream_stop(req)
+                success = res.success
+                if res.message:
+                    message = res.message
+                elif success:
+                    message = "Video stream stopped"
+                else:
+                    message = "Failed to stop stream"
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Video stream stop request failed: %s", exc)
+
             self._streaming_service.stop_relay()
 
-            success = res.success
             return {
                 "type": "video_stream_stop_response",
                 "result": success,
                 "error_code": None if success else "SYS_001",
                 "data": {},
-                "message": res.message if success else "Failed to stop stream",
+                "message": message,
             }
 
         async def handle_inventory_search(data, peer=None):
@@ -699,6 +716,37 @@ class MainServiceApp:
                 "robot_maintenance_mode": handle_robot_maintenance_mode,
             }
         )
+
+    async def _start_dashboard_controller(self) -> None:
+        """
+        대시보드 컨트롤러를 초기화하고 주기적 데이터 수집을 시작한다.
+        """
+        if self._dashboard_controller:
+            return
+
+        loop = asyncio.get_running_loop()
+
+        async def metrics_provider() -> Dict[str, object]:
+            """대시보드 메트릭 스냅샷."""
+            failed_orders = await self._order_service.get_recent_failed_orders(limit=5)
+            return {
+                "failed_orders": failed_orders,
+            }
+
+        data_provider = DashboardDataProvider(
+            order_service=self._order_service,
+            robot_state_store=self._robot_state_store,
+            metrics_provider=metrics_provider,
+        )
+
+        controller = DashboardController(
+            loop,
+            data_provider,
+            self._event_bus,
+            interval=settings.GUI_SNAPSHOT_INTERVAL,
+        )
+        await controller.start()
+        self._dashboard_controller = controller
 
 
 def main() -> None:
