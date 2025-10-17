@@ -103,10 +103,12 @@ class DashboardDataProvider:
         metrics_provider: Optional[
             Callable[[Dict[str, Any], List[RobotState]], Awaitable[Dict[str, Any]]]
         ] = None,
+        metrics_collector=None,  # v5.1 추가
     ) -> None:
         self._order_service = order_service
         self._robot_state_store = robot_state_store
         self._metrics_provider = metrics_provider
+        self._metrics_collector = metrics_collector  # v5.1 추가
 
     async def collect_snapshot(self) -> Dict[str, Any]:
         """
@@ -114,14 +116,27 @@ class DashboardDataProvider:
         """
         orders_snapshot = await self._order_service.get_active_orders_snapshot()
         robot_states = await self._robot_state_store.list_states()
+
+        # 로봇 상태를 직렬화
+        serialized_states = [asdict(state) for state in robot_states]
+
+        # 메트릭 수집
         metrics = {}
-        if self._metrics_provider:
+
+        # v5.1: MetricsCollector 사용 (우선순위 높음)
+        if self._metrics_collector:
+            try:
+                metrics = await self._metrics_collector.collect_metrics(serialized_states)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f'MetricsCollector failed: {e}')
+
+        # 레거시 metrics_provider 지원 (하위 호환성)
+        elif self._metrics_provider:
             metrics = await self._metrics_provider(
                 orders_snapshot=orders_snapshot,
                 robot_states=robot_states,
             )
-
-        serialized_states = [asdict(state) for state in robot_states]
 
         return {
             'orders': orders_snapshot,

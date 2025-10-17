@@ -16,6 +16,22 @@ class OverviewTab(BaseTab, Ui_OverviewTab):
         self.setupUi(self)
         self._recent_alerts = []
 
+    def _normalize_robot_type(self, robot_type) -> str:
+        """
+        로봇 타입을 정규화한다.
+
+        RobotType Enum이나 문자열 모두 처리하여 소문자 문자열로 반환한다.
+        """
+        if robot_type is None:
+            return 'unknown'
+
+        # Enum 객체인 경우
+        if hasattr(robot_type, 'value'):
+            return str(robot_type.value).lower()
+
+        # 문자열인 경우
+        return str(robot_type).lower()
+
     def update_data(self, snapshot: Dict[str, Any]):
         """스냅샷 데이터로 개요 탭을 업데이트한다."""
         metrics = snapshot.get('metrics', {})
@@ -59,8 +75,8 @@ class OverviewTab(BaseTab, Ui_OverviewTab):
 
         # 알림 영역에 시스템 상태 정보 표시
         robots = snapshot.get('robots', [])
-        pickee_list = [r for r in robots if r.get('robot_type') == 'PICKEE']
-        packee_list = [r for r in robots if r.get('robot_type') == 'PACKEE']
+        pickee_list = [r for r in robots if self._normalize_robot_type(r.get('robot_type')) == 'pickee']
+        packee_list = [r for r in robots if self._normalize_robot_type(r.get('robot_type')) == 'packee']
         
         # 활성 로봇만 필터링 (OFFLINE 제외)
         active_pickee = [r for r in pickee_list if r.get('status') != 'OFFLINE']

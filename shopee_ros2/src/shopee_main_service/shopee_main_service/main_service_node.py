@@ -124,6 +124,50 @@ class MainServiceApp:
             self._event_bus
         )
 
+    async def _initialize_robot_states_from_db(self) -> None:
+        """
+        데이터베이스에서 모든 로봇을 조회하여 RobotStateStore를 초기화합니다.
+        모든 로봇의 초기 상태는 OFFLINE으로 설정됩니다.
+        """
+        logger.info("Initializing robot states from database...")
+        from .database_models import Robot
+        from .constants import RobotType, RobotStatus
+        from .robot_state_store import RobotState
+
+        try:
+            with self._db.session_scope() as session:
+                db_robots = session.query(Robot).all()
+
+                if not db_robots:
+                    logger.warning("No robots found in the database.")
+                    return
+
+                for db_robot in db_robots:
+                    # DB의 robot_type (TINYINT)를 RobotType Enum으로 변환
+                    # NOTE: 1=PICKEE, 2=PACKEE 라고 가정합니다.
+                    try:
+                        if db_robot.robot_type == 1:
+                            robot_type_enum = RobotType.PICKEE
+                        elif db_robot.robot_type == 2:
+                            robot_type_enum = RobotType.PACKEE
+                        else:
+                            raise ValueError(f"Unknown robot_type ID: {db_robot.robot_type}")
+                    except Exception:
+                        logger.warning(f"Unknown robot_type '{db_robot.robot_type}' for robot_id {db_robot.robot_id}. Skipping.")
+                        continue
+
+                    initial_state = RobotState(
+                        robot_id=db_robot.robot_id,
+                        robot_type=robot_type_enum,
+                        status=RobotStatus.OFFLINE.value,
+                    )
+                    await self._robot_state_store.upsert_state(initial_state)
+                
+                logger.info(f"Initialized {len(db_robots)} robots to OFFLINE state.")
+
+        except Exception as e:
+            logger.exception(f"Failed to initialize robot states from database: {e}")
+
     async def initialize(self) -> None:
         """
         서비스 초기화
@@ -133,6 +177,7 @@ class MainServiceApp:
         3. 로봇 콜백 등록
         4. 대시보드 컨트롤러 시작 (GUI 활성화 시)
         """
+        await self._initialize_robot_states_from_db()
         self._install_handlers()
 
         # ROS 노드가 비동기 동작을 위임할 이벤트 루프를 주입
@@ -728,129 +773,22 @@ class MainServiceApp:
 
         loop = asyncio.get_running_loop()
 
-        async def metrics_provider(
-            *,
-            orders_snapshot: Dict[str, Any],
-            robot_states: List['RobotState'],
-        ) -> Dict[str, Any]:
-            """대시보드 메트릭 스냅샷."""
+        # MetricsCollector 생성
+        from .metrics_collector import MetricsCollector
+        
+        metrics_collector = MetricsCollector(
+            order_service=self._order_service,
+            product_service=self._product_service,
+            api_controller=self._api,
+            robot_coordinator=self._robot,
+            database_manager=self._db,
+        )
 
-            def _serialize_robot(state) -> Dict[str, Any]:
-                """로봇 상태를 대시보드용 딕셔너리로 변환한다."""
-                robot_type = state.robot_type.value if hasattr(state.robot_type, 'value') else str(state.robot_type)
-                last_seen = state.last_update.isoformat() if state.last_update else None
-                return {
-                    'robot_id': state.robot_id,
-                    'robot_type': robot_type,
-                    'status': state.status,
-                    'battery_level': state.battery_level,
-                    'current_location': getattr(state, 'current_location', '-'),
-                    'cart_status': getattr(state, 'cart_status', '-'),
-                    'reserved': state.reserved,
-                    'active_order_id': state.active_order_id,
-                    'last_update': last_seen,
-                }
-            try:
-                performance = await self._order_service.get_performance_metrics(
-                    robot_states=robot_states,
-                    orders_snapshot=orders_snapshot,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to collect performance metrics: %s', exc)
-                performance = {
-                    'avg_processing_time': 0.0,
-                    'hourly_throughput': 0,
-                    'success_rate': 0.0,
-                    'robot_utilization': 0.0,
-                    'system_load': 0.0,
-                    'active_orders': 0,
-                }
-
-            try:
-                failed_orders = await self._order_service.get_recent_failed_orders(limit=5)
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to load recent failed orders: %s', exc)
-                failed_orders = []
-
-            try:
-                failed_by_reason = await self._order_service.get_failed_orders_by_reason()
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to group failed orders: %s', exc)
-                failed_by_reason = {}
-
-            error_robots = [_serialize_robot(state) for state in robot_states if state.status == RobotStatus.ERROR.value]
-            offline_robots = [_serialize_robot(state) for state in robot_states if state.status == RobotStatus.OFFLINE.value]
-
-            try:
-                connection_stats = self._api.get_connection_stats()
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to fetch API connection stats: %s', exc)
-                connection_stats = {'app_sessions': 0, 'app_sessions_max': 0}
-
-            try:
-                topic_health = self._robot.get_topic_health()
-                if topic_health is None:
-                    topic_health = {}
-            except AttributeError:
-                topic_health = {}
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to fetch ROS topic health: %s', exc)
-                topic_health = {}
-
-            try:
-                db_stats = self._db.get_pool_stats()
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to fetch DB pool stats: %s', exc)
-                db_stats = {'db_connections': 0, 'db_connections_max': 0}
-
-            try:
-                llm_stats = self._llm.get_stats_snapshot()
-            except Exception as exc:  # noqa: BLE001
-                logger.exception('Failed to fetch LLM stats: %s', exc)
-                llm_stats = {
-                    'success_rate': 0.0,
-                    'avg_response_time': 0.0,
-                    'failure_count': 0,
-                    'fallback_count': 0,
-                    'success_count': 0,
-                }
-
-            ros_retry_count = 0
-            try:
-                ros_retry_count = self._robot.get_service_retry_count()
-            except AttributeError:
-                ros_retry_count = 0
-
-            network_metrics = {
-                'app_sessions': connection_stats.get('app_sessions', 0),
-                'app_sessions_max': connection_stats.get('app_sessions_max', 0),
-                'ros_topics_healthy': topic_health.get('ros_topics_healthy', True),
-                'ros_topic_health': topic_health.get('ros_topic_health', {}),
-                'topic_receive_rate': topic_health.get('topic_receive_rate', 0.0),
-                'event_topic_activity': topic_health.get('event_topic_activity', {}),
-                'event_topic_timeout': topic_health.get('event_topic_timeout'),
-                'llm_response_time': llm_stats.get('avg_response_time', 0.0),
-                'db_connections': db_stats.get('db_connections', 0),
-                'db_connections_max': db_stats.get('db_connections_max', 0),
-            }
-
-            metrics_payload = {
-                **performance,
-                'failed_orders': failed_orders,
-                'failed_orders_by_reason': failed_by_reason,
-                'error_robots': error_robots,
-                'offline_robots': offline_robots,
-                'llm_stats': llm_stats,
-                'ros_retry_count': ros_retry_count,
-                'network': network_metrics,
-                'inventory': {},
-            }
-            return metrics_payload
-
+        # DashboardDataProvider 생성 (MetricsCollector 사용)
         data_provider = DashboardDataProvider(
             order_service=self._order_service,
             robot_state_store=self._robot_state_store,
-            metrics_provider=metrics_provider,
+            metrics_collector=metrics_collector,
         )
 
         controller = DashboardController(

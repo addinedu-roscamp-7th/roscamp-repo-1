@@ -17,6 +17,7 @@ from PyQt6.QtGui import QCloseEvent
 from .ui_gen.dashboard_window_ui import Ui_DashboardWindow
 from .tabs.overview_tab import OverviewTab
 from .tabs.robot_status_tab import RobotStatusTab
+from .tabs.robot_control_tab import RobotControlTab
 from .tabs.order_management_tab import OrderManagementTab
 from .tabs.diagnostics_tab import SystemDiagnosticsTab
 from .tabs.event_log_tab import EventLogTab
@@ -57,6 +58,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """각 탭 위젯을 생성하고 메인 탭 위젯에 추가한다."""
         self.overview_tab = OverviewTab()
         self.robot_tab = RobotStatusTab()
+        self.robot_control_tab = RobotControlTab()
         self.order_tab = OrderManagementTab()
         self.diagnostics_tab = SystemDiagnosticsTab()
         self.log_tab = EventLogTab()
@@ -70,6 +72,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
 
         self.tab_widget.addTab(self.overview_tab, '개요')
         self.tab_widget.addTab(self.robot_tab, '로봇 상태')
+        self.tab_widget.addTab(self.robot_control_tab, '로봇 관제')
         self.tab_widget.addTab(self.order_tab, '주문 관리')
         self.tab_widget.addTab(self.diagnostics_tab, '시스템 진단')
         self.tab_widget.addTab(self.log_tab, '이벤트 로그')
@@ -137,6 +140,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """스냅샷 데이터를 처리하여 모든 탭을 업데이트한다."""
         self.overview_tab.update_data(snapshot)
         self.robot_tab.update_data(snapshot.get('robots', []))
+        self.robot_control_tab.update_data(snapshot)
         self.order_tab.update_data(snapshot.get('orders', {}))
         self.diagnostics_tab.update_data(snapshot)
         self._update_statusbar(snapshot)

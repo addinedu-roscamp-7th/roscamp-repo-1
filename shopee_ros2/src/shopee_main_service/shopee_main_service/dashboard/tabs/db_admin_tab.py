@@ -311,11 +311,9 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
             QMessageBox.warning(self, '경고', '삭제할 수 없습니다. 테이블 정보가 없습니다.')
             return
             
-        # 기본 키 값 가져오기
         pk_col_index = self.current_columns.index(self.primary_key_column)
         pk_value = self.current_data[row_index][pk_col_index]
         
-        # 확인 대화상자
         reply = QMessageBox.question(
             self, 
             '행 삭제 확인',
@@ -325,9 +323,9 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            # DELETE 쿼리 실행
-            delete_query = f"DELETE FROM `{self.current_table}` WHERE `{self.primary_key_column}` = {pk_value}"
-            self._execute_update_query(delete_query, f"행이 삭제되었습니다.")
+            query = text(f"DELETE FROM `{self.current_table}` WHERE `{self.primary_key_column}` = :pk_value")
+            params = {"pk_value": pk_value}
+            self._execute_update_query(query, params, f"행이 삭제되었습니다.")
 
     def _add_new_row(self):
         """새 행을 추가한다."""
@@ -335,23 +333,17 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
             QMessageBox.warning(self, '경고', '새 행을 추가할 수 없습니다. 테이블 정보가 없습니다.')
             return
             
-        # 새 행을 테이블에 추가
         row_count = self.result_table.rowCount()
         self.result_table.insertRow(row_count)
         
-        # 빈 값으로 초기화
         for col_idx in range(len(self.current_columns)):
             item = QTableWidgetItem("")
-            
-            # 기본 키는 편집 불가
             if self.primary_key_column and self.current_columns[col_idx] == self.primary_key_column:
                 item.setText("AUTO")
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item.setBackground(Qt.GlobalColor.lightGray)
-            
             self.result_table.setItem(row_count, col_idx, item)
         
-        # 새 행 데이터도 추가
         new_row = [None] * len(self.current_columns)
         self.current_data.append(new_row)
 
@@ -359,17 +351,26 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
         """테이블 아이템이 변경되었을 때 호출된다."""
         row = item.row()
         col = item.column()
-        new_value = item.text()
+        new_value_str = item.text()
         
-        # 현재 데이터 업데이트
         if row < len(self.current_data) and col < len(self.current_data[row]):
-            # NULL 처리
-            if new_value.upper() == 'NULL' or new_value == '':
-                self.current_data[row][col] = None
+            final_value: Any
+            if new_value_str.upper() == 'NULL' or new_value_str == '':
+                final_value = None
                 item.setForeground(Qt.GlobalColor.gray)
             else:
-                self.current_data[row][col] = new_value
+                # Try to convert to a number, otherwise keep as string
+                try:
+                    final_value = int(new_value_str)
+                except ValueError:
+                    try:
+                        final_value = float(new_value_str)
+                    except ValueError:
+                        final_value = new_value_str  # It's a string
+                
                 item.setForeground(Qt.GlobalColor.black)
+
+            self.current_data[row][col] = final_value
 
     def _save_changes(self):
         """변경사항을 데이터베이스에 저장한다."""
@@ -384,10 +385,8 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
                 pk_value = row_data[pk_col_index]
                 
                 if pk_value is None or str(pk_value).upper() == 'AUTO':
-                    # 새 행 - INSERT
                     self._insert_new_row(row_data, row_idx)
                 else:
-                    # 기존 행 - UPDATE
                     self._update_existing_row(row_data, pk_value)
                     
             QMessageBox.information(self, '저장 완료', '모든 변경사항이 저장되었습니다.')
@@ -400,46 +399,43 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
         """새 행을 데이터베이스에 삽입한다."""
         pk_col_index = self.current_columns.index(self.primary_key_column)
         
-        # 기본 키를 제외한 컬럼과 값 준비
-        columns = []
-        values = []
+        columns_to_insert = []
+        params = {}
         
         for col_idx, (col_name, value) in enumerate(zip(self.current_columns, row_data)):
-            if col_idx == pk_col_index:  # 기본 키 제외
+            if col_idx == pk_col_index:
                 continue
-                
-            columns.append(col_name)
-            if value is None:
-                values.append('NULL')
-            else:
-                values.append(f"'{value}'")
+            columns_to_insert.append(col_name)
+            params[col_name] = value
         
-        insert_query = f"INSERT INTO `{self.current_table}` ({', '.join([f'`{col}`' for col in columns])}) VALUES ({', '.join(values)})"
-        self._execute_update_query(insert_query, "새 행이 추가되었습니다.")
+        column_names = ", ".join([f"`{col}`" for col in columns_to_insert])
+        param_names = ", ".join([f":{col}" for col in columns_to_insert])
+        
+        query = text(f"INSERT INTO `{self.current_table}` ({column_names}) VALUES ({param_names})")
+        self._execute_update_query(query, params, "새 행이 추가되었습니다.")
 
     def _update_existing_row(self, row_data: List, pk_value):
         """기존 행을 업데이트한다."""
         pk_col_index = self.current_columns.index(self.primary_key_column)
         
-        # SET 절 준비
         set_clauses = []
+        params = {}
         for col_idx, (col_name, value) in enumerate(zip(self.current_columns, row_data)):
-            if col_idx == pk_col_index:  # 기본 키 제외
+            if col_idx == pk_col_index:
                 continue
-                
-            if value is None:
-                set_clauses.append(f"`{col_name}` = NULL")
-            else:
-                set_clauses.append(f"`{col_name}` = '{value}'")
+            set_clauses.append(f"`{col_name}` = :{col_name}")
+            params[col_name] = value
         
-        update_query = f"UPDATE `{self.current_table}` SET {', '.join(set_clauses)} WHERE `{self.primary_key_column}` = {pk_value}"
-        self._execute_update_query(update_query, "행이 업데이트되었습니다.")
+        params[self.primary_key_column] = pk_value
+        
+        query = text(f"UPDATE `{self.current_table}` SET { ', '.join(set_clauses)} WHERE `{self.primary_key_column}` = :{self.primary_key_column}")
+        self._execute_update_query(query, params, "행이 업데이트되었습니다.")
 
-    def _execute_update_query(self, query: str, success_message: str):
+    def _execute_update_query(self, query: text, params: Dict[str, Any], success_message: str):
         """업데이트 쿼리를 실행한다."""
         try:
             with self.db_manager.session_scope() as session:
-                result = session.execute(text(query))
+                result = session.execute(query, params)
                 session.commit()
                 self.status_label.setText(f"{success_message} (영향받은 행: {result.rowcount})")
         except Exception as e:

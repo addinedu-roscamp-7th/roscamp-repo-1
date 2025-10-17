@@ -78,7 +78,7 @@ class MockRobotNode(Node):
         self._packee_battery = 100.0
         self._packee_order_id: Optional[int] = None
         self._packee_items_in_cart = 0
-        self._packee_robot_id = 10
+        self._packee_robot_id = 3
         self._staff_station_location_id = 5000
         self._staff_station_warehouse_id = 1
 
