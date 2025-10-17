@@ -1,3 +1,4 @@
+<!-- Gazebo에 Pickee Mobile 스폰 -->
 <?xml version="1.0"?>
 <launch>
     <!-- Arguments -->
