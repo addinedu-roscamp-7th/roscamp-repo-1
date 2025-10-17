@@ -740,11 +740,12 @@ class MainServiceApp:
                     'robot_type': robot_type,
                     'status': state.status,
                     'battery_level': state.battery_level,
+                    'current_location': getattr(state, 'current_location', '-'),
+                    'cart_status': getattr(state, 'cart_status', '-'),
                     'reserved': state.reserved,
                     'active_order_id': state.active_order_id,
                     'last_update': last_seen,
                 }
-
             try:
                 performance = await self._order_service.get_performance_metrics(
                     robot_states=robot_states,

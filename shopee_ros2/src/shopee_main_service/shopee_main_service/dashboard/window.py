@@ -105,8 +105,8 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
             payload_type = payload.get('type')
             if payload_type == 'snapshot':
                 self._handle_snapshot(payload.get('data', {}))
-                if count % 10 == 1:  # 첫 번째와 이후 10번마다 로그
-                    logger.info(f'Received snapshot #{count}')
+                # if count % 10 == 1:  # 첫 번째와 이후 10번마다 로그
+                #     logger.info(f'Received snapshot #{count}')
             elif payload_type == 'event':
                 self._handle_event(payload.get('data', {}))
             elif payload_type == 'ros_topic':
