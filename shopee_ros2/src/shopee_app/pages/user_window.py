@@ -47,21 +47,21 @@ class UserWindow(QWidget):
         self._store_button = None
         self._nav_group = None
         self._current_mode = None
-        self._setup_cart_section()
-        self._setup_navigation()
+        self.setup_cart_section()
+        self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
-        self.ui.btn_pay.clicked.connect(self._on_pay_clicked)
-        self._products = self._load_initial_products()
-        self._refresh_product_grid()
+        self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
+        self._products = self.load_initial_products()
+        self.refresh_product_grid()
 
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
 
-    def _on_pay_clicked(self):
-        self._set_mode("pick")
+    def on_pay_clicked(self):
+        self.set_mode("pick")
 
-    def _setup_cart_section(self):
+    def setup_cart_section(self):
         self._cart_container = getattr(self.ui, "widget_3", None)
         self._cart_frame = getattr(self.ui, "cart_frame", None)
         self._cart_body = getattr(self.ui, "cart_body", None)
@@ -100,9 +100,9 @@ class UserWindow(QWidget):
         if self._product_scroll is not None:
             self._product_scroll.show()
 
-        self._apply_cart_state()
+        self.apply_cart_state()
 
-    def _setup_navigation(self):
+    def setup_navigation(self):
         self._main_stack = getattr(self.ui, "stacked_content", None)
         self._side_stack = getattr(self.ui, "stack_side_bar", None)
         self._page_user = getattr(self.ui, "page_content_user", None)
@@ -130,22 +130,22 @@ class UserWindow(QWidget):
         if self._store_button:
             self._store_button.clicked.connect(self.on_store_button_clicked)
 
-        self._set_mode("shopping")
+        self.set_mode("shopping")
 
     def on_cart_toggle_clicked(self):
         if self._cart_toggle_button is None:
             return
 
         self._cart_expanded = not self._cart_expanded
-        self._apply_cart_state()
+        self.apply_cart_state()
 
     def on_shopping_button_clicked(self):
-        self._set_mode("shopping")
+        self.set_mode("shopping")
 
     def on_store_button_clicked(self):
-        self._set_mode("pick")
+        self.set_mode("pick")
 
-    def _set_mode(self, mode):
+    def set_mode(self, mode):
         if mode == self._current_mode:
             return
 
@@ -156,8 +156,8 @@ class UserWindow(QWidget):
                 self._shopping_button.setChecked(True)
             if self._store_button:
                 self._store_button.setChecked(False)
-            self._show_main_page(self._page_user)
-            self._show_side_page(self._side_pick_filter_page)
+            self.show_main_page(self._page_user)
+            self.show_side_page(self._side_pick_filter_page)
             return
 
         if mode == "pick":
@@ -165,24 +165,24 @@ class UserWindow(QWidget):
                 self._store_button.setChecked(True)
             if self._shopping_button:
                 self._shopping_button.setChecked(False)
-            self._show_main_page(self._page_pick)
-            self._show_side_page(self._side_shop_page)
+            self.show_main_page(self._page_pick)
+            self.show_side_page(self._side_shop_page)
 
-    def _show_main_page(self, page):
+    def show_main_page(self, page):
         if self._main_stack is None or page is None:
             return
         if self._main_stack.currentWidget() is page:
             return
         self._main_stack.setCurrentWidget(page)
 
-    def _show_side_page(self, page):
+    def show_side_page(self, page):
         if self._side_stack is None or page is None:
             return
         if self._side_stack.currentWidget() is page:
             return
         self._side_stack.setCurrentWidget(page)
 
-    def _apply_cart_state(self):
+    def apply_cart_state(self):
         if self._cart_toggle_button is not None:
             self._cart_toggle_button.setText(
                 "접기" if self._cart_expanded else "펼치기"
@@ -209,23 +209,23 @@ class UserWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._refresh_product_grid()
+        self.refresh_product_grid()
 
-    def _refresh_product_grid(self) -> None:
+    def refresh_product_grid(self) -> None:
         if self._product_grid is None:
             return
 
-        columns = self._calculate_columns()
+        columns = self.calculate_columns()
         if columns <= 0:
             columns = 1
 
         if columns == self._current_columns and self._products:
             return
 
-        self._populate_products(self._products, columns)
+        self.populate_products(self._products, columns)
         self._current_columns = columns
 
-    def _calculate_columns(self) -> int:
+    def calculate_columns(self) -> int:
         scroll_area = getattr(self.ui, "scrollArea", None)
         if scroll_area is not None:
             available_width = scroll_area.viewport().width()
@@ -255,7 +255,7 @@ class UserWindow(QWidget):
             columns = min(columns, len(self._products))
         return int(columns)
 
-    def _populate_products(self, products: list[ProductData], columns: int) -> None:
+    def populate_products(self, products: list[ProductData], columns: int) -> None:
         if self._product_grid is None:
             return
 
@@ -291,7 +291,7 @@ class UserWindow(QWidget):
             QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft
         )
 
-    def _load_initial_products(self) -> list[ProductData]:
+    def load_initial_products(self) -> list[ProductData]:
         image_root = Path(__file__).resolve().parent.parent / "image"
         return [
             ProductData(

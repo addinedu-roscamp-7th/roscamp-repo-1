@@ -45,7 +45,7 @@ class DebouncedHandler(FileSystemEventHandler):
         self._ui_names = {path.name: path for path in UI_FILES.keys()}
         self.last_changed = None
 
-    def _maybe(self, path: str) -> bool:
+    def maybe(self, path: str) -> bool:
         # 임시파일 → 원본으로 move 되는 경우까지 커버
         name = Path(path).name
         if name in self._ui_names:
@@ -53,23 +53,23 @@ class DebouncedHandler(FileSystemEventHandler):
             return True
         return False
 
-    def _debounce_call(self):
+    def debounce_call(self):
         now = time.time()
         if now - self._last >= self.debounce:
             self._last = now
             self.on_change()
 
     def on_modified(self, event: FileSystemEvent):
-        if not event.is_directory and self._maybe(event.src_path):
-            self._debounce_call()
+        if not event.is_directory and self.maybe(event.src_path):
+            self.debounce_call()
 
     def on_created(self, event: FileSystemEvent):
-        if not event.is_directory and self._maybe(event.src_path):
-            self._debounce_call()
+        if not event.is_directory and self.maybe(event.src_path):
+            self.debounce_call()
 
     def on_moved(self, event: FileSystemEvent):
-        if not event.is_directory and self._maybe(event.dest_path):
-            self._debounce_call()
+        if not event.is_directory and self.maybe(event.dest_path):
+            self.debounce_call()
 
 
 def start_app():

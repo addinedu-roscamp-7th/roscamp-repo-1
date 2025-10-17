@@ -34,9 +34,9 @@ class ProductCard(QWidget):
         self.ui.label_original_price.setText(f"{product.price:,} 원")
         self.ui.label_discount_rate.setText(f"{product.discount_rate}%")
         self.ui.label_discounted_price.setText(f"{product.discounted_price:,} 원")
-        self._apply_image(product.image_path)
+        self.apply_image(product.image_path)
 
-    def _apply_image(self, path: Path | None) -> None:
+    def apply_image(self, path: Path | None) -> None:
         if path is None or not path.exists():
             path = self._fallback_image
         pixmap = QtGui.QPixmap(str(path))
