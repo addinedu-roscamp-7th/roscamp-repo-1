@@ -912,7 +912,7 @@ class RobotCoordinator(Node):
             request: 포장 요청 (robot_id, order_id)
             
         Returns:
-            Response: 성공 여부
+            Response: 성공 여부, 박스 ID
             
         참고: Main_vs_Pac_Main.md - /packee/packing/start
         """

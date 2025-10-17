@@ -934,6 +934,17 @@ class OrderService:
                     await self._state_store.release(packee_robot_id, order_id)
                 return
 
+            # box_id를 DB에 저장
+            if hasattr(start_res, 'box_id') and start_res.box_id > 0:
+                with self._db.session_scope() as session:
+                    order = session.query(Order).filter_by(order_id=order_id).first()
+                    if order:
+                        order.box_id = start_res.box_id
+                        session.commit()
+                        logger.info(f"Order {order_id} assigned to box {start_res.box_id}")
+                    else:
+                        logger.error(f"Could not find order {order_id} to assign box_id.")
+
             logger.info("Successfully dispatched packing task for order %d to robot %d.", order_id, packee_robot_id)
             self._packee_assignments[order_id] = packee_robot_id
             # 타임아웃 모니터링 시작

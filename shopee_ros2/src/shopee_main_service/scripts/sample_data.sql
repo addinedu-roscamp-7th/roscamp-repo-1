@@ -15,7 +15,7 @@ INSERT INTO allergy_info (nuts, milk, seafood, soy, peach, gluten, eggs) VALUES
 -- 2. Admin
 -- ========================================
 INSERT INTO admin (id, password, name) VALUES
-('admin', 'admin123', '관리자');
+('admin', 'admin123', '장진혁');
 
 -- ========================================
 -- 3. Customer
