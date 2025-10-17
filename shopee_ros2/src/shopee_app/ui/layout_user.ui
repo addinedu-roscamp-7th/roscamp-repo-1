@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1138</width>
-    <height>786</height>
+    <height>818</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -143,6 +143,24 @@
       </property>
       <item>
        <widget class="QWidget" name="side_bar" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>200</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <layout class="QVBoxLayout" name="verticalLayout_4" stretch="1,8">
          <property name="spacing">
           <number>0</number>
@@ -282,8 +300,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>188</width>
-                  <height>661</height>
+                  <width>113</width>
+                  <height>286</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -378,10 +396,10 @@
            <number>0</number>
           </property>
           <item>
-           <widget class="QWidget" name="widget_3" native="true">
+           <widget class="QWidget" name="main_widget" native="true">
             <layout class="QVBoxLayout" name="verticalLayout_13" stretch="10,1">
              <property name="spacing">
-              <number>30</number>
+              <number>0</number>
              </property>
              <property name="leftMargin">
               <number>20</number>
@@ -409,6 +427,9 @@
                <property name="frameShadow">
                 <enum>QFrame::Plain</enum>
                </property>
+               <property name="horizontalScrollBarPolicy">
+                <enum>Qt::ScrollBarAlwaysOff</enum>
+               </property>
                <property name="widgetResizable">
                 <bool>true</bool>
                </property>
@@ -417,8 +438,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>906</width>
-                  <height>566</height>
+                  <width>896</width>
+                  <height>565</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -427,7 +448,7 @@
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_2">
+                <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,5">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -444,30 +465,35 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <widget class="QPushButton" name="pushButton_4">
+                  <widget class="QLabel" name="label_16">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>LET's START</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_5">
+                  <widget class="QLabel" name="label_17">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>원격 쇼핑 전 상품을 주문해주세요</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_6">
-                   <property name="text">
-                    <string>PushButton</string>
+                  <widget class="QLabel" name="label_18">
+                   <property name="layoutDirection">
+                    <enum>Qt::LeftToRight</enum>
                    </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="pushButton_7">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>주문담기를 통해 쇼핑리스트를 생성해 보세요</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
@@ -485,27 +511,9 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_8">
-                   <property name="text">
-                    <string>PushButton</string>
-                   </property>
+                  <widget class="QWidget" name="grid_products" native="true">
+                   <layout class="QGridLayout" name="gridLayout_2"/>
                   </widget>
-                 </item>
-                 <item>
-                  <spacer name="verticalSpacer">
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                   <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>20</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                  </spacer>
                  </item>
                 </layout>
                </widget>
@@ -552,33 +560,117 @@
                    <enum>QFrame::Raised</enum>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_10">
+                   <property name="spacing">
+                    <number>12</number>
+                   </property>
+                   <property name="leftMargin">
+                    <number>16</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>12</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>16</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>12</number>
+                   </property>
                    <item>
-                    <widget class="QListWidget" name="listWidget">
-                     <item>
-                      <property name="text">
-                       <string>신선식품 무농약 양상추</string>
+                    <widget class="QScrollArea" name="cart_item_scroll">
+                     <property name="frameShape">
+                      <enum>QFrame::NoFrame</enum>
+                     </property>
+                     <property name="horizontalScrollBarPolicy">
+                      <enum>Qt::ScrollBarAlwaysOff</enum>
+                     </property>
+                     <property name="widgetResizable">
+                      <bool>true</bool>
+                     </property>
+                     <widget class="QWidget" name="cart_items_container">
+                      <property name="geometry">
+                       <rect>
+                        <x>0</x>
+                        <y>0</y>
+                        <width>864</width>
+                        <height>68</height>
+                       </rect>
                       </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>피키패키 감자칩</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>피키패키 고구마칩</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>쇼피식품 토마토</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string/>
-                      </property>
-                     </item>
+                      <layout class="QVBoxLayout" name="verticalLayout_16">
+                       <item>
+                        <widget class="QWidget" name="cart_items_layout" native="true">
+                         <layout class="QVBoxLayout" name="verticalLayout_19">
+                          <property name="spacing">
+                           <number>12</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                         </layout>
+                        </widget>
+                       </item>
+                       <item>
+                        <spacer name="verticalSpacer">
+                         <property name="orientation">
+                          <enum>Qt::Vertical</enum>
+                         </property>
+                         <property name="sizeHint" stdset="0">
+                          <size>
+                           <width>0</width>
+                           <height>0</height>
+                          </size>
+                         </property>
+                        </spacer>
+                       </item>
+                      </layout>
+                     </widget>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QWidget" name="widget_2" native="true">
+                     <layout class="QHBoxLayout" name="horizontalLayout_10">
+                      <item>
+                       <widget class="QCheckBox" name="chk_select_all">
+                        <property name="font">
+                         <font>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="text">
+                         <string>전체선택</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <spacer name="horizontalSpacer_5">
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                        <property name="sizeHint" stdset="0">
+                         <size>
+                          <width>40</width>
+                          <height>20</height>
+                         </size>
+                        </property>
+                       </spacer>
+                      </item>
+                      <item>
+                       <widget class="QPushButton" name="pushButton">
+                        <property name="text">
+                         <string>PushButton</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
                     </widget>
                    </item>
                   </layout>

@@ -76,6 +76,7 @@ Robot ..> [Pickee/Packee] : ROS2
 - **기능**:
   - `/pickee/workflow/start_task`, `/packee/packing/start` 등 서비스 호출 래핑.
   - `/pickee/arrival_notice`, `/packee/packing_complete` 등 토픽 구독.
+  - 수신한 모든 ROS2 토픽을 `DashboardBridge`로 전달하여 UI에 표시될 수 있도록 함.
   - 로봇 상태 캐시 및 사용 가능 로봇 선택.
 
 ### 2.6. `DatabaseManager`
@@ -132,6 +133,10 @@ Robot ..> [Pickee/Packee] : ROS2
 ### 4.4 DatabaseManager
 - `session_scope()` 컨텍스트 매니저: 예외 발생 시 rollback, 종료 시 commit.
 - 긴 트랜잭션 방지를 위해 단계별 커밋(예: 주문 생성 후 즉시 커밋).
+
+### 4.5 서비스 호출 모니터링 (대시보드)
+- `RobotCoordinator`는 로봇에게 서비스 요청을 보내기 직전(`ROS_SERVICE_CALLED`)과 응답을 받은 직후(`ROS_SERVICE_RESPONDED`)에 `EventBus`로 이벤트를 발행한다.
+- `DashboardController`는 이 이벤트들을 구독하여, 서비스 호출의 시작, 종료, 소요 시간, 성공/실패 여부 등의 정보를 대시보드 UI로 전달한다.
 
 ---
 
@@ -222,6 +227,7 @@ Order -> EventBus: cart_update_notification
 | Topic | `/pickee/robot_status` | Pickee → Main | 로봇 상태 | `shopee_interfaces/msg/PickeeRobotStatus` |
 | Service | `/packee/packing/check_availability` | Main ↔ Packee | 포장 가능 여부 | `shopee_interfaces/srv/PackeePackingCheckAvailability` |
 | Service | `/packee/packing/start` | Main → Packee | 포장 시작 | `shopee_interfaces/srv/PackeePackingStart` |
+| Topic | `/packee/availability_result` | Packee → Main | 포장 가능 여부 확인 결과 | `shopee_interfaces/msg/PackeeAvailability.msg` |
 | Topic | `/packee/packing_complete` | Packee → Main | 포장 완료 | `shopee_interfaces/msg/PackeePackingComplete` |
 | Topic | `/packee/robot_status` | Packee → Main | 로봇 상태 | `shopee_interfaces/msg/PackeeRobotStatus` |
 
@@ -233,7 +239,7 @@ ROS 메시지는 InterfaceSpecification 문서 기반 DTO로 역직렬화하여 
 
 - **ORM 매핑**:
   - `OrderModel` ↔ `order`
-  - `OrderItemModel` ↔ `order_item_info`
+  - `OrderItemModel` ↔ `order_item`
   - `ProductModel` ↔ `product`
   - `RobotHistoryModel` ↔ `robot_history`
 - **트랜잭션 경계**:

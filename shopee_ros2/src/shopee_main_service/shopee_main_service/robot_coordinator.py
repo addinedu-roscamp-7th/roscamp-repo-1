@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from typing import Callable, Dict, Optional, Awaitable, List, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import rclpy
 from rclpy.node import Node
@@ -21,7 +21,7 @@ from rclpy.node import Node
 from .inventory_service import InventoryService
 from .product_service import ProductService
 from .robot_state_store import RobotState, RobotStateStore
-from .constants import RobotStatus, RobotType
+from .constants import EventTopic, RobotStatus, RobotType
 from .event_bus import EventBus
 from .config import settings
 
@@ -113,19 +113,26 @@ class RobotHealthMonitor:
 
 
 async def _call_service_with_retry(
+    coordinator: RobotCoordinator, # 이벤트 발행을 위해 self 참조 전달
     client,
     request,
     *,
     timeout_sec: float,
     max_attempts: int,
     base_delay: float,
+    retry_recorder: Optional[Callable[[], None]] = None,
 ) -> object:
-    """ROS2 서비스 호출에 재시도 로직을 적용합니다."""
+    """ROS2 서비스 호출에 재시도 및 대시보드 이벤트 발행 로직을 적용합니다."""
     attempts = max(1, max_attempts)
     delay = max(0.0, base_delay)
     last_exc: Optional[Exception] = None
     srv_name = getattr(client, 'srv_name', 'unknown')
+    call_id = f"{srv_name}_{time.monotonic()}"
 
+    # 서비스 호출 시작 이벤트 발행
+    coordinator._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
+    start_time = time.monotonic()
     for attempt in range(1, attempts + 1):
         try:
             if not client.wait_for_service(timeout_sec=timeout_sec):
@@ -134,10 +141,14 @@ async def _call_service_with_retry(
             future = client.call_async(request)
             try:
                 response = await asyncio.wait_for(future, timeout=timeout_sec)
+                # 서비스 호출 성공 이벤트 발행
+                duration = time.monotonic() - start_time
+                coordinator._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=True)
+                return response
             except asyncio.TimeoutError as timeout_error:
                 future.cancel()
                 raise timeout_error
-            return response
+
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
             logger.warning(
@@ -149,9 +160,15 @@ async def _call_service_with_retry(
             )
             if attempt == attempts:
                 break
+            if retry_recorder:
+                retry_recorder()
             if delay > 0:
                 await asyncio.sleep(delay)
                 delay *= 2
+
+    # 서비스 호출 실패/타임아웃 이벤트 발행
+    duration = time.monotonic() - start_time
+    coordinator._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, last_exc, duration, success=False)
 
     if last_exc:
         raise last_exc
@@ -197,6 +214,25 @@ class RobotCoordinator(Node):
         if settings.ROS_STATUS_HEALTH_TIMEOUT > 0:
             interval = max(settings.ROS_STATUS_HEALTH_TIMEOUT / 2.0, 1.0)
             self._health_timer = self.create_timer(interval, self._check_robot_health)
+        self._metrics_lock = threading.Lock()
+        self._service_retry_count = 0
+        self._topic_last_seen: Dict[str, float] = {}
+        self._status_topic_timeout = settings.ROS_STATUS_HEALTH_TIMEOUT if settings.ROS_STATUS_HEALTH_TIMEOUT > 0 else 0.0
+        self._event_topic_timeout = settings.ROS_EVENT_TOPIC_TIMEOUT if settings.ROS_EVENT_TOPIC_TIMEOUT > 0 else 0.0
+        self._status_topics: List[str] = [
+            '/pickee/robot_status',
+            '/packee/robot_status',
+            '/pickee/moving_status',
+        ]
+        self._event_topics: List[str] = [
+            '/pickee/arrival_notice',
+            '/pickee/product/selection_result',
+            '/pickee/cart_handover_complete',
+            '/pickee/product_detected',
+            '/pickee/product/loaded',
+            '/packee/availability_result',
+            '/packee/packing_complete',
+        ]
 
         # === Pickee 토픽 구독 ===
         # 로봇 상태 (위치, 배터리, 현재 작업 등)
@@ -537,6 +573,75 @@ class RobotCoordinator(Node):
         else:
             current_loop.create_task(func(*args, **kwargs))
 
+    def _increment_service_retry(self) -> None:
+        """ROS 서비스 재시도 횟수를 누적한다."""
+        with self._metrics_lock:
+            self._service_retry_count += 1
+
+    def _mark_topic_heartbeat(self, topic: str) -> None:
+        """토픽에서 최근 메시지를 수신했음을 기록한다."""
+        with self._metrics_lock:
+            self._topic_last_seen[topic] = time.monotonic()
+
+    def get_service_retry_count(self) -> int:
+        """누적된 ROS 서비스 재시도 횟수를 반환한다."""
+        with self._metrics_lock:
+            return int(self._service_retry_count)
+
+    def get_topic_health(self) -> Dict[str, Any]:
+        """ ... """
+
+    def _publish_topic_to_dashboard(self, topic_name: str, msg: object) -> None:
+        """수신한 토픽을 대시보드로 전달하기 위해 EventBus에 발행한다."""
+        if not self._event_bus:
+            return
+
+        is_periodic = topic_name in self._status_topics
+        
+        msg_dict = {}
+        if hasattr(msg, 'get_fields_and_field_types'):
+            fields = msg.get_fields_and_field_types().keys()
+            for field in fields:
+                value = getattr(msg, field)
+                msg_dict[field] = str(value)
+        else:
+            # fallback to string representation if method is not available
+            msg_dict = {'payload': str(msg)}
+
+        event_data = {
+            'topic_name': topic_name,
+            'is_periodic': is_periodic,
+            'timestamp': self.get_clock().now().nanoseconds / 1e9,
+            'msg': msg_dict
+        }
+        self._submit_coroutine(self._event_bus.publish, EventTopic.ROS_TOPIC_RECEIVED, event_data)
+
+    def _publish_service_event(self, event_topic: EventTopic, call_id: str, service_name: str, msg: object, duration: float = 0.0, success: bool = True):
+        """서비스 호출 관련 이벤트를 EventBus에 발행한다."""
+        if not self._event_bus:
+            return
+
+        msg_dict = {}
+        if isinstance(msg, Exception):
+            msg_dict = {'error': type(msg).__name__, 'detail': str(msg)}
+        elif hasattr(msg, 'get_fields_and_field_types'):
+            # ROS2 메시지의 실제 필드만 가져오기
+            fields = msg.get_fields_and_field_types().keys()
+            for field in fields:
+                value = getattr(msg, field)
+                msg_dict[field] = str(value)
+
+        event_data = {
+            'call_id': call_id,
+            'service_name': service_name,
+            'timestamp': self.get_clock().now().nanoseconds / 1e9,
+            'duration_ms': round(duration * 1000, 2),
+            'success': success,
+            'msg': msg_dict,
+        }
+        self._submit_coroutine(self._event_bus.publish, event_topic, event_data)
+
+
     def _check_robot_health(self) -> None:
         """상태 토픽 헬스체크 타이머 콜백."""
         if not self._health_monitor:
@@ -860,11 +965,13 @@ class RobotCoordinator(Node):
             RuntimeError: 서비스가 1초 내에 준비되지 않으면 발생
         """
         response = await _call_service_with_retry(
+            self, # coordinator 인스턴스 전달
             client,
             request,
             timeout_sec=self._service_timeout,
             max_attempts=self._service_retry_attempts,
             base_delay=self._service_retry_base_delay,
+            retry_recorder=self._increment_service_retry,
         )
         return response
 
@@ -872,6 +979,8 @@ class RobotCoordinator(Node):
     
     def _on_pickee_status(self, msg: PickeeRobotStatus) -> None:
         """Pickee 상태 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/robot_status', msg)
+        self._mark_topic_heartbeat('/pickee/robot_status')
         if self._health_monitor:
             self._health_monitor.record(RobotType.PICKEE, msg.robot_id)
         self._ros_cache["pickee_status"] = msg
@@ -896,62 +1005,74 @@ class RobotCoordinator(Node):
         if self._pickee_status_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_status_cb):
-                asyncio.create_task(self._pickee_status_cb(msg))
+                self._submit_coroutine(self._pickee_status_cb, msg)
             else:
                 self._pickee_status_cb(msg)
 
     def _on_pickee_move(self, msg: PickeeMoveStatus) -> None:
         """Pickee 이동 상태 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/moving_status', msg)
+        self._mark_topic_heartbeat('/pickee/moving_status')
         self._ros_cache["pickee_move"] = msg
         if self._pickee_move_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_move_cb):
-                asyncio.create_task(self._pickee_move_cb(msg))
+                self._submit_coroutine(self._pickee_move_cb, msg)
             else:
                 self._pickee_move_cb(msg)
 
     def _on_pickee_arrival(self, msg: PickeeArrival) -> None:
         """Pickee 도착 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/arrival_notice', msg)
+        self._mark_topic_heartbeat('/pickee/arrival_notice')
         self._ros_cache["pickee_arrival"] = msg
         if self._pickee_arrival_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_arrival_cb):
-                asyncio.create_task(self._pickee_arrival_cb(msg))
+                self._submit_coroutine(self._pickee_arrival_cb, msg)
             else:
                 self._pickee_arrival_cb(msg)
 
     def _on_pickee_handover(self, msg: PickeeCartHandover) -> None:
         """Pickee 장바구니 전달 완료 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/cart_handover_complete', msg)
+        self._mark_topic_heartbeat('/pickee/cart_handover_complete')
         self._ros_cache["pickee_handover"] = msg
         if self._pickee_handover_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_handover_cb):
-                asyncio.create_task(self._pickee_handover_cb(msg))
+                self._submit_coroutine(self._pickee_handover_cb, msg)
             else:
                 self._pickee_handover_cb(msg)
 
     def _on_product_detected(self, msg: PickeeProductDetection) -> None:
         """Pickee 상품 인식 완료 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/product_detected', msg)
+        self._mark_topic_heartbeat('/pickee/product_detected')
         self._ros_cache["product_detected"] = msg
         if self._pickee_product_detected_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_product_detected_cb):
-                asyncio.create_task(self._pickee_product_detected_cb(msg))
+                self._submit_coroutine(self._pickee_product_detected_cb, msg)
             else:
                 self._pickee_product_detected_cb(msg)
 
     def _on_pickee_selection(self, msg: PickeeProductSelection) -> None:
         """Pickee 상품 선택 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/product/selection_result', msg)
+        self._mark_topic_heartbeat('/pickee/product/selection_result')
         self._ros_cache["pickee_selection"] = msg
         if self._pickee_selection_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_selection_cb):
-                asyncio.create_task(self._pickee_selection_cb(msg))
+                self._submit_coroutine(self._pickee_selection_cb, msg)
             else:
                 self._pickee_selection_cb(msg)
 
     def _on_packee_status(self, msg: PackeeRobotStatus) -> None:
         """Packee 상태 토픽 콜백"""
+        self._publish_topic_to_dashboard('/packee/robot_status', msg)
+        self._mark_topic_heartbeat('/packee/robot_status')
         if self._health_monitor:
             self._health_monitor.record(RobotType.PACKEE, msg.robot_id)
         self._ros_cache["packee_status"] = msg
@@ -975,35 +1096,41 @@ class RobotCoordinator(Node):
         if self._packee_status_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._packee_status_cb):
-                asyncio.create_task(self._packee_status_cb(msg))
+                self._submit_coroutine(self._packee_status_cb, msg)
             else:
                 self._packee_status_cb(msg)
 
     def _on_packee_availability(self, msg: PackeeAvailability) -> None:
         """Packee 작업 가능 여부 콜백"""
+        self._publish_topic_to_dashboard('/packee/availability_result', msg)
+        self._mark_topic_heartbeat('/packee/availability_result')
         self._ros_cache["packee_availability"] = msg
         if self._packee_availability_cb:
             if asyncio.iscoroutinefunction(self._packee_availability_cb):
-                asyncio.create_task(self._packee_availability_cb(msg))
+                self._submit_coroutine(self._packee_availability_cb, msg)
             else:
                 self._packee_availability_cb(msg)
 
     def _on_packee_complete(self, msg: PackeePackingComplete) -> None:
         """Packee 포장 완료 토픽 콜백"""
+        self._publish_topic_to_dashboard('/packee/packing_complete', msg)
+        self._mark_topic_heartbeat('/packee/packing_complete')
         self._ros_cache["packee_complete"] = msg
         if self._packee_complete_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._packee_complete_cb):
-                asyncio.create_task(self._packee_complete_cb(msg))
+                self._submit_coroutine(self._packee_complete_cb, msg)
             else:
                 self._packee_complete_cb(msg)
 
     def _on_product_loaded(self, msg: PickeeProductLoaded) -> None:
         """창고 물품 적재 완료 토픽 콜백"""
+        self._publish_topic_to_dashboard('/pickee/product/loaded', msg)
+        self._mark_topic_heartbeat('/pickee/product/loaded')
         self._ros_cache["product_loaded"] = msg
         if self._pickee_product_loaded_cb:
             # async 콜백을 asyncio task로 실행
             if asyncio.iscoroutinefunction(self._pickee_product_loaded_cb):
-                asyncio.create_task(self._pickee_product_loaded_cb(msg))
+                self._submit_coroutine(self._pickee_product_loaded_cb, msg)
             else:
                 self._pickee_product_loaded_cb(msg)

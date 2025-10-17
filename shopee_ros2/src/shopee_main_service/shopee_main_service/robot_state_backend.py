@@ -27,6 +27,12 @@ class RobotState:
     last_update: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     maintenance_mode: bool = False  # 유지보수 모드 (True일 때 자동 할당 제외)
 
+    # v5.1 추가: 위치 및 장바구니 정보
+    position_x: Optional[float] = None
+    position_y: Optional[float] = None
+    current_location: Optional[str] = None  # "SHELF_A", "HOME", "PACKING_A" 등
+    cart_status: Optional[str] = None       # "Empty", "Full", "Unknown"
+
     def clone(self) -> "RobotState":
         """현재 상태의 사본을 반환합니다."""
         return RobotState(
@@ -38,6 +44,10 @@ class RobotState:
             battery_level=self.battery_level,
             last_update=self.last_update,
             maintenance_mode=self.maintenance_mode,
+            position_x=self.position_x,
+            position_y=self.position_y,
+            current_location=self.current_location,
+            cart_status=self.cart_status,
         )
 
 
@@ -95,6 +105,17 @@ class InMemoryRobotStateBackend(RobotStateBackend):
                 elif not existing.reserved:
                     existing.active_order_id = None
                 existing.last_update = state.last_update
+
+                # v5.1: 위치 및 장바구니 정보 업데이트
+                if state.position_x is not None:
+                    existing.position_x = state.position_x
+                if state.position_y is not None:
+                    existing.position_y = state.position_y
+                if state.current_location is not None:
+                    existing.current_location = state.current_location
+                if state.cart_status is not None:
+                    existing.cart_status = state.cart_status
+
                 # 예약/유지보수 플래그는 외부 흐름에서만 변경합니다.
             else:
                 self._states[state.robot_id] = state.clone()

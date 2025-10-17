@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import random
 import sys
 from typing import Optional
 
@@ -74,9 +75,10 @@ class MockRobotNode(Node):
         self._pickee_battery = 100.0
         self._pickee_position = (0.0, 0.0, 0.0)
         self._packee_state = RobotStatus.IDLE.value
+        self._packee_battery = 100.0
         self._packee_order_id: Optional[int] = None
         self._packee_items_in_cart = 0
-        self._packee_robot_id = 10
+        self._packee_robot_id = 3
         self._staff_station_location_id = 5000
         self._staff_station_warehouse_id = 1
 
@@ -316,7 +318,7 @@ class MockRobotNode(Node):
             self._publish_robot_status()
             timer.cancel()
 
-        timer = self.create_timer(0.5, publish_arrival, clock=self.get_clock())
+        timer = self.create_timer(2.0, publish_arrival, clock=self.get_clock())
 
         response.success = True
         response.message = 'Moving to section'
@@ -353,9 +355,53 @@ class MockRobotNode(Node):
                 handover_msg.robot_id = request.robot_id
                 handover_msg.order_id = request.order_id
                 self.pickee_handover_pub.publish(handover_msg)
-                self.get_logger().info('[MOCK] Cart handover complete')
-            self._pickee_state = RobotStatus.WORKING.value
+                self.get_logger().info('[MOCK] Cart handover complete, returning to base')
+
+            # 복귀 시퀀스 시작
+            base_location_id = 0  # 기본 대기 장소 ID
+            self._pickee_state = RobotStatus.MOVING.value
+            self.current_order_id = None  # 작업이 끝났으므로 현재 주문 ID 초기화
             self._publish_robot_status()
+
+            if self.pickee_move_pub:
+                move_msg = PickeeMoveStatus()
+                move_msg.robot_id = request.robot_id
+                move_msg.order_id = request.order_id
+                move_msg.location_id = base_location_id
+                self.pickee_move_pub.publish(move_msg)
+
+            # 타이머 설정
+            arrival_timer_base = None
+            charging_timer = None
+
+            def finish_charging():
+                nonlocal charging_timer
+                self._pickee_state = RobotStatus.IDLE.value
+                self._publish_robot_status()
+                self.get_logger().info('[MOCK] Now idle at base station.')
+                if charging_timer is not None:
+                    charging_timer.cancel()
+
+            def publish_arrival_at_base():
+                nonlocal arrival_timer_base, charging_timer
+                if self.pickee_arrival_pub:
+                    arrival_msg = PickeeArrival()
+                    arrival_msg.robot_id = request.robot_id
+                    arrival_msg.order_id = request.order_id
+                    arrival_msg.location_id = base_location_id
+                    arrival_msg.section_id = -1
+                    self.pickee_arrival_pub.publish(arrival_msg)
+                    self.get_logger().info('[MOCK] Arrived at base')
+                self._pickee_state = RobotStatus.CHARGING.value
+                self._publish_robot_status()
+                if arrival_timer_base is not None:
+                    arrival_timer_base.cancel()
+                # 1초 충전 후 IDLE 상태로 변경
+                charging_timer = self.create_timer(1.0, finish_charging, clock=self.get_clock())
+
+            # 4초 후 대기 장소 도착
+            arrival_timer_base = self.create_timer(4.0, publish_arrival_at_base, clock=self.get_clock())
+
             if handover_timer is not None:
                 handover_timer.cancel()
 
@@ -375,7 +421,7 @@ class MockRobotNode(Node):
                 arrival_timer.cancel()
             handover_timer = self.create_timer(0.5, publish_handover, clock=self.get_clock())
 
-        arrival_timer = self.create_timer(0.5, publish_arrival, clock=self.get_clock())
+        arrival_timer = self.create_timer(3.0, publish_arrival, clock=self.get_clock())
 
         response.success = True
         response.message = 'Moving to packaging'
@@ -431,7 +477,7 @@ class MockRobotNode(Node):
                 arrival_timer.cancel()
             charging_timer = self.create_timer(1.0, finish_charging, clock=self.get_clock())
 
-        arrival_timer = self.create_timer(0.5, publish_arrival, clock=self.get_clock())
+        arrival_timer = self.create_timer(4.0, publish_arrival, clock=self.get_clock())
 
         self.current_order_id = None
 
@@ -480,7 +526,7 @@ class MockRobotNode(Node):
             if arrival_timer is not None:
                 arrival_timer.cancel()
 
-        arrival_timer = self.create_timer(0.5, publish_arrival, clock=self.get_clock())
+        arrival_timer = self.create_timer(4.0, publish_arrival, clock=self.get_clock())
 
         response.success = True
         response.message = 'Returning to staff'
@@ -495,21 +541,26 @@ class MockRobotNode(Node):
 
         self.get_logger().info(f'[MOCK] Detecting products: {list(request.product_ids)}')
 
-        detection_msg = PickeeProductDetection()
-        detection_msg.robot_id = request.robot_id
-        detection_msg.order_id = request.order_id
+        def publish_detection():
+            detection_msg = PickeeProductDetection()
+            detection_msg.robot_id = request.robot_id
+            detection_msg.order_id = request.order_id
 
-        bbox_number = 1
-        for product_id in request.product_ids:
-            detected = PickeeDetectedProduct()
-            detected.product_id = product_id
-            detected.bbox_number = bbox_number
-            detection_msg.products.append(detected)
-            bbox_number += 1
+            bbox_number = 1
+            for product_id in request.product_ids:
+                detected = PickeeDetectedProduct()
+                detected.product_id = product_id
+                detected.bbox_number = bbox_number
+                detection_msg.products.append(detected)
+                bbox_number += 1
 
-        if self.pickee_detection_pub:
-            self.pickee_detection_pub.publish(detection_msg)
-        self._publish_robot_status()
+            if self.pickee_detection_pub:
+                self.pickee_detection_pub.publish(detection_msg)
+            self._publish_robot_status()
+            self.get_logger().info('[MOCK] Product detection complete')
+            timer.cancel()
+
+        timer = self.create_timer(1.5, publish_detection, clock=self.get_clock())
 
         response.success = True
         response.message = 'Detection started'
@@ -526,15 +577,20 @@ class MockRobotNode(Node):
             f'[MOCK] Processing selection: Product={request.product_id}, BBox={request.bbox_number}'
         )
 
-        if self.pickee_selection_pub:
-            selection_msg = PickeeProductSelection()
-            selection_msg.robot_id = request.robot_id
-            selection_msg.order_id = request.order_id
-            selection_msg.product_id = request.product_id
-            selection_msg.quantity = 1
-            selection_msg.success = True
-            selection_msg.message = '상품 담기 성공'
-            self.pickee_selection_pub.publish(selection_msg)
+        def publish_selection():
+            if self.pickee_selection_pub:
+                selection_msg = PickeeProductSelection()
+                selection_msg.robot_id = request.robot_id
+                selection_msg.order_id = request.order_id
+                selection_msg.product_id = request.product_id
+                selection_msg.quantity = 1
+                selection_msg.success = True
+                selection_msg.message = '상품 담기 성공'
+                self.pickee_selection_pub.publish(selection_msg)
+            self.get_logger().info('[MOCK] Product selection complete')
+            timer.cancel()
+
+        timer = self.create_timer(2.5, publish_selection, clock=self.get_clock())
 
         response.success = True
         response.message = 'Selection processing'
@@ -648,7 +704,7 @@ class MockRobotNode(Node):
             self._publish_robot_status()
             timer.cancel()
 
-        timer = self.create_timer(1.0, publish_packing_complete, clock=self.get_clock())
+        timer = self.create_timer(5.0, publish_packing_complete, clock=self.get_clock())
 
         response.success = True
         response.message = 'Packing started'
@@ -681,7 +737,21 @@ class MockRobotNode(Node):
 
     def _publish_robot_status(self) -> None:
         """Mock 로봇의 현재 상태를 퍼블리시"""
+        # Pickee 상태 업데이트
         if self._enable_pickee and self.pickee_status_pub:
+            # 배터리 시뮬레이션
+            if self._pickee_state in (RobotStatus.WORKING.value, RobotStatus.MOVING.value):
+                self._pickee_battery = max(0.0, self._pickee_battery - 0.1)
+            elif self._pickee_state == RobotStatus.CHARGING.value:
+                self._pickee_battery = min(100.0, self._pickee_battery + 0.5)
+
+            # 위치 시뮬레이션
+            if self._pickee_state == RobotStatus.MOVING.value:
+                px, py, pz = self._pickee_position
+                px += random.uniform(-0.1, 0.1)
+                py += random.uniform(-0.1, 0.1)
+                self._pickee_position = (px, py, pz)
+
             pickee_msg = PickeeRobotStatus()
             pickee_msg.robot_id = self.current_robot_id
             pickee_msg.state = self._pickee_state
@@ -692,10 +762,17 @@ class MockRobotNode(Node):
             pickee_msg.orientation_z = float(self._pickee_position[2])
             self.pickee_status_pub.publish(pickee_msg)
 
+        # Packee 상태 업데이트
         if self._enable_packee and self.packee_status_pub:
+            # 배터리 시뮬레이션
+            if self._packee_state == RobotStatus.WORKING.value:
+                self._packee_battery = max(0.0, self._packee_battery - 0.1)
+
             packee_msg = PackeeRobotStatus()
             packee_msg.robot_id = self._packee_robot_id
             packee_msg.state = self._packee_state
+            # Packee는 배터리 정보를 보내지 않으므로 주석 처리
+            # packee_msg.battery_level = float(self._packee_battery)
             packee_msg.current_order_id = self._packee_order_id or 0
             packee_msg.items_in_cart = self._packee_items_in_cart
             self.packee_status_pub.publish(packee_msg)

@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DBAdminTab</class>
+ <widget class="QWidget" name="DBAdminTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1200</width>
+    <height>800</height>
+   </size>
+  </property>
+  <widget class="QLabel" name="query_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>SQL 쿼리:</string>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+  </widget>
+  <widget class="QTextEdit" name="query_text_edit">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>35</y>
+     <width>1180</width>
+     <height>100</height>
+    </rect>
+   </property>
+   <property name="placeholderText">
+    <string>SELECT * FROM product LIMIT 10;</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>Consolas</family>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="execute_button">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>145</y>
+     <width>120</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>실행 (Ctrl+Enter)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Return</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="clear_button">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>145</y>
+     <width>60</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>지우기</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="table_combo">
+   <property name="geometry">
+    <rect>
+     <x>210</x>
+     <y>145</y>
+     <width>120</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="toolTip">
+    <string>테이블 선택하여 빠른 조회</string>
+   </property>
+   <item>
+    <property name="text">
+     <string>테이블 선택...</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>product</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>order</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>customer</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>order_item</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>robot</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>robot_history</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QPushButton" name="show_tables_button">
+   <property name="geometry">
+    <rect>
+     <x>340</x>
+     <y>145</y>
+     <width>80</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>테이블 목록</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="result_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>180</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>쿼리 결과:</string>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+  </widget>
+  <widget class="QTableWidget" name="result_table">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>205</y>
+     <width>1180</width>
+     <height>550</height>
+    </rect>
+   </property>
+   <property name="editTriggers">
+    <set>QAbstractItemView::DoubleClicked</set>
+   </property>
+   <property name="alternatingRowColors">
+    <bool>true</bool>
+   </property>
+   <property name="selectionBehavior">
+    <enum>QAbstractItemView::SelectRows</enum>
+   </property>
+   <property name="sortingEnabled">
+    <bool>true</bool>
+   </property>
+   <property name="contextMenuPolicy">
+    <enum>Qt::CustomContextMenu</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="status_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>765</y>
+     <width>200</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>준비</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="export_button">
+   <property name="geometry">
+    <rect>
+     <x>1100</x>
+     <y>765</y>
+     <width>90</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>CSV 내보내기</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

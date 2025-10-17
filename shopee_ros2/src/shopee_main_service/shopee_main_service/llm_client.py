@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
 from typing import Any, Dict, Optional
 
 import httpx
@@ -33,6 +35,13 @@ class LLMClient:
         """
         self._base_url = base_url
         self._timeout = timeout
+        self._metrics_lock = threading.Lock()
+        self._metrics: Dict[str, float] = {
+            'success_count': 0.0,
+            'failure_count': 0.0,
+            'fallback_count': 0.0,
+            'total_latency_ms': 0.0,
+        }
 
     async def _request_with_retry(
         self,
@@ -49,6 +58,7 @@ class LLMClient:
         method_upper = method.upper()
 
         for attempt in range(1, attempts + 1):
+            start_time = time.perf_counter()
             try:
                 async with httpx.AsyncClient() as client:
                     if method_upper == 'GET':
@@ -65,8 +75,11 @@ class LLMClient:
                         )
                     response.raise_for_status()
                     if response.headers.get('content-length') == '0':
+                        self._record_success((time.perf_counter() - start_time) * 1000.0)
                         return {}
-                    return response.json()
+                    data = response.json()
+                    self._record_success((time.perf_counter() - start_time) * 1000.0)
+                    return data
             except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                 last_error = exc
                 logger.warning(
@@ -101,6 +114,8 @@ class LLMClient:
             )
         elif last_error:
             logger.error('LLMClient request failed: %s', last_error)
+        if last_error:
+            self._record_failure()
         return None
 
     async def generate_search_query(self, text: str) -> Optional[str]:
@@ -162,3 +177,40 @@ class LLMClient:
             logger.warning('LLM intent response missing intent: %s', data)
             return None
         return data
+
+    def record_fallback(self) -> None:
+        """LLM 실패 후 기본 로직을 사용했음을 기록한다."""
+        with self._metrics_lock:
+            self._metrics['fallback_count'] += 1
+
+    def get_stats_snapshot(self) -> Dict[str, float]:
+        """
+        LLM 호출 통계를 반환한다.
+
+        Returns:
+            성공률, 평균 응답 시간(ms), 실패/폴백 카운트를 포함한 딕셔너리
+        """
+        with self._metrics_lock:
+            success = self._metrics['success_count']
+            failure = self._metrics['failure_count']
+            total = success + failure
+            success_rate = (success / total * 100.0) if total else 0.0
+            avg_latency = (self._metrics['total_latency_ms'] / success) if success else 0.0
+            return {
+                'success_rate': round(success_rate, 1),
+                'avg_response_time': round(avg_latency, 1),
+                'failure_count': int(failure),
+                'fallback_count': int(self._metrics['fallback_count']),
+                'success_count': int(success),
+            }
+
+    def _record_success(self, latency_ms: float) -> None:
+        """성공한 호출과 응답 시간을 기록한다."""
+        with self._metrics_lock:
+            self._metrics['success_count'] += 1
+            self._metrics['total_latency_ms'] += max(0.0, latency_ms)
+
+    def _record_failure(self) -> None:
+        """실패한 호출을 기록한다."""
+        with self._metrics_lock:
+            self._metrics['failure_count'] += 1

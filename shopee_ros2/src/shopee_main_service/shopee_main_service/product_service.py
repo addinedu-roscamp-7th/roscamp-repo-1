@@ -94,11 +94,13 @@ class ProductService:
 
         # 2. LLM 호출 실패 또는 결과가 없을 경우, 기본 검색 로직 수행 (Fallback)
         if not where_clause:
-            logger.warning("LLM query generation failed. Falling back to basic search.")
+            logger.warning('LLM query generation failed. Falling back to basic search.')
+            self._llm.record_fallback()
             return self._basic_keyword_search(query)
 
         if not self._is_safe_where_clause(where_clause):
-            logger.warning("Discarding unsafe LLM WHERE clause: %s", where_clause)
+            logger.warning('Discarding unsafe LLM WHERE clause: %s', where_clause)
+            self._llm.record_fallback()
             return self._basic_keyword_search(query)
 
         # 3. LLM이 생성한 WHERE 절을 사용하여 안전하게 쿼리 실행

@@ -161,6 +161,9 @@ class EventTopic(Enum):
     ROBOT_ARRIVED = "robot_arrived"        # 로봇 도착
     ROBOT_TASK_COMPLETED = "robot_task_completed"  # 로봇 작업 완료
     ROBOT_ERROR = "robot_error"            # 로봇 오류
+    ROS_TOPIC_RECEIVED = "ros_topic_received"  # ROS 토픽 수신 (대시보드용)
+    ROS_SERVICE_CALLED = "ros_service_called"    # ROS 서비스 호출 (대시보드용)
+    ROS_SERVICE_RESPONDED = "ros_service_responded" # ROS 서비스 응답 (대시보드용)
 
 
 # === 기타 상수 ===

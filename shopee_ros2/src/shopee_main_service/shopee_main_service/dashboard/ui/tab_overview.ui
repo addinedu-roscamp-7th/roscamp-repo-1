@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>OverviewTab</class>
+ <widget class="QWidget" name="OverviewTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1200</width>
+    <height>800</height>
+   </size>
+  </property>
+  <widget class="QGroupBox" name="metrics_group">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>1180</width>
+     <height>120</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>시스템 성능 메트릭스</string>
+   </property>
+   <widget class="QLabel" name="avg_processing_time_label">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>30</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>평균 처리 시간: 0.0초</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="hourly_throughput_label">
+    <property name="geometry">
+     <rect>
+      <x>240</x>
+      <y>30</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>시간당 처리량: 0건</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="success_rate_label">
+    <property name="geometry">
+     <rect>
+      <x>460</x>
+      <y>30</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>성공률: 0.0%</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="robot_utilization_label">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>60</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>로봇 가동률: 0.0%</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="system_load_label">
+    <property name="geometry">
+     <rect>
+      <x>240</x>
+      <y>60</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>시스템 부하: 0.0%</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="active_orders_label">
+    <property name="geometry">
+     <rect>
+      <x>460</x>
+      <y>60</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>활성 주문: 0건</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="alerts_group">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>140</y>
+     <width>1180</width>
+     <height>650</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>실시간 알림 및 이벤트</string>
+   </property>
+   <widget class="QTextEdit" name="alerts_text">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>25</y>
+      <width>1160</width>
+      <height>615</height>
+     </rect>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

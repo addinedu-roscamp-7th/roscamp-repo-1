@@ -1,0 +1,10 @@
+# shopee.mtl
+
+newmtl shopee_material
+Ka 1.000 1.000 1.000   # Ambient color (흰색)
+Kd 0.800 0.800 0.800   # Diffuse color (연한 회색)
+Ks 0.500 0.500 0.500   # Specular color (중간 회색)
+d 1.0                  # 투명도 (1.0 = 불투명)
+Ns 96.078431           # Shininess
+
+illum 2                # Lighting model

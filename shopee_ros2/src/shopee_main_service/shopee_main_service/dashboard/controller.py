@@ -11,9 +11,10 @@ import asyncio
 import queue
 import threading
 from dataclasses import asdict
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from ..robot_state_store import RobotStateStore
+from ..constants import EventTopic
+from ..robot_state_store import RobotState, RobotStateStore
 
 
 class DashboardBridge:
@@ -99,11 +100,15 @@ class DashboardDataProvider:
         self,
         order_service,
         robot_state_store: RobotStateStore,
-        metrics_provider: Optional[Callable[[], Awaitable[Dict[str, Any]]]] = None,
+        metrics_provider: Optional[
+            Callable[[Dict[str, Any], List[RobotState]], Awaitable[Dict[str, Any]]]
+        ] = None,
+        metrics_collector=None,  # v5.1 추가
     ) -> None:
         self._order_service = order_service
         self._robot_state_store = robot_state_store
         self._metrics_provider = metrics_provider
+        self._metrics_collector = metrics_collector  # v5.1 추가
 
     async def collect_snapshot(self) -> Dict[str, Any]:
         """
@@ -111,11 +116,27 @@ class DashboardDataProvider:
         """
         orders_snapshot = await self._order_service.get_active_orders_snapshot()
         robot_states = await self._robot_state_store.list_states()
-        metrics = {}
-        if self._metrics_provider:
-            metrics = await self._metrics_provider()
 
+        # 로봇 상태를 직렬화
         serialized_states = [asdict(state) for state in robot_states]
+
+        # 메트릭 수집
+        metrics = {}
+
+        # v5.1: MetricsCollector 사용 (우선순위 높음)
+        if self._metrics_collector:
+            try:
+                metrics = await self._metrics_collector.collect_metrics(serialized_states)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f'MetricsCollector failed: {e}')
+
+        # 레거시 metrics_provider 지원 (하위 호환성)
+        elif self._metrics_provider:
+            metrics = await self._metrics_provider(
+                orders_snapshot=orders_snapshot,
+                robot_states=robot_states,
+            )
 
         return {
             'orders': orders_snapshot,
@@ -143,7 +164,6 @@ class DashboardController:
         self._interval = max(0.1, interval)
         self._bridge = DashboardBridge(loop)
         self._snapshot_task: Optional[asyncio.Task] = None
-        self._event_topics = ['app_push', 'robot_failure']
         self._running = False
 
     @property
@@ -158,8 +178,10 @@ class DashboardController:
         if self._running:
             return
         self._running = True
-        for topic in self._event_topics:
-            self._event_bus.register_listener(topic, self._forward_event)
+        self._event_bus.subscribe(EventTopic.APP_PUSH, self._on_app_push)
+        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED, self._on_ros_topic_received)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED, self._on_ros_service_event)
         self._snapshot_task = asyncio.create_task(self._snapshot_loop())
 
     async def stop(self) -> None:
@@ -175,34 +197,46 @@ class DashboardController:
                 await self._snapshot_task
             except asyncio.CancelledError:
                 pass
-        for topic in self._event_topics:
-            self._event_bus.unregister_listener(topic, self._forward_event)
         await self._bridge.close()
 
     async def _snapshot_loop(self) -> None:
         """
         지정된 간격으로 스냅샷을 수집하여 GUI로 전달한다.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info('Dashboard snapshot loop started')
+
         try:
+            iteration = 0
             while True:
-                snapshot = await self._data_provider.collect_snapshot()
-                await self._bridge.publish_async(
-                    {
-                        'type': 'snapshot',
-                        'data': snapshot,
-                    }
-                )
+                try:
+                    snapshot = await self._data_provider.collect_snapshot()
+                    await self._bridge.publish_async(
+                        {
+                            'type': 'snapshot',
+                            'data': snapshot,
+                        }
+                    )
+                    iteration += 1
+                    if iteration % 300 == 1:  # 5분마다만 로그 (300초)
+                        logger.info(f'Dashboard snapshot loop running: {iteration} iterations, robots: {len(snapshot.get("robots", []))}')
+                except Exception as e:
+                    logger.exception(f'Error in snapshot collection: {e}')
+
                 await asyncio.sleep(self._interval)
         except asyncio.CancelledError:
+            logger.info('Dashboard snapshot loop cancelled')
             raise
 
-    async def _forward_event(self, payload: Dict[str, Any]) -> None:
-        """
-        EventBus에서 수신한 이벤트를 GUI로 릴레이한다.
-        """
-        await self._bridge.publish_async(
-            {
-                'type': 'event',
-                'data': payload,
-            }
-        )
+    async def _on_app_push(self, event_data: Dict[str, Any]) -> None:
+        """앱 푸시 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'event', 'data': event_data})
+
+    async def _on_ros_topic_received(self, event_data: Dict[str, Any]) -> None:
+        """ROS 토픽 수신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'ros_topic', 'data': event_data})
+
+    async def _on_ros_service_event(self, event_data: Dict[str, Any]) -> None:
+        """ROS 서비스 호출/응답 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'ros_service', 'data': event_data})

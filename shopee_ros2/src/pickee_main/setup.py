@@ -30,6 +30,7 @@ setup(
             'mock_arm_node = test.mock_nodes.mock_arm_node:main',
             'mock_vision_node = test.mock_nodes.mock_vision_node:main',
             'integration_test_client = test.integration.integration_test_client:main',
+            'dashboard = pickee_main.dashboard.launcher:main',
         ],
     },
 )
