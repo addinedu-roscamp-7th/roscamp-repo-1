@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Arguments -->
+    <arg name="use_sim_time" default="true"/>
+    <arg name="filter_yaml_path" default="$(find-pkg-share vicpinky_bringup)/config/laser_filter.yaml"/>
+
+    <!-- Include Gazebo simulation -->
+    <include file="$(find-pkg-share vicpinky_gazebo)/launch/launch_sim.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+    
+    <!-- Laser filter node -->
+    <node pkg="laser_filters" exec="scan_to_scan_filter_chain" name="scan_filter_chain" output="screen">
+        <param from="$(var filter_yaml_path)"/>
+    </node>
+
+</launch>
