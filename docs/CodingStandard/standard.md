@@ -1,5 +1,22 @@
 # Project_Shopee
 
+## Git Standard
+- git 명령어를 사용할 경우 브랜치명까지 기입해서 사용
+  - ex) git pull origin dev
+- `main` branch 에서는 작업하지 말 것
+- 새로운 작업을 시작 전 __반드시__ git pull 작업 
+- 커밋 메세지는 다음과 같은 형태 사용
+  - [작업 컴포넌트`PascalCase`] 작업내용
+  - 작업내용상 입력되는 파일명은 실제 파일명과 동일한 case 사용
+  - ex) [PackeeVision]check_cart_presence 서비스 클라이언트 구현
+- 작업 내용을 push 할 경우 다음의 순서 사용<br>
+    1. git pull origin _작업한 브렌치_
+    2. git add _전역 또는 작업물_
+    3. git commit -m "커밋메세지"
+    4. git push origin _작업한 브렌치_
+- __Git 사용중 에러 메세지가 나왔을 때 반드시 확인할 것__
+- `main` branch merge는 매 sprint 끝날 때마다 이루어 짐
+
 ## Shopee Standard
 
 _본 스텐다드는 [Ros2 Jazzy 공식문서](https://docs.ros.org/en/jazzy/The-ROS2-Project/Contributing/Code-Style-Language-Versions.html), [Google Style Guides](https://google.github.io/styleguide/)를 참조하여 작성되었습니다._
