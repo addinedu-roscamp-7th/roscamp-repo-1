@@ -12,6 +12,14 @@
 *   **`motion_control_component.py`**: 로봇의 실제 움직임을 제어하는 컴포넌트입니다. 경로 계획 컴포넌트로부터 지역 경로 정보를 수신하고, 속도 제어 명령을 처리하여 로봇의 선속도 및 각속도를 계산하여 `/cmd_vel` 토픽으로 발행합니다.
 *   **`state_machine.py`**: 로봇의 상태를 관리하고 상태 간의 전환을 처리하는 일반적인 상태 기계 프레임워크를 제공합니다.
 *   **`states/` 디렉토리**: `State` 추상 클래스를 상속받아 Pickee Mobile 로봇의 각 구체적인 상태(IDLE, MOVING, STOPPED, CHARGING, ERROR)를 정의합니다.
+*   **`launch/` 디렉토리**: ROS2 노드들을 실행하기 위한 launch 파일들을 포함합니다. 시뮬레이션 환경 설정, 로봇 모델 로드, 내비게이션 스택 실행 등 다양한 시나리오를 위한 launch 파일들이 있습니다.
+*   **`map/` 디렉토리**: 로봇 내비게이션에 사용되는 지도 파일(예: `.yaml`, `.pgm`)들을 포함합니다.
+*   **`meshes/` 디렉토리**: 로봇 및 환경 모델의 3D 메시 파일(예: `.stl`, `.dae`)들을 포함합니다.
+*   **`models/` 디렉토리**: Gazebo 시뮬레이션에서 사용되는 3D 모델 정의 파일들을 포함합니다. (예: `desk`, `factory_L1`, `shelf`, `shopee_map` 등)
+*   **`params/` 디렉토리**: ROS2 노드의 파라미터 설정 파일(예: `.yaml`)들을 포함합니다. 내비게이션 스택, SLAM 등에 필요한 설정들이 정의되어 있습니다.
+*   **`rviz/` 디렉토리**: ROS 시각화 도구인 RViz의 설정 파일(예: `.rviz`)들을 포함합니다. 맵 뷰, 내비게이션 뷰, 로봇 모델 뷰 등을 위한 설정들이 있습니다.
+*   **`urdf/` 디렉토리**: 로봇의 URDF(Unified Robot Description Format) 및 XACRO 파일들을 포함합니다. 로봇의 링크, 조인트, 센서 등을 정의합니다.
+*   **`worlds/` 디렉토리**: Gazebo 시뮬레이션 환경을 정의하는 월드 파일(예: `.world`)들을 포함합니다.
 
 ## 2. ROS2 인터페이스
 
@@ -41,6 +49,8 @@
 *   **`mock_update_global_path_client.py`**: `/pickee/mobile/update_global_path` 서비스에 **Request**를 보내 `mobile_controller`의 경로 업데이트 기능을 테스트합니다.
 *   **`mock_pose_subscriber.py`**: `/pickee/mobile/pose` 토픽을 **Subscribe**하여 `mobile_controller`가 발행하는 로봇의 위치 정보를 모니터링합니다.
 *   **`mock_arrival_and_move_status_subscriber.py`**: `/pickee/mobile/arrival` 토픽과 `/pickee/mobile/local_path` 토픽을 **Subscribe**하여 `mobile_controller`의 도착 알림 및 지역 경로 정보를 모니터링합니다.
+*   **`goal_test/` 디렉토리**: 목표 설정 및 전송 기능을 테스트하기 위한 스크립트들을 포함합니다.
+*   **`topic_test/` 디렉토리**: ROS2 토픽 통신을 테스트하기 위한 스크립트들을 포함합니다.
 
 ## 4. 실행 방법
 
@@ -66,6 +76,26 @@ source install/setup.bash
 ```bash
 ros2 run pickee_mobile mobile_controller
 ```
+
+**Launch 파일을 이용한 실행 (예시):**
+*   **로봇 시뮬레이션 및 내비게이션 스택 실행:**
+    ```bash
+    ros2 launch pickee_mobile gazebo_bringup.launch.xml
+    ros2 launch pickee_mobile bringup_launch.xml
+    ```
+*   **RViz를 통한 로봇 모델 시각화:**
+    ```bash
+    ros2 launch pickee_mobile display.launch.xml
+    ```
+*   **맵 빌딩 (SLAM) 실행:**
+    ```bash
+    ros2 launch pickee_mobile map_building.launch.xml
+    ```
+*   **RViz를 통한 맵 뷰 및 내비게이션 뷰:**
+    ```bash
+    ros2 launch pickee_mobile map_view.launch.xml
+    ros2 launch pickee_mobile nav2_view.launch.xml
+    ```
 
 **Mock 노드 (각각 별도의 터미널에서 실행):**
 ```bash

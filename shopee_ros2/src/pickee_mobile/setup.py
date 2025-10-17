@@ -51,6 +51,7 @@ setup(
             'mock_arrival_and_move_status_subscriber = pickee_mobile.mock.mock_arrival_and_move_status_subscriber:main',
             'test_pose_subscriber = pickee_mobile.topic_test.pose_sub:main',
             'test_velocity_controller = pickee_mobile.topic_test.control_vel:main',
+            'bringup = pickee_mobile.bringup:main',
         ],
     },
 )
