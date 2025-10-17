@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'check_cart_presence = packee_vision.check_cart_presence:main'
+            'check_cart_presence = packee_vision.check_cart_presence:main',
+            'detect_products_in_cart = packee_vision.detect_products_in_cart:main'
         ],
     },
 )

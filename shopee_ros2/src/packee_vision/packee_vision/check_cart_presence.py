@@ -9,12 +9,22 @@ class CheckCart(Node):
         super().__init__("check_cart_presence")
         self.server = self.create_service(
             PackeeVisionCheckCartPresence,
-            "check_cart_presence", # 타입명
+            "packee/vision/check_cart_presence", # 타입명
             self.callback_service
         )
     
     def callback_service(self, request, response):
         self.get_logger().info(f"Received request for robot_id: {request.robot_id}") 
+
+        response.cart_present = True
+        response.confidence = 0.93
+        response.message = 'good'
+
+        self.get_logger().info(
+        f"Response -> cart_present: {response.cart_present}, "
+        f"confidence: {response.confidence}, message: {response.message}"
+    )
+
 
         return response
 
