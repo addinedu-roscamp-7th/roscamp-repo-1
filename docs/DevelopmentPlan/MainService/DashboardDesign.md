@@ -14,7 +14,8 @@
 
 ### 1.2 범위
 - **표시**: 로봇 상태, 주문/상태 머신 흐름, 시스템 성능 메트릭스, 에러 및 장애 추적, 네트워크 연결 상태, 이벤트 로그
-- **제외**: 설정 변경, 주문 조작, Mock 이벤트 발행 등 쓰기 작업
+- **제외 (v5.0)**: 설정 변경, 주문 조작, Mock 이벤트 발행 등 쓰기 작업
+- **추가 계획 (v6.0)**: 데이터베이스 수정 기능 - 제품/주문/재고/로봇 관리
 - **환경**: 개발 및 운영 환경 (설정으로 활성화/비활성화 가능, 기본값: 비활성화)
 
 ---
@@ -32,7 +33,8 @@
 | 기능 | 재고 정보 | 품절 임박 상품, 인기 상품 TOP 5, 예약된 재고량 | Low |
 | 비기능 | 실행 조건 | `settings.GUI_ENABLED=True`일 때만 GUI 기동 (기본 False) | - |
 | 비기능 | 자원 격리 | GUI 스레드 예외가 Core Service에 영향 주지 않음 | - |
-| 비기능 | 읽기 전용 | 모든 표시는 읽기 전용, 시스템 상태 변경 불가 | - |
+| 비기능 | 읽기 전용 (v5.0) | 모든 표시는 읽기 전용, 시스템 상태 변경 불가 | - |
+| 비기능 | 쓰기 기능 (v6.0) | `SHOPEE_GUI_WRITE_ENABLED=1`일 때만 DB 수정 가능 (개발 환경용) | - |
 | 비기능 | 성능 | 1초 주기 스냅샷 수집 시 메인 서비스 지연 최소화 (< 10ms) | - |
 
 ---
@@ -885,6 +887,256 @@ SHOPEE_GUI_ENABLED=0  # 또는 설정하지 않음 (기본값)
 ### v6.0 이후 고려 사항 (Phase 4+)
 추후 필요 시 추가 가능한 기능:
 
+#### 데이터베이스 수정 기능 (DB CRUD Operations) 🔧
+**목적**: 개발 및 테스트 환경에서 시스템 상태를 직접 조작하여 디버깅 및 테스트 효율성 향상
+
+##### 1. 제품 관리 (Product Management)
+- **제품 추가**: 새로운 제품을 데이터베이스에 등록
+  - 입력 항목: 제품명, 카테고리, 가격, 재고 수량, 위치 정보 (창고 ID, 섹션 ID)
+  - UI: "제품 추가" 버튼 → 입력 폼 다이얼로그
+- **제품 수정**: 기존 제품 정보 변경
+  - 수정 가능 항목: 가격, 재고 수량, 위치, 상태 (활성/비활성)
+  - UI: 테이블 더블클릭 또는 "수정" 버튼 → 편집 다이얼로그
+- **제품 삭제**: 제품 데이터 삭제 (soft delete 권장)
+  - 확인 다이얼로그로 실수 방지
+- **재고 조정**: 재고 수량 직접 변경
+  - 빠른 입력: 테이블 셀 인라인 편집
+  - 이력 기록: 수정 사유 및 담당자 기록
+
+##### 2. 주문 관리 (Order Management)
+- **주문 취소**: 진행 중인 주문 강제 취소
+  - 할당된 로봇 자동 해제
+  - 예약된 재고 자동 복원
+  - 상태를 CANCELLED로 변경
+- **주문 상태 강제 변경**: 테스트/디버깅 목적
+  - 모든 상태로 직접 전환 가능 (PAID → PACKED 등)
+  - 경고 메시지: "이 작업은 시스템 일관성을 깨뜨릴 수 있습니다"
+- **주문 재시작**: 실패한 주문을 처음부터 다시 시작
+  - 새 주문 ID 생성 또는 기존 ID 재사용 옵션
+- **주문 상세 정보 수정**: 배송지, 고객 메모 등 메타데이터 수정
+
+##### 3. 로봇 관리 (Robot Management)
+- **로봇 상태 강제 변경**:
+  - IDLE ↔ WORKING ↔ ERROR ↔ OFFLINE 상태 전환
+  - 테스트 시나리오 재현에 유용
+- **로봇 재시작/리셋**:
+  - 상태를 IDLE로 초기화
+  - 현재 작업(active_order_id) 해제
+  - 위치를 HOME으로 리셋
+- **작업 할당 해제**:
+  - 로봇에 할당된 주문 강제 해제
+  - 주문은 대기 상태로 복귀
+- **배터리 조정**: 테스트용 배터리 레벨 직접 설정
+- **위치 강제 이동**: 로봇 위치를 특정 좌표로 설정
+
+##### 4. 재고 관리 (Inventory Management)
+- **창고/섹션 정보 수정**:
+  - 위치 좌표(x, y, theta) 변경
+  - 이름/설명 수정
+- **재고 수량 일괄 조정**:
+  - 여러 제품의 재고를 한번에 변경
+  - CSV 파일 임포트/익스포트
+- **재고 이력 조회**:
+  - 재고 변동 이력 조회
+  - 필터: 날짜, 제품, 사유
+
+##### 5. 구현 아키텍처
+
+**데이터 흐름**:
+```
+Qt GUI (메인 스레드)
+    │
+    │ 1. 사용자 입력 (버튼 클릭, 폼 제출)
+    ▼
+DashboardBridge.send_from_gui({
+    'action': 'update_product',
+    'product_id': 1,
+    'price': 5000
+})
+    │
+    │ 2. 스레드 안전 전송 (asyncio.Queue)
+    ▼
+DashboardController.receive_command()
+    │
+    │ 3. 명령 타입 분기
+    ▼
+ProductService / OrderService / RobotStateStore
+    │
+    │ 4. DB 업데이트 (SQLAlchemy)
+    ▼
+결과 반환 → GUI 피드백 (성공/실패 메시지)
+```
+
+**명령 포맷**:
+```python
+# 제품 수정 예시
+{
+    'action': 'update_product',
+    'product_id': 1,
+    'data': {
+        'price': 5000,
+        'stock': 100
+    }
+}
+
+# 주문 취소 예시
+{
+    'action': 'cancel_order',
+    'order_id': 15,
+    'reason': '고객 요청'
+}
+
+# 로봇 상태 변경 예시
+{
+    'action': 'update_robot_status',
+    'robot_id': 1,
+    'status': 'IDLE',
+    'reason': '테스트'
+}
+```
+
+**DashboardController 확장**:
+```python
+class DashboardController:
+    async def _handle_gui_commands(self):
+        """GUI에서 전송된 명령을 처리하는 루프"""
+        while self._running:
+            try:
+                command = await self._bridge.receive_command()
+                action = command.get('action')
+
+                if action == 'update_product':
+                    await self._handle_update_product(command)
+                elif action == 'cancel_order':
+                    await self._handle_cancel_order(command)
+                elif action == 'update_robot_status':
+                    await self._handle_update_robot_status(command)
+                # ... 기타 액션
+
+            except Exception as e:
+                logger.exception(f"Command handling error: {e}")
+                # GUI에 에러 피드백
+                await self._bridge.publish_async({
+                    'type': 'command_result',
+                    'success': False,
+                    'error': str(e)
+                })
+
+    async def _handle_update_product(self, command: dict):
+        """제품 정보 수정"""
+        product_id = command['product_id']
+        data = command['data']
+
+        # ProductService 호출
+        success = await self._product_service.update_product(
+            product_id=product_id,
+            **data
+        )
+
+        # 결과 피드백
+        await self._bridge.publish_async({
+            'type': 'command_result',
+            'action': 'update_product',
+            'success': success,
+            'product_id': product_id
+        })
+```
+
+**UI 구성 예시**:
+
+각 탭에 편집 버튼 추가:
+- **제품 관리 탭**: [추가] [수정] [삭제] [재고 조정] 버튼
+- **주문 관리 탭**: [취소] [상태 변경] [재시작] 버튼
+- **로봇 상태 탭**: [상태 변경] [리셋] [작업 해제] 버튼
+- **재고 관리 탭**: [위치 수정] [일괄 조정] [이력 조회] 버튼
+
+다이얼로그 예시:
+```python
+class ProductEditDialog(QDialog):
+    def __init__(self, product_id: int, current_data: dict):
+        super().__init__()
+        self.setWindowTitle('제품 수정')
+
+        layout = QFormLayout()
+
+        self.price_input = QLineEdit(str(current_data['price']))
+        self.stock_input = QSpinBox()
+        self.stock_input.setValue(current_data['stock'])
+
+        layout.addRow('가격:', self.price_input)
+        layout.addRow('재고:', self.stock_input)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok |
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout.addRow(buttons)
+        self.setLayout(layout)
+```
+
+##### 6. 안전장치 및 제약사항
+
+**접근 제어**:
+- 환경변수로 쓰기 기능 활성화/비활성화
+  ```bash
+  SHOPEE_GUI_WRITE_ENABLED=1  # 개발 환경에서만
+  ```
+- 운영 환경에서는 읽기 전용 모드 강제
+
+**확인 절차**:
+- 모든 수정/삭제 작업에 확인 다이얼로그 필수
+- 위험한 작업(주문 취소, 로봇 리셋)은 이중 확인
+- 실행 전 변경 사항 미리보기
+
+**롤백 및 이력**:
+- 모든 수정 작업을 감사 로그에 기록
+  - 누가(사용자), 언제(시각), 무엇을(테이블/ID), 어떻게(변경 내용)
+- 가능한 경우 롤백 기능 제공
+- 중요 데이터는 soft delete (is_deleted 플래그)
+
+**검증 로직**:
+- 입력값 검증 (가격 > 0, 재고 >= 0 등)
+- 외래키 제약 확인 (존재하는 제품 ID인지 등)
+- 상태 전이 규칙 준수 (PACKED → PAID 불가 등)
+
+##### 7. 구현 우선순위
+
+**Phase 4A (8-10시간)**: 기본 CRUD UI
+- 제품 관리: 추가/수정/삭제 UI 및 로직
+- 주문 취소 기능
+- 기본 명령 처리 인프라
+
+**Phase 4B (6-8시간)**: 고급 기능
+- 로봇 상태 관리
+- 재고 일괄 조정
+- CSV 임포트/익스포트
+
+**Phase 4C (4-6시간)**: 안전장치
+- 감사 로그 시스템
+- 롤백 메커니즘
+- 접근 제어 및 권한 관리
+
+**총 예상 시간**: 18-24시간 (3-4일)
+
+##### 8. 사용 시나리오
+
+**개발/테스트**:
+1. 특정 제품의 재고를 0으로 설정하여 품절 시나리오 테스트
+2. 로봇을 ERROR 상태로 변경하여 장애 복구 로직 검증
+3. 주문 상태를 강제로 변경하여 각 단계별 로직 확인
+
+**디버깅**:
+1. 잘못된 주문 데이터를 직접 수정하여 복구
+2. 로봇이 멈춘 경우 상태를 IDLE로 리셋
+3. 재고 불일치 발견 시 즉시 조정
+
+**데모/발표**:
+1. 실시간으로 데이터를 조작하여 시스템 반응 시연
+2. 다양한 시나리오를 빠르게 재현
+
 #### 인터랙티브 기능
 - **주문 상세 팝업**: 실패한 주문 클릭 시 상세 정보 모달 표시
 - **로봇 상세 팝업**: 로봇 클릭 시 작업 이력, 배터리 히스토리 차트
@@ -959,6 +1211,17 @@ SHOPEE_GUI_ENABLED=0  # 또는 설정하지 않음 (기본값)
 |     |            | - 탭5: 이벤트 로그 + 검색/필터 기능 |  |
 |     |            | - 데이터 수집 로직 확장 설계 |  |
 |     |            | - Phase별 구현 일정 재수립 (24-31시간) |  |
+| 5.2 | 2025-10-17 | **모듈화 및 안정성 개선** | Main Service Team |
+|     |            | - PyQt6 UI를 메인 스레드에서 실행하도록 구조 변경 |  |
+|     |            | - asyncio는 백그라운드 스레드에서 실행 |  |
+|     |            | - ROS2 스핀을 Qt 타이머(10ms)로 처리 |  |
+|     |            | - UI 파일 모듈화 (ui/, ui_gen/, tabs/ 구조) |  |
+|     |            | - ROS2 토픽 콜백 비동기 처리 개선 |  |
+| 6.0 | TBD | **데이터베이스 수정 기능 추가 (계획)** | Main Service Team |
+|     |     | - 제품/주문/로봇/재고 관리 CRUD 기능 |  |
+|     |     | - 개발 환경 전용 쓰기 권한 (`GUI_WRITE_ENABLED`) |  |
+|     |     | - 감사 로그 및 롤백 메커니즘 |  |
+|     |     | - 예상 소요: 18-24시간 (3-4일) |  |
 
 ---
 

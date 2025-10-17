@@ -13,6 +13,7 @@ import threading
 from dataclasses import asdict
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from ..constants import EventTopic
 from ..robot_state_store import RobotState, RobotStateStore
 
 
@@ -148,7 +149,6 @@ class DashboardController:
         self._interval = max(0.1, interval)
         self._bridge = DashboardBridge(loop)
         self._snapshot_task: Optional[asyncio.Task] = None
-        self._event_topics = ['app_push', 'robot_failure', 'reservation_timeout']
         self._running = False
 
     @property
@@ -163,8 +163,10 @@ class DashboardController:
         if self._running:
             return
         self._running = True
-        for topic in self._event_topics:
-            self._event_bus.register_listener(topic, self._forward_event)
+        self._event_bus.subscribe(EventTopic.APP_PUSH, self._on_app_push)
+        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED, self._on_ros_topic_received)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED, self._on_ros_service_event)
         self._snapshot_task = asyncio.create_task(self._snapshot_loop())
 
     async def stop(self) -> None:
@@ -180,34 +182,46 @@ class DashboardController:
                 await self._snapshot_task
             except asyncio.CancelledError:
                 pass
-        for topic in self._event_topics:
-            self._event_bus.unregister_listener(topic, self._forward_event)
         await self._bridge.close()
 
     async def _snapshot_loop(self) -> None:
         """
         지정된 간격으로 스냅샷을 수집하여 GUI로 전달한다.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info('Dashboard snapshot loop started')
+
         try:
+            iteration = 0
             while True:
-                snapshot = await self._data_provider.collect_snapshot()
-                await self._bridge.publish_async(
-                    {
-                        'type': 'snapshot',
-                        'data': snapshot,
-                    }
-                )
+                try:
+                    snapshot = await self._data_provider.collect_snapshot()
+                    await self._bridge.publish_async(
+                        {
+                            'type': 'snapshot',
+                            'data': snapshot,
+                        }
+                    )
+                    iteration += 1
+                    if iteration % 10 == 0:  # 10초마다 로그
+                        logger.info(f'Snapshot loop running: {iteration} iterations, robots: {len(snapshot.get("robots", []))}')
+                except Exception as e:
+                    logger.exception(f'Error in snapshot collection: {e}')
+
                 await asyncio.sleep(self._interval)
         except asyncio.CancelledError:
+            logger.info('Dashboard snapshot loop cancelled')
             raise
 
-    async def _forward_event(self, payload: Dict[str, Any]) -> None:
-        """
-        EventBus에서 수신한 이벤트를 GUI로 릴레이한다.
-        """
-        await self._bridge.publish_async(
-            {
-                'type': 'event',
-                'data': payload,
-            }
-        )
+    async def _on_app_push(self, event_data: Dict[str, Any]) -> None:
+        """앱 푸시 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'event', 'data': event_data})
+
+    async def _on_ros_topic_received(self, event_data: Dict[str, Any]) -> None:
+        """ROS 토픽 수신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'ros_topic', 'data': event_data})
+
+    async def _on_ros_service_event(self, event_data: Dict[str, Any]) -> None:
+        """ROS 서비스 호출/응답 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'ros_service', 'data': event_data})

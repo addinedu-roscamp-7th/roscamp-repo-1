@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RobotStatusTab</class>
+ <widget class="QWidget" name="RobotStatusTab">
+  <layout class="QVBoxLayout" name="verticalLayout_6">
+   <item>
+    <widget class="QTableWidget" name="robot_table">
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <column>
+      <property name="text">
+       <string>Robot ID</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Type</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Status</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Battery(%)</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Reserved</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Order ID</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Last Update</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

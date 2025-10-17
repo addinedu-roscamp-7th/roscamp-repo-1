@@ -34,7 +34,7 @@ from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
 from .constants import RobotStatus
-from .dashboard import DashboardController, DashboardDataProvider, start_dashboard_gui
+from .dashboard import DashboardController, DashboardDataProvider
 
 logger = logging.getLogger('shopee_main_service')
 
@@ -124,14 +124,14 @@ class MainServiceApp:
             self._event_bus
         )
 
-    async def run(self) -> None:
+    async def initialize(self) -> None:
         """
-        메인 실행 루프
-        
+        서비스 초기화
+
         1. API 핸들러 등록
         2. TCP 서버 시작
-        3. ROS2 + asyncio 하이브리드 루프 실행
-        4. 종료 시 정리
+        3. 로봇 콜백 등록
+        4. 대시보드 컨트롤러 시작 (GUI 활성화 시)
         """
         self._install_handlers()
 
@@ -151,30 +151,26 @@ class MainServiceApp:
 
         if settings.GUI_ENABLED:
             await self._start_dashboard_controller()
-            start_dashboard_gui(self._dashboard_controller)
 
         await self._api.start()
         await self._streaming_service.start()
-        
+
+    async def cleanup(self) -> None:
+        """
+        서비스 종료 시 정리 작업
+        """
+        if self._dashboard_controller:
+            await self._dashboard_controller.stop()
+            self._dashboard_controller = None
+
+        await self._api.stop()
+        self._streaming_service.stop()
+        self._robot.destroy_node()
+
         try:
-            # ROS2와 asyncio를 동시에 실행하는 루프
-            while rclpy.ok():
-                # ROS2 메시지 처리
-                rclpy.spin_once(self._robot, timeout_sec=settings.ROS_SPIN_TIMEOUT)
-                # asyncio 이벤트 루프에 제어권 양보
-                await asyncio.sleep(0)
-        finally:
-            if self._dashboard_controller:
-                await self._dashboard_controller.stop()
-                self._dashboard_controller = None
-            # 정리 작업
-            await self._api.stop()
-            self._streaming_service.stop()
-            self._robot.destroy_node()
-            try:
-                await self._robot_state_store.close()
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("Failed to close robot state store: %s", exc)
+            await self._robot_state_store.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to close robot state store: %s", exc)
 
     def _install_handlers(self) -> None:
         """
@@ -788,6 +784,8 @@ class MainServiceApp:
 
             try:
                 topic_health = self._robot.get_topic_health()
+                if topic_health is None:
+                    topic_health = {}
             except AttributeError:
                 topic_health = {}
             except Exception as exc:  # noqa: BLE001
@@ -861,7 +859,11 @@ class MainServiceApp:
 
 
 def main() -> None:
-    """메인 진입점"""
+    """메인 진입점 - Qt 기반 이벤트 루프"""
+    import sys
+    import threading
+    from PyQt6.QtWidgets import QApplication
+
     # 로깅 설정
     logging.basicConfig(
         level=settings.LOG_LEVEL,
@@ -870,21 +872,78 @@ def main() -> None:
             logging.StreamHandler(),
         ]
     )
-    
+
     if settings.LOG_FILE:
         logging.getLogger().addHandler(logging.FileHandler(settings.LOG_FILE))
-    
+
     logger.info("Starting Shopee Main Service")
     logger.info("Config: API=%s:%d, LLM=%s, DB=%s",
                 settings.API_HOST, settings.API_PORT,
                 settings.LLM_BASE_URL,
                 settings.DB_URL.split('@')[-1] if '@' in settings.DB_URL else settings.DB_URL)
-    
-    # ROS2 및 애플리케이션 실행
+
+    # ROS2 초기화
     rclpy.init()
+
     try:
-        app = MainServiceApp()
-        asyncio.run(app.run())
+        # Qt Application 생성 (메인 스레드에서)
+        qt_app = QApplication(sys.argv)
+
+        # MainServiceApp 생성
+        service_app = MainServiceApp()
+
+        # asyncio 이벤트 루프를 백그라운드 스레드에서 실행
+        def run_asyncio_loop():
+            """백그라운드 스레드에서 asyncio 이벤트 루프 실행"""
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            try:
+                # 서비스 초기화
+                loop.run_until_complete(service_app.initialize())
+                logger.info("Asyncio services initialized")
+
+                # asyncio 이벤트 루프 계속 실행
+                loop.run_forever()
+            except Exception as e:
+                logger.exception("Asyncio loop error: %s", e)
+            finally:
+                # 정리 작업
+                try:
+                    loop.run_until_complete(service_app.cleanup())
+                except:
+                    pass
+                loop.close()
+                logger.info("Asyncio loop stopped")
+
+        # asyncio 스레드 시작
+        asyncio_thread = threading.Thread(target=run_asyncio_loop, daemon=True, name='AsyncioLoop')
+        asyncio_thread.start()
+
+        # asyncio 초기화 대기 (최대 5초)
+        import time
+        for _ in range(50):
+            if service_app._dashboard_controller:
+                break
+            time.sleep(0.1)
+
+        # GUI가 활성화된 경우 GUI 윈도우 생성
+        window = None
+        if settings.GUI_ENABLED and service_app._dashboard_controller:
+            from .dashboard import DashboardWindow
+            window = DashboardWindow(service_app._dashboard_controller.bridge, service_app._robot)
+            window.show()
+            logger.info("Dashboard GUI window created")
+        else:
+            logger.warning("GUI enabled but dashboard controller not ready")
+
+        logger.info("Starting Qt event loop")
+
+        # Qt 이벤트 루프 실행
+        exit_code = qt_app.exec()
+
+        logger.info("Qt event loop finished with exit code: %d", exit_code)
+
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
     except Exception as e:
