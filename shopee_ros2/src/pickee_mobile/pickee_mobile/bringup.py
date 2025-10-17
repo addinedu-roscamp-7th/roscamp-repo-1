@@ -12,7 +12,7 @@ from tf2_ros import TransformBroadcaster
 from tf_transformations import quaternion_from_euler
 
 # Import the driver module
-from vicpinky_bringup.zlac_driver import ZLACDriver
+from pickee_mobile.zlac_driver import ZLACDriver
 
 # --- Configuration Constants ---
 # Topic and Frame Names
