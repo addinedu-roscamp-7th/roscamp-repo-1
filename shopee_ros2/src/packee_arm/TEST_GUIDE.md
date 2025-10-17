@@ -17,10 +17,38 @@ sub /packee/packing_complete [shopee_interfaces/msg/PackeePackingComplete]
 sub /packee/robot_status [shopee_interfaces/msg/PackeeRobotStatus]
 ```
 
+int32 robot_id
+int32 order_id
+int32 product_id
+string arm_side
+shopee_interfaces/Point3D target_position
+shopee_interfaces/BBox bbox
+
 ## 명령어 예시
 ### 서비스
 ``` bash
-ros2 service call /packee/arm/move_to_pose shopee_interfaces/srv/PackeeArmMoveToPose "{}"
+ros2 service call /packee/arm/move_to_pose shopee_interfaces/srv/PackeeArmMoveToPose "{
+    robot_id: 1,
+    order_id: 10,
+    pose_type: "cart_view"
+}"
+ros2 service call /packee/arm/pick_product shopee_interfaces/srv/PackeeArmPickProduct "{
+    robot_id: 1,
+    order_id: 10,
+    product_id: 20,
+    arm_side: 'left',
+    target_position: {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0
+    }
+    bbox: {
+        x1: 1.0,
+        y1: 1.0,
+        x2: 1.0,
+        y2: 1.0
+    }
+}"
 ```
 ### 토픽
 ``` bash
