@@ -222,6 +222,7 @@ Order -> EventBus: cart_update_notification
 | Topic | `/pickee/robot_status` | Pickee → Main | 로봇 상태 | `shopee_interfaces/msg/PickeeRobotStatus` |
 | Service | `/packee/packing/check_availability` | Main ↔ Packee | 포장 가능 여부 | `shopee_interfaces/srv/PackeePackingCheckAvailability` |
 | Service | `/packee/packing/start` | Main → Packee | 포장 시작 | `shopee_interfaces/srv/PackeePackingStart` |
+| Topic | `/packee/availability_result` | Packee → Main | 포장 가능 여부 확인 결과 | `shopee_interfaces/msg/PackeeAvailability.msg` |
 | Topic | `/packee/packing_complete` | Packee → Main | 포장 완료 | `shopee_interfaces/msg/PackeePackingComplete` |
 | Topic | `/packee/robot_status` | Packee → Main | 로봇 상태 | `shopee_interfaces/msg/PackeeRobotStatus` |
 
@@ -233,7 +234,7 @@ ROS 메시지는 InterfaceSpecification 문서 기반 DTO로 역직렬화하여 
 
 - **ORM 매핑**:
   - `OrderModel` ↔ `order`
-  - `OrderItemModel` ↔ `order_item_info`
+  - `OrderItemModel` ↔ `order_item`
   - `ProductModel` ↔ `product`
   - `RobotHistoryModel` ↔ `robot_history`
 - **트랜잭션 경계**:

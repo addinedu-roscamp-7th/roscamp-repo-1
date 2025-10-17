@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+from sqlalchemy import func
 
 from shopee_interfaces.srv import (
     PackeePackingCheckAvailability,
@@ -46,6 +48,7 @@ if TYPE_CHECKING:
     from .database_manager import DatabaseManager
     from .inventory_service import InventoryService
     from .robot_coordinator import RobotCoordinator
+    from .robot_state_backend import RobotState
 
 logger = logging.getLogger(__name__)
 
@@ -1513,11 +1516,14 @@ class OrderService:
         Returns:
             진행 중 주문 목록과 간단한 요약 정보
         """
-        from datetime import timedelta
-
         now = datetime.now()
         active_orders: List[Dict[str, Any]] = []
         status_counter: Dict[int, int] = {}
+        progress_total = 0.0
+        progress_count = 0
+        failed_count = 0
+
+        truly_active_count = 0  # DB 세션 밖에서 사용할 변수 미리 선언
 
         with self._db.session_scope() as session:
             # 진행 중 주문 + 최근 30분 이내 완료된 주문
@@ -1553,6 +1559,7 @@ class OrderService:
                     (self._detected_product_bbox.get(order.order_id) or {}).keys()
                 )
 
+                progress_value = self._status_progress(order.order_status)
                 active_orders.append(
                     {
                         "order_id": order.order_id,
@@ -1562,7 +1569,7 @@ class OrderService:
                             order.order_status,
                             OrderStatus.PAID.value,
                         ),
-                        "progress": self._status_progress(order.order_status),
+                        "progress": progress_value,
                         "started_at": order.start_time.isoformat() if order.start_time else None,
                         "elapsed_seconds": (
                             (now - order.start_time).total_seconds()
@@ -1582,6 +1589,14 @@ class OrderService:
                 )
 
                 status_counter[order.order_status] = status_counter.get(order.order_status, 0) + 1
+                if order.order_status == 9:
+                    failed_count += 1
+
+                # 실제 진행 중인 주문만 카운트 (status < 8)
+                if order.order_status < 8:
+                    truly_active_count += 1
+                    progress_total += float(progress_value)
+                    progress_count += 1
 
         status_summary = {
             self._status_label_map.get(code, str(code)): count
@@ -1591,8 +1606,11 @@ class OrderService:
         return {
             "orders": active_orders,
             "summary": {
-                "total_active": len(active_orders),
+                "total_active": truly_active_count,  # 실제 진행 중인 주문만
+                "total_including_recent": len(active_orders),  # 최근 완료 포함
                 "status_counts": status_summary,
+                "avg_progress": round(progress_total / progress_count, 1) if progress_count else 0.0,
+                "failed_count": failed_count,
             },
         }
 
@@ -1625,3 +1643,91 @@ class OrderService:
                     }
                 )
             return payload
+
+    async def get_failed_orders_by_reason(self, window_minutes: int = 60) -> Dict[str, int]:
+        """
+        최근 실패 주문을 사유별로 집계한다.
+
+        Args:
+            window_minutes: 조회 대상 시간(분)
+        """
+        cutoff = datetime.now() - timedelta(minutes=window_minutes)
+        summary: Dict[str, int] = {}
+        with self._db.session_scope() as session:
+            rows = (
+                session.query(Order.failure_reason, func.count(Order.order_id))
+                .filter(Order.order_status == 9)
+                .filter(Order.end_time.isnot(None))
+                .filter(Order.end_time >= cutoff)
+                .group_by(Order.failure_reason)
+                .all()
+            )
+            for reason, count in rows:
+                key = reason or 'UNKNOWN'
+                summary[key] = int(count)
+        return summary
+
+    async def get_performance_metrics(
+        self,
+        *,
+        window_minutes: int = 60,
+        robot_states: Optional[List["RobotState"]] = None,
+        orders_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, float]:
+        """
+        시스템 성능 메트릭스를 계산한다.
+
+        Args:
+            window_minutes: 통계를 계산할 시간 범위(분)
+            robot_states: 사전 조회한 로봇 상태 목록
+            orders_snapshot: 사전 조회한 주문 스냅샷
+        """
+        window_start = datetime.now() - timedelta(minutes=window_minutes)
+        processing_times: List[float] = []
+        completed_orders_count = 0
+
+        with self._db.session_scope() as session:
+            completed_orders = (
+                session.query(Order)
+                .filter(Order.end_time.isnot(None))
+                .filter(Order.end_time >= window_start)
+                .all()
+            )
+            for order in completed_orders:
+                if order.start_time and order.end_time:
+                    processing_times.append((order.end_time - order.start_time).total_seconds())
+            completed_orders_count = len(completed_orders)
+            total_orders = (
+                session.query(Order)
+                .filter(Order.start_time >= window_start)
+                .count()
+            )
+
+        avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0.0
+        hourly_throughput = completed_orders_count
+        success_rate = (completed_orders_count / total_orders * 100.0) if total_orders else 0.0
+
+        snapshot = orders_snapshot or await self.get_active_orders_snapshot()
+        active_orders = snapshot.get('summary', {}).get('total_active', 0)
+        max_capacity = 200.0  # 설계 문서 기준 최대 세션 수
+        system_load = min((active_orders / max_capacity) * 100.0, 100.0) if max_capacity > 0 else 0.0
+
+        if robot_states is None and self._state_store:
+            robot_states = await self._state_store.list_states()
+        robot_states = robot_states or []
+        total_robot_count = len(robot_states)
+        working_robot_count = sum(
+            1 for state in robot_states if state.status == RobotStatus.WORKING.value
+        )
+        robot_utilization = (
+            working_robot_count / total_robot_count * 100.0 if total_robot_count else 0.0
+        )
+
+        return {
+            'avg_processing_time': round(avg_processing_time, 1),
+            'hourly_throughput': hourly_throughput,
+            'success_rate': round(success_rate, 1),
+            'robot_utilization': round(robot_utilization, 1),
+            'system_load': round(system_load, 1),
+            'active_orders': active_orders,
+        }

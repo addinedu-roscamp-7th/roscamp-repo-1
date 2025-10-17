@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from typing import Callable, Dict, Optional, Awaitable, List, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import rclpy
 from rclpy.node import Node
@@ -119,6 +119,7 @@ async def _call_service_with_retry(
     timeout_sec: float,
     max_attempts: int,
     base_delay: float,
+    retry_recorder: Optional[Callable[[], None]] = None,
 ) -> object:
     """ROS2 서비스 호출에 재시도 로직을 적용합니다."""
     attempts = max(1, max_attempts)
@@ -149,6 +150,8 @@ async def _call_service_with_retry(
             )
             if attempt == attempts:
                 break
+            if retry_recorder:
+                retry_recorder()
             if delay > 0:
                 await asyncio.sleep(delay)
                 delay *= 2
@@ -197,6 +200,25 @@ class RobotCoordinator(Node):
         if settings.ROS_STATUS_HEALTH_TIMEOUT > 0:
             interval = max(settings.ROS_STATUS_HEALTH_TIMEOUT / 2.0, 1.0)
             self._health_timer = self.create_timer(interval, self._check_robot_health)
+        self._metrics_lock = threading.Lock()
+        self._service_retry_count = 0
+        self._topic_last_seen: Dict[str, float] = {}
+        self._status_topic_timeout = settings.ROS_STATUS_HEALTH_TIMEOUT if settings.ROS_STATUS_HEALTH_TIMEOUT > 0 else 0.0
+        self._event_topic_timeout = settings.ROS_EVENT_TOPIC_TIMEOUT if settings.ROS_EVENT_TOPIC_TIMEOUT > 0 else 0.0
+        self._status_topics: List[str] = [
+            '/pickee/robot_status',
+            '/packee/robot_status',
+            '/pickee/moving_status',
+        ]
+        self._event_topics: List[str] = [
+            '/pickee/arrival_notice',
+            '/pickee/product/selection_result',
+            '/pickee/cart_handover_complete',
+            '/pickee/product_detected',
+            '/pickee/product/loaded',
+            '/packee/availability_result',
+            '/packee/packing_complete',
+        ]
 
         # === Pickee 토픽 구독 ===
         # 로봇 상태 (위치, 배터리, 현재 작업 등)
@@ -537,6 +559,66 @@ class RobotCoordinator(Node):
         else:
             current_loop.create_task(func(*args, **kwargs))
 
+    def _increment_service_retry(self) -> None:
+        """ROS 서비스 재시도 횟수를 누적한다."""
+        with self._metrics_lock:
+            self._service_retry_count += 1
+
+    def _mark_topic_heartbeat(self, topic: str) -> None:
+        """토픽에서 최근 메시지를 수신했음을 기록한다."""
+        with self._metrics_lock:
+            self._topic_last_seen[topic] = time.monotonic()
+
+    def get_service_retry_count(self) -> int:
+        """누적된 ROS 서비스 재시도 횟수를 반환한다."""
+        with self._metrics_lock:
+            return int(self._service_retry_count)
+
+    def get_topic_health(self) -> Dict[str, Any]:
+        """
+        ROS 토픽 수신 상태를 반환한다.
+
+        Returns:
+            토픽별 헬스 상태와 전체 수신률 (%)
+        """
+        now = time.monotonic()
+        with self._metrics_lock:
+            status_health: Dict[str, bool] = {}
+            for topic in self._status_topics:
+                if self._status_topic_timeout <= 0:
+                    healthy = True
+                else:
+                    last_seen = self._topic_last_seen.get(topic)
+                    healthy = last_seen is not None and (now - last_seen) <= self._status_topic_timeout
+                status_health[topic] = healthy
+
+            event_activity: Dict[str, Dict[str, object]] = {}
+            for topic in self._event_topics:
+                last_seen = self._topic_last_seen.get(topic)
+                if last_seen is None:
+                    event_activity[topic] = {
+                        'seconds_since_last': None,
+                        'overdue': False,
+                    }
+                else:
+                    elapsed = now - last_seen
+                    overdue = self._event_topic_timeout > 0 and elapsed > self._event_topic_timeout
+                    event_activity[topic] = {
+                        'seconds_since_last': round(elapsed, 1),
+                        'overdue': overdue,
+                    }
+
+        healthy_count = sum(1 for healthy in status_health.values() if healthy)
+        total = len(status_health)
+        rate = (healthy_count / total * 100.0) if total else 100.0
+        return {
+            'ros_topics_healthy': all(status_health.values()) if status_health else True,
+            'ros_topic_health': status_health,
+            'topic_receive_rate': round(rate, 1),
+            'event_topic_activity': event_activity,
+            'event_topic_timeout': self._event_topic_timeout,
+        }
+
     def _check_robot_health(self) -> None:
         """상태 토픽 헬스체크 타이머 콜백."""
         if not self._health_monitor:
@@ -865,6 +947,7 @@ class RobotCoordinator(Node):
             timeout_sec=self._service_timeout,
             max_attempts=self._service_retry_attempts,
             base_delay=self._service_retry_base_delay,
+            retry_recorder=self._increment_service_retry,
         )
         return response
 
@@ -872,6 +955,7 @@ class RobotCoordinator(Node):
     
     def _on_pickee_status(self, msg: PickeeRobotStatus) -> None:
         """Pickee 상태 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/robot_status')
         if self._health_monitor:
             self._health_monitor.record(RobotType.PICKEE, msg.robot_id)
         self._ros_cache["pickee_status"] = msg
@@ -902,6 +986,7 @@ class RobotCoordinator(Node):
 
     def _on_pickee_move(self, msg: PickeeMoveStatus) -> None:
         """Pickee 이동 상태 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/moving_status')
         self._ros_cache["pickee_move"] = msg
         if self._pickee_move_cb:
             # async 콜백을 asyncio task로 실행
@@ -912,6 +997,7 @@ class RobotCoordinator(Node):
 
     def _on_pickee_arrival(self, msg: PickeeArrival) -> None:
         """Pickee 도착 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/arrival_notice')
         self._ros_cache["pickee_arrival"] = msg
         if self._pickee_arrival_cb:
             # async 콜백을 asyncio task로 실행
@@ -922,6 +1008,7 @@ class RobotCoordinator(Node):
 
     def _on_pickee_handover(self, msg: PickeeCartHandover) -> None:
         """Pickee 장바구니 전달 완료 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/cart_handover_complete')
         self._ros_cache["pickee_handover"] = msg
         if self._pickee_handover_cb:
             # async 콜백을 asyncio task로 실행
@@ -932,6 +1019,7 @@ class RobotCoordinator(Node):
 
     def _on_product_detected(self, msg: PickeeProductDetection) -> None:
         """Pickee 상품 인식 완료 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/product_detected')
         self._ros_cache["product_detected"] = msg
         if self._pickee_product_detected_cb:
             # async 콜백을 asyncio task로 실행
@@ -942,6 +1030,7 @@ class RobotCoordinator(Node):
 
     def _on_pickee_selection(self, msg: PickeeProductSelection) -> None:
         """Pickee 상품 선택 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/product/selection_result')
         self._ros_cache["pickee_selection"] = msg
         if self._pickee_selection_cb:
             # async 콜백을 asyncio task로 실행
@@ -952,6 +1041,7 @@ class RobotCoordinator(Node):
 
     def _on_packee_status(self, msg: PackeeRobotStatus) -> None:
         """Packee 상태 토픽 콜백"""
+        self._mark_topic_heartbeat('/packee/robot_status')
         if self._health_monitor:
             self._health_monitor.record(RobotType.PACKEE, msg.robot_id)
         self._ros_cache["packee_status"] = msg
@@ -981,6 +1071,7 @@ class RobotCoordinator(Node):
 
     def _on_packee_availability(self, msg: PackeeAvailability) -> None:
         """Packee 작업 가능 여부 콜백"""
+        self._mark_topic_heartbeat('/packee/availability_result')
         self._ros_cache["packee_availability"] = msg
         if self._packee_availability_cb:
             if asyncio.iscoroutinefunction(self._packee_availability_cb):
@@ -990,6 +1081,7 @@ class RobotCoordinator(Node):
 
     def _on_packee_complete(self, msg: PackeePackingComplete) -> None:
         """Packee 포장 완료 토픽 콜백"""
+        self._mark_topic_heartbeat('/packee/packing_complete')
         self._ros_cache["packee_complete"] = msg
         if self._packee_complete_cb:
             # async 콜백을 asyncio task로 실행
@@ -1000,6 +1092,7 @@ class RobotCoordinator(Node):
 
     def _on_product_loaded(self, msg: PickeeProductLoaded) -> None:
         """창고 물품 적재 완료 토픽 콜백"""
+        self._mark_topic_heartbeat('/pickee/product/loaded')
         self._ros_cache["product_loaded"] = msg
         if self._pickee_product_loaded_cb:
             # async 콜백을 asyncio task로 실행

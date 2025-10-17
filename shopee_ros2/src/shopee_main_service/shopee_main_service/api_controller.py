@@ -346,6 +346,18 @@ class APIController:
             enriched["timestamp"] = timestamp_ms or enriched.get("timestamp") or int(time.time() * 1000)
         return enriched
 
+    def get_connection_stats(self) -> Dict[str, int]:
+        """
+        현재 TCP 연결 수 통계를 반환한다.
+
+        Returns:
+            연결된 세션 수와 설계 기준 최대 세션 수
+        """
+        return {
+            'app_sessions': len(self._clients),
+            'app_sessions_max': 200,
+        }
+
     def _discover_ip_addresses(self) -> Tuple[str, ...]:
         """
         로컬 머신의 접근 가능한 IP 주소를 추정한다.

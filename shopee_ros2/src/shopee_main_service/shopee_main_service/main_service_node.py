@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import rclpy
 
@@ -33,6 +33,7 @@ from .robot_allocator import (
 from .user_service import UserService
 from .inventory_service import InventoryService
 from .robot_history_service import RobotHistoryService
+from .constants import RobotStatus
 from .dashboard import DashboardController, DashboardDataProvider, start_dashboard_gui
 
 logger = logging.getLogger('shopee_main_service')
@@ -727,12 +728,121 @@ class MainServiceApp:
 
         loop = asyncio.get_running_loop()
 
-        async def metrics_provider() -> Dict[str, object]:
+        async def metrics_provider(
+            *,
+            orders_snapshot: Dict[str, Any],
+            robot_states: List['RobotState'],
+        ) -> Dict[str, Any]:
             """대시보드 메트릭 스냅샷."""
-            failed_orders = await self._order_service.get_recent_failed_orders(limit=5)
-            return {
-                "failed_orders": failed_orders,
+
+            def _serialize_robot(state) -> Dict[str, Any]:
+                """로봇 상태를 대시보드용 딕셔너리로 변환한다."""
+                robot_type = state.robot_type.value if hasattr(state.robot_type, 'value') else str(state.robot_type)
+                last_seen = state.last_update.isoformat() if state.last_update else None
+                return {
+                    'robot_id': state.robot_id,
+                    'robot_type': robot_type,
+                    'status': state.status,
+                    'battery_level': state.battery_level,
+                    'reserved': state.reserved,
+                    'active_order_id': state.active_order_id,
+                    'last_update': last_seen,
+                }
+
+            try:
+                performance = await self._order_service.get_performance_metrics(
+                    robot_states=robot_states,
+                    orders_snapshot=orders_snapshot,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to collect performance metrics: %s', exc)
+                performance = {
+                    'avg_processing_time': 0.0,
+                    'hourly_throughput': 0,
+                    'success_rate': 0.0,
+                    'robot_utilization': 0.0,
+                    'system_load': 0.0,
+                    'active_orders': 0,
+                }
+
+            try:
+                failed_orders = await self._order_service.get_recent_failed_orders(limit=5)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to load recent failed orders: %s', exc)
+                failed_orders = []
+
+            try:
+                failed_by_reason = await self._order_service.get_failed_orders_by_reason()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to group failed orders: %s', exc)
+                failed_by_reason = {}
+
+            error_robots = [_serialize_robot(state) for state in robot_states if state.status == RobotStatus.ERROR.value]
+            offline_robots = [_serialize_robot(state) for state in robot_states if state.status == RobotStatus.OFFLINE.value]
+
+            try:
+                connection_stats = self._api.get_connection_stats()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to fetch API connection stats: %s', exc)
+                connection_stats = {'app_sessions': 0, 'app_sessions_max': 0}
+
+            try:
+                topic_health = self._robot.get_topic_health()
+            except AttributeError:
+                topic_health = {}
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to fetch ROS topic health: %s', exc)
+                topic_health = {}
+
+            try:
+                db_stats = self._db.get_pool_stats()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to fetch DB pool stats: %s', exc)
+                db_stats = {'db_connections': 0, 'db_connections_max': 0}
+
+            try:
+                llm_stats = self._llm.get_stats_snapshot()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception('Failed to fetch LLM stats: %s', exc)
+                llm_stats = {
+                    'success_rate': 0.0,
+                    'avg_response_time': 0.0,
+                    'failure_count': 0,
+                    'fallback_count': 0,
+                    'success_count': 0,
+                }
+
+            ros_retry_count = 0
+            try:
+                ros_retry_count = self._robot.get_service_retry_count()
+            except AttributeError:
+                ros_retry_count = 0
+
+            network_metrics = {
+                'app_sessions': connection_stats.get('app_sessions', 0),
+                'app_sessions_max': connection_stats.get('app_sessions_max', 0),
+                'ros_topics_healthy': topic_health.get('ros_topics_healthy', True),
+                'ros_topic_health': topic_health.get('ros_topic_health', {}),
+                'topic_receive_rate': topic_health.get('topic_receive_rate', 0.0),
+                'event_topic_activity': topic_health.get('event_topic_activity', {}),
+                'event_topic_timeout': topic_health.get('event_topic_timeout'),
+                'llm_response_time': llm_stats.get('avg_response_time', 0.0),
+                'db_connections': db_stats.get('db_connections', 0),
+                'db_connections_max': db_stats.get('db_connections_max', 0),
             }
+
+            metrics_payload = {
+                **performance,
+                'failed_orders': failed_orders,
+                'failed_orders_by_reason': failed_by_reason,
+                'error_robots': error_robots,
+                'offline_robots': offline_robots,
+                'llm_stats': llm_stats,
+                'ros_retry_count': ros_retry_count,
+                'network': network_metrics,
+                'inventory': {},
+            }
+            return metrics_payload
 
         data_provider = DashboardDataProvider(
             order_service=self._order_service,

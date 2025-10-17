@@ -67,3 +67,26 @@ class DatabaseManager:
             raise
         finally:
             session.close()  # 항상 종료
+
+    def get_pool_stats(self) -> dict:
+        """
+        커넥션 풀 상태를 조회한다.
+
+        Returns:
+            사용 중 커넥션 수와 풀 크기를 포함한 딕셔너리
+        """
+        pool = self._engine.pool
+        checked_out = 0
+        if hasattr(pool, 'checkedout'):
+            checked = pool.checkedout()
+            if isinstance(checked, int):
+                checked_out = checked
+        pool_size = settings.DB_POOL_SIZE
+        if hasattr(pool, 'size'):
+            size_value = pool.size()
+            if isinstance(size_value, int):
+                pool_size = size_value
+        return {
+            'db_connections': checked_out,
+            'db_connections_max': pool_size,
+        }

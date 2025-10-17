@@ -85,7 +85,12 @@ class RobotPanel(QWidget):
 
             # Status
             status = robot.get('status', '')
-            self.table.setItem(row, 2, QTableWidgetItem(str(status)))
+            status_item = QTableWidgetItem(str(status))
+            if status == 'OFFLINE':
+                status_item.setForeground(Qt.GlobalColor.red)
+            elif status == 'ERROR':
+                status_item.setForeground(Qt.GlobalColor.magenta)
+            self.table.setItem(row, 2, status_item)
 
             # Battery
             battery = robot.get('battery_level')
@@ -142,11 +147,13 @@ class OrderPanel(QWidget):
 
         # 테이블 생성
         self.table = QTableWidget()
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
             'Order ID',
             'Customer',
             'Status',
+            'Items',
+            'Amount',
             'Progress(%)',
             'Started',
             'Elapsed',
@@ -187,9 +194,25 @@ class OrderPanel(QWidget):
             status = order.get('status', '')
             self.table.setItem(row, 2, QTableWidgetItem(str(status)))
 
+            # Items
+            total_items = order.get('total_items', 0)
+            self.table.setItem(row, 3, QTableWidgetItem(str(total_items)))
+
+            # Amount
+            total_price = order.get('total_price')
+            if total_price is not None:
+                try:
+                    amount_value = int(total_price)
+                    amount_text = f'₩{amount_value:,}'
+                except (TypeError, ValueError):
+                    amount_text = str(total_price)
+            else:
+                amount_text = '-'
+            self.table.setItem(row, 4, QTableWidgetItem(amount_text))
+
             # Progress
             progress = order.get('progress', 0)
-            self.table.setItem(row, 3, QTableWidgetItem(f'{progress}'))
+            self.table.setItem(row, 5, QTableWidgetItem(f'{progress}'))
 
             # Started
             started = order.get('started_at', '')
@@ -197,7 +220,7 @@ class OrderPanel(QWidget):
                 started_text = started.split('T')[1].split('.')[0] if 'T' in started else started
             else:
                 started_text = '-'
-            self.table.setItem(row, 4, QTableWidgetItem(started_text))
+            self.table.setItem(row, 6, QTableWidgetItem(started_text))
 
             # Elapsed
             elapsed_sec = order.get('elapsed_seconds')
@@ -207,17 +230,17 @@ class OrderPanel(QWidget):
                 elapsed_text = f'{elapsed_min}m {elapsed_s}s'
             else:
                 elapsed_text = '-'
-            self.table.setItem(row, 5, QTableWidgetItem(elapsed_text))
+            self.table.setItem(row, 7, QTableWidgetItem(elapsed_text))
 
             # Pickee
             pickee_id = order.get('pickee_robot_id')
             pickee_text = str(pickee_id) if pickee_id else '-'
-            self.table.setItem(row, 6, QTableWidgetItem(pickee_text))
+            self.table.setItem(row, 8, QTableWidgetItem(pickee_text))
 
             # Packee
             packee_id = order.get('packee_robot_id')
             packee_text = str(packee_id) if packee_id else '-'
-            self.table.setItem(row, 7, QTableWidgetItem(packee_text))
+            self.table.setItem(row, 9, QTableWidgetItem(packee_text))
 
 
 class EventLogPanel(QWidget):

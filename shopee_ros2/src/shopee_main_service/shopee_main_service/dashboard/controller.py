@@ -11,9 +11,9 @@ import asyncio
 import queue
 import threading
 from dataclasses import asdict
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from ..robot_state_store import RobotStateStore
+from ..robot_state_store import RobotState, RobotStateStore
 
 
 class DashboardBridge:
@@ -99,7 +99,9 @@ class DashboardDataProvider:
         self,
         order_service,
         robot_state_store: RobotStateStore,
-        metrics_provider: Optional[Callable[[], Awaitable[Dict[str, Any]]]] = None,
+        metrics_provider: Optional[
+            Callable[[Dict[str, Any], List[RobotState]], Awaitable[Dict[str, Any]]]
+        ] = None,
     ) -> None:
         self._order_service = order_service
         self._robot_state_store = robot_state_store
@@ -113,7 +115,10 @@ class DashboardDataProvider:
         robot_states = await self._robot_state_store.list_states()
         metrics = {}
         if self._metrics_provider:
-            metrics = await self._metrics_provider()
+            metrics = await self._metrics_provider(
+                orders_snapshot=orders_snapshot,
+                robot_states=robot_states,
+            )
 
         serialized_states = [asdict(state) for state in robot_states]
 
@@ -143,7 +148,7 @@ class DashboardController:
         self._interval = max(0.1, interval)
         self._bridge = DashboardBridge(loop)
         self._snapshot_task: Optional[asyncio.Task] = None
-        self._event_topics = ['app_push', 'robot_failure']
+        self._event_topics = ['app_push', 'robot_failure', 'reservation_timeout']
         self._running = False
 
     @property
