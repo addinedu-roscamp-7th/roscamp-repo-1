@@ -1,9 +1,14 @@
+from pathlib import Path
 from PyQt6 import QtCore
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QSpacerItem
+from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
 
 from ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
+from pages.widgets.product_card import ProductCard
+from pages.models.product_data import ProductData
 
 
 class UserWindow(QWidget):
@@ -15,6 +20,10 @@ class UserWindow(QWidget):
         self.ui = Ui_UserLayout()
         self.ui.setupUi(self)
         self.setWindowTitle("Shopee GUI - User")
+        self._products_container = getattr(self.ui, "grid_products", None)
+        self._product_grid = getattr(self.ui, "gridLayout_2", None)
+        self._products: list[ProductData] = []
+        self._current_columns = 0
         self._cart_container = None
         self._cart_frame = None
         self._cart_body = None
@@ -42,6 +51,8 @@ class UserWindow(QWidget):
         self._setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self._on_pay_clicked)
+        self._products = self._load_initial_products()
+        self._refresh_product_grid()
 
     def closeEvent(self, event):
         self.closed.emit()
@@ -195,3 +206,211 @@ class UserWindow(QWidget):
                 self._cart_margin_right,
                 self._cart_margin_bottom,
             )
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._refresh_product_grid()
+
+    def _refresh_product_grid(self) -> None:
+        if self._product_grid is None:
+            return
+
+        columns = self._calculate_columns()
+        if columns <= 0:
+            columns = 1
+
+        if columns == self._current_columns and self._products:
+            return
+
+        self._populate_products(self._products, columns)
+        self._current_columns = columns
+
+    def _calculate_columns(self) -> int:
+        scroll_area = getattr(self.ui, "scrollArea", None)
+        if scroll_area is not None:
+            available_width = scroll_area.viewport().width()
+        elif self._products_container is not None:
+            available_width = self._products_container.width()
+        else:
+            available_width = self.width()
+
+        if available_width <= 0:
+            return 1
+
+        if self._product_grid is not None:
+            margins = self._product_grid.contentsMargins()
+            available_width -= margins.left() + margins.right()
+
+        spacing = self._product_grid.horizontalSpacing() if self._product_grid else 0
+        if spacing < 0:
+            spacing = 0
+
+        card_width = ProductCard._default_size.width()
+        total_per_card = card_width + spacing
+        if total_per_card <= 0:
+            return 1
+
+        columns = max(1, (available_width + spacing) // total_per_card)
+        if self._products:
+            columns = min(columns, len(self._products))
+        return int(columns)
+
+    def _populate_products(self, products: list[ProductData], columns: int) -> None:
+        if self._product_grid is None:
+            return
+
+        while self._product_grid.count():
+            item = self._product_grid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+
+        for col in range(columns + 1):
+            self._product_grid.setColumnStretch(col, 0)
+
+        for index, product in enumerate(products):
+            row = index // columns
+            col = index % columns
+            card = ProductCard()
+            card.apply_product(product)
+            self._product_grid.addWidget(card, row, col)
+
+        rows = (len(products) + columns - 1) // columns if products else 0
+        spacer = QSpacerItem(
+            0,
+            0,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
+        self._product_grid.addItem(spacer, 0, columns, max(1, rows), 1)
+        self._product_grid.setColumnStretch(columns, 1)
+        self._product_grid.setHorizontalSpacing(16)
+        self._product_grid.setVerticalSpacing(16)
+        self._product_grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self._product_grid.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft
+        )
+
+    def _load_initial_products(self) -> list[ProductData]:
+        image_root = Path(__file__).resolve().parent.parent / "image"
+        return [
+            ProductData(
+                product_id=1,
+                name="삼겹살",
+                category="고기",
+                price=15000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=True,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+            ProductData(
+                product_id=2,
+                name="서울우유",
+                category="우유",
+                price=1000,
+                discount_rate=10,
+                allergy_info_id=0,
+                is_vegan_friendly=False,
+                section_id=1,
+                warehouse_id=1,
+                length=20,
+                width=15,
+                height=5,
+                weight=300,
+                fragile=False,
+                image_path=image_root / "product_no_image.png",
+            ),
+        ]

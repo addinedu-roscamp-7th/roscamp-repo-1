@@ -282,8 +282,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>188</width>
-                  <height>661</height>
+                  <width>113</width>
+                  <height>286</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -378,7 +378,7 @@
            <number>0</number>
           </property>
           <item>
-           <widget class="QWidget" name="widget_3" native="true">
+           <widget class="QWidget" name="main_widget" native="true">
             <layout class="QVBoxLayout" name="verticalLayout_13" stretch="10,1">
              <property name="spacing">
               <number>30</number>
@@ -409,6 +409,9 @@
                <property name="frameShadow">
                 <enum>QFrame::Plain</enum>
                </property>
+               <property name="horizontalScrollBarPolicy">
+                <enum>Qt::ScrollBarAlwaysOff</enum>
+               </property>
                <property name="widgetResizable">
                 <bool>true</bool>
                </property>
@@ -427,7 +430,7 @@
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_2">
+                <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,5,1">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -444,30 +447,35 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <widget class="QPushButton" name="pushButton_4">
+                  <widget class="QLabel" name="label_16">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>LET's START</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_5">
+                  <widget class="QLabel" name="label_17">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>원격 쇼핑 전 상품을 주문해주세요</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_6">
-                   <property name="text">
-                    <string>PushButton</string>
+                  <widget class="QLabel" name="label_18">
+                   <property name="layoutDirection">
+                    <enum>Qt::LeftToRight</enum>
                    </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="pushButton_7">
                    <property name="text">
-                    <string>PushButton</string>
+                    <string>주문담기를 통해 쇼핑리스트를 생성해 보세요</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
@@ -485,10 +493,8 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_8">
-                   <property name="text">
-                    <string>PushButton</string>
-                   </property>
+                  <widget class="QWidget" name="grid_products" native="true">
+                   <layout class="QGridLayout" name="gridLayout_2"/>
                   </widget>
                  </item>
                  <item>
