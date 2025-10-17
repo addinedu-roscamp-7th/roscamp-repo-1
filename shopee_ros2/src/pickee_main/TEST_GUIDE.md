@@ -610,7 +610,7 @@ ros2 run shopee_main_service mock_llm_server
 ros2 run shopee_main_service mock_packee_node 
 ros2 run shopee_main_service main_service_node 
 python3 src/shopee_main_service/scripts/test_client.py 
-
+export PYTHONPATH=$PYTHONPATH:/home/wonho/venv/ros_venv/lib/python3.12/site-packages
 # db 세팅
 shopee_ros2/src/shopee_main_service/scripts/setup_database.sh
 shopee_ros2/src/shopee_main_service/scripts/reset_database.sh
