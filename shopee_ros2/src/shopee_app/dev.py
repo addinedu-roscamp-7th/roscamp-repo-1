@@ -14,6 +14,7 @@ UI_FILES = {
     ROOT / "ui" / "layout_user.ui": ROOT / "ui_gen" / "layout_user.py",
     ROOT / "ui" / "layout_admin.ui": ROOT / "ui_gen" / "layout_admin.py",
     ROOT / "ui" / "promoded_class.ui": ROOT / "ui_gen" / "promoded_class.py",
+    ROOT / "ui" / "cart_item.ui": ROOT / "ui_gen" / "cart_item.py",
 }
 OUT_DIR = ROOT / "ui_gen"
 
