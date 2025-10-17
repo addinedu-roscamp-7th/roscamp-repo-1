@@ -53,7 +53,7 @@
 
 ### 1. 환경 요구사항
 
-- **OS**: Ubuntu 22.04 LTS
+- **OS**: Ubuntu 24.04 LTS
 - **ROS2**: Jazzy Jalapa
 - **Python**: 3.10+
 - **C++**: 17 이상
