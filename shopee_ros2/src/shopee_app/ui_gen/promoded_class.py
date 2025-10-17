@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/addinedu/dev/roscamp-repo-1/ros2_ws/src/shopee_app/ui/promoded_class.ui'
+# Form implementation generated from reading ui file '/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/ui/promoded_class.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -19,7 +19,7 @@ class Ui_Form(object):
         self.label_prod_image.setMinimumSize(QtCore.QSize(160, 160))
         self.label_prod_image.setMaximumSize(QtCore.QSize(16777211, 16777215))
         self.label_prod_image.setText("")
-        self.label_prod_image.setPixmap(QtGui.QPixmap("/home/addinedu/dev/roscamp-repo-1/ros2_ws/src/shopee_app/ui/../image/product_no_image.png"))
+        self.label_prod_image.setPixmap(QtGui.QPixmap("/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/ui/../image/product_no_image.png"))
         self.label_prod_image.setScaledContents(False)
         self.label_prod_image.setObjectName("label_prod_image")
         self.verticalLayout.addWidget(self.label_prod_image)
