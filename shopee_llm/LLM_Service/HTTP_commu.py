@@ -4,7 +4,24 @@ from flask import jsonify
 
 class HTTP_Util():
     def __init__(self):
-        print("----- Pickee LLM Service -----")
+        print("")
+
     def data_to_json(self,data):
         print(f"[LLM_Service]: send {data}")
         return jsonify(data)
+    
+    def make_search_query_message(self,data):
+        message = {"sql_query": f"name LIKE '%{data}%'"}
+        return message
+    
+    def make_bbox_message(self,data):
+        message = {"bbox": f"{data}"}
+        return message
+    
+    def make_intent_detection_message(self,data):
+        message =  {
+        "intent": "Move_place",
+        "entities":{
+            "place_name" : f"{data}",
+            "action" : "move"}}
+        return message
