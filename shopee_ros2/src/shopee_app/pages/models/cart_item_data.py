@@ -8,4 +8,9 @@ class CartItemData:
     name: str
     quantity: int
     price: int
-    
+    image_path: Path
+    is_selected: bool = True
+
+    @property
+    def total_price(self) -> int:
+        return self.price * self.quantity
