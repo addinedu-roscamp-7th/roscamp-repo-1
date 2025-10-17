@@ -143,6 +143,24 @@
       </property>
       <item>
        <widget class="QWidget" name="side_bar" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>200</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <layout class="QVBoxLayout" name="verticalLayout_4" stretch="1,8">
          <property name="spacing">
           <number>0</number>
@@ -420,7 +438,7 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>906</width>
+                  <width>896</width>
                   <height>566</height>
                  </rect>
                 </property>
