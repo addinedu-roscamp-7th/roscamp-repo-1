@@ -40,10 +40,10 @@ class TwistModifier(Node):
             self.get_logger().info('감속')
             modified_twist.linear.x = msg.linear.x * 0.5
         elif self.key_command == 'z':
-            f.get_logger().info('정상속도')
+            self.get_logger().info('정상속도')
             modified_twist.linear.x = msg.linear.x
         elif self.key_command == 'c':
-            f.get_logger().info('일시정지')
+            self.get_logger().info('일시정지')
             modified_twist.linear.x = 0.0
         else:
             modified_twist.linear.x = msg.linear.x  # 기본

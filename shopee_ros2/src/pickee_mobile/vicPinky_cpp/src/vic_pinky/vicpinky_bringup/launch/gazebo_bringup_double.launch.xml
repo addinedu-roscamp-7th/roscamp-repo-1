@@ -5,7 +5,7 @@
     <arg name="filter_yaml_path" default="$(find-pkg-share vicpinky_bringup)/config/laser_filter.yaml"/>
 
     <!-- Include Gazebo simulation -->
-    <include file="$(find-pkg-share vicpinky_gazebo)/launch/launch_sim.launch.xml">
+    <include file="$(find-pkg-share vicpinky_gazebo)/launch/launch_sim_double.launch.xml">
         <arg name="use_sim_time" value="$(var use_sim_time)"/>
     </include>
     
