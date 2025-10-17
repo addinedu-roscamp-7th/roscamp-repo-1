@@ -54,9 +54,50 @@ class MainWindow(QMainWindow):
         self.topics_root = QTreeWidgetItem(self.comm_tree_widget, ["Topics"])
         self.services_root = QTreeWidgetItem(self.comm_tree_widget, ["Services"])
 
-    def append_log(self, node_name, level, message):
-        log_text = f"[{level}] [{node_name}]: {message}"
-        self.log_text_edit.append(log_text)
+    def get_node_style(self, node_name):
+        if node_name.startswith('pickee_main_controller'):
+            return 'color:orange; font-weight:bold;'
+        elif node_name.startswith('mock_mobile_node'):
+            return 'color:blue; font-weight:bold;'
+        elif node_name.startswith('pickee_mobile_controller'):
+            return 'color:blue; font-weight:bold;'
+        elif node_name.startswith('mock_arm_node'):
+            return 'color:darkviolet; font-weight:bold;'
+        elif node_name.startswith('pickee_arm_controller'):
+            return 'color:darkviolet; font-weight:bold;'
+        elif node_name.startswith('mock_vision_node'):
+            return 'color:green; font-weight:bold;'
+        elif node_name.startswith('pickee_vision_system'):
+            return 'color:green; font-weight:bold;'
+        return ''
+
+    def append_log(self, node_name, level, message, is_state_log):
+        node_style = self.get_node_style(node_name)
+    
+        bg_color_style = ""
+        if is_state_log:
+            bg_color_style = "background-color:#FFFFE0;"
+
+        # 로그 레벨별 색상 스타일 설정
+        level_style = ""
+        if level == "ERROR":
+            level_style = "color:red; font-weight:bold;"
+        elif level == "WARN" or level == "WARNING":
+            level_style = "color:orange; font-weight:bold;"
+        elif level == "DEBUG":
+            level_style = "color:gray;"
+
+        log_html = f'<span style="{bg_color_style}">'
+        if level != 'INFO':
+            log_html += f'<span style="{level_style}">[{level}]</span> '
+        log_html += '</span>'
+
+        log_html += f'<span style="{bg_color_style} {node_style}">[{node_name}]</span>'
+
+        log_html += f'<span style="{bg_color_style}">: {message}</span>'
+
+        self.log_text_edit.append(log_html)
+
 
     def update_state(self, state):
         self.state_label.setText(state)
