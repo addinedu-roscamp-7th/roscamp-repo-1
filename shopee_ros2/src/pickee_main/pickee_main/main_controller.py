@@ -59,9 +59,6 @@ from shopee_interfaces.srv import (
     PickeeTtsRequest
 )
 
-from shopee_interfaces.msg import PickeeDetectedProduct
-
-
 # 서비스 서버용 서비스 타입 임포트 (Main Service 연동)
 from shopee_interfaces.srv import (
     PickeeWorkflowStartTask,
@@ -669,23 +666,13 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
             return False
 
-    async def call_arm_pick_product(self, product_id, target_position):
+    async def call_arm_pick_product(self, target_position):
         # Arm에 상품 픽업 명령
         request = PickeeArmPickProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
-
-        # PickeeDetectedProduct 메시지 생성 및 채우기
-        target_product = PickeeDetectedProduct()
-        target_product.product_id = product_id
-        
-        # target_position이 bbox_coords라고 가정하고 할당합니다.
-        # PickingProductState에서 selected_target_position이 BBox 타입이어야 합니다.
-        if target_position:
-            target_product.bbox_coords = target_position
-        
-        # 완성된 메시지를 서비스 요청에 할당
-        request.target_product = target_product
+        # request.product_id = product_id
+        request.target_position = target_position
         
         if not self.arm_pick_product_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Arm pick product service not available')
