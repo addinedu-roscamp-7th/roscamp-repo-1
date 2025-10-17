@@ -22,7 +22,7 @@ def _resolve_env_file() -> Optional[str]:
         BASE_DIR / '.env',
     ]
     for parent in Path(__file__).resolve().parents:
-        candidates.append(parent / 'src/shopee_main_service/.env')
+        candidates.append(parent / '.env')
     candidates.append(Path.cwd() / '.env')
 
     checked: set[Path] = set()
