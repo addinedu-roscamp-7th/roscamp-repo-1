@@ -31,8 +31,8 @@ setup(
             'mock_update_global_path_client = pickee_mobile.mock.mock_update_global_path_client:main',
             'mock_pose_subscriber = pickee_mobile.mock.mock_pose_subscriber:main',
             'mock_arrival_and_move_status_subscriber = pickee_mobile.mock.mock_arrival_and_move_status_subscriber:main',
-            'test_server = pickee_mobile.test_server:main',
-            'test_client = pickee_mobile.test_client:main',
+            'test_pose_subscriber = pickee_mobile.topic_test.pose_sub:main',
+            'test_velocity_controller = pickee_mobile.topic_test.control_vel:main',
         ],
     },
 )

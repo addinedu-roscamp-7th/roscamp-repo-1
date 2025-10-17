@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'packee_vision'
+package_name = 'goal_test'
 
 setup(
     name=package_name,
@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='addinedu',
-    maintainer_email='leehansu0201@gmail.com',
+    maintainer='lim',
+    maintainer_email='lim@todo.todo',
     description='TODO: Package description',
-    license='TODO: License declaration',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',
@@ -24,7 +24,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'check_cart_presence = packee_vision.check_cart_presence:main'
+            'goal_test_client = goal_test.goal_test_client:main',
+            'goal_send_client = goal_test.goal_send_client:main',
+            'get_pose = goal_test.get_pose:main',
+            'get_send_goal = goal_test.get_send_goal:main',
         ],
     },
 )
