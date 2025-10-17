@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from shopee_interfaces.srv import (
@@ -915,31 +915,7 @@ class OrderService:
             
             logger.info(f"Passing {len(product_details_for_packee)} product details to Packee for order {order_id}")
 
-            # =================================================================================
-            # !! 중요 !!: 아래 코드가 동작하려면 ROS2 인터페이스 파일 수정이 반드시 필요합니다.
-            # 
-            # 1. `shopee_interfaces` 패키지에 `ProductInfo.msg` 파일을 생성해야 합니다. (이미 있다면 생략)
-            #    int32 product_id
-            #    int32 quantity
-            #    int32 length
-            #    int32 width
-            #    int32 height
-            #    int32 weight
-            #    bool fragile
-            #
-            # 2. `shopee_interfaces/srv/PackeePackingStart.srv` 파일의 요청(request) 부분에
-            #    `ProductInfo[] products` 필드를 추가해야 합니다.
-            #
-            #    ---
-            #    int32 robot_id
-            #    int32 order_id
-            #    shopee_interfaces/ProductInfo[] products  # <--- 이 라인 추가
-            #    ---
-            #    bool success
-            #    string message
-            # =================================================================================
-            
-            # 인터페이스가 수정되었으므로, 조회한 상품 정보를 요청에 담습니다.
+            # Packee에게 상품 정보를 전달하여 적절한 상자를 선택할 수 있도록 함
             start_req = PackeePackingStart.Request(
                 robot_id=packee_robot_id,
                 order_id=order_id

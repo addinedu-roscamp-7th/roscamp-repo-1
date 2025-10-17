@@ -2,6 +2,7 @@
 **/build/
 **/install/
 **/log/
+.claude
 
 # Python
 **/__pycache__/
