@@ -14,4 +14,8 @@
         <param from="$(var filter_yaml_path)"/>
     </node>
 
+    <node pkg="vicpinky_bringup" exec="bringup">
+        <remap from="cmd_vel" to="cmd_vel_modified"/>
+    </node>
+
 </launch>
