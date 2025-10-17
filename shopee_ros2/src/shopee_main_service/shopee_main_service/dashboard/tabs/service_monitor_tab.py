@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QTableWidgetItem
+from PyQt6.QtWidgets import QTableWidgetItem, QHeaderView
 
 from ..ui_gen.tab_service_monitor_ui import Ui_ServiceMonitorTab
 from .base_tab import BaseTab
@@ -17,9 +17,26 @@ class ServiceMonitorTab(BaseTab, Ui_ServiceMonitorTab):
         super().__init__(parent)
         self.setupUi(self)
         self.call_id_to_row: Dict[str, int] = {}
-        self.service_table.setColumnWidth(1, 300) # Service Name
-        self.service_table.setColumnWidth(5, 250) # Request
-        self.service_table.setColumnWidth(6, 250) # Response
+        self._setup_table_columns()
+
+    def _setup_table_columns(self):
+        """테이블 컬럼 너비와 리사이즈 정책을 설정한다."""
+        header = self.service_table.horizontalHeader()
+        
+        # 각 컬럼의 너비를 설정 (픽셀 단위)
+        self.service_table.setColumnWidth(0, 100)  # Time
+        self.service_table.setColumnWidth(1, 200)  # Service Name
+        self.service_table.setColumnWidth(2, 120)  # Direction
+        self.service_table.setColumnWidth(3, 80)   # Status
+        self.service_table.setColumnWidth(4, 100)  # Duration (ms)
+        self.service_table.setColumnWidth(5, 200)  # Request
+        
+        # 마지막 컬럼(Response)은 남은 공간을 모두 차지하도록 설정
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        
+        # 나머지 컬럼들은 고정 크기로 설정
+        for i in range(6):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Fixed)
 
     def handle_service_event(self, event_data: Dict[str, Any]):
         """서비스 호출 또는 응답 이벤트를 처리한다."""

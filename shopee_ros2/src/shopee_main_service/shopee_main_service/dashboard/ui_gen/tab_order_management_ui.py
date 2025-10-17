@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/addinedu/dev_ws/Shopee/shopee_ros2/src/shopee_main_service/shopee_main_service/dashboard/ui/tab_order_management.ui'
+# Form implementation generated from reading ui file 'ui/tab_order_management.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,9 +12,10 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_OrderManagementTab(object):
     def setupUi(self, OrderManagementTab):
         OrderManagementTab.setObjectName("OrderManagementTab")
-        self.verticalLayout_7 = QtWidgets.QVBoxLayout(OrderManagementTab)
-        self.verticalLayout_7.setObjectName("verticalLayout_7")
+        OrderManagementTab.resize(1200, 800)
+        OrderManagementTab.setMinimumSize(QtCore.QSize(1200, 800))
         self.order_table = QtWidgets.QTableWidget(parent=OrderManagementTab)
+        self.order_table.setGeometry(QtCore.QRect(10, 10, 1180, 780))
         self.order_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.order_table.setAlternatingRowColors(True)
         self.order_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
@@ -41,7 +42,6 @@ class Ui_OrderManagementTab(object):
         self.order_table.setHorizontalHeaderItem(8, item)
         item = QtWidgets.QTableWidgetItem()
         self.order_table.setHorizontalHeaderItem(9, item)
-        self.verticalLayout_7.addWidget(self.order_table)
 
         self.retranslateUi(OrderManagementTab)
         QtCore.QMetaObject.connectSlotsByName(OrderManagementTab)
@@ -68,13 +68,3 @@ class Ui_OrderManagementTab(object):
         item.setText(_translate("OrderManagementTab", "Pickee"))
         item = self.order_table.horizontalHeaderItem(9)
         item.setText(_translate("OrderManagementTab", "Packee"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    OrderManagementTab = QtWidgets.QWidget()
-    ui = Ui_OrderManagementTab()
-    ui.setupUi(OrderManagementTab)
-    OrderManagementTab.show()
-    sys.exit(app.exec())

@@ -12,6 +12,7 @@ from typing import Any, Dict
 import rclpy
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QLabel
+from PyQt6.QtGui import QCloseEvent
 
 from .ui_gen.dashboard_window_ui import Ui_DashboardWindow
 from .tabs.overview_tab import OverviewTab
@@ -21,6 +22,7 @@ from .tabs.diagnostics_tab import SystemDiagnosticsTab
 from .tabs.event_log_tab import EventLogTab
 from .tabs.topic_monitor_tab import TopicMonitorTab
 from .tabs.service_monitor_tab import ServiceMonitorTab
+from .tabs.db_admin_tab import DBAdminTab
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +36,11 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
     - DashboardBridge로부터 데이터를 받아 각 탭에 분배
     """
 
-    def __init__(self, bridge, ros_node):
+    def __init__(self, bridge, ros_node, db_manager=None):
         super().__init__()
         self._bridge = bridge
         self._ros_node = ros_node
+        self._db_manager = db_manager
 
         # 메인 윈도우 UI 로드
         self.setupUi(self)
@@ -59,6 +62,11 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.log_tab = EventLogTab()
         self.topic_monitor_tab = TopicMonitorTab()
         self.service_monitor_tab = ServiceMonitorTab()
+        
+        # DB 관리 탭은 db_manager가 있을 때만 추가
+        self.db_admin_tab = None
+        if self._db_manager:
+            self.db_admin_tab = DBAdminTab(self._db_manager)
 
         self.tab_widget.addTab(self.overview_tab, '개요')
         self.tab_widget.addTab(self.robot_tab, '로봇 상태')
@@ -67,11 +75,22 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.tab_widget.addTab(self.log_tab, '이벤트 로그')
         self.tab_widget.addTab(self.topic_monitor_tab, 'ROS2 토픽 모니터')
         self.tab_widget.addTab(self.service_monitor_tab, 'ROS2 서비스 모니터')
+        
+        # DB 관리 탭 추가 (있는 경우)
+        if self.db_admin_tab:
+            self.tab_widget.addTab(self.db_admin_tab, 'DB 관리')
 
     def _configure_ui(self):
         """UI의 추가적인 속성을 설정한다."""
         self.status_label = QLabel('상태: 연결 대기 중...')
         self.statusbar.addPermanentWidget(self.status_label)
+
+    def closeEvent(self, event: QCloseEvent):
+        """윈도우 종료 이벤트 처리"""
+        # DB 관리 탭 정리
+        if hasattr(self, 'db_admin_tab') and self.db_admin_tab:
+            self.db_admin_tab.cleanup()
+        event.accept()
 
     def _start_polling(self):
         """브릿지에서 데이터를 폴링하는 타이머 시작"""
@@ -105,10 +124,10 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
             payload_type = payload.get('type')
             if payload_type == 'snapshot':
                 self._handle_snapshot(payload.get('data', {}))
-                # if count % 10 == 1:  # 첫 번째와 이후 10번마다 로그
-                #     logger.info(f'Received snapshot #{count}')
+                # 스냅샷 로그 제거 (너무 많음)
             elif payload_type == 'event':
                 self._handle_event(payload.get('data', {}))
+                logger.info(f'Dashboard received event: {payload.get("data", {}).get("type", "unknown")}')
             elif payload_type == 'ros_topic':
                 self._handle_ros_topic(payload.get('data', {}))
             elif payload_type == 'ros_service':
@@ -130,6 +149,10 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
     def _handle_ros_topic(self, event_data: Dict[str, Any]):
         """ROS 토픽 수신 이벤트를 처리하여 토픽 모니터 탭에 추가한다."""
         self.topic_monitor_tab.add_ros_topic_event(event_data)
+        
+        # ROS 토픽을 이벤트 로그에도 추가 (이벤트 토픽만)
+        if not event_data.get('is_periodic', False):
+            self.log_tab.add_ros_topic_event(event_data)
 
     def _handle_ros_service(self, event_data: Dict[str, Any]):
         """ROS 서비스 수신 이벤트를 처리하여 서비스 모니터 탭에 추가한다."""
@@ -141,10 +164,13 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         robot_count = len(snapshot.get('robots', []))
         order_count = snapshot.get('orders', {}).get('summary', {}).get('total_active', 0)
         app_sessions = snapshot.get('metrics', {}).get('network', {}).get('app_sessions', 0)
-        self.statusbar.showMessage(
+        
+        # status_label을 직접 업데이트
+        status_text = (
             f'상태: 연결됨 | App 세션: {app_sessions} | 로봇: {robot_count}대 | '
             f'진행 중 주문: {order_count}건 | 마지막 갱신: {now}'
         )
+        self.status_label.setText(status_text)
 
     def closeEvent(self, event):
         """창 닫기 이벤트 처리"""

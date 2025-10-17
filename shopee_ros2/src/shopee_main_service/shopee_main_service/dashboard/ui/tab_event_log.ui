@@ -2,15 +2,177 @@
 <ui version="4.0">
  <class>EventLogTab</class>
  <widget class="QWidget" name="EventLogTab">
-  <layout class="QVBoxLayout" name="verticalLayout_11">
-   <item>
-    <widget class="QTextEdit" name="log_text_edit">
-     <property name="readOnly">
-      <bool>true</bool>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1200</width>
+    <height>800</height>
+   </size>
+  </property>
+  <widget class="QWidget" name="filter_widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>1180</width>
+     <height>40</height>
+    </rect>
+   </property>
+   <widget class="QLabel" name="search_label">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>50</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>검색:</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="search_line_edit">
+    <property name="geometry">
+     <rect>
+      <x>70</x>
+      <y>10</y>
+      <width>200</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="placeholderText">
+     <string>키워드, Order ID, Robot ID 검색...</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="filter_label">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>10</y>
+      <width>50</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>필터:</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="level_filter_combo">
+    <property name="geometry">
+     <rect>
+      <x>350</x>
+      <y>10</y>
+      <width>80</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>전체</string>
      </property>
-    </widget>
-   </item>
-  </layout>
+    </item>
+    <item>
+     <property name="text">
+      <string>INFO</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>WARN</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>ERROR</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QPushButton" name="clear_button">
+    <property name="geometry">
+     <rect>
+      <x>450</x>
+      <y>10</y>
+      <width>60</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>지우기</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="export_button">
+    <property name="geometry">
+     <rect>
+      <x>520</x>
+      <y>10</y>
+      <width>80</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>CSV 내보내기</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QTableWidget" name="log_table">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>60</y>
+     <width>1180</width>
+     <height>700</height>
+    </rect>
+   </property>
+   <property name="editTriggers">
+    <set>QAbstractItemView::NoEditTriggers</set>
+   </property>
+   <property name="alternatingRowColors">
+    <bool>true</bool>
+   </property>
+   <property name="selectionBehavior">
+    <enum>QAbstractItemView::SelectRows</enum>
+   </property>
+   <column>
+    <property name="text">
+     <string>Time</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Level</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Type</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Message</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QLabel" name="status_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>770</y>
+     <width>200</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>총 0건 표시 중</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>

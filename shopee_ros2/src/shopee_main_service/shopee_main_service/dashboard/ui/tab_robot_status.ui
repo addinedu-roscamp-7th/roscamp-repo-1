@@ -2,56 +2,89 @@
 <ui version="4.0">
  <class>RobotStatusTab</class>
  <widget class="QWidget" name="RobotStatusTab">
-  <layout class="QVBoxLayout" name="verticalLayout_6">
-   <item>
-    <widget class="QTableWidget" name="robot_table">
-     <property name="editTriggers">
-      <set>QAbstractItemView::NoEditTriggers</set>
-     </property>
-     <property name="alternatingRowColors">
-      <bool>true</bool>
-     </property>
-     <property name="selectionBehavior">
-      <enum>QAbstractItemView::SelectRows</enum>
-     </property>
-     <column>
-      <property name="text">
-       <string>Robot ID</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Type</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Status</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Battery(%)</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Reserved</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Order ID</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Last Update</string>
-      </property>
-     </column>
-    </widget>
-   </item>
-  </layout>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1200</width>
+    <height>800</height>
+   </size>
+  </property>
+  <widget class="QTableWidget" name="robot_table">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>1180</width>
+     <height>780</height>
+    </rect>
+   </property>
+   <property name="editTriggers">
+    <set>QAbstractItemView::NoEditTriggers</set>
+   </property>
+   <property name="alternatingRowColors">
+    <bool>true</bool>
+   </property>
+   <property name="selectionBehavior">
+    <enum>QAbstractItemView::SelectRows</enum>
+   </property>
+   <column>
+    <property name="text">
+     <string>Robot ID</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Type</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Status</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Battery(%)</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Location</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Cart</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Reserved</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Order ID</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Offline Time</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Last Update</string>
+    </property>
+   </column>
+  </widget>
  </widget>
  <resources/>
  <connections/>

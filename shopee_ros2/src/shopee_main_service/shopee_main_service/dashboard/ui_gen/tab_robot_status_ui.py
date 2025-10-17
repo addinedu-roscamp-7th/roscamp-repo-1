@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/addinedu/dev_ws/Shopee/shopee_ros2/src/shopee_main_service/shopee_main_service/dashboard/ui/tab_robot_status.ui'
+# Form implementation generated from reading ui file 'ui/tab_robot_status.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,14 +12,15 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_RobotStatusTab(object):
     def setupUi(self, RobotStatusTab):
         RobotStatusTab.setObjectName("RobotStatusTab")
-        self.verticalLayout_6 = QtWidgets.QVBoxLayout(RobotStatusTab)
-        self.verticalLayout_6.setObjectName("verticalLayout_6")
+        RobotStatusTab.resize(1200, 800)
+        RobotStatusTab.setMinimumSize(QtCore.QSize(1200, 800))
         self.robot_table = QtWidgets.QTableWidget(parent=RobotStatusTab)
+        self.robot_table.setGeometry(QtCore.QRect(10, 10, 1180, 780))
         self.robot_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.robot_table.setAlternatingRowColors(True)
         self.robot_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.robot_table.setObjectName("robot_table")
-        self.robot_table.setColumnCount(7)
+        self.robot_table.setColumnCount(10)
         self.robot_table.setRowCount(0)
         item = QtWidgets.QTableWidgetItem()
         self.robot_table.setHorizontalHeaderItem(0, item)
@@ -35,7 +36,12 @@ class Ui_RobotStatusTab(object):
         self.robot_table.setHorizontalHeaderItem(5, item)
         item = QtWidgets.QTableWidgetItem()
         self.robot_table.setHorizontalHeaderItem(6, item)
-        self.verticalLayout_6.addWidget(self.robot_table)
+        item = QtWidgets.QTableWidgetItem()
+        self.robot_table.setHorizontalHeaderItem(7, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.robot_table.setHorizontalHeaderItem(8, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.robot_table.setHorizontalHeaderItem(9, item)
 
         self.retranslateUi(RobotStatusTab)
         QtCore.QMetaObject.connectSlotsByName(RobotStatusTab)
@@ -51,18 +57,14 @@ class Ui_RobotStatusTab(object):
         item = self.robot_table.horizontalHeaderItem(3)
         item.setText(_translate("RobotStatusTab", "Battery(%)"))
         item = self.robot_table.horizontalHeaderItem(4)
-        item.setText(_translate("RobotStatusTab", "Reserved"))
+        item.setText(_translate("RobotStatusTab", "Location"))
         item = self.robot_table.horizontalHeaderItem(5)
-        item.setText(_translate("RobotStatusTab", "Order ID"))
+        item.setText(_translate("RobotStatusTab", "Cart"))
         item = self.robot_table.horizontalHeaderItem(6)
+        item.setText(_translate("RobotStatusTab", "Reserved"))
+        item = self.robot_table.horizontalHeaderItem(7)
+        item.setText(_translate("RobotStatusTab", "Order ID"))
+        item = self.robot_table.horizontalHeaderItem(8)
+        item.setText(_translate("RobotStatusTab", "Offline Time"))
+        item = self.robot_table.horizontalHeaderItem(9)
         item.setText(_translate("RobotStatusTab", "Last Update"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    RobotStatusTab = QtWidgets.QWidget()
-    ui = Ui_RobotStatusTab()
-    ui.setupUi(RobotStatusTab)
-    RobotStatusTab.show()
-    sys.exit(app.exec())

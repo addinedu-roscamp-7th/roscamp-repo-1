@@ -204,8 +204,8 @@ class DashboardController:
                         }
                     )
                     iteration += 1
-                    if iteration % 10 == 0:  # 10초마다 로그
-                        logger.info(f'Snapshot loop running: {iteration} iterations, robots: {len(snapshot.get("robots", []))}')
+                    if iteration % 300 == 1:  # 5분마다만 로그 (300초)
+                        logger.info(f'Dashboard snapshot loop running: {iteration} iterations, robots: {len(snapshot.get("robots", []))}')
                 except Exception as e:
                     logger.exception(f'Error in snapshot collection: {e}')
 

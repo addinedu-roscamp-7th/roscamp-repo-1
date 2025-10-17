@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/addinedu/dev_ws/Shopee/shopee_ros2/src/shopee_main_service/shopee_main_service/dashboard/ui/dashboard_window.ui'
+# Form implementation generated from reading ui file 'ui/dashboard_window.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,7 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_DashboardWindow(object):
     def setupUi(self, DashboardWindow):
         DashboardWindow.setObjectName("DashboardWindow")
-        DashboardWindow.resize(1400, 900)
+        DashboardWindow.resize(1280, 900)
+        DashboardWindow.setMinimumSize(QtCore.QSize(1280, 900))
         self.centralwidget = QtWidgets.QWidget(parent=DashboardWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -32,13 +33,3 @@ class Ui_DashboardWindow(object):
     def retranslateUi(self, DashboardWindow):
         _translate = QtCore.QCoreApplication.translate
         DashboardWindow.setWindowTitle(_translate("DashboardWindow", "Shopee Main Service Dashboard v5.2 (Modular UI)"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    DashboardWindow = QtWidgets.QMainWindow()
-    ui = Ui_DashboardWindow()
-    ui.setupUi(DashboardWindow)
-    DashboardWindow.show()
-    sys.exit(app.exec())

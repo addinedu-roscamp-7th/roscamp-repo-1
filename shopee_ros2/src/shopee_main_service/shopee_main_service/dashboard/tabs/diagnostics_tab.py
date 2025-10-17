@@ -11,6 +11,16 @@ class SystemDiagnosticsTab(BaseTab, Ui_SystemDiagnosticsTab):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setupUi(self)
+        
+        # 프로그레스 바 초기 설정 (테스트용)
+        self.app_sessions_progress.setVisible(True)
+        self.llm_response_progress.setVisible(True) 
+        self.db_connections_progress.setVisible(True)
+        
+        # 테스트용 기본값 설정
+        self.app_sessions_progress.setValue(25)
+        self.llm_response_progress.setValue(50)
+        self.db_connections_progress.setValue(30)
 
     def update_data(self, snapshot: Dict[str, Any]):
         """스냅샷 데이터로 진단 탭을 업데이트한다."""
@@ -113,7 +123,163 @@ class SystemDiagnosticsTab(BaseTab, Ui_SystemDiagnosticsTab):
         network_lines.append(f'LLM 응답 시간: {llm_response:.1f}ms')
         network_lines.append(f'DB 커넥션: {db_connections} / {db_max}')
 
-        self.network_label.setText('\n'.join(network_lines))
+        # 프로그레스 바 업데이트
+        self._update_progress_bars(network)
+        
+        # 상세 정보 업데이트
+        self.network_details_label.setText('\n'.join(network_lines))
+
+    def _update_progress_bars(self, network: Dict[str, Any]) -> None:
+        """네트워크 상태 프로그레스 바를 업데이트한다."""
+        # App 세션 프로그레스 바
+        app_sessions = network.get('app_sessions', 0)
+        app_max = network.get('app_sessions_max', 200)
+        app_percentage = (app_sessions / app_max * 100) if app_max > 0 else 0
+        
+        self.app_sessions_label.setText(f'App 세션: {app_sessions} / {app_max}')
+        self.app_sessions_progress.setMaximum(100)
+        self.app_sessions_progress.setValue(int(app_percentage))
+        
+        # 임계값에 따른 색상 설정
+        if app_percentage >= 90:
+            self.app_sessions_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #f44336; 
+                    border-radius: 2px;
+                }  /* 빨강 */
+            """)
+        elif app_percentage >= 70:
+            self.app_sessions_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #ff9800; 
+                    border-radius: 2px;
+                }  /* 주황 */
+            """)
+        else:
+            self.app_sessions_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #4caf50; 
+                    border-radius: 2px;
+                }  /* 녹색 */
+            """)
+        
+        # LLM 응답 시간 프로그레스 바
+        llm_response = network.get('llm_response_time', 0)
+        llm_max = 1500  # 1500ms 임계값
+        llm_percentage = min((llm_response / llm_max * 100), 100) if llm_max > 0 else 0
+        
+        self.llm_response_label.setText(f'LLM 응답 시간: {llm_response:.0f}ms / {llm_max}ms')
+        self.llm_response_progress.setMaximum(100)
+        self.llm_response_progress.setValue(int(llm_percentage))
+        
+        # LLM 응답 시간 색상 설정
+        if llm_response >= 1500:
+            self.llm_response_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #f44336; 
+                    border-radius: 2px;
+                }  /* 빨강 */
+            """)
+        elif llm_response >= 1000:
+            self.llm_response_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #ff9800; 
+                    border-radius: 2px;
+                }  /* 주황 */
+            """)
+        else:
+            self.llm_response_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #4caf50; 
+                    border-radius: 2px;
+                }  /* 녹색 */
+            """)
+        
+        # DB 커넥션 프로그레스 바
+        db_connections = network.get('db_connections', 0)
+        db_max = network.get('db_connections_max', 10)
+        db_percentage = (db_connections / db_max * 100) if db_max > 0 else 0
+        
+        self.db_connections_label.setText(f'DB 커넥션: {db_connections} / {db_max}')
+        self.db_connections_progress.setMaximum(100)
+        self.db_connections_progress.setValue(int(db_percentage))
+        
+        # DB 커넥션 색상 설정
+        if db_percentage >= 90:
+            self.db_connections_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #f44336; 
+                    border-radius: 2px;
+                }  /* 빨강 */
+            """)
+        elif db_percentage >= 70:
+            self.db_connections_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #ff9800; 
+                    border-radius: 2px;
+                }  /* 주황 */
+            """)
+        else:
+            self.db_connections_progress.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                QProgressBar::chunk { 
+                    background-color: #4caf50; 
+                    border-radius: 2px;
+                }  /* 녹색 */
+            """)
 
     @staticmethod
     def _format_robot_line(robot: Dict[str, Any], label: str) -> str:

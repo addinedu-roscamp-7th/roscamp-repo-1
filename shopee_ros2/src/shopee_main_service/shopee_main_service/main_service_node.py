@@ -150,7 +150,11 @@ class MainServiceApp:
         )
 
         if settings.GUI_ENABLED:
+            logger.info("GUI is enabled, starting dashboard controller...")
             await self._start_dashboard_controller()
+            logger.info("Dashboard controller started successfully")
+        else:
+            logger.info(f"GUI is disabled (GUI_ENABLED={settings.GUI_ENABLED})")
 
         await self._api.start()
         await self._streaming_service.start()
@@ -932,7 +936,11 @@ def main() -> None:
         window = None
         if settings.GUI_ENABLED and service_app._dashboard_controller:
             from .dashboard import DashboardWindow
-            window = DashboardWindow(service_app._dashboard_controller.bridge, service_app._robot)
+            window = DashboardWindow(
+                service_app._dashboard_controller.bridge, 
+                service_app._robot, 
+                service_app._db
+            )
             window.show()
             logger.info("Dashboard GUI window created")
         else:
