@@ -16,8 +16,6 @@
     <height>800</height>
    </size>
   </property>
-  
-  <!-- 상단 통계 카드들 -->
   <widget class="QWidget" name="stats_widget" native="true">
    <property name="geometry">
     <rect>
@@ -27,8 +25,6 @@
      <height>120</height>
     </rect>
    </property>
-   
-   <!-- 전체 로봇 수 -->
    <widget class="QWidget" name="total_robots_card" native="true">
     <property name="geometry">
      <rect>
@@ -50,14 +46,18 @@
        <height>30</height>
       </rect>
      </property>
-     <property name="text">
-      <string>🤖 전체 로봇</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>12</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>🤖 전체 로봇</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -72,20 +72,21 @@
        <height>50</height>
       </rect>
      </property>
-     <property name="text">
-      <string>0대</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>24</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
+     <property name="styleSheet">
+      <string>color: #4682b4; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string>color: #4682b4;</string>
      </property>
     </widget>
     <widget class="QLabel" name="total_robots_detail">
@@ -97,21 +98,22 @@
        <height>20</height>
       </rect>
      </property>
-     <property name="text">
-      <string>Pickee: 0 | Packee: 0</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>9</pointsize>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>Pickee: 0 | Packee: 0</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
      </property>
     </widget>
    </widget>
-   
-   <!-- 가용 로봇 수 -->
    <widget class="QWidget" name="available_robots_card" native="true">
     <property name="geometry">
      <rect>
@@ -133,14 +135,18 @@
        <height>30</height>
       </rect>
      </property>
-     <property name="text">
-      <string>✅ 가용 로봇</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>12</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>✅ 가용 로봇</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -155,20 +161,21 @@
        <height>50</height>
       </rect>
      </property>
-     <property name="text">
-      <string>0대</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>24</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
+     <property name="styleSheet">
+      <string>color: #32cd32; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string>color: #32cd32;</string>
      </property>
     </widget>
     <widget class="QLabel" name="available_robots_detail">
@@ -180,21 +187,22 @@
        <height>20</height>
       </rect>
      </property>
-     <property name="text">
-      <string>IDLE 상태 로봇</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>9</pointsize>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>IDLE 상태 로봇</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
      </property>
     </widget>
    </widget>
-   
-   <!-- 작업 중 로봇 수 -->
    <widget class="QWidget" name="working_robots_card" native="true">
     <property name="geometry">
      <rect>
@@ -216,14 +224,18 @@
        <height>30</height>
       </rect>
      </property>
-     <property name="text">
-      <string>⚡ 작업 중</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>12</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>⚡ 작업 중</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -238,20 +250,21 @@
        <height>50</height>
       </rect>
      </property>
-     <property name="text">
-      <string>0대</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>24</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
+     <property name="styleSheet">
+      <string>color: #ffa500; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string>color: #ffa500;</string>
      </property>
     </widget>
     <widget class="QLabel" name="working_robots_detail">
@@ -263,21 +276,22 @@
        <height>20</height>
       </rect>
      </property>
-     <property name="text">
-      <string>WORKING 상태 로봇</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>9</pointsize>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>WORKING 상태 로봇</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
      </property>
     </widget>
    </widget>
-   
-   <!-- 오프라인 로봇 수 -->
    <widget class="QWidget" name="offline_robots_card" native="true">
     <property name="geometry">
      <rect>
@@ -299,14 +313,18 @@
        <height>30</height>
       </rect>
      </property>
-     <property name="text">
-      <string>❌ 오프라인</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>12</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>❌ 오프라인</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -321,20 +339,21 @@
        <height>50</height>
       </rect>
      </property>
-     <property name="text">
-      <string>0대</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>24</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
+     <property name="styleSheet">
+      <string>color: #dc143c; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string>color: #dc143c;</string>
      </property>
     </widget>
     <widget class="QLabel" name="offline_robots_detail">
@@ -346,13 +365,16 @@
        <height>20</height>
       </rect>
      </property>
-     <property name="text">
-      <string>ERROR/OFFLINE 상태</string>
-     </property>
      <property name="font">
       <font>
        <pointsize>9</pointsize>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>ERROR/OFFLINE 상태</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -360,8 +382,6 @@
     </widget>
    </widget>
   </widget>
-  
-  <!-- 미션 큐 테이블 -->
   <widget class="QLabel" name="mission_queue_title">
    <property name="geometry">
     <rect>
@@ -371,17 +391,17 @@
      <height>30</height>
     </rect>
    </property>
-   <property name="text">
-    <string>📋 로봇 작업 현황</string>
-   </property>
    <property name="font">
     <font>
      <pointsize>14</pointsize>
+     <weight>75</weight>
      <bold>true</bold>
     </font>
    </property>
+   <property name="text">
+    <string>📋 로봇 작업 현황</string>
+   </property>
   </widget>
-  
   <widget class="QTableWidget" name="mission_queue_table">
    <property name="geometry">
     <rect>
@@ -444,8 +464,6 @@
     </property>
    </column>
   </widget>
-  
-  <!-- 성능 지표 영역 -->
   <widget class="QLabel" name="performance_title">
    <property name="geometry">
     <rect>
@@ -455,17 +473,17 @@
      <height>30</height>
     </rect>
    </property>
-   <property name="text">
-    <string>📊 실시간 성능 지표</string>
-   </property>
    <property name="font">
     <font>
      <pointsize>14</pointsize>
+     <weight>75</weight>
      <bold>true</bold>
     </font>
    </property>
+   <property name="text">
+    <string>📊 실시간 성능 지표</string>
+   </property>
   </widget>
-  
   <widget class="QTextEdit" name="performance_metrics">
    <property name="geometry">
     <rect>
@@ -475,17 +493,16 @@
      <height>260</height>
     </rect>
    </property>
-   <property name="readOnly">
-    <bool>true</bool>
-   </property>
    <property name="font">
     <font>
      <family>Consolas</family>
      <pointsize>10</pointsize>
     </font>
    </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
   </widget>
-  
  </widget>
  <resources/>
  <connections/>

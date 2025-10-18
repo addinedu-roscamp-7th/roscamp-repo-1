@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_diagnostics.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_diagnostics.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -15,15 +15,15 @@ class Ui_SystemDiagnosticsTab(object):
         SystemDiagnosticsTab.resize(1200, 800)
         SystemDiagnosticsTab.setMinimumSize(QtCore.QSize(1200, 800))
         self.error_group = QtWidgets.QGroupBox(parent=SystemDiagnosticsTab)
-        self.error_group.setGeometry(QtCore.QRect(10, 10, 580, 380))
+        self.error_group.setGeometry(QtCore.QRect(10, 10, 580, 261))
         self.error_group.setObjectName("error_group")
         self.error_label = QtWidgets.QLabel(parent=self.error_group)
-        self.error_label.setGeometry(QtCore.QRect(10, 25, 560, 345))
+        self.error_label.setGeometry(QtCore.QRect(10, 25, 560, 221))
         self.error_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeading|QtCore.Qt.AlignmentFlag.AlignLeft|QtCore.Qt.AlignmentFlag.AlignTop)
         self.error_label.setWordWrap(True)
         self.error_label.setObjectName("error_label")
         self.network_group = QtWidgets.QGroupBox(parent=SystemDiagnosticsTab)
-        self.network_group.setGeometry(QtCore.QRect(610, 10, 580, 380))
+        self.network_group.setGeometry(QtCore.QRect(610, 10, 580, 261))
         self.network_group.setObjectName("network_group")
         self.app_sessions_label = QtWidgets.QLabel(parent=self.network_group)
         self.app_sessions_label.setGeometry(QtCore.QRect(10, 30, 200, 20))
@@ -47,7 +47,7 @@ class Ui_SystemDiagnosticsTab(object):
         self.db_connections_progress.setProperty("value", 30)
         self.db_connections_progress.setObjectName("db_connections_progress")
         self.network_details_label = QtWidgets.QLabel(parent=self.network_group)
-        self.network_details_label.setGeometry(QtCore.QRect(10, 120, 560, 250))
+        self.network_details_label.setGeometry(QtCore.QRect(10, 120, 560, 131))
         self.network_details_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeading|QtCore.Qt.AlignmentFlag.AlignLeft|QtCore.Qt.AlignmentFlag.AlignTop)
         self.network_details_label.setWordWrap(True)
         self.network_details_label.setObjectName("network_details_label")
@@ -64,3 +64,13 @@ class Ui_SystemDiagnosticsTab(object):
         self.llm_response_label.setText(_translate("SystemDiagnosticsTab", "LLM 응답 시간: 0ms / 1500ms"))
         self.db_connections_label.setText(_translate("SystemDiagnosticsTab", "DB 커넥션: 0 / 10"))
         self.network_details_label.setText(_translate("SystemDiagnosticsTab", "네트워크 상태 정보..."))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    SystemDiagnosticsTab = QtWidgets.QWidget()
+    ui = Ui_SystemDiagnosticsTab()
+    ui.setupUi(SystemDiagnosticsTab)
+    SystemDiagnosticsTab.show()
+    sys.exit(app.exec())

@@ -607,7 +607,72 @@ class RobotCoordinator(Node):
             return int(self._service_retry_count)
 
     def get_topic_health(self) -> Dict[str, Any]:
-        """ ... """
+        """
+        ROS 토픽 수신 상태를 점검하여 헬스 정보를 반환합니다.
+
+        - 주기적으로 발행되어야 하는 상태 토픽과 이벤트 토픽을 모니터링합니다.
+        - 각 토픽이 마지막으로 수신된 시간을 기준으로 타임아웃 여부를 판단합니다.
+        - 전체 토픽의 수신 성공률을 계산합니다.
+
+        Returns:
+            - ros_topics_healthy: 모든 토픽이 건강한지 여부 (bool)
+            - ros_topic_health: 각 토픽별 헬스 정보 (dict)
+            - topic_receive_rate: 전체 토픽 수신 성공률 (float)
+            - event_topic_activity: 이벤트 토픽별 마지막 수신 시간 정보 (dict)
+            - event_topic_timeout: 이벤트 토픽 타임아웃 설정값 (float)
+        """
+        with self._metrics_lock:
+            now = time.monotonic()
+            health_info = {}
+            total_topics = 0
+            healthy_topics = 0
+
+            all_monitored_topics = self._status_topics + self._event_topics
+
+            for topic in all_monitored_topics:
+                is_status_topic = topic in self._status_topics
+                timeout = self._status_topic_timeout if is_status_topic else self._event_topic_timeout
+                
+                if timeout <= 0:
+                    continue
+
+                total_topics += 1
+                last_seen = self._topic_last_seen.get(topic)
+                
+                if last_seen is None:
+                    healthy = False
+                elif now - last_seen > timeout:
+                    healthy = False
+                else:
+                    healthy = True
+                
+                if healthy:
+                    healthy_topics += 1
+                
+                health_info[topic] = healthy
+
+            # 이벤트 토픽 활동성 정보 추가
+            event_activity = {}
+            for topic in self._event_topics:
+                last_seen = self._topic_last_seen.get(topic)
+                overdue = False
+                if self._event_topic_timeout > 0 and last_seen and (now - last_seen > self._event_topic_timeout):
+                    overdue = True
+
+                event_activity[topic] = {
+                    'seconds_since_last': now - last_seen if last_seen else None,
+                    'overdue': overdue
+                }
+
+            receive_rate = (healthy_topics / total_topics * 100) if total_topics > 0 else 100.0
+            
+            return {
+                'ros_topics_healthy': healthy_topics == total_topics,
+                'ros_topic_health': health_info,
+                'topic_receive_rate': receive_rate,
+                'event_topic_activity': event_activity,
+                'event_topic_timeout': self._event_topic_timeout
+            }
 
     def _publish_topic_to_dashboard(self, topic_name: str, msg: object) -> None:
         """수신한 토픽을 대시보드로 전달하기 위해 EventBus에 발행한다."""

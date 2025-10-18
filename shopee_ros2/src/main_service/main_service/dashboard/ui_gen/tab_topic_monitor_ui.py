@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_topic_monitor.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_topic_monitor.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -45,3 +45,13 @@ class Ui_TopicMonitorTab(object):
         TopicMonitorTab.setWindowTitle(_translate("TopicMonitorTab", "Form"))
         self.periodic_group.setTitle(_translate("TopicMonitorTab", "주기적 토픽 (Periodic Topics)"))
         self.event_group.setTitle(_translate("TopicMonitorTab", "이벤트성 토픽 (Event Topics)"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    TopicMonitorTab = QtWidgets.QWidget()
+    ui = Ui_TopicMonitorTab()
+    ui.setupUi(TopicMonitorTab)
+    TopicMonitorTab.show()
+    sys.exit(app.exec())

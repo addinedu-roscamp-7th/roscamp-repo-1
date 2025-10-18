@@ -19,7 +19,6 @@ from .tabs.overview_tab import OverviewTab
 from .tabs.robot_status_tab import RobotStatusTab
 from .tabs.robot_control_tab import RobotControlTab
 from .tabs.order_management_tab import OrderManagementTab
-from .tabs.diagnostics_tab import SystemDiagnosticsTab
 from .tabs.event_log_tab import EventLogTab
 from .tabs.topic_monitor_tab import TopicMonitorTab
 from .tabs.service_monitor_tab import ServiceMonitorTab
@@ -60,8 +59,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.robot_tab = RobotStatusTab()
         self.robot_control_tab = RobotControlTab()
         self.order_tab = OrderManagementTab()
-        self.diagnostics_tab = SystemDiagnosticsTab()
-        self.log_tab = EventLogTab()
+        # self.log_tab = EventLogTab()
         self.topic_monitor_tab = TopicMonitorTab()
         self.service_monitor_tab = ServiceMonitorTab()
         
@@ -74,8 +72,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.tab_widget.addTab(self.robot_tab, '로봇 상태')
         self.tab_widget.addTab(self.robot_control_tab, '로봇 관제')
         self.tab_widget.addTab(self.order_tab, '주문 관리')
-        self.tab_widget.addTab(self.diagnostics_tab, '시스템 진단')
-        self.tab_widget.addTab(self.log_tab, '이벤트 로그')
+        # self.tab_widget.addTab(self.log_tab, '이벤트 로그')
         self.tab_widget.addTab(self.topic_monitor_tab, 'ROS2 토픽 모니터')
         self.tab_widget.addTab(self.service_monitor_tab, 'ROS2 서비스 모니터')
         
@@ -142,12 +139,11 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.robot_tab.update_data(snapshot.get('robots', []))
         self.robot_control_tab.update_data(snapshot)
         self.order_tab.update_data(snapshot.get('orders', {}))
-        self.diagnostics_tab.update_data(snapshot)
         self._update_statusbar(snapshot)
 
     def _handle_event(self, event_data: Dict[str, Any]):
         """이벤트 데이터를 처리하여 로그 및 알림을 업데이트한다."""
-        self.log_tab.add_event(event_data)
+        # self.log_tab.add_event(event_data)
         self.overview_tab.add_alert(event_data)
 
     def _handle_ros_topic(self, event_data: Dict[str, Any]):
@@ -156,7 +152,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         
         # ROS 토픽을 이벤트 로그에도 추가 (이벤트 토픽만)
         if not event_data.get('is_periodic', False):
-            self.log_tab.add_ros_topic_event(event_data)
+            self.overview_tab.add_ros_topic_event(event_data)
 
     def _handle_ros_service(self, event_data: Dict[str, Any]):
         """ROS 서비스 수신 이벤트를 처리하여 서비스 모니터 탭에 추가한다."""

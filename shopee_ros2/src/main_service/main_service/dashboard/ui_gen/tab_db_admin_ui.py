@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_db_admin.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_db_admin.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -93,3 +93,13 @@ class Ui_DBAdminTab(object):
         self.result_table.setSortingEnabled(True)
         self.status_label.setText(_translate("DBAdminTab", "준비"))
         self.export_button.setText(_translate("DBAdminTab", "CSV 내보내기"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    DBAdminTab = QtWidgets.QWidget()
+    ui = Ui_DBAdminTab()
+    ui.setupUi(DBAdminTab)
+    DBAdminTab.show()
+    sys.exit(app.exec())

@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_order_management.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_order_management.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -68,3 +68,13 @@ class Ui_OrderManagementTab(object):
         item.setText(_translate("OrderManagementTab", "Pickee"))
         item = self.order_table.horizontalHeaderItem(9)
         item.setText(_translate("OrderManagementTab", "Packee"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    OrderManagementTab = QtWidgets.QWidget()
+    ui = Ui_OrderManagementTab()
+    ui.setupUi(OrderManagementTab)
+    OrderManagementTab.show()
+    sys.exit(app.exec())

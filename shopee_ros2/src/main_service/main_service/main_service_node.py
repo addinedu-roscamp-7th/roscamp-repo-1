@@ -24,7 +24,7 @@ from .order_service import OrderService
 from .product_service import ProductService
 from .robot_coordinator import RobotCoordinator
 from .robot_state_store import RobotStateStore
-from .robot_allocator import (
+from .robot_selector import (
     RobotAllocator,
     RoundRobinStrategy,
     LeastWorkloadStrategy,

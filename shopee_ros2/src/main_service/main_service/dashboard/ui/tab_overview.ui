@@ -32,7 +32,7 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>30</y>
+      <y>40</y>
       <width>200</width>
       <height>20</height>
      </rect>
@@ -44,8 +44,8 @@
    <widget class="QLabel" name="hourly_throughput_label">
     <property name="geometry">
      <rect>
-      <x>240</x>
-      <y>30</y>
+      <x>20</x>
+      <y>80</y>
       <width>200</width>
       <height>20</height>
      </rect>
@@ -54,50 +54,89 @@
      <string>시간당 처리량: 0건</string>
     </property>
    </widget>
-   <widget class="QLabel" name="success_rate_label">
-    <property name="geometry">
-     <rect>
-      <x>460</x>
-      <y>30</y>
-      <width>200</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>성공률: 0.0%</string>
-    </property>
-   </widget>
    <widget class="QLabel" name="robot_utilization_label">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>60</y>
-      <width>200</width>
+      <x>390</x>
+      <y>40</y>
+      <width>100</width>
       <height>20</height>
      </rect>
     </property>
     <property name="text">
-     <string>로봇 가동률: 0.0%</string>
+     <string>로봇 가동률:</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="robot_utilization_progress">
+    <property name="geometry">
+     <rect>
+      <x>500</x>
+      <y>40</y>
+      <width>120</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>0</number>
     </property>
    </widget>
    <widget class="QLabel" name="system_load_label">
     <property name="geometry">
      <rect>
-      <x>240</x>
-      <y>60</y>
-      <width>200</width>
+      <x>390</x>
+      <y>80</y>
+      <width>100</width>
       <height>20</height>
      </rect>
     </property>
     <property name="text">
-     <string>시스템 부하: 0.0%</string>
+     <string>시스템 부하:</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="system_load_progress">
+    <property name="geometry">
+     <rect>
+      <x>500</x>
+      <y>80</y>
+      <width>120</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>0</number>
+    </property>
+   </widget>
+   <widget class="QLabel" name="success_rate_label">
+    <property name="geometry">
+     <rect>
+      <x>800</x>
+      <y>40</y>
+      <width>80</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>성공률:</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="success_rate_progress">
+    <property name="geometry">
+     <rect>
+      <x>890</x>
+      <y>40</y>
+      <width>120</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>0</number>
     </property>
    </widget>
    <widget class="QLabel" name="active_orders_label">
     <property name="geometry">
      <rect>
-      <x>460</x>
-      <y>60</y>
+      <x>800</x>
+      <y>80</y>
       <width>200</width>
       <height>20</height>
      </rect>
@@ -107,29 +146,59 @@
     </property>
    </widget>
   </widget>
-  <widget class="QGroupBox" name="alerts_group">
+  <widget class="QGroupBox" name="status_summary_group">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>140</y>
-     <width>1180</width>
+     <width>450</width>
      <height>650</height>
     </rect>
    </property>
    <property name="title">
-    <string>실시간 알림 및 이벤트</string>
+    <string>시스템 상태 요약</string>
    </property>
-   <widget class="QTextEdit" name="alerts_text">
+   <widget class="QTreeWidget" name="status_tree_widget">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>25</y>
-      <width>1160</width>
+      <width>430</width>
       <height>615</height>
      </rect>
     </property>
-    <property name="readOnly">
-     <bool>true</bool>
+    <column>
+     <property name="text">
+      <string>항목</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>값</string>
+     </property>
+    </column>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="event_log_group">
+   <property name="geometry">
+    <rect>
+     <x>470</x>
+     <y>140</y>
+     <width>720</width>
+     <height>650</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>실시간 이벤트 로그</string>
+   </property>
+   <widget class="QTableView" name="event_table_view">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>25</y>
+      <width>700</width>
+      <height>615</height>
+     </rect>
     </property>
    </widget>
   </widget>
