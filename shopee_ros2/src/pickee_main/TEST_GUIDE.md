@@ -112,8 +112,17 @@ ros2 service call /pickee/arm/move_to_pose shopee_interfaces/srv/PickeeArmMoveTo
 ros2 service call /pickee/arm/pick_product shopee_interfaces/srv/PickeeArmPickProduct "{
   robot_id: 1,
   order_id: 123,
-  product_id: 456,
-  target_position: {x: 0.5, y: 0.3, z: 1.2}
+  target_product: {
+    product_id: 33,
+    bbox_number: 1,
+    bbox_coords: {
+      x1: 1,
+      y1: 1,
+      x2: 1,
+      y2: 1
+    },
+    confidence: 1.0
+  }
 }"
 
 # Arm 제품 놓기
@@ -386,3 +395,223 @@ ros2 service call /pickee/vision/detect_products shopee_interfaces/srv/PickeeVis
 ```
 
 ---
+
+### 토픽 전체 테스트
+``` bash
+ros2 topic pub --once /pickee/arm/pick_status shopee_interfaces/msg/PickeeArmTaskStatus "{
+  robot_id: 1, 
+  order_id: 1,
+  product_id: 10,
+  status: 'completed',
+  current_phase: 'pick_operation',
+  progress: 1.0,
+  message: 'Test pick completed'
+}"
+
+ros2 topic pub --once /pickee/arm/place_status shopee_interfaces/msg/PickeeArmTaskStatus "{
+  robot_id: 1, 
+  order_id: 1,
+  product_id: 10,
+  status: 'completed',
+  current_phase: 'planning',
+  progress: 1.0,
+  message: 'Test place completed'
+}"
+
+ros2 topic pub --once /pickee/arm/pose_status shopee_interfaces/msg/ArmPoseStatus "{
+  robot_id: 1,
+  order_id: 1,
+  pose_type: 'shelf_view',
+  status: 'completed',
+  progress: '1.0',
+  message: 'copleted'
+}"
+
+ros2 topic echo /pickee/arrival_notice
+ros2 topic pub --once /pickee/arrival_notice shopee_interfaces/msg/PickeeArrival "{
+  robot_id: 1,
+  order_id: 1,
+  location_id: 1,
+  section_id: 1
+}"
+
+ros2 topic echo /pickee/cart_handover_complete
+ros2 topic pub --once /pickee/cart_handover_complete shopee_interfaces/msg/PickeeCartHandover "{
+  robot_id: 1,
+  order_id: 1
+}"
+
+ros2 topic pub --once /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArrival "{
+  robot_id: 1,
+  order_id: 1,
+  location_id: 1,
+  final_pose: {
+    x: 1.0,
+    y: 1.0,
+    theta: 1.0
+  },
+  position_error: 1.0,
+  travel_time: 1.0,
+  message: 'complete'
+}"
+
+ros2 topic pub --once /pickee/mobile/pose shopee_interfaces/msg/PickeeMobilePose "{
+  robot_id: 1,
+  order_id: 1,
+  current_pose: {
+    x: 1.0,
+    y: 1.0,
+    theta: 1.0
+  },
+  linear_velocity: 1.0,
+  angular_velocity: 1.0,
+  battery_level: 70.0,
+  status: 'moving'
+}"
+
+ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeMobileSpeedControl "{
+  robot_id: 1
+  order_id: 44
+  speed_mode: "decelerate"
+  target_speed: 0.3
+  obstacles:
+    - obstacle_type: "person"
+      distance: 1.5
+      velocity: 0.8
+  reason: "dynamic_obstacle_near"
+}"
+
+ros2 topic echo /pickee/moving_status
+ros2 topic pub --once /pickee/moving_status shopee_interfaces/msg/PickeeMoveStatus "{
+  robot_id: 1,
+  order_id: 1,
+  location_id: 1,
+}"
+
+ros2 topic echo /pickee/product/loaded
+ros2 topic pub --once /pickee/product/loaded shopee_interfaces/msg/PickeeProductLoaded "{
+  robot_id: 1,
+  product_id: 1,
+  quantity: 5,
+  success: true,
+  message: 'completed'
+}"
+
+ros2 topic echo /pickee/product/selection_result
+ros2 topic pub --once /pickee/product/selection_result shopee_interfaces/msg/PickeeProductSelection " {
+  robot_id: 1,
+  order_id: 1,
+  product_id: 10,
+  success: true,
+  quantity: 5,
+  message: 'completed'
+}"
+
+ros2 topic echo /pickee/product_detected
+ros2 topic pub --once /pickee/product_detected shopee_interfaces/msg/PickeeProductDetection "{
+  robot_id: 1,
+  order_id: 1,
+  products: [{
+    product_id: 10,
+    bbox_number: 1,
+    bbox_coords: {
+      x1: 1,
+      y1: 1,
+      x2: 1,
+      y2: 1,
+    },
+    confidence: 1.0
+  }]
+}"
+
+ros2 topic echo /pickee/robot_status
+ros2 topic pub --once /pickee/robot_status shopee_interfaces/msg/PickeeRobotStatus "{
+  robot_id: 1,
+  state: 'PK_S10',
+  battery_level: 70.0,
+  current_order_id: 1,
+  position_x: 10.0,
+  position_y: 10.0,
+  orientation_z: 10.0
+}"
+
+ros2 topic echo /pickee/vision/cart_check_result
+ros2 topic pub --once /pickee/vision/cart_check_result shopee_interfaces/msg/PickeeVisionCartCheck "{
+  robot_id: 1,
+  order_id: 4,
+  success: true,
+  product_id: 5,
+  found: true,
+  quantity: 2,
+  message: 'Product found in cart'
+}"
+
+ros2 topic echo /pickee/vision/detection_result
+ros2 topic pub --once /pickee/vision/detection_result shopee_interfaces/msg/PickeeVisionDetection "{
+  robot_id: 1,
+  order_id: 4,
+  success: true,
+  products: [
+    {
+      product_id: 4,
+      bbox_number: 1,
+      bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250},
+      confidence: 0.95
+    },
+    {
+      product_id: 5,
+      bbox_number: 2,
+      bbox_coords: {x1: 250, y1: 150, x2: 350, y2: 250},
+      confidence: 0.92
+    }
+  ],
+  message: '2 products detected'
+}"
+
+ros2 topic echo /pickee/vision/obstacle_detected
+ros2 topic pub --once /pickee/vision/obstacle_detected shopee_interfaces/msg/PickeeVisionObstacles "{
+  robot_id: 1,
+  order_id: 4,
+  obstacles: [
+    {
+      obstacle_type: 'cart',
+      position: {x: 5.2, y: 3.1},
+      distance: 2.5,
+      velocity: 0.0,
+      direction: {vx: 0.0, vy: 0.0},
+      bbox: {x1: 200, y1: 150, x2: 350, y2: 400},
+      confidence: 0.92,
+    }
+  ],
+  message: '1 static obstacle detected'
+}"
+
+ros2 topic echo /pickee/vision/register_staff_result
+ros2 topic pub --once /pickee/vision/register_staff_result shopee_interfaces/msg/PickeeVisionStaffRegister "{
+  robot_id: 1,
+  success: true,
+  message: 'Staff registration successful.'
+}"
+
+ros2 topic echo /pickee/vision/staff_location
+ros2 topic pub --once /pickee/vision/staff_location shopee_interfaces/msg/PickeeVisionStaffLocation "{
+  robot_id: 1,
+  relative_position: {x: 2.5, y: 0.3},
+  distance: 2.52,
+  is_tracking: true
+}"
+```
+
+
+
+### 전체 연동 테스트
+``` bash
+ros2 run main_service mock_llm_server
+ros2 run main_service mock_packee_node 
+ros2 run main_service main_service_node 
+python3 src/main_service/scripts/test_client.py 
+export PYTHONPATH=$PYTHONPATH:/home/wonho/venv/ros_venv/lib/python3.12/site-packages
+# db 세팅
+shopee_ros2/src/main_service/scripts/setup_database.sh
+shopee_ros2/src/main_service/scripts/reset_database.sh
+```

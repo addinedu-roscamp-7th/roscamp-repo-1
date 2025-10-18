@@ -666,12 +666,12 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
             return False
 
-    async def call_arm_pick_product(self, product_id, target_position):
+    async def call_arm_pick_product(self, target_position):
         # Arm에 상품 픽업 명령
         request = PickeeArmPickProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
-        request.product_id = product_id
+        # request.product_id = product_id
         request.target_position = target_position
         
         if not self.arm_pick_product_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):

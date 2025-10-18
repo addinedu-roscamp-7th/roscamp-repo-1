@@ -84,7 +84,7 @@ class MockArmNode(Node):
     
     def pick_product_callback(self, request, response):
         """제품 픽업 서비스 요청 처리"""
-        self.get_logger().info(f'Received pick request: product_id={request.product_id}')
+        self.get_logger().info(f'Received pick request: product_id={request.target_product.product_id}')
         
         if self.is_busy:
             response.accepted = False
@@ -101,7 +101,7 @@ class MockArmNode(Node):
         # 비동기적으로 픽업 시뮬레이션
         threading.Thread(
             target=self.simulate_pick_operation,
-            args=(request.product_id, request.target_position)
+            args=(request.target_product.product_id, request.target_position)
         ).start()
         
         response.accepted = True

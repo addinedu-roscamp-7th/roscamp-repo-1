@@ -73,7 +73,7 @@ sub /pickee/vision/staff_location [shopee_interfaces/msg/PickeeVisionStaffLocati
 ## 1. 개요
 
 ### 1.1. 목적
-`pickee_main`, `shopee_main_service` 및 관련 mock 노드들(`mock_mobile_node`, `mock_arm_node`, `mock_vision_node`) 간의 ROS2 통신(서비스, 토픽)을 시각적으로 모니터링하고, 각 노드에서 발생하는 로그를 실시간으로 확인하여 테스트 및 디버깅의 효율성을 높이는 것을 목적으로 한다. 기존의 터미널 기반 모니터링 방식의 불편함을 해소하고 사용자 친화적인 GUI를 제공한다.
+`pickee_main`, `main_service` 및 관련 mock 노드들(`mock_mobile_node`, `mock_arm_node`, `mock_vision_node`) 간의 ROS2 통신(서비스, 토픽)을 시각적으로 모니터링하고, 각 노드에서 발생하는 로그를 실시간으로 확인하여 테스트 및 디버깅의 효율성을 높이는 것을 목적으로 한다. 기존의 터미널 기반 모니터링 방식의 불편함을 해소하고 사용자 친화적인 GUI를 제공한다.
 
 ### 1.2. 주요 기능
 -   실행 중인 ROS2 노드 목록 및 상태 표시
@@ -96,8 +96,8 @@ PySide6를 사용하여 메인 윈도우를 다음과 같이 4개의 주요 패�
     -   위치: 좌측 하단
     -   위젯: `QTreeWidget`
     -   기능: 시스템의 모든 서비스와 토픽 목록을 트리 형태로 보여준다. 최상위 레벨은 "Services"와 "Topics"로 구분한다.
-        -   **Services:** `pickee_main`이 호출하는 서비스(예: `/pickee/workflow/start_task`)와 `shopee_main_service`가 제공하는 서비스(예: `/main/get_available_robots`)를 모두 표시한다.
-        -   **Topics:** `pickee_main`이 발행하는 토픽(예: `/pickee/robot_status`)과 `shopee_main_service`가 구독하는 토픽(예: `/pickee/moving_status`)을 모두 표시한다.
+        -   **Services:** `pickee_main`이 호출하는 서비스(예: `/pickee/workflow/start_task`)와 `main_service`가 제공하는 서비스(예: `/main/get_available_robots`)를 모두 표시한다.
+        -   **Topics:** `pickee_main`이 발행하는 토픽(예: `/pickee/robot_status`)과 `main_service`가 구독하는 토픽(예: `/pickee/moving_status`)을 모두 표시한다.
 
 -   **C. 로그 출력 패널 (Log Output Panel):**
     -   위치: 우측
@@ -138,7 +138,7 @@ PySide6를 사용하여 메인 윈도우를 다음과 같이 4개의 주요 패�
 1.  **초기화:** 대시보드 실행 시, ROS2 통신 스레드는 `rclpy.init()`을 호출하고 `pickee_dashboard_node`를 생성한다.
 2.  **로그 수신:** `/rosout` 토픽 구독자가 새로운 로그 메시지(`Log` 타입)를 수신하면, 콜백 함수가 호출된다. 콜백 함수는 메시지에서 노드 이름, 로그 레벨, 내용 등을 파싱하여 시그널을 발생시킨다.
 3.  **UI 업데이트:** GUI 스레드의 슬롯(Slot) 함수가 시그널을 받아 로그 출력 패널에 해당 로그를 추가한다.
-4.  **시스템 정보 갱신:** ROS2 통신 스레드는 `QTimer` 등을 이용해 주기적으로(`ros2node.get_node_names()`, `ros2service.get_service_names_and_types()`, `ros2topic.get_topic_names_and_types()`)를 호출하여 시스템 정보를 가져온다. 이 정보에는 `pickee_main`과 `shopee_main_service`가 호출하거나 제공하는 모든 서비스와 토픽이 포함된다.
+4.  **시스템 정보 갱신:** ROS2 통신 스레드는 `QTimer` 등을 이용해 주기적으로(`ros2node.get_node_names()`, `ros2service.get_service_names_and_types()`, `ros2topic.get_topic_names_and_types()`)를 호출하여 시스템 정보를 가져온다. 이 정보에는 `pickee_main`과 `main_service`가 호출하거나 제공하는 모든 서비스와 토픽이 포함된다.
 5.  **목록 갱신:** 이전 정보와 비교하여 변경된 내용이 있으면, 시그널을 통해 GUI 스레드에 알리고 노드 및 서비스/토픽 패널을 업데이트한다.
 
 ## 4. 구현 계획

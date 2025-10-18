@@ -1,11 +1,12 @@
 import rclpy
+import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
 from shopee_interfaces.msg import PickeeRobotStatus
 from PySide6.QtCore import QThread, Signal, QTimer
 
 class RosNodeThread(QThread):
-    log_received = Signal(str, str, str)
+    log_received = Signal(str, str, str, bool)
     nodes_updated = Signal(list)
     topics_updated = Signal(list)
     services_updated = Signal(list)
@@ -15,6 +16,7 @@ class RosNodeThread(QThread):
         super().__init__()
         self.node = None
         self.timer = None
+        self.state_log_pattern = re.compile(r'^[A-Z_]+ 상태 (진입|탈출)$')
 
     def run(self):
         rclpy.init()
@@ -50,8 +52,9 @@ class RosNodeThread(QThread):
         level_map = {10: 'DEBUG', 20: 'INFO', 30: 'WARN', 40: 'ERROR', 50: 'FATAL'}
         level = level_map.get(msg.level, 'UNKNOWN')
         
+        is_state_log = bool(self.state_log_pattern.match(msg.msg))
         # 시그널을 통해 UI 스레드로 데이터 전달
-        self.log_received.emit(msg.name, level, msg.msg)
+        self.log_received.emit(msg.name, level, msg.msg, is_state_log)
 
     def status_callback(self, msg: PickeeRobotStatus):
         self.state_updated.emit(msg.state)

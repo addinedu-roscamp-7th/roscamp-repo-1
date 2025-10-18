@@ -15,14 +15,14 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
-    <widget class="QCheckBox" name="checkBox">
+    <widget class="QCheckBox" name="chk_selected">
      <property name="text">
       <string/>
      </property>
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label">
+    <widget class="QLabel" name="label_image">
      <property name="text">
       <string>상품이미지</string>
      </property>
@@ -34,14 +34,14 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QLabel" name="label_2">
+      <widget class="QLabel" name="label_name">
        <property name="text">
         <string>신선 식품 무농약 양상추</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_3">
+      <widget class="QLabel" name="label_price">
        <property name="text">
         <string>개당 3,150원</string>
        </property>
@@ -50,21 +50,21 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QToolButton" name="toolButton">
+        <widget class="QToolButton" name="btn_increase">
          <property name="text">
           <string>+</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit">
+        <widget class="QLineEdit" name="edit_quantity">
          <property name="text">
           <string>2</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QToolButton" name="toolButton_2">
+        <widget class="QToolButton" name="btn_decrease">
          <property name="text">
           <string>-</string>
          </property>
@@ -73,7 +73,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QLabel" name="label_4">
+      <widget class="QLabel" name="label_total_price">
        <property name="text">
         <string>6,300원</string>
        </property>
@@ -95,7 +95,7 @@
     </spacer>
    </item>
    <item>
-    <widget class="QToolButton" name="toolButton_3">
+    <widget class="QToolButton" name="btn_delete">
      <property name="text">
       <string>삭제</string>
      </property>

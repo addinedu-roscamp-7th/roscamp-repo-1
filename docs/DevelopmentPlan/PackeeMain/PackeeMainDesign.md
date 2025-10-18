@@ -18,7 +18,7 @@
 
 ## 3. 상태 관리 (State Management)
 
-`StateDiagram_Pickee.md`에 정의된 상태를 기반으로 한 상태 기계를 구현합니다. 각 상태는 클래스로 정의되며, 상태 진입(on_enter), 실행(execute), 이탈(on_exit) 로직을 포함합니다.
+`StateDiagram_Packee.md`에 정의된 상태를 기반으로 한 상태 기계를 구현합니다. 각 상태는 클래스로 정의되며, 상태 진입(on_enter), 실행(execute), 이탈(on_exit) 로직을 포함합니다.
 
 | 상태 (State) | 영문명 | 주요 역할 | 다음 상태 전이 조건 |
 |---|---|---|---|
@@ -65,7 +65,7 @@
 ### 5.1. 원격 쇼핑 시나리오 워크플로우
 1.  **[STANDBY]** 상태에서 `/packee/packing/start` 서비스 호출 대기.
 2.   서비스 호출 시, 상태를 **[CHECKING_CART]** 로 변경.
-3.  `/packee/arm/move_to_pose` 토픽으로 장바구니 확인 자세 변경 명령.
+3.  `/packee/arm/move_to_pose` 서비스로 장바구니 확인 자세 변경 명령.
 4.  자세 변경 완료 시 `/packee/vision/check_cart_presence` 서비스로 장바구니 유무 확인.
 5.  장바구니 유무 확인 시 상태를 **[DETECTING_PRODUCTS]**  로 변경..
 6.  `/packee/vision/detect_products_in_cart` 서비스로 장바구니 내 상품 위치를 확인.
@@ -76,7 +76,7 @@
 11. `/packee/arm/place_product` 픽업한 상품을 박스에 적재.
 12. `/packee/vision/verify_packing_complete` 서비스로 포장 완료 여부 확인.
 13. 포장 완료 시 `/packee/packing_complete` 서비스로 포장 완료 알림.
-14. `/packee/arm/move_to_pose` 토픽으로 대기 자세 변경 명령.
+14. `/packee/arm/move_to_pose` 서비스로 대기 자세 변경 명령.
 15. 자세 변경 완료 시 **[STANDBY]** 로 변경.
 
 ## 6. 파라미터 (ROS2 Parameters)
