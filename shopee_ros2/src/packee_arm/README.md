@@ -41,6 +41,17 @@ Packee Main Controller와 `docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`�
 - `/packee/arm/place_product` (`shopee_interfaces/srv/PackeeArmPlaceProduct`)  
   상품을 보유한 팔에 대해 포장 위치로 이동·해제 작업을 진행합니다.
 
+## myCobot 280 연동 가이드
+- Packee Arm Controller는 Elephant Robotics **myCobot 280** 듀얼 암을 기준으로 기본 파라미터를 설정합니다.  
+  - `servo_gain_xy=0.02`, `servo_gain_z=0.018`, `servo_gain_yaw=0.04`  
+  - `max_translation_speed=0.05`, `max_yaw_speed_deg=40.0`, `gripper_force_limit=12.0`  
+  - `progress_publish_interval=0.15`, `command_timeout_sec=4.0`
+- 프리셋 자세는 베이스 원점(미터) 기준으로 설정합니다. 필요 시 Launch 파일에서 파라미터를 오버라이드하세요.  
+  - `preset_pose_cart_view=[0.16, 0.0, 0.18, 0.0]`  
+  - `preset_pose_standby=[0.10, 0.0, 0.14, 0.0]`
+- 안전 작업 공간은 수평 반경 0.28 m, Z 범위 0.05~0.30 m로 제한되며 서비스를 통해 전달되는 `target_position`, `box_position`도 동일하게 검증됩니다.
+- 실제 하드웨어 제어 전에는 `mycobot_ros2` 패키지(시리얼 연결, 전원 공급, `joint_state_publisher` 등)를 먼저 기동해 ROS2 컨트롤 인터페이스를 활성화해야 합니다. 컨트롤러 노드는 해당 드라이버가 활성화된 상태에서 실행해야 안전하게 속도 명령을 교환할 수 있습니다.
+
 ## 빌드 및 실행
 ```bash
 cd <workspace>

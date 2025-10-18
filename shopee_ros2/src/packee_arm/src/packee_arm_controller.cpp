@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -14,6 +15,7 @@
 #include "shopee_interfaces/srv/packee_arm_place_product.hpp"
 
 #include "packee_arm/arm_driver_proxy.hpp"
+#include "packee_arm/constants.hpp"
 #include "packee_arm/execution_manager.hpp"
 #include "packee_arm/gripper_controller.hpp"
 #include "packee_arm/types.hpp"
@@ -34,6 +36,7 @@ public:
   : rclcpp::Node("packee_arm_controller"),
     valid_pose_types_({"cart_view", "standby"}),
     valid_arm_sides_({"left", "right"}) {
+    // myCobot 280을 위한 기본 파라미터와 자세 프리셋을 로드한다.
     DeclareAndLoadParameters();
 
     pose_status_pub_ = this->create_publisher<ArmPoseStatus>(
@@ -108,7 +111,9 @@ public:
       driver_.get(),
       gripper_.get(),
       progress_publish_interval_sec_,
-      command_timeout_sec_);
+      command_timeout_sec_,
+      cart_view_preset_,
+      standby_preset_);
 
     parameter_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&PackeeArmController::OnParametersUpdated, this, std::placeholders::_1));
@@ -118,25 +123,113 @@ public:
 
 private:
   void DeclareAndLoadParameters() {
-    this->declare_parameter<double>("servo_gain_xy", 0.03);
-    this->declare_parameter<double>("servo_gain_z", 0.03);
-    this->declare_parameter<double>("servo_gain_yaw", 0.03);
-    this->declare_parameter<double>("cnn_confidence_threshold", 0.75);
-    this->declare_parameter<double>("max_translation_speed", 0.2);
-    this->declare_parameter<double>("max_yaw_speed_deg", 15.0);
-    this->declare_parameter<double>("gripper_force_limit", 35.0);
-    this->declare_parameter<double>("progress_publish_interval", 0.2);
-    this->declare_parameter<double>("command_timeout_sec", 5.0);
+    const double declared_servo_gain_xy =
+      this->declare_parameter<double>("servo_gain_xy", 0.02);
+    const double declared_servo_gain_z =
+      this->declare_parameter<double>("servo_gain_z", 0.018);
+    const double declared_servo_gain_yaw =
+      this->declare_parameter<double>("servo_gain_yaw", 0.04);
+    const double declared_confidence_threshold =
+      this->declare_parameter<double>("cnn_confidence_threshold", 0.75);
+    const double declared_max_translation_speed =
+      this->declare_parameter<double>("max_translation_speed", 0.05);
+    const double declared_max_yaw_speed_deg =
+      this->declare_parameter<double>("max_yaw_speed_deg", 40.0);
+    const double declared_gripper_force_limit =
+      this->declare_parameter<double>("gripper_force_limit", 12.0);
+    const double declared_progress_interval =
+      this->declare_parameter<double>("progress_publish_interval", 0.15);
+    const double declared_command_timeout =
+      this->declare_parameter<double>("command_timeout_sec", 4.0);
 
-    servo_gain_xy_ = this->get_parameter("servo_gain_xy").as_double();
-    servo_gain_z_ = this->get_parameter("servo_gain_z").as_double();
-    servo_gain_yaw_ = this->get_parameter("servo_gain_yaw").as_double();
-    cnn_confidence_threshold_ = this->get_parameter("cnn_confidence_threshold").as_double();
-    max_translation_speed_ = this->get_parameter("max_translation_speed").as_double();
-    max_yaw_speed_deg_ = this->get_parameter("max_yaw_speed_deg").as_double();
-    gripper_force_limit_ = this->get_parameter("gripper_force_limit").as_double();
-    progress_publish_interval_sec_ = this->get_parameter("progress_publish_interval").as_double();
-    command_timeout_sec_ = this->get_parameter("command_timeout_sec").as_double();
+    const std::vector<double> cart_view_values = this->declare_parameter<std::vector<double>>(
+      "preset_pose_cart_view",
+      std::vector<double>(default_cart_view_pose_.begin(), default_cart_view_pose_.end()));
+    const std::vector<double> standby_values = this->declare_parameter<std::vector<double>>(
+      "preset_pose_standby",
+      std::vector<double>(default_standby_pose_.begin(), default_standby_pose_.end()));
+
+    servo_gain_xy_ = declared_servo_gain_xy;
+    servo_gain_z_ = declared_servo_gain_z;
+    servo_gain_yaw_ = declared_servo_gain_yaw;
+    cnn_confidence_threshold_ = declared_confidence_threshold;
+    max_translation_speed_ = declared_max_translation_speed;
+    max_yaw_speed_deg_ = declared_max_yaw_speed_deg;
+    gripper_force_limit_ = declared_gripper_force_limit;
+    progress_publish_interval_sec_ = declared_progress_interval;
+    command_timeout_sec_ = declared_command_timeout;
+
+    cart_view_preset_ = ParsePoseParameter(
+      cart_view_values,
+      "preset_pose_cart_view",
+      default_cart_view_pose_);
+    standby_preset_ = ParsePoseParameter(
+      standby_values,
+      "preset_pose_standby",
+      default_standby_pose_);
+  }
+
+  PoseEstimate ParsePoseParameter(
+    const std::vector<double> & values,
+    const std::string & parameter_name,
+    const std::array<double, 4> & fallback) const {
+    // 파라미터 배열을 PoseEstimate로 변환하며 범위 검증을 수행한다.
+    if (values.size() != 4U) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "%s 파라미터는 4개의 값을 가져야 합니다. 기본값을 사용합니다.",
+        parameter_name.c_str());
+      return MakePoseFromArray(fallback);
+    }
+    const double x = values[0];
+    const double y = values[1];
+    const double z = values[2];
+    const double yaw = values[3];
+    if (!AreFinite(x, y, z) || !std::isfinite(yaw)) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "%s 파라미터에 유한하지 않은 값이 포함되어 기본값을 사용합니다.",
+        parameter_name.c_str());
+      return MakePoseFromArray(fallback);
+    }
+    if (!IsWithinWorkspace(x, y, z)) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "%s 파라미터가 myCobot 280 작업 공간을 벗어납니다. 기본값을 사용합니다.",
+        parameter_name.c_str());
+      return MakePoseFromArray(fallback);
+    }
+
+    PoseEstimate pose{};
+    pose.x = x;
+    pose.y = y;
+    pose.z = z;
+    pose.yaw_deg = yaw;
+    pose.confidence = 1.0;
+    return pose;
+  }
+
+  PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const {
+    // 배열 형태의 기본값을 PoseEstimate로 치환한다.
+    PoseEstimate pose{};
+    pose.x = values[0];
+    pose.y = values[1];
+    pose.z = values[2];
+    pose.yaw_deg = values[3];
+    pose.confidence = 1.0;
+    return pose;
+  }
+
+  bool IsWithinWorkspace(double x, double y, double z) const {
+    // myCobot 280 작업 공간(수평 반경, 높이)을 벗어나는지 확인한다.
+    const double radial = std::sqrt((x * x) + (y * y));
+    if (radial > kMyCobotReach + 1e-6) {
+      return false;
+    }
+    if (z < kMyCobotMinZ || z > kMyCobotMaxZ) {
+      return false;
+    }
+    return true;
   }
 
   void HandleMoveToPose(
@@ -225,6 +318,24 @@ private:
       return;
     }
 
+    if (!IsWithinWorkspace(
+        request->target_position.x,
+        request->target_position.y,
+        request->target_position.z)) {
+      PublishPickStatus(
+        request->robot_id,
+        request->order_id,
+        request->product_id,
+        request->arm_side,
+        "failed",
+        "planning",
+        0.0F,
+        "target_position이 myCobot 280 작업 공간을 벗어났습니다.");
+      response->accepted = false;
+      response->message = "target_position이 작업 공간 범위를 벗어났습니다.";
+      return;
+    }
+
     PickCommand command{};
     command.robot_id = request->robot_id;
     command.order_id = request->order_id;
@@ -282,6 +393,24 @@ private:
         "box_position에 유효하지 않은 값이 포함되어 있습니다.");
       response->accepted = false;
       response->message = "box_position 값이 잘못되었습니다.";
+      return;
+    }
+
+    if (!IsWithinWorkspace(
+        request->box_position.x,
+        request->box_position.y,
+        request->box_position.z)) {
+      PublishPlaceStatus(
+        request->robot_id,
+        request->order_id,
+        request->product_id,
+        request->arm_side,
+        "failed",
+        "planning",
+        0.0F,
+        "box_position이 myCobot 280 작업 공간을 벗어났습니다.");
+      response->accepted = false;
+      response->message = "box_position이 작업 공간 범위를 벗어났습니다.";
       return;
     }
 
@@ -379,6 +508,8 @@ private:
     double next_gripper_force_limit = gripper_force_limit_;
     double next_progress_interval = progress_publish_interval_sec_;
     double next_command_timeout = command_timeout_sec_;
+    PoseEstimate next_cart_view_preset = cart_view_preset_;
+    PoseEstimate next_standby_preset = standby_preset_;
 
     for (const auto & parameter : parameters) {
       if ("servo_gain_xy" == parameter.get_name()) {
@@ -399,6 +530,16 @@ private:
         next_progress_interval = parameter.as_double();
       } else if ("command_timeout_sec" == parameter.get_name()) {
         next_command_timeout = parameter.as_double();
+      } else if ("preset_pose_cart_view" == parameter.get_name()) {
+        next_cart_view_preset = ParsePoseParameter(
+          parameter.as_double_array(),
+          "preset_pose_cart_view",
+          default_cart_view_pose_);
+      } else if ("preset_pose_standby" == parameter.get_name()) {
+        next_standby_preset = ParsePoseParameter(
+          parameter.as_double_array(),
+          "preset_pose_standby",
+          default_standby_pose_);
       }
     }
 
@@ -442,6 +583,8 @@ private:
     gripper_force_limit_ = next_gripper_force_limit;
     progress_publish_interval_sec_ = next_progress_interval;
     command_timeout_sec_ = next_command_timeout;
+    cart_view_preset_ = next_cart_view_preset;
+    standby_preset_ = next_standby_preset;
 
     visual_servo_->UpdateGains(servo_gain_xy_, servo_gain_z_, servo_gain_yaw_);
     visual_servo_->UpdateConstraints(
@@ -456,6 +599,9 @@ private:
     execution_manager_->UpdateTiming(
       progress_publish_interval_sec_,
       command_timeout_sec_);
+    execution_manager_->UpdatePosePresets(
+      cart_view_preset_,
+      standby_preset_);
 
     return result;
   }
@@ -486,15 +632,19 @@ private:
   std::unordered_set<std::string> valid_pose_types_;
   std::unordered_set<std::string> valid_arm_sides_;
 
-  double servo_gain_xy_{0.03};
-  double servo_gain_z_{0.03};
-  double servo_gain_yaw_{0.03};
+  double servo_gain_xy_{0.02};
+  double servo_gain_z_{0.018};
+  double servo_gain_yaw_{0.04};
   double cnn_confidence_threshold_{0.75};
-  double max_translation_speed_{0.2};
-  double max_yaw_speed_deg_{15.0};
-  double gripper_force_limit_{35.0};
-  double progress_publish_interval_sec_{0.2};
-  double command_timeout_sec_{5.0};
+  double max_translation_speed_{0.05};
+  double max_yaw_speed_deg_{40.0};
+  double gripper_force_limit_{12.0};
+  double progress_publish_interval_sec_{0.15};
+  double command_timeout_sec_{4.0};
+  const std::array<double, 4> default_cart_view_pose_{{0.16, 0.0, 0.18, 0.0}};  // 카트 확인 자세
+  const std::array<double, 4> default_standby_pose_{{0.10, 0.0, 0.14, 0.0}};  // 대기 자세
+  PoseEstimate cart_view_preset_{};
+  PoseEstimate standby_preset_{};
 };
 
 }  // namespace packee_arm

@@ -126,16 +126,20 @@ PackeeArmController (rclcpp::Node)
 | --- | --- | --- | --- |
 | `robot_id` | int | 1 | 제어 대상 로봇 ID |
 | `arm_sides` | string | `left,right` | 활성화된 팔 목록 |
-| `servo_gain_xy` | double | 0.03 | X/Y 축 P 제어 게인 |
-| `servo_gain_z` | double | 0.03 | Z 축 P 제어 게인 |
-| `servo_gain_yaw` | double | 0.03 | Yaw 축 P 제어 게인 |
+| `servo_gain_xy` | double | 0.02 | X/Y 축 P 제어 게인 (myCobot 280 암 길이 기준) |
+| `servo_gain_z` | double | 0.018 | Z 축 P 제어 게인 |
+| `servo_gain_yaw` | double | 0.04 | Yaw 축 P 제어 게인 |
 | `cnn_confidence_threshold` | double | 0.75 | CNN 신뢰도 임계값 |
-| `max_translation_speed` | double | 0.2 | 엔드이펙터 최대 병진 속도 (m/s) |
-| `max_yaw_speed_deg` | double | 15.0 | 엔드이펙터 최대 yaw 속도 (deg/s) |
-| `gripper_force_limit` | double | 35.0 | 그리퍼 힘 제한 (N) |
-| `progress_publish_interval` | double | 0.2 | 상태 토픽 발행 주기 (초) |
-| `command_timeout_sec` | double | 5.0 | 하드웨어 응답 타임아웃 |
+| `max_translation_speed` | double | 0.05 | 엔드이펙터 최대 병진 속도 (m/s) |
+| `max_yaw_speed_deg` | double | 40.0 | 엔드이펙터 최대 yaw 속도 (deg/s) |
+| `gripper_force_limit` | double | 12.0 | 그리퍼 힘 제한 (N) |
+| `progress_publish_interval` | double | 0.15 | 상태 토픽 발행 주기 (초) |
+| `command_timeout_sec` | double | 4.0 | 하드웨어 응답 타임아웃 |
+| `preset_pose_cart_view` | double[4] | `[0.16, 0.0, 0.18, 0.0]` | myCobot 280 카트 점검 자세 (x, y, z, yaw_deg) |
+| `preset_pose_standby` | double[4] | `[0.10, 0.0, 0.14, 0.0]` | 기본 대기 자세 (x, y, z, yaw_deg) |
 - 파라미터는 런타임에 조정 가능하도록 설계하며, Packee Main 파라미터(`component_service_timeout`)와 정합성을 유지한다.
+
+- myCobot 280 기준 좌표계는 베이스 중심을 원점(미터)으로 하며, Z 축은 작업대 기준 0.0 m에서 시작한다. `preset_pose_*` 파라미터는 듀얼 암 구성 시 좌/우 동일 값을 적용하고, 필요 시 개별 값으로 오버라이드할 수 있다.
 
 ## 10. 로깅 및 진단
 - ROS logger를 활용하여 서비스 수신, 검증, 단계 전환, 예외 발생 시 INFO/ERROR 로그를 남긴다.
@@ -146,7 +150,7 @@ PackeeArmController (rclcpp::Node)
 - **단위 테스트**: 서비스 입력 검증, 상태 전이, VisualServoModule P 제어 로직의 경계 조건을 gtest+rclcpp 기반으로 확인한다.
 - **통합 테스트**: `ros2 run packee_arm mock_packee_main` 노드와 연동해 서비스/토픽 흐름 및 CNN 신뢰도 시나리오(정상/저하)를 재현한다.
 - **시뮬레이션 테스트**: Gazebo/Isaac Sim 환경에서 eye-in-hand 카메라와 금속 블록 모델을 사용해 조명 변화, 초기 오프셋 다양화에 대한 제어 성능을 검증한다.
-- **HIL 테스트**: YASKAWA MH5와 실제 카메라, 금속 블록을 이용해 20개 이상 시나리오를 반복 실행하며 수렴 시간, 최종 오차를 측정한다.
+- **HIL 테스트**: Elephant Robotics myCobot 280 듀얼 암과 실제 카메라, 금속 블록을 이용해 20개 이상 시나리오를 반복 실행하며 수렴 시간, 최종 오차를 측정한다.
 - 테스트 결과는 Packee Main Controller 테스트와 함께 QA 리뷰에 제출한다.
 
 ## 12. 향후 과제

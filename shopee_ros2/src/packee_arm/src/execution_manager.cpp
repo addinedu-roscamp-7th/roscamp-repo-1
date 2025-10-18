@@ -14,7 +14,9 @@ ExecutionManager::ExecutionManager(
   ArmDriverProxy * driver,
   GripperController * gripper,
   double progress_interval_sec,
-  double command_timeout_sec)
+  double command_timeout_sec,
+  const PoseEstimate & cart_view_preset,
+  const PoseEstimate & standby_preset)
 : node_(node),
   logger_(node_->get_logger()),
   pose_callback_(std::move(pose_callback)),
@@ -25,7 +27,10 @@ ExecutionManager::ExecutionManager(
   gripper_(gripper),
   progress_interval_sec_(progress_interval_sec),
   command_timeout_sec_(command_timeout_sec),
-  running_(true) {
+  running_(true),
+  cart_view_preset_(cart_view_preset),
+  standby_preset_(standby_preset) {
+  // 좌/우 팔 상태를 초기화하고 전용 작업 스레드를 기동한다.
   ArmState left_state{};
   ArmState right_state{};
   arm_states_.emplace("left", left_state);
@@ -104,6 +109,16 @@ bool ExecutionManager::IsHoldingProduct(const std::string & arm_side) {
 void ExecutionManager::UpdateTiming(double progress_interval_sec, double command_timeout_sec) {
   progress_interval_sec_ = progress_interval_sec;
   command_timeout_sec_ = command_timeout_sec;
+}
+
+
+void ExecutionManager::UpdatePosePresets(
+  const PoseEstimate & cart_view_preset,
+  const PoseEstimate & standby_preset) {
+  // myCobot 280 듀얼 암 기준 자세를 동적으로 교체한다.
+  std::lock_guard<std::mutex> lock(preset_mutex_);
+  cart_view_preset_ = cart_view_preset;
+  standby_preset_ = standby_preset;
 }
 
 
@@ -445,6 +460,7 @@ bool ExecutionManager::DriveServo(
   float progress_end,
   const std::function<void(float, const std::string &)> & progress_callback,
   std::string * failure_reason) {
+  // myCobot 280 엔드이펙터가 목표 자세에 수렴할 때까지 P 제어 루프를 수행한다.
   const int max_steps = std::min(
     kMaxServoSteps,
     std::max(1, static_cast<int>(std::ceil(command_timeout_sec_ / progress_interval_sec_))));
@@ -526,19 +542,14 @@ std::chrono::milliseconds ExecutionManager::DurationFromInterval() const {
 
 
 PoseEstimate ExecutionManager::GetPresetPose(const std::string & pose_type) const {
+  std::lock_guard<std::mutex> lock(preset_mutex_);
   PoseEstimate pose{};
   if ("cart_view" == pose_type) {
-    pose.x = 0.2;
-    pose.y = 0.0;
-    pose.z = 1.0;
-    pose.yaw_deg = 0.0;
+    pose = cart_view_preset_;
   } else {
-    pose.x = 0.0;
-    pose.y = 0.0;
-    pose.z = 0.9;
-    pose.yaw_deg = 0.0;
+    pose = standby_preset_;
   }
-  pose.confidence = 1.0;
+  // 프리셋은 이미 유효성 검증을 거쳤으므로 그대로 반환한다.
   return pose;
 }
 
@@ -560,7 +571,8 @@ double ExecutionManager::CalculateBoundingBoxConfidence(
   const double width = static_cast<double>(x2 - x1);
   const double height = static_cast<double>(y2 - y1);
   const double area = width * height;
-  const double normalized = std::clamp(area / 50000.0, 0.0, 1.0);
+  const double normalized =
+    std::clamp(area / kBoundingBoxReferenceArea, 0.0, 1.0);
   return normalized;
 }
 
@@ -582,4 +594,3 @@ std::mutex & ExecutionManager::GetArmMutex(const std::string & arm_side) {
 }
 
 }  // namespace packee_arm
-

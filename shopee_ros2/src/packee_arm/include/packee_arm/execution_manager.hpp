@@ -39,7 +39,9 @@ public:
     ArmDriverProxy * driver,
     GripperController * gripper,
     double progress_interval_sec,
-    double command_timeout_sec);
+    double command_timeout_sec,
+    const PoseEstimate & cart_view_preset,
+    const PoseEstimate & standby_preset);
 
   ~ExecutionManager();
 
@@ -54,6 +56,11 @@ public:
   bool IsHoldingProduct(const std::string & arm_side);
 
   void UpdateTiming(double progress_interval_sec, double command_timeout_sec);
+
+  // 런타임에 myCobot 280 프리셋 자세를 갱신한다.
+  void UpdatePosePresets(
+    const PoseEstimate & cart_view_preset,
+    const PoseEstimate & standby_preset);
 
 private:
   struct ArmState {
@@ -107,6 +114,7 @@ private:
 
   std::chrono::milliseconds DurationFromInterval() const;
 
+  // 런치 파라미터로 주어진 프리셋 자세를 pose_type에 맞게 반환한다.
   PoseEstimate GetPresetPose(const std::string & pose_type) const;
 
   void ApplyPoseToArms(const PoseEstimate & pose);
@@ -132,6 +140,9 @@ private:
   double progress_interval_sec_;
   double command_timeout_sec_;
   std::atomic<bool> running_;
+  mutable std::mutex preset_mutex_;
+  PoseEstimate cart_view_preset_;
+  PoseEstimate standby_preset_;
 
   std::mutex move_mutex_;
   std::condition_variable move_cv_;

@@ -24,6 +24,8 @@ string arm_side
 shopee_interfaces/Point3D target_position
 shopee_interfaces/BBox bbox
 
+> myCobot 280의 안전 작업 공간은 수평 반경 0.28 m, Z 0.05~0.30 m 입니다. 아래 테스트 값도 이 범위 안에서 설정해야 합니다.
+
 ## 명령어 예시
 ### 서비스
 ``` bash
@@ -38,24 +40,26 @@ ros2 service call /packee/arm/pick_product shopee_interfaces/srv/PackeeArmPickPr
     product_id: 20,
     arm_side: 'left',
     target_position: {
-        x: 1.0,
-        y: 1.0,
-        z: 1.0
+        x: 0.12,
+        y: -0.05,
+        z: 0.18
     },
     bbox: {
-        x1: 1.0,
-        y1: 1.0,
-        x2: 1.0,
-        y2: 1.0
+        x1: 220,
+        y1: 140,
+        x2: 360,
+        y2: 320
     }
 }"
 ros2 service call /packee/arm/place_product shopee_interfaces/srv/PackeeArmPlaceProduct "{
     robot_id: 1,
     order_id: 10,
-    product_id:20,
-    ---
-    accepted:true
-    message:
+    product_id: 20,
+    arm_side: 'left',
+    box_position: {
+        x: 0.10,
+        y: 0.06,
+        z: 0.16
     }
 }"
 ```
@@ -72,4 +76,3 @@ ros2 topic pub --once /packee/arm/pick_status shopee_interfaces/msg/PackeeArmTas
 
 
 ```
-
