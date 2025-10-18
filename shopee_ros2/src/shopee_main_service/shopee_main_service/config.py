@@ -59,7 +59,7 @@ class MainServiceConfig(BaseSettings):
     API_MAX_CONNECTIONS: int = 100
     
     # === LLM 서비스 설정 ===
-    LLM_BASE_URL: str = "http://192.168.0.154:5001"
+    LLM_BASE_URL: str = "http://localhost:5001"
     LLM_TIMEOUT: float = 1.5
     LLM_MAX_RETRIES: int = 2
     LLM_RETRY_BACKOFF: float = 0.5
@@ -94,7 +94,7 @@ class MainServiceConfig(BaseSettings):
     ROBOT_AUTO_RECOVERY_ENABLED: bool = True  # 자동 복구 활성화 여부
 
     # === 대시보드 설정 ===
-    GUI_ENABLED: bool = False
+    GUI_ENABLED: bool = True
     GUI_SNAPSHOT_INTERVAL: float = 1.0
 
     # === 로깅 설정 ===

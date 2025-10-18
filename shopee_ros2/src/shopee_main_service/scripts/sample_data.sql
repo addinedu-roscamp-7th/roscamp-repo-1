@@ -93,7 +93,7 @@ INSERT INTO product (barcode, name, quantity, price, discount_rate, category, al
 INSERT INTO robot (robot_type, robot_status) VALUES
 (1, 0),  -- ID: 1, Type: Pickee(1), Status: IDLE(0)
 (1, 0),  -- ID: 2, Type: Pickee(1), Status: IDLE(0)
-(2, 0);  -- ID: 3, Type: Packee(2), Status: IDLE(0)
+(2, 0),  -- ID: 3, Type: Packee(2), Status: IDLE(0)
 (2, 0);  -- ID: 4, Type: Packee(2), Status: IDLE(0)
 
 -- ========================================
