@@ -51,6 +51,11 @@
    </column>
    <column>
     <property name="text">
+     <string>Detailed Status</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
      <string>Battery(%)</string>
     </property>
    </column>

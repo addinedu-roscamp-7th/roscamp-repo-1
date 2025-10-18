@@ -20,7 +20,7 @@ class RobotState:
 
     robot_id: int
     robot_type: RobotType
-    status: str
+    status: str  # 상위 레벨 상태 (IDLE, WORKING, MOVING 등)
     reserved: bool = False
     active_order_id: Optional[int] = None
     battery_level: Optional[float] = None
@@ -32,6 +32,9 @@ class RobotState:
     position_y: Optional[float] = None
     current_location: Optional[str] = None  # "SHELF_A", "HOME", "PACKING_A" 등
     cart_status: Optional[str] = None       # "Empty", "Full", "Unknown"
+    
+    # v5.2 추가: 세부 상태 (상태 계층 구조 지원)
+    detailed_status: Optional[str] = None   # 세부 상태 (MOVING_TO_SHELF, DETECTING_PRODUCT 등)
 
     def clone(self) -> "RobotState":
         """현재 상태의 사본을 반환합니다."""
@@ -48,6 +51,7 @@ class RobotState:
             position_y=self.position_y,
             current_location=self.current_location,
             cart_status=self.cart_status,
+            detailed_status=self.detailed_status,
         )
 
 

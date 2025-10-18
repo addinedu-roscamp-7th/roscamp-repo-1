@@ -32,8 +32,9 @@ class OrderStatus(Enum):
 
 class RobotStatus(Enum):
     """
-    로봇 상태
+    로봇 상위 레벨 상태
     
+    대시보드 요약 및 일반적인 상태 분류용
     Pickee/Packee 공통 상태 정의
     """
     IDLE = "IDLE"                          # 대기 중
@@ -42,6 +43,78 @@ class RobotStatus(Enum):
     CHARGING = "CHARGING"                  # 충전 중
     ERROR = "ERROR"                        # 오류 발생
     OFFLINE = "OFFLINE"                    # 오프라인
+
+
+class PickeeDetailedStatus(Enum):
+    """
+    Pickee 세부 상태
+    
+    로봇 제어 및 상세 모니터링용
+    참고: docs/StateDiagram/StateDiagram_Pickee.md
+    """
+    # 초기화 및 충전
+    INITIALIZING = "INITIALIZING"                      # 초기화 중
+    CHARGING_UNAVAILABLE = "CHARGING_UNAVAILABLE"      # 충전 중 (작업 불가)
+    CHARGING_AVAILABLE = "CHARGING_AVAILABLE"          # 충전 중 (작업 가능)
+    
+    # 쇼핑 시나리오 (SC_02)
+    MOVING_TO_SHELF = "MOVING_TO_SHELF"                # 상품 위치로 이동 중
+    DETECTING_PRODUCT = "DETECTING_PRODUCT"            # 상품 인식 중
+    WAITING_SELECTION = "WAITING_SELECTION"            # 사용자 선택 대기 중
+    PICKING_PRODUCT = "PICKING_PRODUCT"                # 상품 피킹 중
+    MOVING_TO_PACKING = "MOVING_TO_PACKING"            # 포장대로 이동 중
+    WAITING_HANDOVER = "WAITING_HANDOVER"              # 장바구니 전달 대기 중
+    MOVING_TO_STANDBY = "MOVING_TO_STANDBY"            # 대기 장소로 이동 중
+    
+    # 재고 보충 시나리오 (SC_06)
+    REGISTERING_STAFF = "REGISTERING_STAFF"            # 직원 등록 중
+    FOLLOWING_STAFF = "FOLLOWING_STAFF"                # 직원 추종 중
+    MOVING_TO_WAREHOUSE = "MOVING_TO_WAREHOUSE"        # 창고로 이동 중
+    WAITING_LOADING = "WAITING_LOADING"                # 적재 대기 중
+    WAITING_UNLOADING = "WAITING_UNLOADING"            # 하차 대기 중
+
+
+class PackeeDetailedStatus(Enum):
+    """
+    Packee 세부 상태
+    
+    로봇 제어 및 상세 모니터링용
+    참고: docs/StateDiagram/StateDiagram_Packee.md
+    """
+    INITIALIZING = "INITIALIZING"                      # 초기화 중
+    STANDBY = "STANDBY"                                # 작업 대기 중
+    CHECKING_CART = "CHECKING_CART"                    # 장바구니 확인 중
+    DETECTING_PRODUCTS = "DETECTING_PRODUCTS"          # 상품 인식 중
+    PLANNING_TASK = "PLANNING_TASK"                    # 작업 계획 중
+    PACKING_PRODUCTS = "PACKING_PRODUCTS"              # 상품 포장 중
+
+
+# 세부 상태를 상위 레벨 상태로 매핑하는 딕셔너리
+DETAILED_TO_GENERAL_STATUS = {
+    # Pickee 매핑
+    "INITIALIZING": RobotStatus.IDLE,
+    "CHARGING_UNAVAILABLE": RobotStatus.CHARGING,
+    "CHARGING_AVAILABLE": RobotStatus.CHARGING,
+    "MOVING_TO_SHELF": RobotStatus.MOVING,
+    "DETECTING_PRODUCT": RobotStatus.WORKING,
+    "WAITING_SELECTION": RobotStatus.WORKING,
+    "PICKING_PRODUCT": RobotStatus.WORKING,
+    "MOVING_TO_PACKING": RobotStatus.MOVING,
+    "WAITING_HANDOVER": RobotStatus.WORKING,
+    "MOVING_TO_STANDBY": RobotStatus.MOVING,
+    "REGISTERING_STAFF": RobotStatus.WORKING,
+    "FOLLOWING_STAFF": RobotStatus.WORKING,
+    "MOVING_TO_WAREHOUSE": RobotStatus.MOVING,
+    "WAITING_LOADING": RobotStatus.WORKING,
+    "WAITING_UNLOADING": RobotStatus.WORKING,
+    
+    # Packee 매핑
+    "STANDBY": RobotStatus.IDLE,
+    "CHECKING_CART": RobotStatus.WORKING,
+    "DETECTING_PRODUCTS": RobotStatus.WORKING,
+    "PLANNING_TASK": RobotStatus.WORKING,
+    "PACKING_PRODUCTS": RobotStatus.WORKING,
+}
 
 
 class RobotType(Enum):

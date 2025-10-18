@@ -463,13 +463,26 @@ class RobotCoordinator(Node):
         self._state_store = state_store
     
     def _normalize_status(self, raw: str, default: RobotStatus = RobotStatus.IDLE) -> str:
-        """ROS 메시지의 상태 문자열을 내부 표준 상태로 변환합니다."""
+        """
+        ROS 메시지의 상태 문자열을 내부 표준 상태로 변환합니다.
+        
+        세부 상태(예: MOVING_TO_SHELF)를 상위 레벨 상태(예: MOVING)로 매핑합니다.
+        """
         if not raw:
             return default.value
         normalized = raw.strip().upper()
+        
+        # 1순위: 세부 상태 매핑 확인
+        from .constants import DETAILED_TO_GENERAL_STATUS
+        if normalized in DETAILED_TO_GENERAL_STATUS:
+            return DETAILED_TO_GENERAL_STATUS[normalized].value
+        
+        # 2순위: 직접 RobotStatus와 매칭
         for status in RobotStatus:
             if normalized in {status.name, status.value}:
                 return status.value
+        
+        # 3순위: 기본값 반환
         return default.value
 
     def _schedule_state_upsert(
@@ -486,12 +499,17 @@ class RobotCoordinator(Node):
             return
         normalized_status = self._normalize_status(status)
         active_id = active_order_id if active_order_id and active_order_id > 0 else None
+        
+        # 원본 상태를 detailed_status로 저장
+        detailed = status.strip().upper() if status else None
+        
         state = RobotState(
             robot_id=robot_id,
             robot_type=robot_type,
             status=normalized_status,
             battery_level=battery_level,
             active_order_id=active_id,
+            detailed_status=detailed,  # 세부 상태 저장
         )
         self._submit_coroutine(self._state_store.upsert_state, state)
 
