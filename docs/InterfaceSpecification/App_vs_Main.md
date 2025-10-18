@@ -1259,7 +1259,7 @@ Main = Shopee Main Service
   "type": "packing_info_notification",
   "result": true,
   "data": {
-    "order_status": "PACKING",
+    "order_status": "PACKED",
     "product_id": 30,
     "product_name": "청사과",
     "product_price": 3200,
