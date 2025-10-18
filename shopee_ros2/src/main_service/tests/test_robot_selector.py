@@ -1,7 +1,8 @@
 """
-Unit tests for RobotAllocator.
+Unit tests for RobotSelector (RobotAllocator).
 
 RobotAllocator의 로봇 선택 전략 및 예약 로직을 검증합니다.
+robot_selector 모듈의 테스트입니다.
 """
 
 import pytest

@@ -23,7 +23,7 @@
 데이터베이스를 처음 설정할 때 사용합니다.
 
 ```bash
-cd ~/dev_ws/Shopee/ros2_ws/src/main_service/scripts
+cd ~/dev_ws/Shopee/shopee_ros2/src/main_service/scripts
 ./setup_database.sh
 ```
 
@@ -99,12 +99,12 @@ mysql -u shopee -pshopee shopee -e "SELECT * FROM product;"
 Main Service가 데이터베이스를 사용하려면 `.env` 파일을 설정하세요:
 
 ```bash
-cd ~/dev_ws/Shopee/ros2_ws/src/main_service
+cd ~/dev_ws/Shopee/shopee_ros2/src/main_service
 
 # .env 파일 생성
 cat > .env << 'EOF'
 SHOPEE_DB_URL=mysql+pymysql://shopee:shopee@localhost:3306/shopee
-SHOPEE_LLM_BASE_URL=http://localhost:8000
+SHOPEE_LLM_BASE_URL=http://localhost:5001
 SHOPEE_API_HOST=0.0.0.0
 SHOPEE_API_PORT=5000
 SHOPEE_LOG_LEVEL=INFO

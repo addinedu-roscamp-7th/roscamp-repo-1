@@ -16,7 +16,7 @@ Mock 컴포넌트를 사용하여 실제 로봇, LLM, 데이터베이스 없이�
 ### 1. 패키지 빌드
 
 ```bash
-cd ~/dev_ws/Shopee/ros2_ws
+cd ~/dev_ws/Shopee/shopee_ros2
 colcon build --packages-select main_service
 source install/setup.bash
 ```
@@ -141,7 +141,7 @@ LLM API를 시뮬레이션하는 HTTP 서버입니다.
 - "비건 사과" → `name LIKE '%사과%' AND is_vegan_friendly = true`
 - "사과 가져다줘" → `{"intent": "fetch_product", "entities": {"product_name": "사과"}}`
 
-**포트:** 5001 (설정 파일에서 변경 가능)
+**포트:** 5001 (config.py의 LLM_BASE_URL 기본값)
 
 
 ### Test Client
@@ -337,7 +337,7 @@ INFO:main_service.api_controller:← Sending [order_create_response] result=True
 ```
 [WARNING] LLM query generation failed
 ```
-→ Mock LLM Server가 포트 8000에서 실행 중인지 확인
+→ Mock LLM Server가 포트 5001에서 실행 중인지 확인
 
 ## 🧪 데이터베이스 없이 테스트
 

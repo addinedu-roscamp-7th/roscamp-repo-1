@@ -34,7 +34,7 @@ setup(
     description='Main Service ROS 2 entry point handling TCP API and robot orchestration.',
     license='Apache License 2.0',
     extras_require={
-        'test': ['pytest', 'pytest-asyncio'],
+        'test': ['pytest', 'pytest-asyncio', 'respx'],
     },
     entry_points={
         'console_scripts': [
