@@ -276,7 +276,11 @@ class UserWindow(QWidget):
             columns = min(columns, len(self._products))
         return int(columns)
 
-    def populate_products(self, products: list[ProductData], columns: int) -> None:
+    def populate_products(
+        self,
+        products: list[ProductData],
+        columns: int,
+    ) -> None:
         if self._product_grid is None:
             return
 
