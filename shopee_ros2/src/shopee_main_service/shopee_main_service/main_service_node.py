@@ -74,7 +74,7 @@ class MainServiceApp:
             port=6000  # UDP Port from spec
         ) # UDP 스트리밍 중계기
         self._robot_state_store = RobotStateStore()
-        self._robot = robot or RobotCoordinator(event_bus=self._event_bus)  # ROS2 노드 (로봇 통신)
+        self._robot = robot or RobotCoordinator(state_store=self._robot_state_store, event_bus=self._event_bus)  # ROS2 노드 (로봇 통신)
 
         # 설정에 따라 전략 선택
         strategy_name = settings.ROBOT_ALLOCATION_STRATEGY.lower()
@@ -86,9 +86,6 @@ class MainServiceApp:
             strategy = RoundRobinStrategy()
 
         self._robot_allocator = RobotAllocator(self._robot_state_store, strategy)
-        setter = getattr(self._robot, "set_state_store", None)
-        if callable(setter):
-            setter(self._robot_state_store)
 
         # 도메인 서비스 초기화
         self._user_service = UserService(self._db)

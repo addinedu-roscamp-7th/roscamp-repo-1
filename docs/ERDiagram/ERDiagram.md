@@ -91,7 +91,6 @@ entity "robot" {
   * robot_id : int <<PK>>
   --
   robot_type : tinyint
-  robot_status : tinyint
 }
 
 entity "robot_history" {
@@ -109,6 +108,7 @@ entity "robot_history" {
 entity "location" {
   * location_id : int <<PK>>
   --
+  location_name : VARCHAR(50) (nullable)
   location_x : float
   location_y : float
   location_theta : float

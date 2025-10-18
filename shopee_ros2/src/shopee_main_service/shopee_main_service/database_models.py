@@ -55,6 +55,7 @@ class Customer(Base):
 class Location(Base):
     __tablename__ = 'location'
     location_id = Column(Integer, primary_key=True, autoincrement=True)
+    location_name = Column(String(50), nullable=True)
     location_x = Column(Float, nullable=False)
     location_y = Column(Float, nullable=False)
     location_theta = Column(Float, nullable=False, default=0.0)
@@ -148,7 +149,6 @@ class Robot(Base):
     __tablename__ = 'robot'
     robot_id = Column(Integer, primary_key=True, autoincrement=True)
     robot_type = Column(mysql.TINYINT, nullable=False)
-    robot_status = Column(mysql.TINYINT, nullable=False)
 
 class RobotHistory(Base):
     __tablename__ = 'robot_history'

@@ -79,6 +79,26 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
         # 초기 상태 설정
         self.export_button.setEnabled(False)
 
+        # 동적으로 테이블 목록 채우기
+        self._populate_tables_combo()
+
+    def _populate_tables_combo(self):
+        """데이터베이스에서 테이블 목록을 가져와 콤보박스를 채운다."""
+        try:
+            with self.db_manager.session_scope() as session:
+                result = session.execute(text("SHOW TABLES;"))
+                tables = sorted([row[0] for row in result])
+                
+                # 기존 UI 파일에 하드코딩된 목록을 지우고 새로 채운다.
+                self.table_combo.clear()
+                self.table_combo.addItem("테이블 선택...")
+                self.table_combo.addItems(tables)
+        except Exception as e:
+            # 실패 시 에러 메시지 표시
+            self.table_combo.clear()
+            self.table_combo.addItem("목록 로드 실패")
+            QMessageBox.warning(self, '테이블 로드 오류', f'테이블 목록을 가져오는 데 실패했습니다:\n{e}')
+
     def _setup_table_columns(self):
         """결과 테이블의 기본 설정을 한다."""
         header = self.result_table.horizontalHeader()
@@ -100,7 +120,7 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
                 reply = QMessageBox.question(
                     self, 
                     '위험한 쿼리',
-                    f'"{keyword}" 명령이 포함된 쿼리입니다.\n정말 실행하시겠습니까?',
+                    f'"__{keyword}__" 명령이 포함된 쿼리입니다.\n정말 실행하시겠습니까?',
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No
                 )
@@ -199,7 +219,7 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
 
     def _on_table_selected(self, table_name: str):
         """테이블 콤보박스에서 선택 시 호출된다."""
-        if table_name and table_name != '테이블 선택...':
+        if table_name and table_name != '테이블 선택...' and table_name != "목록 로드 실패":
             # MySQL 예약어 처리를 위해 백틱으로 감싸기
             query = f'SELECT * FROM `{table_name}` LIMIT 100;'
             self.query_text_edit.setPlainText(query)

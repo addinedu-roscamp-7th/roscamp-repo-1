@@ -705,11 +705,19 @@ class RobotCoordinator(Node):
         robot_type_str = request.robot_type.strip().lower()
         logger.info(f"Received request to get available robots (type={robot_type_str or 'all'})")
 
+        # 서비스 호출 이벤트 발행
+        srv_name = '/main/get_available_robots'
+        call_id = f"{srv_name}_{time.monotonic()}"
+        start_time = time.monotonic()
+        self._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
         if not self._state_store:
             response.success = False
             response.message = "RobotStateStore is not initialized in RobotCoordinator."
             response.robot_ids = []
             logger.error(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         try:
@@ -725,6 +733,8 @@ class RobotCoordinator(Node):
                 response.message = f"Invalid robot_type: {robot_type_str}. Use 'pickee', 'packee', or empty."
                 response.robot_ids = []
                 logger.warning(response.message)
+                duration = time.monotonic() - start_time
+                self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
                 return response
 
             # 가용 로봇 조회
@@ -747,6 +757,8 @@ class RobotCoordinator(Node):
             response.robot_ids = robot_ids
             response.message = f"Found {len(robot_ids)} available robots."
             logger.info(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=True)
             return response
 
         except FuturesTimeoutError:
@@ -754,12 +766,16 @@ class RobotCoordinator(Node):
             response.success = False
             response.message = "Timeout while fetching available robots."
             response.robot_ids = []
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
         except Exception as exc:
             logger.exception("Failed to get available robots: %s", exc)
             response.success = False
             response.message = "Internal error while fetching available robots."
             response.robot_ids = []
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
     def _get_product_location_callback(
@@ -769,10 +785,18 @@ class RobotCoordinator(Node):
         product_id = request.product_id
         logger.info("Received request to get location for product %d", product_id)
 
+        # 서비스 호출 이벤트 발행
+        srv_name = '/main/get_product_location'
+        call_id = f"{srv_name}_{time.monotonic()}"
+        start_time = time.monotonic()
+        self._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
         if not hasattr(self, "_product_service"):
             response.success = False
             response.message = "ProductService is not initialized in RobotCoordinator."
             logger.error(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         location_info = self._product_service.get_product_location_sync(product_id)
@@ -787,6 +811,8 @@ class RobotCoordinator(Node):
             response.message = f"Product with ID {product_id} not found."
             logger.warning(response.message)
         
+        duration = time.monotonic() - start_time
+        self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=response.success)
         return response
 
     def _get_location_pose_callback(
@@ -796,10 +822,18 @@ class RobotCoordinator(Node):
         location_id = request.location_id
         logger.info(f"Received request to get pose for location {location_id}")
 
+        # 서비스 호출 이벤트 발행
+        srv_name = '/main/get_location_pose'
+        call_id = f"{srv_name}_{time.monotonic()}"
+        start_time = time.monotonic()
+        self._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
         if not hasattr(self, "_inventory_service"):
             response.success = False
             response.message = "InventoryService is not initialized in RobotCoordinator."
             logger.error(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         try:
@@ -808,6 +842,8 @@ class RobotCoordinator(Node):
             logger.exception("Failed to get location pose: %s", exc)
             response.success = False
             response.message = "Internal error while fetching location pose."
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         if pose_info:
@@ -819,6 +855,8 @@ class RobotCoordinator(Node):
             response.message = f"Location with ID {location_id} not found."
             logger.warning(response.message)
         
+        duration = time.monotonic() - start_time
+        self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=response.success)
         return response
 
     def _get_warehouse_pose_callback(
@@ -828,10 +866,18 @@ class RobotCoordinator(Node):
         warehouse_id = request.warehouse_id
         logger.info(f"Received request to get pose for warehouse {warehouse_id}")
 
+        # 서비스 호출 이벤트 발행
+        srv_name = '/main/get_warehouse_pose'
+        call_id = f"{srv_name}_{time.monotonic()}"
+        start_time = time.monotonic()
+        self._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
         if not hasattr(self, "_inventory_service"):
             response.success = False
             response.message = "InventoryService is not initialized in RobotCoordinator."
             logger.error(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         try:
@@ -840,6 +886,8 @@ class RobotCoordinator(Node):
             logger.exception("Failed to get warehouse pose: %s", exc)
             response.success = False
             response.message = "Internal error while fetching warehouse pose."
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         if pose_info:
@@ -851,6 +899,8 @@ class RobotCoordinator(Node):
             response.message = f"Warehouse with ID {warehouse_id} not found."
             logger.warning(response.message)
 
+        duration = time.monotonic() - start_time
+        self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=response.success)
         return response
 
     def _get_section_pose_callback(
@@ -860,10 +910,18 @@ class RobotCoordinator(Node):
         section_id = request.section_id
         logger.info(f"Received request to get pose for section {section_id}")
 
+        # 서비스 호출 이벤트 발행
+        srv_name = '/main/get_section_pose'
+        call_id = f"{srv_name}_{time.monotonic()}"
+        start_time = time.monotonic()
+        self._publish_service_event(EventTopic.ROS_SERVICE_CALLED, call_id, srv_name, request)
+
         if not hasattr(self, "_inventory_service"):
             response.success = False
             response.message = "InventoryService is not initialized in RobotCoordinator."
             logger.error(response.message)
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         try:
@@ -872,6 +930,8 @@ class RobotCoordinator(Node):
             logger.exception("Failed to get section pose: %s", exc)
             response.success = False
             response.message = "Internal error while fetching section pose."
+            duration = time.monotonic() - start_time
+            self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=False)
             return response
 
         if pose_info:
@@ -883,6 +943,8 @@ class RobotCoordinator(Node):
             response.message = f"Section with ID {section_id} not found."
             logger.warning(response.message)
 
+        duration = time.monotonic() - start_time
+        self._publish_service_event(EventTopic.ROS_SERVICE_RESPONDED, call_id, srv_name, response, duration, success=response.success)
         return response
 
     async def check_packee_availability(

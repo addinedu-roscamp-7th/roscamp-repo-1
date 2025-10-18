@@ -63,6 +63,7 @@ CREATE TABLE customer (
 -- ========================================
 CREATE TABLE location (
     location_id INT AUTO_INCREMENT PRIMARY KEY,
+    location_name VARCHAR(50) NULL,
     location_x FLOAT NOT NULL,
     location_y FLOAT NOT NULL,
     location_theta FLOAT NOT NULL DEFAULT 0,
@@ -171,8 +172,7 @@ CREATE TABLE order_item (
 -- ========================================
 CREATE TABLE robot (
     robot_id INT AUTO_INCREMENT PRIMARY KEY,
-    robot_type TINYINT NOT NULL,
-    robot_status TINYINT NOT NULL
+    robot_type TINYINT NOT NULL
 );
 
 -- ========================================
