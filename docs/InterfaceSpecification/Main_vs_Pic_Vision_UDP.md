@@ -12,7 +12,7 @@
 | Port | 6000 |
 | Protocol | UDP |
 | Data Format | JSON Header + Binary (JPEG) |
-| Max Packet Size | 1,472 bytes (헤더 72 + 데이터 1,400) |
+| Max Packet Size | 1,600 bytes (헤더 200 + 데이터 1,400) |
 | Encoding | UTF-8 (JSON), Binary (Image) |
 | 이미지 사양 | 640×480, JPEG |
 
@@ -22,11 +22,12 @@
 
 ## 🔹 패킷 구조
 
-`[JSON Header (72 bytes)] + [Binary Image Data (≤ 1,400 bytes)]`
+`[JSON Header (200 bytes)] + [Binary Image Data (≤ 1,400 bytes)]`
 
 ```json
 {
   "type": "video_frame",
+  "robot_id": 1,
   "frame_id": 12345,
   "chunk_idx": 0,
   "total_chunks": 50,
@@ -38,6 +39,7 @@
 }
 ```
 
+- `robot_id`: 로봇 식별자 (필수) - Main Service가 복수 로봇의 영상을 구분하기 위해 사용
 - `frame_id`: Vision이 부여한 프레임 고유 ID (0~4294967295)
 - `chunk_idx`: 현재 청크 인덱스 (0부터 시작)
 - `total_chunks`: 한 프레임을 구성하는 총 청크 수

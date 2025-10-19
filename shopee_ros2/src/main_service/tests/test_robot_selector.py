@@ -1,13 +1,14 @@
 """
-Unit tests for RobotAllocator.
+Unit tests for RobotSelector (RobotAllocator).
 
 RobotAllocator의 로봇 선택 전략 및 예약 로직을 검증합니다.
+robot_selector 모듈의 테스트입니다.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from main_service.robot_allocator import (
+from main_service.robot_selector import (
     AllocationContext,
     RobotAllocator,
     RoundRobinStrategy,

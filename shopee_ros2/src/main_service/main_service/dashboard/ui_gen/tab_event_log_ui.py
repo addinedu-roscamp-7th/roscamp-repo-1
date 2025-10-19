@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_event_log.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_event_log.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_EventLogTab(object):
     def setupUi(self, EventLogTab):
         EventLogTab.setObjectName("EventLogTab")
-        EventLogTab.resize(1200, 800)
-        EventLogTab.setMinimumSize(QtCore.QSize(1200, 800))
+        EventLogTab.resize(1880, 1000)
+        EventLogTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.filter_widget = QtWidgets.QWidget(parent=EventLogTab)
         self.filter_widget.setGeometry(QtCore.QRect(10, 10, 1180, 40))
         self.filter_widget.setObjectName("filter_widget")
@@ -82,3 +82,13 @@ class Ui_EventLogTab(object):
         item = self.log_table.horizontalHeaderItem(3)
         item.setText(_translate("EventLogTab", "Message"))
         self.status_label.setText(_translate("EventLogTab", "총 0건 표시 중"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    EventLogTab = QtWidgets.QWidget()
+    ui = Ui_EventLogTab()
+    ui.setupUi(EventLogTab)
+    EventLogTab.show()
+    sys.exit(app.exec())

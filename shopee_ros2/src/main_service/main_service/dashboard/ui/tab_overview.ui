@@ -6,131 +6,538 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1000</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1000</height>
    </size>
   </property>
-  <widget class="QGroupBox" name="metrics_group">
+  <widget class="QWidget" name="stats_widget" native="true">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>1180</width>
+     <width>1860</width>
      <height>120</height>
     </rect>
    </property>
-   <property name="title">
-    <string>시스템 성능 메트릭스</string>
-   </property>
-   <widget class="QLabel" name="avg_processing_time_label">
+   <widget class="QWidget" name="total_robots_card" native="true">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>30</y>
-      <width>200</width>
-      <height>20</height>
+      <x>0</x>
+      <y>0</y>
+      <width>460</width>
+      <height>120</height>
      </rect>
     </property>
-    <property name="text">
-     <string>평균 처리 시간: 0.0초</string>
+    <property name="styleSheet">
+     <string>QWidget { background-color: #f0f8ff; border: 2px solid #4682b4; border-radius: 10px; }</string>
     </property>
+    <widget class="QLabel" name="total_robots_title">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>440</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>🤖 전체 로봇</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="total_robots_count">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>440</width>
+       <height>50</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>24</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string>color: #4682b4; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="total_robots_detail">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>440</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>Pickee: 0 | Packee: 0</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
    </widget>
-   <widget class="QLabel" name="hourly_throughput_label">
+   <widget class="QWidget" name="available_robots_card" native="true">
     <property name="geometry">
      <rect>
-      <x>240</x>
-      <y>30</y>
-      <width>200</width>
-      <height>20</height>
+      <x>470</x>
+      <y>0</y>
+      <width>460</width>
+      <height>120</height>
      </rect>
     </property>
-    <property name="text">
-     <string>시간당 처리량: 0건</string>
+    <property name="styleSheet">
+     <string>QWidget { background-color: #f0fff0; border: 2px solid #32cd32; border-radius: 10px; }</string>
     </property>
+    <widget class="QLabel" name="available_robots_title">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>440</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>✅ 가용 로봇</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="available_robots_count">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>440</width>
+       <height>50</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>24</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string>color: #32cd32; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="available_robots_detail">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>440</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>IDLE 상태 로봇</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
    </widget>
-   <widget class="QLabel" name="success_rate_label">
+   <widget class="QWidget" name="working_robots_card" native="true">
     <property name="geometry">
      <rect>
-      <x>460</x>
-      <y>30</y>
-      <width>200</width>
-      <height>20</height>
+      <x>940</x>
+      <y>0</y>
+      <width>460</width>
+      <height>120</height>
      </rect>
     </property>
-    <property name="text">
-     <string>성공률: 0.0%</string>
+    <property name="styleSheet">
+     <string>QWidget { background-color: #fff8dc; border: 2px solid #ffa500; border-radius: 10px; }</string>
     </property>
+    <widget class="QLabel" name="working_robots_title">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>440</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>⚡ 작업 중</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="working_robots_count">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>440</width>
+       <height>50</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>24</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string>color: #ffa500; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="working_robots_detail">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>440</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>WORKING 상태 로봇</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
    </widget>
-   <widget class="QLabel" name="robot_utilization_label">
+   <widget class="QWidget" name="offline_robots_card" native="true">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>60</y>
-      <width>200</width>
-      <height>20</height>
+      <x>1410</x>
+      <y>0</y>
+      <width>450</width>
+      <height>120</height>
      </rect>
     </property>
-    <property name="text">
-     <string>로봇 가동률: 0.0%</string>
+    <property name="styleSheet">
+     <string>QWidget { background-color: #ffe4e1; border: 2px solid #dc143c; border-radius: 10px; }</string>
     </property>
-   </widget>
-   <widget class="QLabel" name="system_load_label">
-    <property name="geometry">
-     <rect>
-      <x>240</x>
-      <y>60</y>
-      <width>200</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>시스템 부하: 0.0%</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="active_orders_label">
-    <property name="geometry">
-     <rect>
-      <x>460</x>
-      <y>60</y>
-      <width>200</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>활성 주문: 0건</string>
-    </property>
+    <widget class="QLabel" name="offline_robots_title">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>430</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>❌ 오프라인</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="offline_robots_count">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>430</width>
+       <height>50</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>24</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string>color: #dc143c; border: none;</string>
+     </property>
+     <property name="text">
+      <string>0대</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="offline_robots_detail">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>430</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">border: none;</string>
+     </property>
+     <property name="text">
+      <string>ERROR/OFFLINE 상태</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
    </widget>
   </widget>
-  <widget class="QGroupBox" name="alerts_group">
+  <widget class="QGroupBox" name="status_summary_group">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>140</y>
-     <width>1180</width>
-     <height>650</height>
+     <width>550</width>
+     <height>850</height>
     </rect>
    </property>
    <property name="title">
-    <string>실시간 알림 및 이벤트</string>
+    <string>System Status</string>
    </property>
-   <widget class="QTextEdit" name="alerts_text">
+   <widget class="QTreeWidget" name="status_tree_widget">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>25</y>
-      <width>1160</width>
-      <height>615</height>
+      <width>530</width>
+      <height>815</height>
      </rect>
     </property>
-    <property name="readOnly">
+    <column>
+     <property name="text">
+      <string>항목</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>값</string>
+     </property>
+    </column>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="robot_mission_group">
+   <property name="geometry">
+    <rect>
+     <x>570</x>
+     <y>140</y>
+     <width>1300</width>
+     <height>400</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Robot Status</string>
+   </property>
+   <widget class="QTableWidget" name="mission_queue_table">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>1280</width>
+      <height>360</height>
+     </rect>
+    </property>
+    <property name="editTriggers">
+     <set>QAbstractItemView::NoEditTriggers</set>
+    </property>
+    <property name="alternatingRowColors">
      <bool>true</bool>
     </property>
+    <property name="selectionBehavior">
+     <enum>QAbstractItemView::SelectRows</enum>
+    </property>
+    <property name="sortingEnabled">
+     <bool>true</bool>
+    </property>
+    <column>
+     <property name="text">
+      <string>Robot ID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>작업 타입</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Order ID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>상태</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>배터리</string>
+     </property>
+    </column>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="active_orders_group">
+   <property name="geometry">
+    <rect>
+     <x>570</x>
+     <y>550</y>
+     <width>1300</width>
+     <height>440</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>Order Status</string>
+   </property>
+   <widget class="QTableWidget" name="active_orders_table">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>1280</width>
+      <height>400</height>
+     </rect>
+    </property>
+    <property name="editTriggers">
+     <set>QAbstractItemView::NoEditTriggers</set>
+    </property>
+    <property name="alternatingRowColors">
+     <bool>true</bool>
+    </property>
+    <property name="selectionBehavior">
+     <enum>QAbstractItemView::SelectRows</enum>
+    </property>
+    <property name="sortingEnabled">
+     <bool>true</bool>
+    </property>
+    <column>
+     <property name="text">
+      <string>Order ID</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Status</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Items</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Amount</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Progress(%)</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Elapsed</string>
+     </property>
+    </column>
    </widget>
   </widget>
  </widget>

@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_order_management.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_order_management.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,10 +12,10 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_OrderManagementTab(object):
     def setupUi(self, OrderManagementTab):
         OrderManagementTab.setObjectName("OrderManagementTab")
-        OrderManagementTab.resize(1200, 800)
-        OrderManagementTab.setMinimumSize(QtCore.QSize(1200, 800))
+        OrderManagementTab.resize(1880, 1000)
+        OrderManagementTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.order_table = QtWidgets.QTableWidget(parent=OrderManagementTab)
-        self.order_table.setGeometry(QtCore.QRect(10, 10, 1180, 780))
+        self.order_table.setGeometry(QtCore.QRect(10, 10, 1851, 971))
         self.order_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.order_table.setAlternatingRowColors(True)
         self.order_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
@@ -68,3 +68,13 @@ class Ui_OrderManagementTab(object):
         item.setText(_translate("OrderManagementTab", "Pickee"))
         item = self.order_table.horizontalHeaderItem(9)
         item.setText(_translate("OrderManagementTab", "Packee"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    OrderManagementTab = QtWidgets.QWidget()
+    ui = Ui_OrderManagementTab()
+    ui.setupUi(OrderManagementTab)
+    OrderManagementTab.show()
+    sys.exit(app.exec())

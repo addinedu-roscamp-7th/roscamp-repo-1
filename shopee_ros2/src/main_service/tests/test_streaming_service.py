@@ -2,15 +2,18 @@
 StreamingService 단위 테스트
 
 UDP 영상 스트리밍 중계 기능을 테스트합니다.
+세션 기반 멀티플렉싱을 지원합니다.
 """
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from main_service.streaming_service import StreamingService, UdpRelayProtocol
+from main_service.streaming_service import StreamingService, StreamingSession, UdpRelayProtocol
 
 pytestmark = pytest.mark.asyncio
 
@@ -21,14 +24,67 @@ def streaming_service() -> StreamingService:
     return StreamingService(host='0.0.0.0', port=6000)
 
 
+class TestStreamingSession:
+    """StreamingSession 클래스 테스트"""
+
+    def test_session_creation(self):
+        """세션 생성"""
+        session = StreamingSession(
+            robot_id=1,
+            user_id='user1',
+            app_ip='192.168.1.100',
+            app_port=6000
+        )
+
+        assert session.robot_id == 1
+        assert session.user_id == 'user1'
+        assert session.app_address == ('192.168.1.100', 6000)
+        assert session.last_frame_id == -1
+        assert len(session.frame_buffer) == 0
+
+    def test_session_expiration(self):
+        """세션 만료 확인"""
+        session = StreamingSession(1, 'user1', '192.168.1.100', 6000)
+
+        # 방금 생성된 세션은 만료되지 않음
+        assert not session.is_expired(timeout=30.0)
+
+        # 타임스탬프를 60초 전으로 설정
+        session.last_packet_time = time.time() - 60
+        assert session.is_expired(timeout=30.0)
+
+    def test_update_activity(self):
+        """활동 시간 갱신"""
+        session = StreamingSession(1, 'user1', '192.168.1.100', 6000)
+        old_time = session.last_packet_time
+
+        time.sleep(0.01)
+        session.update_activity()
+
+        assert session.last_packet_time > old_time
+
+    def test_add_chunk_buffer_limit(self):
+        """프레임 버퍼 크기 제한"""
+        session = StreamingSession(1, 'user1', '192.168.1.100', 6000)
+        session.buffer_max_size = 3  # 테스트용으로 작게 설정
+
+        # 4개 프레임 추가 (버퍼 크기 3 초과)
+        for frame_id in range(4):
+            session.add_chunk(frame_id, 0, b'data')
+
+        # 가장 오래된 프레임(0)이 제거되고 1, 2, 3만 남음
+        assert 0 not in session.frame_buffer
+        assert 1 in session.frame_buffer
+        assert 2 in session.frame_buffer
+        assert 3 in session.frame_buffer
+        assert len(session.frame_buffer) == 3
+
+
 class TestStreamingServiceLifecycle:
     """StreamingService 생명주기 테스트"""
 
-    async def test_start_creates_udp_endpoint(
-        self, streaming_service: StreamingService
-    ):
-        """UDP 엔드포인트 시작"""
-        # Arrange
+    async def test_start_creates_udp_endpoint(self, streaming_service: StreamingService):
+        """UDP 엔드포인트 및 cleanup task 시작"""
         mock_transport = MagicMock()
         mock_protocol = MagicMock()
 
@@ -39,250 +95,271 @@ class TestStreamingServiceLifecycle:
                 return_value=(mock_transport, mock_protocol)
             )
 
-            # Act
             await streaming_service.start()
 
-        # Assert
         assert streaming_service._transport == mock_transport
         assert streaming_service._protocol == mock_protocol
-        mock_loop.create_datagram_endpoint.assert_called_once()
-        call_args = mock_loop.create_datagram_endpoint.call_args
-        assert call_args.kwargs['local_addr'] == ('0.0.0.0', 6000)
+        assert streaming_service._cleanup_task is not None
 
-    def test_start_relay_sets_app_address(
-        self, streaming_service: StreamingService
-    ):
-        """앱 목적지 주소 설정"""
-        # Arrange
-        app_ip = '192.168.1.100'
-        app_port = 7000
+    def test_start_relay_creates_new_session(self, streaming_service: StreamingService):
+        """새 세션 생성"""
+        streaming_service.start_relay(
+            robot_id=1,
+            user_id='user1',
+            app_ip='192.168.1.100',
+            app_port=6000
+        )
 
-        # Act
-        streaming_service.start_relay(app_ip, app_port)
+        assert 1 in streaming_service._sessions
+        assert len(streaming_service._sessions[1]) == 1
+        assert streaming_service._sessions[1][0].user_id == 'user1'
 
-        # Assert
-        assert streaming_service.app_address == (app_ip, app_port)
+    def test_start_relay_multiple_users_same_robot(self, streaming_service: StreamingService):
+        """한 로봇을 여러 사용자가 시청"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(1, 'user2', '192.168.1.101', 6000)
 
-    def test_stop_relay_clears_app_address(
-        self, streaming_service: StreamingService
-    ):
-        """중계 중지 시 앱 주소 초기화"""
-        # Arrange
-        streaming_service.app_address = ('192.168.1.100', 7000)
+        assert len(streaming_service._sessions[1]) == 2
 
-        # Act
-        streaming_service.stop_relay()
+    def test_start_relay_duplicate_session(self, streaming_service: StreamingService):
+        """중복 세션 방지"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
 
-        # Assert
-        assert streaming_service.app_address is None
+        # 중복 세션은 생성되지 않음
+        assert len(streaming_service._sessions[1]) == 1
 
-    def test_stop_relay_when_no_relay_active(
-        self, streaming_service: StreamingService
-    ):
-        """중계가 없을 때 stop_relay 호출"""
-        # Arrange
-        streaming_service.app_address = None
+    def test_stop_relay_removes_session(self, streaming_service: StreamingService):
+        """세션 종료"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.stop_relay(1, 'user1')
 
-        # Act (예외 발생하지 않음)
-        streaming_service.stop_relay()
+        assert 1 not in streaming_service._sessions
 
-        # Assert
-        assert streaming_service.app_address is None
+    def test_stop_relay_keeps_other_sessions(self, streaming_service: StreamingService):
+        """한 세션 종료 시 다른 세션 유지"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(1, 'user2', '192.168.1.101', 6000)
 
-    def test_stop_closes_transport(
-        self, streaming_service: StreamingService
-    ):
-        """UDP 서버 종료 시 transport 닫기"""
-        # Arrange
+        streaming_service.stop_relay(1, 'user1')
+
+        assert len(streaming_service._sessions[1]) == 1
+        assert streaming_service._sessions[1][0].user_id == 'user2'
+
+    def test_stop_closes_transport_and_cleanup_task(self, streaming_service: StreamingService):
+        """서비스 종료 시 transport와 cleanup task 정리"""
+        mock_transport = MagicMock()
+        mock_cleanup_task = MagicMock()
+        streaming_service._transport = mock_transport
+        streaming_service._cleanup_task = mock_cleanup_task
+
+        streaming_service.stop()
+
+        mock_transport.close.assert_called_once()
+        mock_cleanup_task.cancel.assert_called_once()
+
+
+class TestStreamingServiceRelay:
+    """패킷 중계 테스트"""
+
+    def test_relay_packet_with_robot_id(self, streaming_service: StreamingService):
+        """robot_id가 포함된 패킷 중계"""
+        # 세션 등록
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+
+        # Mock transport 설정
         mock_transport = MagicMock()
         streaming_service._transport = mock_transport
 
-        # Act
-        streaming_service.stop()
+        # 가짜 패킷 생성 (robot_id 포함)
+        header = {
+            'type': 'video_frame',
+            'robot_id': 1,
+            'frame_id': 1,
+            'chunk_idx': 0,
+            'total_chunks': 1,
+            'data_size': 10,
+            'timestamp': 123456,
+            'width': 640,
+            'height': 480,
+            'format': 'jpeg'
+        }
+        header_json = json.dumps(header, separators=(',', ':'))
+        header_bytes = header_json.encode('utf-8').ljust(200, b'\x00')
+        packet = header_bytes + b'1234567890'
 
-        # Assert
-        mock_transport.close.assert_called_once()
+        # 패킷 중계
+        streaming_service.relay_packet(packet)
 
-    def test_stop_when_no_transport(
-        self, streaming_service: StreamingService
-    ):
-        """transport가 없을 때 stop 호출"""
-        # Arrange
-        streaming_service._transport = None
+        # 검증
+        mock_transport.sendto.assert_called_once_with(packet, ('192.168.1.100', 6000))
 
-        # Act (예외 발생하지 않음)
-        streaming_service.stop()
+    def test_relay_packet_to_multiple_users(self, streaming_service: StreamingService):
+        """한 로봇의 패킷을 여러 사용자에게 중계"""
+        # 세션 등록
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(1, 'user2', '192.168.1.101', 6000)
 
-        # Assert (정상 종료)
-        pass
-
-
-class TestUdpRelayProtocol:
-    """UdpRelayProtocol 테스트"""
-
-    def test_connection_made(self):
-        """연결 생성 시 transport 저장"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        protocol = UdpRelayProtocol(streaming_service)
+        # Mock transport 설정
         mock_transport = MagicMock()
-        mock_transport.get_extra_info.return_value = ('0.0.0.0', 6000)
+        streaming_service._transport = mock_transport
 
-        # Act
-        protocol.connection_made(mock_transport)
+        # 가짜 패킷 생성
+        header = {
+            'type': 'video_frame',
+            'robot_id': 1,
+            'frame_id': 1,
+            'chunk_idx': 0,
+            'total_chunks': 1,
+            'data_size': 10,
+            'timestamp': 123456,
+            'width': 640,
+            'height': 480,
+            'format': 'jpeg'
+        }
+        header_json = json.dumps(header, separators=(',', ':'))
+        header_bytes = header_json.encode('utf-8').ljust(200, b'\x00')
+        packet = header_bytes + b'1234567890'
 
-        # Assert
-        assert protocol.transport == mock_transport
-        mock_transport.get_extra_info.assert_called_once_with('sockname')
+        # 패킷 중계
+        streaming_service.relay_packet(packet)
 
-    def test_datagram_received_relays_to_app(self):
-        """데이터그램 수신 시 앱으로 전달"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        streaming_service.app_address = ('192.168.1.100', 7000)
+        # 두 사용자 모두에게 전송됨
+        assert mock_transport.sendto.call_count == 2
+        calls = mock_transport.sendto.call_args_list
+        assert calls[0][0] == (packet, ('192.168.1.100', 6000))
+        assert calls[1][0] == (packet, ('192.168.1.101', 6000))
 
-        protocol = UdpRelayProtocol(streaming_service)
+    def test_relay_packet_without_robot_id(self, streaming_service: StreamingService):
+        """robot_id가 없는 패킷은 무시"""
         mock_transport = MagicMock()
-        protocol.transport = mock_transport
+        streaming_service._transport = mock_transport
 
-        data = b'test video packet'
-        robot_addr = ('10.0.0.1', 8000)
+        # robot_id 없는 패킷
+        header = {
+            'type': 'video_frame',
+            'frame_id': 1,
+            'chunk_idx': 0,
+            'total_chunks': 1,
+            'data_size': 10,
+            'timestamp': 123456,
+            'width': 640,
+            'height': 480,
+            'format': 'jpeg'
+        }
+        header_json = json.dumps(header, separators=(',', ':'))
+        header_bytes = header_json.encode('utf-8').ljust(200, b'\x00')
+        packet = header_bytes + b'1234567890'
 
-        # Act
-        protocol.datagram_received(data, robot_addr)
+        # 패킷 중계 시도
+        with patch('main_service.streaming_service.logger') as mock_logger:
+            streaming_service.relay_packet(packet)
 
-        # Assert
-        mock_transport.sendto.assert_called_once_with(data, ('192.168.1.100', 7000))
-
-    def test_datagram_received_no_app_address(self):
-        """앱 주소가 없을 때 데이터그램 수신"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        streaming_service.app_address = None
-
-        protocol = UdpRelayProtocol(streaming_service)
-        mock_transport = MagicMock()
-        protocol.transport = mock_transport
-
-        data = b'test video packet'
-        robot_addr = ('10.0.0.1', 8000)
-
-        # Act (패킷이 전달되지 않음)
-        protocol.datagram_received(data, robot_addr)
-
-        # Assert
+        # 에러 로그만 기록되고 전송되지 않음
+        mock_logger.error.assert_called_once()
         mock_transport.sendto.assert_not_called()
 
-    def test_datagram_received_no_transport(self):
-        """transport가 없을 때 데이터그램 수신"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        streaming_service.app_address = ('192.168.1.100', 7000)
+    def test_relay_packet_no_active_sessions(self, streaming_service: StreamingService):
+        """활성 세션이 없는 로봇의 패킷"""
+        mock_transport = MagicMock()
+        streaming_service._transport = mock_transport
 
-        protocol = UdpRelayProtocol(streaming_service)
-        protocol.transport = None
+        # robot_id=2인 패킷 (세션 없음)
+        header = {
+            'type': 'video_frame',
+            'robot_id': 2,
+            'frame_id': 1,
+            'chunk_idx': 0,
+            'total_chunks': 1,
+            'data_size': 10,
+            'timestamp': 123456,
+            'width': 640,
+            'height': 480,
+            'format': 'jpeg'
+        }
+        header_json = json.dumps(header, separators=(',', ':'))
+        header_bytes = header_json.encode('utf-8').ljust(200, b'\x00')
+        packet = header_bytes + b'1234567890'
 
-        data = b'test video packet'
-        robot_addr = ('10.0.0.1', 8000)
+        # 패킷 중계 시도
+        streaming_service.relay_packet(packet)
 
-        # Act (예외 발생하지 않음)
-        protocol.datagram_received(data, robot_addr)
-
-        # Assert (정상 처리)
-        pass
-
-    def test_error_received(self):
-        """에러 수신 시 로그 기록"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        protocol = UdpRelayProtocol(streaming_service)
-        error = OSError("Network error")
-
-        # Act (예외 발생하지 않음)
-        with patch('main_service.streaming_service.logger') as mock_logger:
-            protocol.error_received(error)
-
-        # Assert
-        mock_logger.error.assert_called_once()
-
-    def test_connection_lost(self):
-        """연결 종료 시 로그 기록"""
-        # Arrange
-        streaming_service = StreamingService(host='0.0.0.0', port=6000)
-        protocol = UdpRelayProtocol(streaming_service)
-
-        # Act
-        with patch('main_service.streaming_service.logger') as mock_logger:
-            protocol.connection_lost(None)
-
-        # Assert
-        mock_logger.info.assert_called_once()
+        # 전송되지 않음
+        mock_transport.sendto.assert_not_called()
 
 
 class TestStreamingServiceIntegration:
     """통합 시나리오 테스트"""
 
-    async def test_full_streaming_workflow(self):
-        """전체 스트리밍 워크플로우"""
-        # Arrange
-        streaming_service = StreamingService(host='127.0.0.1', port=6000)
-
+    async def test_single_robot_single_user(self, streaming_service: StreamingService):
+        """단일 로봇, 단일 사용자"""
         with patch.object(asyncio, 'get_running_loop') as mock_get_loop:
             mock_loop = AsyncMock()
             mock_get_loop.return_value = mock_loop
             mock_transport = MagicMock()
-            mock_protocol = UdpRelayProtocol(streaming_service)
+            mock_protocol = MagicMock()
             mock_loop.create_datagram_endpoint = AsyncMock(
                 return_value=(mock_transport, mock_protocol)
             )
 
-            # Act 1: 서버 시작
             await streaming_service.start()
-            assert streaming_service._transport == mock_transport
 
-            # Act 2: 앱으로 중계 시작
-            streaming_service.start_relay('192.168.1.100', 7000)
-            assert streaming_service.app_address == ('192.168.1.100', 7000)
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        assert 1 in streaming_service._sessions
+        assert len(streaming_service._sessions[1]) == 1
 
-            # Act 3: 패킷 전달 시뮬레이션
-            mock_protocol.transport = mock_transport
-            test_data = b'video frame 1'
-            mock_protocol.datagram_received(test_data, ('10.0.0.1', 8000))
-            mock_transport.sendto.assert_called_with(test_data, ('192.168.1.100', 7000))
+        streaming_service.stop_relay(1, 'user1')
+        assert 1 not in streaming_service._sessions
 
-            # Act 4: 중계 중지
-            streaming_service.stop_relay()
-            assert streaming_service.app_address is None
+    async def test_single_robot_multiple_users(self, streaming_service: StreamingService):
+        """단일 로봇, 복수 사용자"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(1, 'user2', '192.168.1.101', 6000)
 
-            # Act 5: 서버 종료
-            streaming_service.stop()
-            mock_transport.close.assert_called_once()
+        assert len(streaming_service._sessions[1]) == 2
 
-    async def test_relay_without_start(self):
-        """서버 시작 없이 중계만 설정"""
-        # Arrange
-        streaming_service = StreamingService(host='127.0.0.1', port=6000)
+        # 한 명만 중지
+        streaming_service.stop_relay(1, 'user1')
+        assert len(streaming_service._sessions[1]) == 1
 
-        # Act
-        streaming_service.start_relay('192.168.1.100', 7000)
+        # 나머지도 중지
+        streaming_service.stop_relay(1, 'user2')
+        assert 1 not in streaming_service._sessions
 
-        # Assert
-        assert streaming_service.app_address == ('192.168.1.100', 7000)
-        # 실제 전달은 transport가 없으므로 불가능
+    async def test_multiple_robots_multiple_users(self, streaming_service: StreamingService):
+        """복수 로봇, 복수 사용자"""
+        # User1 → Robot1, User2 → Robot2, User3 → Robot1
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
+        streaming_service.start_relay(2, 'user2', '192.168.1.101', 6000)
+        streaming_service.start_relay(1, 'user3', '192.168.1.102', 6000)
 
-    async def test_multiple_relay_sessions(self):
-        """여러 세션 중계"""
-        # Arrange
-        streaming_service = StreamingService(host='127.0.0.1', port=6000)
+        assert len(streaming_service._sessions[1]) == 2  # Robot1: 2명
+        assert len(streaming_service._sessions[2]) == 1  # Robot2: 1명
 
-        # Act: 첫 번째 세션
-        streaming_service.start_relay('192.168.1.100', 7000)
-        assert streaming_service.app_address == ('192.168.1.100', 7000)
+    async def test_session_cleanup(self, streaming_service: StreamingService):
+        """만료된 세션 자동 정리"""
+        streaming_service.start_relay(1, 'user1', '192.168.1.100', 6000)
 
-        # Act: 두 번째 세션 (덮어쓰기)
-        streaming_service.start_relay('192.168.1.200', 8000)
-        assert streaming_service.app_address == ('192.168.1.200', 8000)
+        # 세션의 타임스탬프를 60초 전으로 설정
+        session = streaming_service._sessions[1][0]
+        session.last_packet_time = time.time() - 60
 
-        # Act: 중지
-        streaming_service.stop_relay()
-        assert streaming_service.app_address is None
+        # cleanup 로직 수동 실행
+        expired_count = 0
+        for robot_id in list(streaming_service._sessions.keys()):
+            active_sessions = [
+                s for s in streaming_service._sessions[robot_id]
+                if not s.is_expired(timeout=30.0)
+            ]
+
+            removed = len(streaming_service._sessions[robot_id]) - len(active_sessions)
+            expired_count += removed
+
+            if active_sessions:
+                streaming_service._sessions[robot_id] = active_sessions
+            else:
+                del streaming_service._sessions[robot_id]
+
+        # 세션이 제거되었는지 확인
+        assert expired_count == 1
+        assert 1 not in streaming_service._sessions

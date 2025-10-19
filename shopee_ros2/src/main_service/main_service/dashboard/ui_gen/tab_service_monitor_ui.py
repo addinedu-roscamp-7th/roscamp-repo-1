@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_service_monitor.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_service_monitor.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_ServiceMonitorTab(object):
     def setupUi(self, ServiceMonitorTab):
         ServiceMonitorTab.setObjectName("ServiceMonitorTab")
-        ServiceMonitorTab.resize(1200, 800)
-        ServiceMonitorTab.setMinimumSize(QtCore.QSize(1200, 800))
+        ServiceMonitorTab.resize(1880, 1000)
+        ServiceMonitorTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.verticalLayout = QtWidgets.QVBoxLayout(ServiceMonitorTab)
         self.verticalLayout.setObjectName("verticalLayout")
         self.service_table = QtWidgets.QTableWidget(parent=ServiceMonitorTab)
@@ -59,3 +59,13 @@ class Ui_ServiceMonitorTab(object):
         item.setText(_translate("ServiceMonitorTab", "Request"))
         item = self.service_table.horizontalHeaderItem(6)
         item.setText(_translate("ServiceMonitorTab", "Response"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    ServiceMonitorTab = QtWidgets.QWidget()
+    ui = Ui_ServiceMonitorTab()
+    ui.setupUi(ServiceMonitorTab)
+    ServiceMonitorTab.show()
+    sys.exit(app.exec())

@@ -40,22 +40,20 @@ ROS2 패키지로 구현된 Shopee 중앙 백엔드 서비스입니다. App, 로
 
 ## 설정
 
-서비스 실행에 필요한 설정은 워크스페이스 루트의 `.env` 파일을 통해 관리됩니다 (`/home/addinedu/dev_ws/Shopee/shopee_ros2/.env`). 함께 제공된 `.env.example` 파일을 `.env`로 복사하여 환경에 맞게 수정하십시오.
-
 **주요 환경 변수:**
 - `SHOPEE_API_HOST`: API 서버 호스트 (기본: `0.0.0.0`)
 - `SHOPEE_API_PORT`: API 서버 TCP 포트 (기본: `5000`)
-- `SHOPEE_LLM_BASE_URL`: LLM 서비스 URL (기본: `http://localhost:8000`)
+- `SHOPEE_LLM_BASE_URL`: LLM 서비스 URL (기본: `http://localhost:5001`)
 - `SHOPEE_DB_URL`: 데이터베이스 URL (예: `mysql+pymysql://user:pass@host:3306/dbname`)
 - `SHOPEE_LOG_LEVEL`: 로그 레벨 (기본: `INFO`)
-- `SHOPEE_GUI_ENABLED`: 대시보드 활성화 (기본: `false`, 활성화: `true`)
+- `SHOPEE_GUI_ENABLED`: 대시보드 활성화 (기본: `true`, 비활성화: `false`)
 - `SHOPEE_GUI_SNAPSHOT_INTERVAL`: 대시보드 갱신 주기 초 단위 (기본: `1.0`)
 
 ## 실행 방법
 
 1.  워크스페이스 환경 설정 파일을 소싱(source)합니다.
     ```bash
-    cd /home/jinhyuk2me/dev_ws/Shopee/ros2_ws
+    cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2
     source install/setup.bash
     ```
 
@@ -118,9 +116,15 @@ SHOPEE_GUI_SNAPSHOT_INTERVAL=1.0  # 1초마다 갱신
 핵심 로직의 개별 단위를 테스트합니다. `pytest`를 사용하여 실행할 수 있습니다.
 
 ```bash
-# main_service 패키지 디렉토리에서 실행
-cd /home/jinhyuk2me/dev_ws/Shopee/ros2_ws/src/main_service
+# ROS2 환경을 먼저 source하고 테스트 실행
+cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2
+source install/setup.bash
+cd src/main_service
 pytest
+
+# 또는 테스트 의존성을 설치한 후 실행
+pip install -e .[test]
+pytest tests/
 ```
 
 ### 통합 테스트 (Integration Tests)

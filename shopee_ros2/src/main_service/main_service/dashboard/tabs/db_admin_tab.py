@@ -326,26 +326,43 @@ class DBAdminTab(BaseTab, Ui_DBAdminTab):
         menu.exec(self.result_table.mapToGlobal(position))
 
     def _delete_row(self, row_index: int):
-        """선택된 행을 삭제한다."""
+        """선택된 행을 삭제한다. 'order' 테이블의 경우, 관련된 'order_item'도 함께 삭제한다."""
         if not self.current_table or not self.primary_key_column:
             QMessageBox.warning(self, '경고', '삭제할 수 없습니다. 테이블 정보가 없습니다.')
             return
-            
+
         pk_col_index = self.current_columns.index(self.primary_key_column)
         pk_value = self.current_data[row_index][pk_col_index]
-        
+
         reply = QMessageBox.question(
-            self, 
+            self,
             '행 삭제 확인',
             f'정말로 이 행을 삭제하시겠습니까?\n{self.primary_key_column}: {pk_value}',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            query = text(f"DELETE FROM `{self.current_table}` WHERE `{self.primary_key_column}` = :pk_value")
-            params = {"pk_value": pk_value}
-            self._execute_update_query(query, params, f"행이 삭제되었습니다.")
+            try:
+                with self.db_manager.session_scope() as session:
+                    # 'order' 테이블을 삭제하는 경우, 관련된 'order_item'을 먼저 삭제
+                    if self.current_table == 'order':
+                        # 1. order_item 삭제
+                        order_item_query = text("DELETE FROM `order_item` WHERE `order_id` = :pk_value")
+                        session.execute(order_item_query, {"pk_value": pk_value})
+
+                    # 2. 원본 행 삭제
+                    query = text(f"DELETE FROM `{self.current_table}` WHERE `{self.primary_key_column}` = :pk_value")
+                    result = session.execute(query, {"pk_value": pk_value})
+                    
+                    session.commit()
+                    
+                    self.status_label.setText(f"행이 삭제되었습니다. (영향받은 행: {result.rowcount})")
+                    self._refresh_table() # 테이블 새로고침
+
+            except Exception as e:
+                QMessageBox.critical(self, '쿼리 오류', f'쿼리 실행 중 오류가 발생했습니다:\n{str(e)}')
+                self.status_label.setText('오류 발생')
 
     def _add_new_row(self):
         """새 행을 추가한다."""

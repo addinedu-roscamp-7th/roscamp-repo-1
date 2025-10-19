@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1000</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1000</height>
    </size>
   </property>
   <widget class="QTableWidget" name="order_table">
@@ -21,8 +21,8 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>1180</width>
-     <height>780</height>
+     <width>1851</width>
+     <height>971</height>
     </rect>
    </property>
    <property name="editTriggers">

@@ -13,19 +13,20 @@
 | Port | 6000 |
 | Protocol | UDP |
 | Data Format | JSON (메타데이터) + Binary (이미지 데이터) |
-| Max Packet Size | 1,472 bytes (1,400 bytes data + 72 bytes header) |
+| Max Packet Size | 1,600 bytes (1,400 bytes data + 200 bytes header) |
 | Encoding | UTF-8 (JSON), Binary (Image) |
 | Image Format | JPEG |
 | Resolution | 640x480 |
 
 ### 패킷 구조
 **패킷 레이아웃**
-`[JSON Header (72 bytes)] + [Binary Image Data (1,400 bytes)]`
+`[JSON Header (200 bytes)] + [Binary Image Data (1,400 bytes)]`
 
 **JSON Header 포맷**
 ```json
 {
     "type": "video_frame",
+    "robot_id": 1,                // 로봇 식별자 (필수)
     "frame_id": 12345,            // 프레임 고유 식별자 (0~4294967295)
     "chunk_idx": 0,               // 현재 청크 인덱스 (0부터 시작)
     "total_chunks": 50,           // 전체 청크 개수
@@ -52,6 +53,7 @@
     ```json
     {
         "type": "video_frame",
+        "robot_id": 1,
         "frame_id": 12345,
         "chunk_idx": 0,
         "total_chunks": 50,
@@ -63,4 +65,4 @@
     }
     ```
     `+ Binary Data (max 1,400 bytes)`
-- **비고:** 640x480 JPEG 분할 전송
+- **비고:** 640x480 JPEG 분할 전송. `robot_id`로 어떤 로봇의 영상인지 구분 가능

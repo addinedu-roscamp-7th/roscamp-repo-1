@@ -20,23 +20,9 @@ class OrderManagementTab(BaseTab, Ui_OrderManagementTab):
         """테이블 컬럼 너비와 리사이즈 정책을 설정한다."""
         header = self.order_table.horizontalHeader()
         
-        # 각 컬럼의 너비를 설정 (픽셀 단위)
-        self.order_table.setColumnWidth(0, 80)   # Order ID
-        self.order_table.setColumnWidth(1, 100)  # Customer
-        self.order_table.setColumnWidth(2, 100)  # Status
-        self.order_table.setColumnWidth(3, 60)   # Items
-        self.order_table.setColumnWidth(4, 100)  # Amount
-        self.order_table.setColumnWidth(5, 120)  # Progress(%)
-        self.order_table.setColumnWidth(6, 80)   # Started
-        self.order_table.setColumnWidth(7, 80)   # Elapsed
-        self.order_table.setColumnWidth(8, 70)   # Pickee
-        
-        # 마지막 컬럼(Packee)은 남은 공간을 모두 차지하도록 설정
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
-        
-        # 나머지 컬럼들은 고정 크기로 설정
-        for i in range(9):
-            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Fixed)
+        # 모든 컬럼을 균등하게 분배
+        for i in range(self.order_table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
 
     def update_data(self, orders_snapshot: Dict[str, Any]):
         """주문 데이터로 테이블을 업데이트한다."""

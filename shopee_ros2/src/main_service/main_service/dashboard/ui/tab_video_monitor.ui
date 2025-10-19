@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>VideoMonitorTab</class>
+ <widget class="QWidget" name="VideoMonitorTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1880</width>
+    <height>1000</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1880</width>
+    <height>1000</height>
+   </size>
+  </property>
+  <widget class="QLabel" name="label_robot">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>20</y>
+     <width>100</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>11</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>로봇 선택:</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="robot_selector">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>20</y>
+     <width>200</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="refresh_button">
+   <property name="geometry">
+    <rect>
+     <x>340</x>
+     <y>20</y>
+     <width>100</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>새로고침</string>
+   </property>
+  </widget>
+  <widget class="QGroupBox" name="video_group">
+   <property name="geometry">
+    <rect>
+     <x>29</x>
+     <y>59</y>
+     <width>1811</width>
+     <height>911</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>11</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QGroupBox {
+ border: 1px solid #dcdcdc;
+ margin-top: 10px;
+}
+
+QGroupBox::title {
+ subcontrol-origin: margin;
+ subcontrol-position: top left;
+ left: 20px;
+ top: 25px;
+ padding: 5px 10px;
+ background-color: #3498db;
+ color: white;
+ border-radius: 3px;
+}
+    </string>
+   </property>
+   <property name="title">
+    <string>🤖 로봇 선택 대기 중...</string>
+   </property>
+   <widget class="QLabel" name="video_label">
+    <property name="geometry">
+     <rect>
+      <x>19</x>
+      <y>64</y>
+      <width>1771</width>
+      <height>821</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">
+QLabel {
+ background-color: black;
+ color: white;
+ font-size: 14pt;
+}
+     </string>
+    </property>
+    <property name="text">
+     <string>로봇을 선택하세요</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

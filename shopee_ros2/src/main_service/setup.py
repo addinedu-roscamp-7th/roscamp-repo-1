@@ -34,7 +34,7 @@ setup(
     description='Main Service ROS 2 entry point handling TCP API and robot orchestration.',
     license='Apache License 2.0',
     extras_require={
-        'test': ['pytest', 'pytest-asyncio'],
+        'test': ['pytest', 'pytest-asyncio', 'respx'],
     },
     entry_points={
         'console_scripts': [
@@ -43,6 +43,8 @@ setup(
             'mock_robot_node = main_service.mock_robot_node:main',
             'mock_pickee_node = main_service.mock_pickee_node:main',
             'mock_packee_node = main_service.mock_packee_node:main',
+            'mock_pickee_vision_node = main_service.mock_pickee_vision_node:main',
+            'mock_app_node = main_service.mock_app_node:main',
         ],
     },
 )

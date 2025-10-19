@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1002</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1200</width>
-    <height>800</height>
+    <width>1880</width>
+    <height>1000</height>
    </size>
   </property>
   <widget class="QLabel" name="query_label">
@@ -25,14 +25,14 @@
      <height>20</height>
     </rect>
    </property>
-   <property name="text">
-    <string>SQL 쿼리:</string>
-   </property>
    <property name="font">
     <font>
      <weight>75</weight>
      <bold>true</bold>
     </font>
+   </property>
+   <property name="text">
+    <string>SQL 쿼리:</string>
    </property>
   </widget>
   <widget class="QTextEdit" name="query_text_edit">
@@ -40,18 +40,18 @@
     <rect>
      <x>10</x>
      <y>35</y>
-     <width>1180</width>
+     <width>1851</width>
      <height>100</height>
     </rect>
-   </property>
-   <property name="placeholderText">
-    <string>SELECT * FROM product LIMIT 10;</string>
    </property>
    <property name="font">
     <font>
      <family>Consolas</family>
      <pointsize>10</pointsize>
     </font>
+   </property>
+   <property name="placeholderText">
+    <string>SELECT * FROM product LIMIT 10;</string>
    </property>
   </widget>
   <widget class="QPushButton" name="execute_button">
@@ -153,14 +153,14 @@
      <height>20</height>
     </rect>
    </property>
-   <property name="text">
-    <string>쿼리 결과:</string>
-   </property>
    <property name="font">
     <font>
      <weight>75</weight>
      <bold>true</bold>
     </font>
+   </property>
+   <property name="text">
+    <string>쿼리 결과:</string>
    </property>
   </widget>
   <widget class="QTableWidget" name="result_table">
@@ -168,9 +168,12 @@
     <rect>
      <x>10</x>
      <y>205</y>
-     <width>1180</width>
-     <height>550</height>
+     <width>1851</width>
+     <height>741</height>
     </rect>
+   </property>
+   <property name="contextMenuPolicy">
+    <enum>Qt::CustomContextMenu</enum>
    </property>
    <property name="editTriggers">
     <set>QAbstractItemView::DoubleClicked</set>
@@ -184,15 +187,12 @@
    <property name="sortingEnabled">
     <bool>true</bool>
    </property>
-   <property name="contextMenuPolicy">
-    <enum>Qt::CustomContextMenu</enum>
-   </property>
   </widget>
   <widget class="QLabel" name="status_label">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>765</y>
+     <x>20</x>
+     <y>960</y>
      <width>200</width>
      <height>20</height>
     </rect>
@@ -204,8 +204,8 @@
   <widget class="QPushButton" name="export_button">
    <property name="geometry">
     <rect>
-     <x>1100</x>
-     <y>765</y>
+     <x>1770</x>
+     <y>960</y>
      <width>90</width>
      <height>25</height>
     </rect>

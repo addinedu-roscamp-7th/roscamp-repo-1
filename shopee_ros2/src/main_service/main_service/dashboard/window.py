@@ -17,13 +17,12 @@ from PyQt6.QtGui import QCloseEvent
 from .ui_gen.dashboard_window_ui import Ui_DashboardWindow
 from .tabs.overview_tab import OverviewTab
 from .tabs.robot_status_tab import RobotStatusTab
-from .tabs.robot_control_tab import RobotControlTab
 from .tabs.order_management_tab import OrderManagementTab
-from .tabs.diagnostics_tab import SystemDiagnosticsTab
 from .tabs.event_log_tab import EventLogTab
 from .tabs.topic_monitor_tab import TopicMonitorTab
 from .tabs.service_monitor_tab import ServiceMonitorTab
 from .tabs.db_admin_tab import DBAdminTab
+from .tabs.video_monitor_tab import VideoMonitorTab
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +36,12 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
     - DashboardBridge로부터 데이터를 받아 각 탭에 분배
     """
 
-    def __init__(self, bridge, ros_node, db_manager=None):
+    def __init__(self, bridge, ros_node, db_manager=None, streaming_service=None):
         super().__init__()
         self._bridge = bridge
         self._ros_node = ros_node
         self._db_manager = db_manager
+        self._streaming_service = streaming_service
 
         # 메인 윈도우 UI 로드
         self.setupUi(self)
@@ -58,27 +58,32 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """각 탭 위젯을 생성하고 메인 탭 위젯에 추가한다."""
         self.overview_tab = OverviewTab()
         self.robot_tab = RobotStatusTab()
-        self.robot_control_tab = RobotControlTab()
         self.order_tab = OrderManagementTab()
-        self.diagnostics_tab = SystemDiagnosticsTab()
-        self.log_tab = EventLogTab()
+        # self.log_tab = EventLogTab()
         self.topic_monitor_tab = TopicMonitorTab()
         self.service_monitor_tab = ServiceMonitorTab()
-        
+
         # DB 관리 탭은 db_manager가 있을 때만 추가
         self.db_admin_tab = None
         if self._db_manager:
             self.db_admin_tab = DBAdminTab(self._db_manager)
 
+        # 영상 모니터링 탭은 streaming_service가 있을 때만 추가
+        self.video_monitor_tab = None
+        if self._streaming_service:
+            self.video_monitor_tab = VideoMonitorTab(self._streaming_service)
+
         self.tab_widget.addTab(self.overview_tab, '개요')
         self.tab_widget.addTab(self.robot_tab, '로봇 상태')
-        self.tab_widget.addTab(self.robot_control_tab, '로봇 관제')
         self.tab_widget.addTab(self.order_tab, '주문 관리')
-        self.tab_widget.addTab(self.diagnostics_tab, '시스템 진단')
-        self.tab_widget.addTab(self.log_tab, '이벤트 로그')
+        # self.tab_widget.addTab(self.log_tab, '이벤트 로그')
         self.tab_widget.addTab(self.topic_monitor_tab, 'ROS2 토픽 모니터')
         self.tab_widget.addTab(self.service_monitor_tab, 'ROS2 서비스 모니터')
-        
+
+        # 영상 모니터링 탭 추가 (있는 경우)
+        if self.video_monitor_tab:
+            self.tab_widget.addTab(self.video_monitor_tab, '영상 모니터링')
+
         # DB 관리 탭 추가 (있는 경우)
         if self.db_admin_tab:
             self.tab_widget.addTab(self.db_admin_tab, 'DB 관리')
@@ -87,6 +92,9 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """UI의 추가적인 속성을 설정한다."""
         self.status_label = QLabel('상태: 연결 대기 중...')
         self.statusbar.addPermanentWidget(self.status_label)
+        
+        # 전체화면으로 시작
+        self.showFullScreen()
 
     def closeEvent(self, event: QCloseEvent):
         """윈도우 종료 이벤트 처리"""
@@ -140,14 +148,12 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """스냅샷 데이터를 처리하여 모든 탭을 업데이트한다."""
         self.overview_tab.update_data(snapshot)
         self.robot_tab.update_data(snapshot.get('robots', []))
-        self.robot_control_tab.update_data(snapshot)
         self.order_tab.update_data(snapshot.get('orders', {}))
-        self.diagnostics_tab.update_data(snapshot)
         self._update_statusbar(snapshot)
 
     def _handle_event(self, event_data: Dict[str, Any]):
         """이벤트 데이터를 처리하여 로그 및 알림을 업데이트한다."""
-        self.log_tab.add_event(event_data)
+        # self.log_tab.add_event(event_data)
         self.overview_tab.add_alert(event_data)
 
     def _handle_ros_topic(self, event_data: Dict[str, Any]):
@@ -156,7 +162,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         
         # ROS 토픽을 이벤트 로그에도 추가 (이벤트 토픽만)
         if not event_data.get('is_periodic', False):
-            self.log_tab.add_ros_topic_event(event_data)
+            self.overview_tab.add_ros_topic_event(event_data)
 
     def _handle_ros_service(self, event_data: Dict[str, Any]):
         """ROS 서비스 수신 이벤트를 처리하여 서비스 모니터 탭에 추가한다."""
@@ -183,6 +189,12 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
             self.poll_timer.stop()
         if hasattr(self, 'ros_spin_timer'):
             self.ros_spin_timer.stop()
+
+        # 탭 리소스 정리
+        if hasattr(self, 'db_admin_tab') and self.db_admin_tab:
+            self.db_admin_tab.cleanup()
+        if hasattr(self, 'video_monitor_tab') and self.video_monitor_tab:
+            self.video_monitor_tab.cleanup()
 
         # ROS2 종료
         if rclpy.ok():
