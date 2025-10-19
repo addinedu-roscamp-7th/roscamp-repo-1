@@ -149,8 +149,11 @@ class MainServiceApp:
                             robot_type_enum = RobotType.PACKEE
                         else:
                             raise ValueError(f"Unknown robot_type ID: {db_robot.robot_type}")
-                    except Exception:
-                        logger.warning(f"Unknown robot_type '{db_robot.robot_type}' for robot_id {db_robot.robot_id}. Skipping.")
+                    except ValueError as e:
+                        logger.warning(f"Invalid robot_type for robot_id {db_robot.robot_id}: {e}. Skipping.")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Unexpected error processing robot_id {db_robot.robot_id}: {type(e).__name__}: {e}. Skipping.")
                         continue
 
                     initial_state = RobotState(
@@ -754,6 +757,61 @@ class MainServiceApp:
                     "message": "Failed to set maintenance mode",
                 }
 
+        async def handle_health_check(data, peer=None):
+            """
+            헬스체크 엔드포인트
+
+            서비스의 각 컴포넌트 상태를 확인합니다.
+            - Database 연결
+            - ROS2 노드
+            - 로봇 상태 스토어
+            """
+            from sqlalchemy import text
+
+            checks = {}
+
+            # 1. 데이터베이스 연결 확인
+            try:
+                with self._db.session_scope() as session:
+                    session.execute(text('SELECT 1'))
+                checks['database'] = True
+            except Exception as e:
+                logger.error(f"Database health check failed: {type(e).__name__}: {e}")
+                checks['database'] = False
+
+            # 2. ROS2 노드 확인
+            try:
+                checks['ros2'] = self._robot.get_clock() is not None
+            except Exception as e:
+                logger.error(f"ROS2 health check failed: {type(e).__name__}: {e}")
+                checks['ros2'] = False
+
+            # 3. 로봇 상태 스토어 확인
+            try:
+                robot_states = await self._robot_state_store.list_states()
+                checks['robot_count'] = len(robot_states)
+            except Exception as e:
+                logger.error(f"Robot state store health check failed: {type(e).__name__}: {e}")
+                checks['robot_count'] = 0
+
+            # 모두 정상이면 healthy
+            all_healthy = (
+                checks['database']
+                and checks['ros2']
+                and checks['robot_count'] >= 0
+            )
+
+            return {
+                'type': 'health_check_response',
+                'result': all_healthy,
+                'data': {
+                    'status': 'healthy' if all_healthy else 'degraded',
+                    'checks': checks
+                },
+                'message': 'Service is healthy' if all_healthy else 'Service degraded',
+                'error_code': None if all_healthy else 'SYS_002',
+            }
+
         # 핸들러 등록: 메시지 타입 → 처리 함수 매핑
         self._handlers.update(
             {
@@ -772,6 +830,7 @@ class MainServiceApp:
                 "robot_history_search": handle_robot_history_search,
                 "robot_status_request": handle_robot_status_request,
                 "robot_maintenance_mode": handle_robot_maintenance_mode,
+                "health_check": handle_health_check,
             }
         )
 
@@ -876,10 +935,12 @@ def main() -> None:
 
         # asyncio 초기화 대기 (최대 5초)
         import time
+        from .constants import ROS_SPIN_INTERVAL
+
         for _ in range(50):
             if service_app._dashboard_controller:
                 break
-            time.sleep(0.1)
+            time.sleep(ROS_SPIN_INTERVAL)
 
         # GUI가 활성화된 경우 GUI 윈도우 생성
         window = None

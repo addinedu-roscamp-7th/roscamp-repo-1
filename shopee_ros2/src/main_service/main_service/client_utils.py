@@ -82,7 +82,9 @@ class MainServiceClient:
                 response = self._pending_messages.pop(0)
             else:
                 try:
-                    response_line = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
+                    from .constants import TCP_READ_TIMEOUT
+
+                    response_line = await asyncio.wait_for(self._reader.readline(), timeout=TCP_READ_TIMEOUT)
                     if not response_line:
                         print('  ⚠️ Connection closed by server')
                         break

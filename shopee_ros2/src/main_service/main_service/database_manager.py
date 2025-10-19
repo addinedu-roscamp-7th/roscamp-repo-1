@@ -74,8 +74,9 @@ class DatabaseManager:
         try:
             yield session
             session.commit()  # 성공 시 커밋
-        except Exception:
+        except Exception as e:
             session.rollback()  # 실패 시 롤백
+            logger.error(f"Database transaction failed and rolled back: {type(e).__name__}: {e}")
             raise
         finally:
             session.close()  # 항상 종료

@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from .client_utils import MainServiceClient
+from main_service.client_utils import MainServiceClient
 
 
 DEFAULT_CART = [

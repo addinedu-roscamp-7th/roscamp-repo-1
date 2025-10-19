@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
@@ -264,11 +264,13 @@ class OrderService:
             return False, None
 
     async def handle_moving_status(self, msg: "PickeeMoveStatus") -> None:
+        """Pickee 이동 상태 처리"""
         logger.info("Handling moving status for order %d", msg.order_id)
         self._failure_handler.cancel_reservation_monitor(msg.order_id, msg.robot_id)
         await self._notifier.notify_robot_moving(msg)
 
     async def handle_arrival_notice(self, msg: "PickeeArrival") -> None:
+        """Pickee 도착 알림 처리"""
         is_section = msg.section_id is not None and msg.section_id >= 0
         logger.info("Handling arrival notice for order %d at section %s", msg.order_id, msg.section_id if is_section else 'N/A')
         await self._notifier.notify_robot_arrived(msg)
@@ -287,6 +289,7 @@ class OrderService:
             logger.exception("Failed to start product detection for order %d: %s", msg.order_id, e)
 
     async def handle_product_detected(self, msg: "PickeeProductDetection") -> None:
+        """Pickee 상품 인식 완료 처리"""
         logger.info("Handling product detection for order %d. Found %d products.", msg.order_id, len(msg.products))
         product_ids = [p.product_id for p in msg.products]
         products_data = []
@@ -298,6 +301,7 @@ class OrderService:
         await self._notifier.notify_product_selection_start(msg, products_data)
 
     async def handle_pickee_selection(self, msg: "PickeeProductSelection") -> None:
+        """Pickee 상품 선택 결과 처리"""
         logger.info("Handling pickee selection result for order %d", msg.order_id)
         summary = {}
         with self._db.session_scope() as session:
@@ -312,6 +316,7 @@ class OrderService:
                 self._detected_product_bbox.pop(msg.order_id, None)
 
     async def handle_cart_handover(self, msg: "PickeeCartHandover") -> None:
+        """Pickee 장바구니 전달 완료 처리"""
         order_id = msg.order_id
         robot_id = msg.robot_id
         logger.info("Handling cart handover for order %d, starting packing process.", order_id)
@@ -347,6 +352,7 @@ class OrderService:
                         order.box_id = start_res.box_id
 
             self._assignment_manager.assign_packee(order_id, packee_robot_id)
+            await self._notifier.notify_packing_info(order_id=order_id, payload={'robot_id': packee_robot_id})
             self._failure_handler.start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
 
             home_location_id = settings.PICKEE_HOME_LOCATION_ID
@@ -363,10 +369,12 @@ class OrderService:
             await self._failure_handler.fail_order(order_id, "Failed during cart handover.")
 
     async def handle_packee_availability(self, msg: "PackeeAvailability") -> None:
+        """Packee 작업 가능 여부 확인 처리"""
         logger.info("Packee availability for order %d: %s", msg.order_id, msg.available)
         await self._notifier.emit_work_info_notification(order_id=msg.order_id, robot_id=msg.robot_id)
 
     async def handle_packee_complete(self, msg: "PackeePackingComplete") -> None:
+        """Packee 포장 완료 처리"""
         logger.info("Handling packee complete for order %d. Success: %s", msg.order_id, msg.success)
         self._failure_handler.cancel_reservation_monitor(msg.order_id, msg.robot_id)
 
@@ -395,7 +403,7 @@ class OrderService:
         return dict(self._detected_product_bbox.get(order_id, {}))
 
     async def get_active_orders_snapshot(self) -> Dict[str, Any]:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         active_orders: List[Dict[str, Any]] = []
         status_counter: Dict[int, int] = {}
         truly_active_count = 0

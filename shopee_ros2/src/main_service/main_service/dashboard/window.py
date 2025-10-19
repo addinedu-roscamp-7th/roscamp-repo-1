@@ -125,9 +125,11 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
 
     def _poll_bridge(self):
         """브릿지에서 데이터를 가져와 UI를 업데이트한다."""
+        from ..constants import GUI_QUEUE_TIMEOUT
+
         count = 0
         while True:
-            payload = self._bridge.get_for_gui(timeout=0.0)
+            payload = self._bridge.get_for_gui(timeout=GUI_QUEUE_TIMEOUT)
             if payload is None:
                 break
 

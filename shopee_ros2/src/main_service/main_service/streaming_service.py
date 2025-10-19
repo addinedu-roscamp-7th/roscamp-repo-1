@@ -24,6 +24,8 @@ class StreamingSession:
     '''
 
     def __init__(self, robot_id: int, user_id: str, app_ip: str, app_port: int):
+        from .constants import STREAMING_FRAME_BUFFER_SIZE
+
         self.robot_id = robot_id
         self.user_id = user_id
         self.app_address = (app_ip, app_port)
@@ -31,7 +33,7 @@ class StreamingSession:
         # 청크 재조립용
         self.last_frame_id = -1
         self.frame_buffer: Dict[int, Dict[int, bytes]] = {}  # frame_id -> {chunk_idx: data}
-        self.buffer_max_size = 10  # 최대 10개 프레임만 보관 (메모리 누수 방지)
+        self.buffer_max_size = STREAMING_FRAME_BUFFER_SIZE  # 최대 프레임 보관 개수 (메모리 누수 방지)
 
         # 타임아웃 관리
         self.last_packet_time = time.time()
@@ -47,16 +49,16 @@ class StreamingSession:
 
     def add_chunk(self, frame_id: int, chunk_idx: int, data: bytes):
         '''프레임 청크 추가 및 버퍼 크기 관리'''
-        # 오래된 프레임 제거 (메모리 누수 방지)
-        if len(self.frame_buffer) > self.buffer_max_size:
-            oldest_frame = min(self.frame_buffer.keys())
-            del self.frame_buffer[oldest_frame]
-            logger.debug(f'Removed old frame {oldest_frame} from buffer')
-
         # 청크 추가
         if frame_id not in self.frame_buffer:
             self.frame_buffer[frame_id] = {}
         self.frame_buffer[frame_id][chunk_idx] = data
+
+        # 오래된 프레임 제거 (메모리 누수 방지)
+        while len(self.frame_buffer) > self.buffer_max_size:
+            oldest_frame = min(self.frame_buffer.keys())
+            del self.frame_buffer[oldest_frame]
+            logger.debug(f'Removed old frame {oldest_frame} from buffer')
 
 
 class UdpRelayProtocol(asyncio.DatagramProtocol):
@@ -203,16 +205,18 @@ class StreamingService:
             logger.error(f'Failed to relay packet: {e}')
 
     async def _cleanup_expired_sessions(self):
-        '''주기적으로 만료된 세션 정리 (30초 타임아웃)'''
+        '''주기적으로 만료된 세션 정리'''
+        from .constants import STREAMING_CLEANUP_INTERVAL, STREAMING_SESSION_TIMEOUT
+
         while True:
             try:
-                await asyncio.sleep(10)  # 10초마다 확인
+                await asyncio.sleep(STREAMING_CLEANUP_INTERVAL)
 
                 expired_count = 0
                 for robot_id in list(self._sessions.keys()):
                     active_sessions = [
                         s for s in self._sessions[robot_id]
-                        if not s.is_expired(timeout=30.0)
+                        if not s.is_expired(timeout=STREAMING_SESSION_TIMEOUT)
                     ]
 
                     removed = len(self._sessions[robot_id]) - len(active_sessions)

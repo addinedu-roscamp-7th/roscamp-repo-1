@@ -239,7 +239,7 @@ class RobotHistoryInfo:
     order_id: int                          # 주문 ID
     work_type: str                         # 작업 타입 (PICK/PACK)
     start_time: str                        # 시작 시간
-    end_time: Optional[str] = None         # 종료 시간
     status: str                            # 상태 (SUCCESS/FAIL)
+    end_time: Optional[str] = None         # 종료 시간
     failure_reason: Optional[str] = None   # 실패 사유
 

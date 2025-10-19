@@ -125,7 +125,12 @@ class ProductService:
             }
 
     def _is_safe_where_clause(self, clause: str) -> bool:
-        """LLM이 생성한 WHERE 절이 허용된 키워드/컬럼만 포함하는지 검증합니다."""
+        """
+        LLM이 생성한 WHERE 절이 허용된 키워드/컬럼만 포함하는지 검증합니다.
+
+        Returns:
+            True if safe, False otherwise
+        """
         lowered = clause.lower()
         for token in self._disallowed_tokens:
             if token in lowered:

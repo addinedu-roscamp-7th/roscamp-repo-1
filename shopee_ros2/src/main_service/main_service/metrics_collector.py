@@ -159,7 +159,7 @@ class MetricsCollector:
             실패한 주문 목록 및 사유별 집계
         """
         try:
-            error_stats = {
+            error_stats: Dict[str, Any] = {
                 'failed_orders': [],
                 'by_reason': {},
             }
@@ -174,7 +174,7 @@ class MetricsCollector:
                     error_stats['failed_orders'] = failed_orders
 
                     # 사유별 집계
-                    by_reason = {}
+                    by_reason: Dict[str, int] = {}
                     for order in failed_orders:
                         reason = order.get('failure_reason', 'UNKNOWN')
                         by_reason[reason] = by_reason.get(reason, 0) + 1

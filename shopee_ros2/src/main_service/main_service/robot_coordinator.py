@@ -553,12 +553,14 @@ class RobotCoordinator(Node):
         timeout: float | None = None,
     ):
         """Async helper executed from synchronous ROS service callbacks."""
+        from .constants import ROS_SERVICE_FALLBACK_TIMEOUT
+
         if not self._asyncio_loop:
             raise RuntimeError("Asyncio loop is not set for RobotCoordinator.")
         if timeout is None or timeout <= 0:
             timeout = settings.ROS_SERVICE_TIMEOUT
             if timeout <= 0:
-                timeout = 5.0
+                timeout = ROS_SERVICE_FALLBACK_TIMEOUT
         future = asyncio.run_coroutine_threadsafe(coro, self._asyncio_loop)
         return future.result(timeout=timeout)
 

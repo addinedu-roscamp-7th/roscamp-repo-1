@@ -58,10 +58,17 @@ class UserService:
                 try:
                     if pwd_context.verify(password, admin.password):
                         return True
-                except Exception:
-                    # 해시가 아닌 평문일 경우
+                except ValueError as e:
+                    # 해시가 아닌 평문일 경우 발생
+                    import logging
+                    logging.getLogger(__name__).debug(f"Admin password is not hashed for user {user_id}: {e}")
                     if admin.password == password:
                         return True
+                except Exception as e:
+                    # 기타 예외 (손상된 해시 등)
+                    import logging
+                    logging.getLogger(__name__).error(f"Error verifying admin password for {user_id}: {type(e).__name__}: {e}")
+                    return False
 
             # admin이 아니면 customer 테이블에서 검색
             customer = session.query(Customer).filter_by(id=user_id).first()
@@ -70,10 +77,17 @@ class UserService:
                 try:
                     if pwd_context.verify(password, customer.password):
                         return True
-                except Exception:
-                    # 해시가 아닌 평문일 경우
+                except ValueError as e:
+                    # 해시가 아닌 평문일 경우 발생
+                    import logging
+                    logging.getLogger(__name__).debug(f"Customer password is not hashed for user {user_id}: {e}")
                     if customer.password == password:
                         return True
+                except Exception as e:
+                    # 기타 예외 (손상된 해시 등)
+                    import logging
+                    logging.getLogger(__name__).error(f"Error verifying customer password for {user_id}: {type(e).__name__}: {e}")
+                    return False
 
         return False
 

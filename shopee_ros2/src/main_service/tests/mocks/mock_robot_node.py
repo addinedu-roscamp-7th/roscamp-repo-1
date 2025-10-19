@@ -4,6 +4,8 @@ Mock Robot Node 실행 스크립트
 """
 from __future__ import annotations
 
+from std_msgs.msg import String
+
 import argparse
 import logging
 import random
@@ -17,42 +19,39 @@ except ImportError:
     print('Error: rclpy is not available. Make sure ROS2 is sourced.')
     sys.exit(1)
 
-try:
-    from shopee_interfaces.msg import (
-        PackeeAvailability,
-        PackeePackingComplete,
-        PackeeRobotStatus,
-        PickeeArrival,
-        PickeeCartHandover,
-        PickeeMoveStatus,
-        PickeeProductDetection,
-        PickeeProductSelection,
-        PickeeDetectedProduct,
-        PickeeRobotStatus,
-    )
-    from shopee_interfaces.srv import (
-        PackeePackingCheckAvailability,
-        PackeePackingStart,
-        PickeeProductDetect,
-        PickeeProductProcessSelection,
-        PickeeWorkflowEndShopping,
-        PickeeWorkflowMoveToSection,
-        PickeeWorkflowMoveToPackaging,
-        PickeeWorkflowReturnToBase,
-        PickeeWorkflowReturnToStaff,
-        PickeeWorkflowStartTask,
-        PickeeMainVideoStreamStart,
-        PickeeMainVideoStreamStop,
-        MainGetLocationPose,
-        MainGetWarehousePose,
-        MainGetSectionPose,
-    )
-except ImportError as exc:
-    print(f'Error: shopee_interfaces not found: {exc}')
-    print('Make sure shopee_interfaces is built and sourced.')
-    sys.exit(1)
+from std_msgs.msg import String
+from shopee_interfaces.msg import (
+    PackeeAvailability,
+    PackeePackingComplete,
+    PackeeRobotStatus,
+    PickeeArrival,
+    PickeeCartHandover,
+    PickeeMoveStatus,
+    PickeeProductDetection,
+    PickeeProductLoaded,
+    PickeeProductSelection,
+    PickeeDetectedProduct,
+    PickeeRobotStatus,
+)
+from shopee_interfaces.srv import (
+    PackeePackingCheckAvailability,
+    PackeePackingStart,
+    PickeeProductDetect,
+    PickeeProductProcessSelection,
+    PickeeWorkflowEndShopping,
+    PickeeWorkflowMoveToPackaging,
+    PickeeWorkflowMoveToSection,
+    PickeeWorkflowReturnToBase,
+    PickeeWorkflowReturnToStaff,
+    PickeeWorkflowStartTask,
+    PickeeMainVideoStreamStart,
+    PickeeMainVideoStreamStop,
+    MainGetLocationPose,
+    MainGetWarehousePose,
+    MainGetSectionPose,
+)
 
-from .constants import RobotStatus
+from main_service.constants import RobotStatus
 
 logger = logging.getLogger('mock_robot_node')
 
@@ -104,6 +103,9 @@ class MockRobotNode(Node):
         self.pickee_selection_pub = None
         self.pickee_handover_pub = None
         self.pickee_status_pub = None
+
+        # E2E 테스트 피드백용 퍼블리셔
+        self.feedback_pub = self.create_publisher(String, '/test/feedback', 10)
 
         if self._enable_pickee:
             self.create_service(
@@ -231,6 +233,13 @@ class MockRobotNode(Node):
         self.get_logger().info(
             f'[MOCK] Start task: Order={request.order_id}, Robot={request.robot_id}'
         )
+
+        # E2E 테스트용 피드백 발행
+        if hasattr(self, 'feedback_pub') and self.feedback_pub:
+            from std_msgs.msg import String
+            feedback_msg = String()
+            feedback_msg.data = f'start_task_called:{request.order_id}'
+            self.feedback_pub.publish(feedback_msg)
 
         # 시퀀스 다이어그램에 맞춰 위치 좌표를 조회한다.
         if self._enable_pickee:

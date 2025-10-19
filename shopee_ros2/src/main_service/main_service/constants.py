@@ -245,7 +245,9 @@ class EventTopic(Enum):
 DEFAULT_TIMEOUT = 30.0
 API_TIMEOUT = 5.0
 ROS_SERVICE_TIMEOUT = 1.0
+ROS_SERVICE_FALLBACK_TIMEOUT = 5.0  # ROS 서비스 타임아웃 폴백 값
 LLM_TIMEOUT = 1.5
+TCP_READ_TIMEOUT = 5.0  # TCP 연결 읽기 타임아웃
 
 # 재시도 횟수
 MAX_RETRIES = 3
@@ -258,4 +260,18 @@ MAX_PAGE_SIZE = 1000
 # 로봇 관련
 MAX_PICKEE_ROBOTS = 10
 MAX_PACKEE_ROBOTS = 5
+
+# 스트리밍 관련
+STREAMING_SESSION_TIMEOUT = 30.0  # 스트리밍 세션 만료 시간 (초)
+STREAMING_CLEANUP_INTERVAL = 10.0  # 세션 정리 주기 (초)
+STREAMING_FRAME_BUFFER_SIZE = 10  # 프레임 버퍼 최대 크기
+
+# 대시보드 관련
+DASHBOARD_UPDATE_INTERVAL = 1.0  # 대시보드 갱신 주기 (초)
+MAX_TOPIC_LOG_ENTRIES = 100  # 토픽 모니터 최대 로그 수
+GUI_QUEUE_TIMEOUT = 0.0  # GUI 큐 타임아웃 (0.0 = non-blocking)
+GUI_SHUTDOWN_TIMEOUT = 1.0  # GUI 종료 대기 시간 (초)
+
+# 이벤트 루프 관련
+ROS_SPIN_INTERVAL = 0.1  # ROS 스핀 주기 (초)
 

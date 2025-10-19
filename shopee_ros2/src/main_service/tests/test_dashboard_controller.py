@@ -32,15 +32,28 @@ async def test_dashboard_data_provider_collect_snapshot():
     order_service.get_active_orders_snapshot.return_value = {'orders': [], 'summary': {}}
 
     state_store = AsyncMock()
-    state_store.list_states.return_value = [
-        RobotState(robot_id=1, robot_type=RobotType.PICKEE, status='IDLE'),
-    ]
+    robot_states = [RobotState(robot_id=1, robot_type=RobotType.PICKEE, status='IDLE')]
+    state_store.list_states.return_value = robot_states
 
-    async def metrics_provider():
-        return {'latency': 10}
+    # 새로운 metrics_collector 로직을 테스트
+    metrics_collector = AsyncMock()
+    metrics_collector.collect_metrics.return_value = {'latency': 10}
 
-    provider = DashboardDataProvider(order_service, state_store, metrics_provider)
+    provider = DashboardDataProvider(
+        order_service, 
+        state_store, 
+        metrics_collector=metrics_collector  # metrics_collector를 주입
+    )
     snapshot = await provider.collect_snapshot()
+
+    # Assertions
+    order_service.get_active_orders_snapshot.assert_awaited_once()
+    state_store.list_states.assert_awaited_once()
+    
+    # metrics_collector가 올바른 인자와 함께 호출되었는지 확인
+    metrics_collector.collect_metrics.assert_awaited_once()
+    call_args = metrics_collector.collect_metrics.await_args[0][0]
+    assert call_args[0]['robot_id'] == 1 # serialized_states가 전달되었는지 확인
 
     assert snapshot['orders'] == {'orders': [], 'summary': {}}
     assert snapshot['robots'][0]['robot_id'] == 1
@@ -54,8 +67,7 @@ async def test_dashboard_controller_cycle():
     data_provider.collect_snapshot = AsyncMock(return_value={'orders': {}, 'robots': [], 'metrics': {}})
 
     event_bus = MagicMock()
-    event_bus.register_listener = MagicMock()
-    event_bus.unregister_listener = MagicMock()
+    event_bus.subscribe = MagicMock()
 
     controller = DashboardController(
         loop,
@@ -65,6 +77,9 @@ async def test_dashboard_controller_cycle():
     )
 
     await controller.start()
+    # Assert that subscribe was called during start
+    event_bus.subscribe.assert_called()
+
     await asyncio.sleep(0.12)
 
     message = controller.bridge.get_for_gui(timeout=0.2)
@@ -72,5 +87,3 @@ async def test_dashboard_controller_cycle():
     assert message['type'] == 'snapshot'
 
     await controller.stop()
-    event_bus.register_listener.assert_called()
-    event_bus.unregister_listener.assert_called()

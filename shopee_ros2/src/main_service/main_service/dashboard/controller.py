@@ -82,13 +82,15 @@ class DashboardBridge:
         """
         브릿지를 종료하고 내부 자원을 정리한다.
         """
+        from ..constants import GUI_SHUTDOWN_TIMEOUT
+
         await self._to_gui_async.put(self._stop_sentinel)
         if self._pump_task:
             try:
                 await self._pump_task
             except asyncio.CancelledError:
                 pass
-        self._closed.wait(timeout=1.0)
+        self._closed.wait(timeout=GUI_SHUTDOWN_TIMEOUT)
 
 
 class DashboardDataProvider:
