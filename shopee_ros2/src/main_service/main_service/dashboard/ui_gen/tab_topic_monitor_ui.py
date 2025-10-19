@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_TopicMonitorTab(object):
     def setupUi(self, TopicMonitorTab):
         TopicMonitorTab.setObjectName("TopicMonitorTab")
-        TopicMonitorTab.resize(1200, 800)
-        TopicMonitorTab.setMinimumSize(QtCore.QSize(1200, 800))
+        TopicMonitorTab.resize(1880, 1000)
+        TopicMonitorTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.verticalLayout = QtWidgets.QVBoxLayout(TopicMonitorTab)
         self.verticalLayout.setObjectName("verticalLayout")
         self.splitter = QtWidgets.QSplitter(parent=TopicMonitorTab)

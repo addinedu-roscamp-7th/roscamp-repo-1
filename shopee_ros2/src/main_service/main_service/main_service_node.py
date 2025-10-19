@@ -439,14 +439,19 @@ class MainServiceApp:
             robot_id = data.get("robot_id")
             user_id = data.get("user_id")
             user_type = data.get("user_type")
-            app_ip, _ = peer # App의 TCP 포트가 아닌, UDP 포트로 보내야 함
-            # App의 UDP 수신 포트는 6000으로 가정 (명세서에 명시 필요)
-            APP_UDP_PORT = 6000 
+            app_ip, _ = peer  # App의 TCP 포트가 아닌, UDP 포트로 보내야 함
+            # App의 UDP 수신 포트는 6000으로 가정
+            APP_UDP_PORT = 6000
 
-            logger.info(f"Starting video stream for robot {robot_id} to {app_ip}:{APP_UDP_PORT}")
+            logger.info(f"Starting video stream: robot={robot_id}, user={user_id}, app={app_ip}")
 
-            # 1. UDP 릴레이 시작
-            self._streaming_service.start_relay(app_ip, APP_UDP_PORT)
+            # 1. 세션 기반 중계 시작
+            self._streaming_service.start_relay(
+                robot_id=robot_id,
+                user_id=user_id,
+                app_ip=app_ip,
+                app_port=APP_UDP_PORT
+            )
 
             # 2. 로봇에게 영상 송출 시작 명령
             req = PickeeMainVideoStreamStart.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
@@ -454,8 +459,9 @@ class MainServiceApp:
 
             success = res.success
             if not success:
-                # 로봇이 실패한 경우 릴레이도 초기화
-                self._streaming_service.stop_relay()
+                # 로봇이 실패한 경우 세션 제거
+                self._streaming_service.stop_relay(robot_id, user_id)
+
             return {
                 "type": "video_stream_start_response",
                 "result": success,
@@ -470,25 +476,32 @@ class MainServiceApp:
             user_id = data.get("user_id")
             user_type = data.get("user_type")
 
-            logger.info(f"Stopping video stream for robot {robot_id}")
+            logger.info(f"Stopping video stream: robot={robot_id}, user={user_id}")
 
-            req = PickeeMainVideoStreamStop.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
+            # 세션 종료
+            self._streaming_service.stop_relay(robot_id, user_id)
 
-            success = False
-            message = "Failed to stop stream"
-            try:
-                res = await self._robot.dispatch_video_stream_stop(req)
-                success = res.success
-                if res.message:
-                    message = res.message
-                elif success:
-                    message = "Video stream stopped"
-                else:
-                    message = "Failed to stop stream"
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Video stream stop request failed: %s", exc)
+            # 마지막 세션이면 로봇에게 중지 명령 전송
+            sessions_for_robot = self._streaming_service._sessions.get(robot_id, [])
+            if not sessions_for_robot:  # 더 이상 시청자가 없으면
+                req = PickeeMainVideoStreamStop.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
 
-            self._streaming_service.stop_relay()
+                success = False
+                message = "Failed to stop stream"
+                try:
+                    res = await self._robot.dispatch_video_stream_stop(req)
+                    success = res.success
+                    if res.message:
+                        message = res.message
+                    elif success:
+                        message = "Video stream stopped"
+                    else:
+                        message = "Failed to stop stream"
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Video stream stop request failed: %s", exc)
+            else:
+                success = True
+                message = f"Session stopped (other users still watching robot {robot_id})"
 
             return {
                 "type": "video_stream_stop_response",
@@ -873,9 +886,10 @@ def main() -> None:
         if settings.GUI_ENABLED and service_app._dashboard_controller:
             from .dashboard import DashboardWindow
             window = DashboardWindow(
-                service_app._dashboard_controller.bridge, 
-                service_app._robot, 
-                service_app._db
+                service_app._dashboard_controller.bridge,
+                service_app._robot,
+                service_app._db,
+                service_app._streaming_service
             )
             window.show()
             logger.info("Dashboard GUI window created")

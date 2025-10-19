@@ -12,10 +12,10 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_RobotStatusTab(object):
     def setupUi(self, RobotStatusTab):
         RobotStatusTab.setObjectName("RobotStatusTab")
-        RobotStatusTab.resize(1200, 800)
-        RobotStatusTab.setMinimumSize(QtCore.QSize(1200, 800))
+        RobotStatusTab.resize(1880, 1000)
+        RobotStatusTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.robot_table = QtWidgets.QTableWidget(parent=RobotStatusTab)
-        self.robot_table.setGeometry(QtCore.QRect(10, 10, 1180, 780))
+        self.robot_table.setGeometry(QtCore.QRect(10, 10, 1841, 951))
         self.robot_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.robot_table.setAlternatingRowColors(True)
         self.robot_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)

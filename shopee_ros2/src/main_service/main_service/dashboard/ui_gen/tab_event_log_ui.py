@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_EventLogTab(object):
     def setupUi(self, EventLogTab):
         EventLogTab.setObjectName("EventLogTab")
-        EventLogTab.resize(1200, 800)
-        EventLogTab.setMinimumSize(QtCore.QSize(1200, 800))
+        EventLogTab.resize(1880, 1000)
+        EventLogTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.filter_widget = QtWidgets.QWidget(parent=EventLogTab)
         self.filter_widget.setGeometry(QtCore.QRect(10, 10, 1180, 40))
         self.filter_widget.setObjectName("filter_widget")

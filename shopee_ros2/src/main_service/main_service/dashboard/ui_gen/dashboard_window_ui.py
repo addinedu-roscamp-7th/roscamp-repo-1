@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_DashboardWindow(object):
     def setupUi(self, DashboardWindow):
         DashboardWindow.setObjectName("DashboardWindow")
-        DashboardWindow.resize(1280, 900)
-        DashboardWindow.setMinimumSize(QtCore.QSize(1280, 900))
+        DashboardWindow.resize(1920, 1080)
+        DashboardWindow.setMinimumSize(QtCore.QSize(1920, 1080))
         self.centralwidget = QtWidgets.QWidget(parent=DashboardWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)

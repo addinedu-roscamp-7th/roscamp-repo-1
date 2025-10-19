@@ -20,24 +20,9 @@ class RobotStatusTab(BaseTab, Ui_RobotStatusTab):
         """테이블 컬럼 너비와 리사이즈 정책을 설정한다."""
         header = self.robot_table.horizontalHeader()
         
-        # 각 컬럼의 너비를 설정 (픽셀 단위)
-        self.robot_table.setColumnWidth(0, 80)   # Robot ID
-        self.robot_table.setColumnWidth(1, 80)   # Type
-        self.robot_table.setColumnWidth(2, 100)  # Status
-        self.robot_table.setColumnWidth(3, 180)  # Detailed Status (NEW)
-        self.robot_table.setColumnWidth(4, 90)   # Battery(%)
-        self.robot_table.setColumnWidth(5, 120)  # Location
-        self.robot_table.setColumnWidth(6, 80)   # Cart
-        self.robot_table.setColumnWidth(7, 90)   # Reserved
-        self.robot_table.setColumnWidth(8, 90)   # Order ID
-        self.robot_table.setColumnWidth(9, 100)  # Offline Time
-        
-        # 마지막 컬럼(Last Update)은 남은 공간을 모두 차지하도록 설정
-        header.setSectionResizeMode(10, QHeaderView.ResizeMode.Stretch)
-        
-        # 나머지 컬럼들은 고정 크기로 설정
-        for i in range(10):
-            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Fixed)
+        # 모든 컬럼을 균등하게 분배
+        for i in range(self.robot_table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
 
     def update_data(self, robots: List[Dict[str, Any]]):
         """로봇 상태 데이터로 테이블을 업데이트한다."""

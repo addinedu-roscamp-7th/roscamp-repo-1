@@ -43,6 +43,8 @@ setup(
             'mock_robot_node = main_service.mock_robot_node:main',
             'mock_pickee_node = main_service.mock_pickee_node:main',
             'mock_packee_node = main_service.mock_packee_node:main',
+            'mock_pickee_vision_node = main_service.mock_pickee_vision_node:main',
+            'mock_app_node = main_service.mock_app_node:main',
         ],
     },
 )

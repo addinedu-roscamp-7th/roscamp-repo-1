@@ -12,8 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_ServiceMonitorTab(object):
     def setupUi(self, ServiceMonitorTab):
         ServiceMonitorTab.setObjectName("ServiceMonitorTab")
-        ServiceMonitorTab.resize(1200, 800)
-        ServiceMonitorTab.setMinimumSize(QtCore.QSize(1200, 800))
+        ServiceMonitorTab.resize(1880, 1000)
+        ServiceMonitorTab.setMinimumSize(QtCore.QSize(1880, 1000))
         self.verticalLayout = QtWidgets.QVBoxLayout(ServiceMonitorTab)
         self.verticalLayout.setObjectName("verticalLayout")
         self.service_table = QtWidgets.QTableWidget(parent=ServiceMonitorTab)
