@@ -1276,6 +1276,38 @@ Main = Shopee Main Service
 }
 ```
 
+### 피킹 완료 알림
+
+- From: Main Service
+- To: App
+- Message Type: `picking_complete_notification`
+
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "order_id": "int",
+    "robot_id": "int"
+  },
+  "message": "string"
+}
+```
+
+**예시**
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "data": {
+    "order_id": 23,
+    "robot_id": 1
+  },
+  "message": "모든 상품을 장바구니에 담았습니다."
+}
+```
+
 ### 작업 정보 알림 (관리자)
 
 - From: Main Service
