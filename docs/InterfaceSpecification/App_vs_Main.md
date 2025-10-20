@@ -131,6 +131,100 @@ Main = Shopee Main Service
 }
 ```
 
+### 상품 목록
+
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `product_list`
+
+```json
+{
+  "type": "product_list",
+  "data": {
+    "user_id": "string"
+  }
+}
+```
+
+**예시**
+```json
+{
+  "type": "product_list",
+  "data": {
+    "user_id": "customer001"
+  }
+}
+```
+
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `product_list_response`
+
+```json
+{
+  "type": "product_list_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "products": [
+      {
+        "product_id": "int",
+        "name": "string",
+        "price": "int",
+        "discount_rate": "int",
+        "category": "string",
+        "allergy_info": {
+          "nuts": "boolean",
+          "milk": "boolean",
+          "seafood": "boolean",
+          "soy": "boolean",
+          "peach": "boolean",
+          "gluten": "boolean",
+          "eggs": "boolean"
+        },
+        "is_vegan_friendly": "boolean"
+      }
+    ],
+    "total_count": "int"
+  },
+  "message": "string"
+}
+```
+
+**예시**
+```json
+{
+  "type": "product_list_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "products": [
+      {
+        "product_id": 1,
+        "name": "사과",
+        "price": 19000,
+        "discount_rate": 25,
+        "category": "fruit",
+        "allergy_info": {
+          "nuts": false,
+          "milk": true,
+          "seafood": false,
+          "soy": true,
+          "peach": false,
+          "gluten": true,
+          "eggs": false
+        },
+        "is_vegan_friendly": true
+      }
+    ],
+    "total_count": 5
+  },
+  "message": "상품 목록 조회 성공"
+}
+```
+
 ### 상품 검색
 
 **요청**
