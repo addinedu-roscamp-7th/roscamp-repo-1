@@ -418,6 +418,7 @@ ros2 topic pub --once /pickee/arm/place_status shopee_interfaces/msg/PickeeArmTa
   message: 'Test place completed'
 }"
 
+ros2 topic echo /pickee/arm/pose_status
 ros2 topic pub --once /pickee/arm/pose_status shopee_interfaces/msg/ArmPoseStatus "{
   robot_id: 1,
   order_id: 1,

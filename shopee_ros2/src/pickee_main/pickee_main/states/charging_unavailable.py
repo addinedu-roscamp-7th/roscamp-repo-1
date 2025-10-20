@@ -18,8 +18,7 @@ class ChargingUnavailableState(State):
             self._node.get_logger().info(f'배터리 충전 완료 ({battery_level}%), CHARGING_AVAILABLE 상태로 전환합니다.')
             
             # CHARGING_AVAILABLE 상태로 전환
-            new_state = ChargingAvailableState(self._node)
-            self._node.state_machine.transition_to(new_state)
+            return ChargingAvailableState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('CHARGING_UNAVAILABLE 상태 탈출')

@@ -134,7 +134,7 @@ class PickeeMainController(Node):
         self.timer = self.create_timer(0.1, self.state_machine_callback)
         
         # 주기적으로 로봇 상태를 발행하기 위한 타이머 (1Hz)
-        self.status_timer = self.create_timer(1.0, self.publish_robot_status)
+        self.status_timer = self.create_timer(60.0, self.publish_robot_status)
         
         self.get_logger().info('Pickee Main Controller started')
     

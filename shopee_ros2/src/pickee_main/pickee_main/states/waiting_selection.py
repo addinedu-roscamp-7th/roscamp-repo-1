@@ -45,8 +45,7 @@ class WaitingSelectionState(State):
             
             # PICKING_PRODUCT 상태로 전환
             from .picking_product import PickingProductState
-            new_state = PickingProductState(self._node)
-            self._node.state_machine.transition_to(new_state)
+            return PickingProductState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('WAITING_SELECTION 상태 탈출')
