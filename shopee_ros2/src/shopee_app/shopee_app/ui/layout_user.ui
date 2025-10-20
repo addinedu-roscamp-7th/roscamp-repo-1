@@ -114,9 +114,16 @@
        </spacer>
       </item>
       <item>
-       <widget class="QToolButton" name="toolButton">
+       <widget class="QToolButton" name="btn_profile">
         <property name="text">
-         <string>My Profile</string>
+         <string>proflie</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_user_name">
+        <property name="text">
+         <string>TextLabel</string>
         </property>
        </widget>
       </item>

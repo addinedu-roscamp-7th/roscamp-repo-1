@@ -1,16 +1,20 @@
-from pathlib import Path
 from PyQt6 import QtCore
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
+from pathlib import Path
 
+from shopee_app.services.main_service_client import MainServiceClient
+from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
+from shopee_app.pages.widgets.profile_dialog import ProfileDialog
 
 
 class UserWindow(QWidget):
@@ -38,9 +42,7 @@ class UserWindow(QWidget):
             self.cart_items_layout.addItem(self.cart_spacer)
         self.ui.chk_select_all.stateChanged.connect(self.on_select_all_changed)
         if hasattr(self.ui, "btn_selected_delete"):
-            self.ui.btn_selected_delete.clicked.connect(
-                self.on_delete_selected_clicked
-            )
+            self.ui.btn_selected_delete.clicked.connect(self.on_delete_selected_clicked)
 
         self.current_columns = -1
         self.cart_container = None
@@ -72,6 +74,12 @@ class UserWindow(QWidget):
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self.products = self.load_initial_products()
         self.update_cart_summary()
+
+        self.service_client = MainServiceClient()
+        self.current_user_id = "customer001"
+
+        self.profile_dialog = ProfileDialog(self)
+        self.ui.btn_profile.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
     def closeEvent(self, event):
@@ -79,6 +87,7 @@ class UserWindow(QWidget):
         super().closeEvent(event)
 
     def on_pay_clicked(self):
+        self.request_product_list()
         self.set_mode("pick")
 
     def setup_cart_section(self):
@@ -165,6 +174,65 @@ class UserWindow(QWidget):
     def on_store_button_clicked(self):
         self.set_mode("pick")
 
+    def request_product_list(self) -> None:
+        """상품 목록을 Main Service에 요청한다."""
+        if not getattr(self, "service_client", None):
+            return
+
+        user_id = getattr(self, "current_user_id", "")
+        if not user_id:
+            QMessageBox.warning(self, "상품 목록 요청 실패", "사용자 정보가 없습니다.")
+            return
+
+        try:
+            response = self.service_client.request_product_list(user_id)
+            # TODO: 응답 데이터를 UI에 반영하는 로직을 구현한다.
+            print("상품 목록 응답:", response)
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, "상품 목록 요청 실패", str(exc))
+
+    def open_profile_dialog(self) -> None:
+        dialog = getattr(self, "profile_dialog", None)
+        button = getattr(self.ui, "btn_profile", None)
+        if dialog is None or button is None:
+            return
+
+        dialog.adjustSize()
+        anchor = button.mapToGlobal(button.rect().bottomRight())
+        x = anchor.x() - dialog.width()
+        y = anchor.y() + 6
+
+        parent_widget = self.window()
+        if parent_widget is not None:
+            parent_top_left = parent_widget.mapToGlobal(QtCore.QPoint(0, 0))
+            parent_rect = QtCore.QRect(parent_top_left, parent_widget.size())
+            if x < parent_rect.left():
+                x = parent_rect.left()
+            if x + dialog.width() > parent_rect.right():
+                x = parent_rect.right() - dialog.width()
+            if y + dialog.height() > parent_rect.bottom():
+                y = anchor.y() - dialog.height() - 6
+            if y < parent_rect.top():
+                y = parent_rect.top()
+        else:
+            window_handle = button.window().windowHandle() if button.window() else None
+            screen = window_handle.screen() if window_handle is not None else None
+            if screen is not None:
+                available = screen.availableGeometry()
+                if x < available.left():
+                    x = available.left()
+                if x + dialog.width() > available.right():
+                    x = available.right() - dialog.width()
+                if y + dialog.height() > available.bottom():
+                    y = anchor.y() - dialog.height() - 6
+                if y < available.top():
+                    y = available.top()
+
+        dialog.move(int(x), int(y))
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
     def set_mode(self, mode):
         if mode == self.current_mode:
             return
@@ -204,9 +272,7 @@ class UserWindow(QWidget):
 
     def apply_cart_state(self):
         if self.cart_toggle_button is not None:
-            self.cart_toggle_button.setText(
-                "접기" if self.cart_expanded else "펼치기"
-            )
+            self.cart_toggle_button.setText("접기" if self.cart_expanded else "펼치기")
 
         if self.cart_body:
             self.cart_body.setVisible(self.cart_expanded)
