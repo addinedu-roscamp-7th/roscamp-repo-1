@@ -14,7 +14,12 @@
 - 직원 등록, 추종 및 위치 정보 제공
 - 원격 모니터링을 위한 실시간 영상 스트리밍
 
-## 3. 아키텍처 설계: 노드 분리
+## 3. 아키텍처 설계: 노드 분리 (/shopee_ros2/src/pickee_vision/pickee_vision)
+
+카메라 하드웨어 자원은 2개
+1: 카트에 달려있어 장애물 감지 및 직원 추종
+2: 로봇팔에 달려있어 매대 상품 및 장바구니 존재 유무 확인, 로봇팔 제어를 위한 6자유도 좌표계 출력
+
 
 유지보수성과 확장성을 고려하여, Pickee Vision의 기능은 다음과 같이 4개의 독립적인 ROS2 노드로 분리하여 설계합니다.
 
@@ -22,6 +27,10 @@
 - **`product_detector_node`**: 상품 및 장바구니 관련 인식 서비스 및 결과 발행 전담
 - **`staff_tracker_node`**: 직원 등록, 추종 등 상호작용 시나리오 전담
 - **`camera_service_node`**: 영상 스트리밍 제어 및 하드웨어 관련 서비스 전담
+
+추가로 원격 모니터링을 위한 Shopee Main Controller과 UDP 통신하는 Python 파일 1개를 설계합니다.
+
+- **`udp_video.py`**: 원격 모니터링을 위한 실시간 영상 UDP 통신
 
 ## 4. 세부 구현 계획: 노드별 인터페이스
 
@@ -57,6 +66,10 @@
     - `/pickee/vision/video_stream_stop`
 - **내부 기능**
     - UDP 영상 스트림 송출 (포트 `6000`)
+
+#### 5)/ `udp_video.py` 
+- **내부 기능**
+    - /docs/InterfaceSpecification/Main_vs_Pic_Vision_UDP.md 참고
 
 ## 5. 개발 단계 (초안)
 
