@@ -7,7 +7,7 @@ import os
 from .yolo_detector import YoloDetector
 
 # 서비스 및 메시지 타입
-from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckProductInCart, PickeeVisionCheckCartPresence
+from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckProductInCart, VisionCheckCartPresence
 from shopee_interfaces.msg import (
     PickeeVisionDetection, 
     PickeeVisionCartCheck, 
@@ -53,7 +53,7 @@ class ProductDetectorNode(Node):
         # 서비스 서버 생성
         self.create_service(PickeeVisionDetectProducts, '/pickee/vision/detect_products', self.detect_products_callback)
         self.create_service(PickeeVisionCheckProductInCart, '/pickee/vision/check_product_in_cart', self.check_product_in_cart_callback)
-        self.create_service(PickeeVisionCheckCartPresence, '/pickee/vision/check_cart_presence', self.check_cart_presence_callback)
+        self.create_service(VisionCheckCartPresence, '/pickee/vision/check_cart_presence', self.check_cart_presence_callback)
 
         # 퍼블리셔 생성
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)

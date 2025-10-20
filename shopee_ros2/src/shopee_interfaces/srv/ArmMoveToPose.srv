@@ -1,0 +1,8 @@
+# 로봇팔 자세 변경 (Pickee, Packee 공통)
+
+int32 robot_id
+int32 order_id
+string pose_type           # ready, home, picking, placing 등
+---
+bool success
+string message

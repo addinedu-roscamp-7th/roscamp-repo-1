@@ -2,8 +2,8 @@ import rclpy
 from rclpy.node import Node
 
 # Import service and message types from shopee_interfaces
-from shopee_interfaces.srv import PickeeArmMoveToPose, PickeeArmPickProduct, PickeeArmPlaceProduct
-from shopee_interfaces.msg import ArmPoseStatus, PickeeArmTaskStatus
+from shopee_interfaces.srv import ArmMoveToPose, ArmPickProduct, ArmPlaceProduct
+from shopee_interfaces.msg import ArmPoseStatus, ArmTaskStatus
 
 # Import the new modules
 from .kinematics_model import KinematicsModel
@@ -22,23 +22,23 @@ class PickeeArmController(Node):
 
         # Create Service Servers
         self.move_to_pose_srv = self.create_service(
-            PickeeArmMoveToPose, '/pickee/arm/move_to_pose', self.move_to_pose_callback)
+            ArmMoveToPose, '/pickee/arm/move_to_pose', self.move_to_pose_callback)
         
         self.pick_product_srv = self.create_service(
-            PickeeArmPickProduct, '/pickee/arm/pick_product', self.pick_product_callback)
+            ArmPickProduct, '/pickee/arm/pick_product', self.pick_product_callback)
 
         self.place_product_srv = self.create_service(
-            PickeeArmPlaceProduct, '/pickee/arm/place_product', self.place_product_callback)
+            ArmPlaceProduct, '/pickee/arm/place_product', self.place_product_callback)
 
         # Create Publishers
         self.pose_status_pub = self.create_publisher(
             ArmPoseStatus, '/pickee/arm/pose_status', 10)
         
         self.pick_status_pub = self.create_publisher(
-            PickeeArmTaskStatus, '/pickee/arm/pick_status', 10)
+            ArmTaskStatus, '/pickee/arm/pick_status', 10)
 
         self.place_status_pub = self.create_publisher(
-            PickeeArmTaskStatus, '/pickee/arm/place_status', 10)
+            ArmTaskStatus, '/pickee/arm/place_status', 10)
 
         self.get_logger().info('Pickee Arm Controller Node has been started.')
 
@@ -89,7 +89,7 @@ class PickeeArmController(Node):
         # 5. Publish "completed" status.
         
         # For now, we just log the intent and publish completion.
-        status_msg = PickeeArmTaskStatus()
+        status_msg = ArmTaskStatus()
         status_msg.robot_id = request.robot_id
         status_msg.order_id = request.order_id
         status_msg.product_id = request.target_product.product_id
@@ -117,7 +117,7 @@ class PickeeArmController(Node):
         self.get_logger().info("Placing process would start here.")
 
         # Publish a "completed" status immediately for now
-        status_msg = PickeeArmTaskStatus()
+        status_msg = ArmTaskStatus()
         status_msg.robot_id = request.robot_id
         status_msg.order_id = request.order_id
         status_msg.product_id = request.product_id

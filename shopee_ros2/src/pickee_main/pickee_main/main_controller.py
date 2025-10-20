@@ -19,7 +19,7 @@ from pickee_main.states import (
 from shopee_interfaces.msg import (
     PickeeMobileArrival,
     PickeeMobilePose,
-    PickeeArmTaskStatus,
+    ArmTaskStatus,
     ArmPoseStatus,
     PickeeVisionDetection,
     PickeeVisionObstacles,
@@ -45,14 +45,14 @@ from shopee_interfaces.msg import (
 from shopee_interfaces.srv import (
     PickeeMobileMoveToLocation,
     PickeeMobileUpdateGlobalPath,
-    PickeeArmMoveToPose,
-    PickeeArmPickProduct,
-    PickeeArmPlaceProduct,
+    ArmMoveToPose,
+    ArmPickProduct,
+    ArmPlaceProduct,
     PickeeVisionDetectProducts,
     PickeeVisionSetMode,
     PickeeVisionTrackStaff,
     PickeeVisionCheckProductInCart,
-    PickeeVisionCheckCartPresence,
+    VisionCheckCartPresence,
     PickeeVisionVideoStreamStart,
     PickeeVisionVideoStreamStop,
     PickeeVisionRegisterStaff,
@@ -164,14 +164,14 @@ class PickeeMainController(Node):
         )
         
         self.arm_pick_status_sub = self.create_subscription(
-            PickeeArmTaskStatus,
+            ArmTaskStatus,
             '/pickee/arm/pick_status',
             self.arm_pick_status_callback,
             10
         )
         
         self.arm_place_status_sub = self.create_subscription(
-            PickeeArmTaskStatus,
+            ArmTaskStatus,
             '/pickee/arm/place_status',
             self.arm_place_status_callback,
             10
@@ -228,17 +228,17 @@ class PickeeMainController(Node):
         
         # Arm 서비스 클라이언트
         self.arm_move_to_pose_client = self.create_client(
-            PickeeArmMoveToPose,
+            ArmMoveToPose,
             '/pickee/arm/move_to_pose'
         )
         
         self.arm_pick_product_client = self.create_client(
-            PickeeArmPickProduct,
+            ArmPickProduct,
             '/pickee/arm/pick_product'
         )
         
         self.arm_place_product_client = self.create_client(
-            PickeeArmPlaceProduct,
+            ArmPlaceProduct,
             '/pickee/arm/place_product'
         )
         
@@ -264,7 +264,7 @@ class PickeeMainController(Node):
         )
         
         self.vision_check_cart_presence_client = self.create_client(
-            PickeeVisionCheckCartPresence,
+            VisionCheckCartPresence,
             '/pickee/vision/check_cart_presence'
         )
         
@@ -649,7 +649,7 @@ class PickeeMainController(Node):
 
     async def call_arm_move_to_pose(self, pose_type):
         # Arm에 자세 변경 명령
-        request = PickeeArmMoveToPose.Request()
+        request = ArmMoveToPose.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         request.pose_type = pose_type
@@ -668,7 +668,7 @@ class PickeeMainController(Node):
 
     async def call_arm_pick_product(self, target_position):
         # Arm에 상품 픽업 명령
-        request = PickeeArmPickProduct.Request()
+        request = ArmPickProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         # request.product_id = product_id
@@ -688,7 +688,7 @@ class PickeeMainController(Node):
 
     async def call_arm_place_product(self, product_id):
         # Arm에 상품 놓기 명령
-        request = PickeeArmPlaceProduct.Request()
+        request = ArmPlaceProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         request.product_id = product_id
@@ -781,7 +781,7 @@ class PickeeMainController(Node):
 
     async def call_vision_check_cart_presence(self):
         # Vision에 장바구니 존재 확인 명령
-        request = PickeeVisionCheckCartPresence.Request()
+        request = VisionCheckCartPresence.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         

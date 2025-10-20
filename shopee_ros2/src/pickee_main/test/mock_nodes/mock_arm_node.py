@@ -2,11 +2,11 @@
 
 import rclpy
 from rclpy.node import Node
-from shopee_interfaces.msg import PickeeArmTaskStatus, ArmPoseStatus
+from shopee_interfaces.msg import ArmTaskStatus, ArmPoseStatus
 from shopee_interfaces.srv import (
-    PickeeArmMoveToPose, 
-    PickeeArmPickProduct, 
-    PickeeArmPlaceProduct
+    ArmMoveToPose, 
+    ArmPickProduct, 
+    ArmPlaceProduct
 )
 import threading
 import time
@@ -19,19 +19,19 @@ class MockArmNode(Node):
         
         # Service Server 생성
         self.move_service = self.create_service(
-            PickeeArmMoveToPose,
+            ArmMoveToPose,
             '/pickee/arm/move_to_pose',
             self.move_to_pose_callback
         )
         
         self.pick_service = self.create_service(
-            PickeeArmPickProduct,
+            ArmPickProduct,
             '/pickee/arm/pick_product',
             self.pick_product_callback
         )
         
         self.place_service = self.create_service(
-            PickeeArmPlaceProduct,
+            ArmPlaceProduct,
             '/pickee/arm/place_product',
             self.place_product_callback
         )
@@ -44,13 +44,13 @@ class MockArmNode(Node):
         )
         
         self.pick_status_pub = self.create_publisher(
-            PickeeArmTaskStatus,
+            ArmTaskStatus,
             '/pickee/arm/pick_status',
             10
         )
         
         self.place_status_pub = self.create_publisher(
-            PickeeArmTaskStatus,
+            ArmTaskStatus,
             '/pickee/arm/place_status',
             10
         )
@@ -178,7 +178,7 @@ class MockArmNode(Node):
     
     def publish_pick_status(self, product_id, status):
         """픽업 상태 발행"""
-        msg = PickeeArmTaskStatus()
+        msg = ArmTaskStatus()
         msg.robot_id = 1
         msg.order_id = 1  # TODO: 실제 order_id 사용
         msg.product_id = product_id
@@ -192,7 +192,7 @@ class MockArmNode(Node):
     
     def publish_place_status(self, product_id, status):
         """놓기 상태 발행"""
-        msg = PickeeArmTaskStatus()
+        msg = ArmTaskStatus()
         msg.robot_id = 1
         msg.order_id = 1  # TODO: 실제 order_id 사용
         msg.product_id = product_id

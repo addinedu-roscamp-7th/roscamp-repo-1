@@ -9,10 +9,10 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
-#include "shopee_interfaces/msg/packee_arm_task_status.hpp"
-#include "shopee_interfaces/srv/packee_arm_move_to_pose.hpp"
-#include "shopee_interfaces/srv/packee_arm_pick_product.hpp"
-#include "shopee_interfaces/srv/packee_arm_place_product.hpp"
+#include "shopee_interfaces/msg/arm_task_status.hpp"
+#include "shopee_interfaces/srv/arm_move_to_pose.hpp"
+#include "shopee_interfaces/srv/arm_pick_product.hpp"
+#include "shopee_interfaces/srv/arm_place_product.hpp"
 
 #include "packee_arm/arm_driver_proxy.hpp"
 #include "packee_arm/constants.hpp"
@@ -24,10 +24,10 @@
 namespace packee_arm {
 
 using shopee_interfaces::msg::ArmPoseStatus;
-using shopee_interfaces::msg::PackeeArmTaskStatus;
-using shopee_interfaces::srv::PackeeArmMoveToPose;
-using shopee_interfaces::srv::PackeeArmPickProduct;
-using shopee_interfaces::srv::PackeeArmPlaceProduct;
+using shopee_interfaces::msg::ArmTaskStatus;
+using shopee_interfaces::srv::ArmMoveToPose;
+using shopee_interfaces::srv::ArmPickProduct;
+using shopee_interfaces::srv::ArmPlaceProduct;
 
 // PackeeArmController 클래스는 ROS 인터페이스, 파라미터 관리, 상태 발행을 담당한다.
 class PackeeArmController : public rclcpp::Node {
@@ -42,20 +42,20 @@ public:
     pose_status_pub_ = this->create_publisher<ArmPoseStatus>(
       "/packee/arm/pose_status",
       rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
-    pick_status_pub_ = this->create_publisher<PackeeArmTaskStatus>(
+    pick_status_pub_ = this->create_publisher<ArmTaskStatus>(
       "/packee/arm/pick_status",
       rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
-    place_status_pub_ = this->create_publisher<PackeeArmTaskStatus>(
+    place_status_pub_ = this->create_publisher<ArmTaskStatus>(
       "/packee/arm/place_status",
       rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
 
-    move_service_ = this->create_service<PackeeArmMoveToPose>(
+    move_service_ = this->create_service<ArmMoveToPose>(
       "/packee/arm/move_to_pose",
       std::bind(&PackeeArmController::HandleMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
-    pick_service_ = this->create_service<PackeeArmPickProduct>(
+    pick_service_ = this->create_service<ArmPickProduct>(
       "/packee/arm/pick_product",
       std::bind(&PackeeArmController::HandlePickProduct, this, std::placeholders::_1, std::placeholders::_2));
-    place_service_ = this->create_service<PackeeArmPlaceProduct>(
+    place_service_ = this->create_service<ArmPlaceProduct>(
       "/packee/arm/place_product",
       std::bind(&PackeeArmController::HandlePlaceProduct, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -233,8 +233,8 @@ private:
   }
 
   void HandleMoveToPose(
-    const std::shared_ptr<PackeeArmMoveToPose::Request> request,
-    std::shared_ptr<PackeeArmMoveToPose::Response> response) {
+    const std::shared_ptr<ArmMoveToPose::Request> request,
+    std::shared_ptr<ArmMoveToPose::Response> response) {
     if (!valid_pose_types_.count(request->pose_type)) {
       PublishPoseStatus(
         request->robot_id,
@@ -243,7 +243,7 @@ private:
         "failed",
         0.0F,
         "지원되지 않는 pose_type입니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "유효하지 않은 pose_type입니다.";
       return;
     }
@@ -253,7 +253,7 @@ private:
     command.order_id = request->order_id;
     command.pose_type = request->pose_type;
     execution_manager_->EnqueueMove(command);
-    response->accepted = true;
+    response->success = true;
     response->message = "자세 변경 명령을 수락했습니다.";
     RCLCPP_INFO(
       this->get_logger(),
@@ -264,74 +264,74 @@ private:
   }
 
   void HandlePickProduct(
-    const std::shared_ptr<PackeeArmPickProduct::Request> request,
-    std::shared_ptr<PackeeArmPickProduct::Response> response) {
+    const std::shared_ptr<ArmPickProduct::Request> request,
+    std::shared_ptr<ArmPickProduct::Response> response) {
     if (!valid_arm_sides_.count(request->arm_side)) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->product_id,
+        request->target_product.product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
 
     if (!IsValidBoundingBox(
-        request->bbox.x1,
-        request->bbox.y1,
-        request->bbox.x2,
-        request->bbox.y2)) {
+        request->target_product.bbox.x1,
+        request->target_product.bbox.y1,
+        request->target_product.bbox.x2,
+        request->target_product.bbox.y2)) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->product_id,
+        request->target_product.product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
         "bbox 좌표가 유효하지 않습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "bbox가 유효하지 않습니다.";
       return;
     }
 
     if (!AreFinite(
-        request->target_position.x,
-        request->target_position.y,
-        request->target_position.z)) {
+        request->target_product.position.x,
+        request->target_product.position.y,
+        request->target_product.position.z)) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->product_id,
+        request->target_product.product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
         "target_position에 유효하지 않은 값이 포함되어 있습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "target_position 값이 잘못되었습니다.";
       return;
     }
 
     if (!IsWithinWorkspace(
-        request->target_position.x,
-        request->target_position.y,
-        request->target_position.z)) {
+        request->target_product.position.x,
+        request->target_product.position.y,
+        request->target_product.position.z)) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->product_id,
+        request->target_product.product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
         "target_position이 myCobot 280 작업 공간을 벗어났습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "target_position이 작업 공간 범위를 벗어났습니다.";
       return;
     }
@@ -339,30 +339,30 @@ private:
     PickCommand command{};
     command.robot_id = request->robot_id;
     command.order_id = request->order_id;
-    command.product_id = request->product_id;
+    command.product_id = request->target_product.product_id;
     command.arm_side = request->arm_side;
-    command.target_x = request->target_position.x;
-    command.target_y = request->target_position.y;
-    command.target_z = request->target_position.z;
-    command.bbox_x1 = request->bbox.x1;
-    command.bbox_y1 = request->bbox.y1;
-    command.bbox_x2 = request->bbox.x2;
-    command.bbox_y2 = request->bbox.y2;
+    command.target_x = request->target_product.position.x;
+    command.target_y = request->target_product.position.y;
+    command.target_z = request->target_product.position.z;
+    command.bbox_x1 = request->target_product.bbox.x1;
+    command.bbox_y1 = request->target_product.bbox.y1;
+    command.bbox_x2 = request->target_product.bbox.x2;
+    command.bbox_y2 = request->target_product.bbox.y2;
     execution_manager_->EnqueuePick(command);
-    response->accepted = true;
+    response->success = true;
     response->message = "상품 픽업 명령을 수락했습니다.";
     RCLCPP_INFO(
       this->get_logger(),
       "픽업 명령 수신: robot_id=%d, order_id=%d, product_id=%d, arm_side=%s",
       request->robot_id,
       request->order_id,
-      request->product_id,
+      request->target_product.product_id,
       request->arm_side.c_str());
   }
 
   void HandlePlaceProduct(
-    const std::shared_ptr<PackeeArmPlaceProduct::Request> request,
-    std::shared_ptr<PackeeArmPlaceProduct::Response> response) {
+    const std::shared_ptr<ArmPlaceProduct::Request> request,
+    std::shared_ptr<ArmPlaceProduct::Response> response) {
     if (!valid_arm_sides_.count(request->arm_side)) {
       PublishPlaceStatus(
         request->robot_id,
@@ -373,7 +373,7 @@ private:
         "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
@@ -391,7 +391,7 @@ private:
         "planning",
         0.0F,
         "box_position에 유효하지 않은 값이 포함되어 있습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "box_position 값이 잘못되었습니다.";
       return;
     }
@@ -409,7 +409,7 @@ private:
         "planning",
         0.0F,
         "box_position이 myCobot 280 작업 공간을 벗어났습니다.");
-      response->accepted = false;
+      response->success = false;
       response->message = "box_position이 작업 공간 범위를 벗어났습니다.";
       return;
     }
@@ -423,7 +423,7 @@ private:
     command.box_y = request->box_position.y;
     command.box_z = request->box_position.z;
     execution_manager_->EnqueuePlace(command);
-    response->accepted = true;
+    response->success = true;
     response->message = "상품 담기 명령을 수락했습니다.";
     RCLCPP_INFO(
       this->get_logger(),
@@ -460,7 +460,7 @@ private:
     const std::string & current_phase,
     float progress,
     const std::string & message) {
-    auto status_msg = PackeeArmTaskStatus();
+    auto status_msg = ArmTaskStatus();
     status_msg.robot_id = robot_id;
     status_msg.order_id = order_id;
     status_msg.product_id = product_id;
@@ -481,7 +481,7 @@ private:
     const std::string & current_phase,
     float progress,
     const std::string & message) {
-    auto status_msg = PackeeArmTaskStatus();
+    auto status_msg = ArmTaskStatus();
     status_msg.robot_id = robot_id;
     status_msg.order_id = order_id;
     status_msg.product_id = product_id;
@@ -615,12 +615,12 @@ private:
   }
 
   rclcpp::Publisher<ArmPoseStatus>::SharedPtr pose_status_pub_;
-  rclcpp::Publisher<PackeeArmTaskStatus>::SharedPtr pick_status_pub_;
-  rclcpp::Publisher<PackeeArmTaskStatus>::SharedPtr place_status_pub_;
+  rclcpp::Publisher<ArmTaskStatus>::SharedPtr pick_status_pub_;
+  rclcpp::Publisher<ArmTaskStatus>::SharedPtr place_status_pub_;
 
-  rclcpp::Service<PackeeArmMoveToPose>::SharedPtr move_service_;
-  rclcpp::Service<PackeeArmPickProduct>::SharedPtr pick_service_;
-  rclcpp::Service<PackeeArmPlaceProduct>::SharedPtr place_service_;
+  rclcpp::Service<ArmMoveToPose>::SharedPtr move_service_;
+  rclcpp::Service<ArmPickProduct>::SharedPtr pick_service_;
+  rclcpp::Service<ArmPlaceProduct>::SharedPtr place_service_;
 
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 
