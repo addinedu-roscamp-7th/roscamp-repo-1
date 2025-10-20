@@ -21,7 +21,7 @@ class TwistModifier(Node):
         )
 
         # 수정된 /cmd_vel_modified 토픽 발행
-        self.publisher_ = self.create_publisher(Twist, 'cmd_vel_modified', 10)
+        self.publisher_ = self.create_publisher(Twist, '/cmd_vel_modified', 10)
 
         # 키보드 상태 초기값
         self.key_command = 'z'  # 기본: 그대로 전달
@@ -35,33 +35,38 @@ class TwistModifier(Node):
         """Twist 메시지를 키보드 입력에 따라 수정 후 발행"""
         modified_twist = Twist()
 
-        # 키보드 입력 처리
-        if self.key_command == 'x':
+        # 키보드 입력에 따른 배율 결정
+        if self.key_command == 'x':      # 감속
+            scale = 0.5
             self.get_logger().info('감속')
-            modified_twist.linear.x = msg.linear.x * 0.5
-        elif self.key_command == 'z':
+        elif self.key_command == 'z':    # 정상속도
+            scale = 1.0
             self.get_logger().info('정상속도')
-            modified_twist.linear.x = msg.linear.x
-        elif self.key_command == 'c':
+        elif self.key_command == 'c':    # 일시정지
+            scale = 0.0
             self.get_logger().info('일시정지')
-            modified_twist.linear.x = 0.0
         else:
-            modified_twist.linear.x = msg.linear.x  # 기본
+            scale = 1.0
 
-        # y, z 선형 속도는 그대로
-        modified_twist.linear.y = msg.linear.y
-        modified_twist.linear.z = msg.linear.z
+        # 모든 선형 속도에 적용
+        modified_twist.linear.x = msg.linear.x * scale
+        modified_twist.linear.y = msg.linear.y * scale
+        modified_twist.linear.z = msg.linear.z * scale
 
-        # 각속도는 그대로 전달
-        modified_twist.angular.x = msg.angular.x
-        modified_twist.angular.y = msg.angular.y
-        modified_twist.angular.z = msg.angular.z
+        # 모든 각속도에 적용
+        modified_twist.angular.x = msg.angular.x * scale
+        modified_twist.angular.y = msg.angular.y * scale
+        modified_twist.angular.z = msg.angular.z * scale
 
         # 메시지 발행
         self.publisher_.publish(modified_twist)
 
         self.get_logger().info(
-            f"Key={self.key_command} | Original linear.x={msg.linear.x:.2f} → Modified linear.x={modified_twist.linear.x:.2f}"
+            f"Key={self.key_command} | Scale={scale} | "
+            f"Linear=({msg.linear.x:.2f},{msg.linear.y:.2f},{msg.linear.z:.2f}) -> "
+            f"({modified_twist.linear.x:.2f},{modified_twist.linear.y:.2f},{modified_twist.linear.z:.2f}) | "
+            f"Angular=({msg.angular.x:.2f},{msg.angular.y:.2f},{msg.angular.z:.2f}) -> "
+            f"({modified_twist.angular.x:.2f},{modified_twist.angular.y:.2f},{modified_twist.angular.z:.2f})"
         )
 
     def keyboard_listener(self):
@@ -76,8 +81,13 @@ class TwistModifier(Node):
                 if ch in ['x', 'z', 'c']:
                     self.key_command = ch
                     self.get_logger().info(f"Keyboard pressed: {ch}")
+                elif ch == 'v':  # 종료
+                    self.get_logger().info("✅ 'v' pressed. Shutting down node...")
+                    rclpy.shutdown()
+                    break
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
 
 
 def main(args=None):
