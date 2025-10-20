@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RosServiceRequestTab</class>
+ <widget class="QWidget" name="RosServiceRequestTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1880</width>
+    <height>1000</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1880</width>
+    <height>1000</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   <item>
+    <widget class="QSplitter" name="main_splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <widget class="QGroupBox" name="service_list_groupbox">
+      <property name="title">
+       <string>📡 서비스 목록</string>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_left">
+       <item>
+        <layout class="QHBoxLayout" name="search_layout">
+         <item>
+          <widget class="QLabel" name="search_label">
+           <property name="text">
+            <string>검색:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="search_input">
+           <property name="placeholderText">
+            <string>서비스 이름 검색...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTreeWidget" name="service_tree">
+         <column>
+          <property name="text">
+           <string>서비스</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="right_widget">
+      <layout class="QVBoxLayout" name="verticalLayout_right">
+       <item>
+        <widget class="QSplitter" name="right_splitter">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <widget class="QGroupBox" name="param_groupbox">
+          <property name="title">
+           <string>⚙️ 서비스 파라미터</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_param">
+           <item>
+            <widget class="QLabel" name="service_desc_label">
+             <property name="text">
+              <string>← 좌측에서 서비스를 선택하세요</string>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #666; font-style: italic;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QScrollArea" name="param_scroll_area">
+             <property name="widgetResizable">
+              <bool>true</bool>
+             </property>
+             <property name="minimumHeight">
+              <number>200</number>
+             </property>
+             <widget class="QWidget" name="param_scroll_contents">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>100</width>
+                <height>30</height>
+               </rect>
+              </property>
+              <layout class="QFormLayout" name="param_form_layout"/>
+             </widget>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="button_layout">
+             <item>
+              <widget class="QPushButton" name="reset_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>🔄 초기화</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="call_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>📤 서비스 호출</string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+QPushButton:hover {
+    background-color: #45a049;
+}
+QPushButton:disabled {
+    background-color: #cccccc;
+}</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QGroupBox" name="result_groupbox">
+          <property name="title">
+           <string>📋 결과 로그</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_result">
+           <item>
+            <layout class="QHBoxLayout" name="clear_button_layout">
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="clear_log_button">
+               <property name="text">
+                <string>🗑️ 로그 지우기</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QTextEdit" name="result_log">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="minimumHeight">
+              <number>150</number>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QTextEdit {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: &quot;Courier New&quot;, monospace;
+    font-size: 11px;
+}</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

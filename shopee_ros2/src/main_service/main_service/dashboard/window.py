@@ -23,6 +23,9 @@ from .tabs.topic_monitor_tab import TopicMonitorTab
 from .tabs.service_monitor_tab import ServiceMonitorTab
 from .tabs.db_admin_tab import DBAdminTab
 from .tabs.video_monitor_tab import VideoMonitorTab
+from .tabs.ros_service_request_tab import RosServiceRequestTab
+from .tabs.ros_topic_publish_tab import RosTopicPublishTab
+from .tabs.tcp_tester_tab import TcpTesterTab
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +39,13 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
     - DashboardBridge로부터 데이터를 받아 각 탭에 분배
     """
 
-    def __init__(self, bridge, ros_node, db_manager=None, streaming_service=None):
+    def __init__(self, bridge, ros_node, db_manager=None, streaming_service=None, loop=None):
         super().__init__()
         self._bridge = bridge
         self._ros_node = ros_node
         self._db_manager = db_manager
         self._streaming_service = streaming_service
+        self._loop = loop  # asyncio 이벤트 루프 저장
 
         # 메인 윈도우 UI 로드
         self.setupUi(self)
@@ -63,6 +67,13 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.topic_monitor_tab = TopicMonitorTab()
         self.service_monitor_tab = ServiceMonitorTab()
 
+        # ROS2 제어 패널 탭 추가
+        self.ros_service_request_tab = RosServiceRequestTab(robot_coordinator=self._ros_node, loop=self._loop)
+        self.ros_topic_publish_tab = RosTopicPublishTab(ros_node=self._ros_node)
+
+        # TCP 테스터 탭 추가
+        self.tcp_tester_tab = TcpTesterTab()
+
         # DB 관리 탭은 db_manager가 있을 때만 추가
         self.db_admin_tab = None
         if self._db_manager:
@@ -79,6 +90,9 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         # self.tab_widget.addTab(self.log_tab, '이벤트 로그')
         self.tab_widget.addTab(self.topic_monitor_tab, 'ROS2 토픽 모니터')
         self.tab_widget.addTab(self.service_monitor_tab, 'ROS2 서비스 모니터')
+        self.tab_widget.addTab(self.ros_service_request_tab, 'ROS2 서비스 호출')
+        self.tab_widget.addTab(self.ros_topic_publish_tab, 'ROS2 토픽 시뮬레이터')
+        self.tab_widget.addTab(self.tcp_tester_tab, 'TCP 테스터')
 
         # 영상 모니터링 탭 추가 (있는 경우)
         if self.video_monitor_tab:
@@ -197,6 +211,11 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
             self.db_admin_tab.cleanup()
         if hasattr(self, 'video_monitor_tab') and self.video_monitor_tab:
             self.video_monitor_tab.cleanup()
+
+        if hasattr(self, 'ros_topic_publish_tab') and self.ros_topic_publish_tab:
+            self.ros_topic_publish_tab.cleanup()
+        if hasattr(self, 'tcp_tester_tab') and self.tcp_tester_tab:
+            self.tcp_tester_tab.cleanup()
 
         # ROS2 종료
         if rclpy.ok():

@@ -210,10 +210,10 @@ class ProductService:
         """
         상품 ID로 위치 정보(창고, 섹션)를 동기적으로 조회합니다.
         ROS2 서비스 콜백에서 사용하기 위해 동기 메서드로 구현합니다.
-        
+
         Args:
             product_id: 상품 ID
-            
+
         Returns:
             {"warehouse_id": int, "section_id": int} 딕셔너리 또는 None
         """
@@ -225,3 +225,50 @@ class ProductService:
                     "section_id": product.section_id,
                 }
         return None
+
+    async def get_all_products(self) -> Dict[str, Any]:
+        """
+        전체 상품 목록을 조회합니다.
+
+        Returns:
+            dict: {"products": list[dict], "total_count": int}
+        """
+        with self._db.session_scope() as session:
+            products = session.query(Product).all()
+            product_list = [self._product_to_dict_with_allergy(p) for p in products]
+            return {
+                "products": product_list,
+                "total_count": len(product_list)
+            }
+
+    def _product_to_dict_with_allergy(self, product: Product) -> Dict[str, Any]:
+        """
+        Product 객체를 딕셔너리로 변환 (알레르기 정보 포함)
+
+        Args:
+            product: Product ORM 객체
+
+        Returns:
+            dict: 상품 정보 (알레르기 상세 정보 포함)
+        """
+        allergy_dict = {}
+        if product.allergy_info:
+            allergy_dict = {
+                "nuts": product.allergy_info.nuts,
+                "milk": product.allergy_info.milk,
+                "seafood": product.allergy_info.seafood,
+                "soy": product.allergy_info.soy,
+                "peach": product.allergy_info.peach,
+                "gluten": product.allergy_info.gluten,
+                "eggs": product.allergy_info.eggs,
+            }
+
+        return {
+            "product_id": product.product_id,
+            "name": product.name,
+            "price": product.price,
+            "discount_rate": product.discount_rate,
+            "category": product.category,
+            "allergy_info": allergy_dict,
+            "is_vegan_friendly": product.is_vegan_friendly,
+        }

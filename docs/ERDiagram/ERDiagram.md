@@ -55,7 +55,6 @@ entity "product" {
   height : int
   weight : int
   fragile : bool
-  img_paht : VARCHAR(50)
 }
 
 entity "order" {

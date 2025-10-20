@@ -181,7 +181,6 @@ class InventoryService:
                 height=int(payload["height"]) if payload.get("height") is not None else None,
                 weight=int(payload["weight"]) if payload.get("weight") is not None else None,
                 fragile=self._to_bool(payload["fragile"]) if payload.get("fragile") is not None else None,
-                img_path=str(payload["img_path"]) if payload.get("img_path") else None,
             )
             session.add(product)
 
@@ -196,7 +195,7 @@ class InventoryService:
             if not product:
                 return False
 
-            for field in ("barcode", "name", "category", "img_path"):
+            for field in ("barcode", "name", "category"):
                 if field in payload and payload[field] is not None:
                     setattr(product, field, str(payload[field]))
 
@@ -241,7 +240,6 @@ class InventoryService:
             "height": product.height,
             "weight": product.weight,
             "fragile": product.fragile,
-            "img_path": product.img_path,
         }
 
     def _resolve_warehouse_id(self, session, section_id: int, fallback: Optional[int] = None) -> int:
