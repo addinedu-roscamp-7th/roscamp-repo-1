@@ -30,7 +30,7 @@ from shopee_interfaces.msg import (
     PickeeProductDetection,
     PickeeProductLoaded,
     PickeeProductSelection,
-    PickeeDetectedProduct,
+    DetectedProduct,
     PickeeRobotStatus,
 )
 from shopee_interfaces.srv import (
@@ -80,6 +80,13 @@ class MockRobotNode(Node):
         self._packee_robot_id = 3
         self._staff_station_location_id = 5000
         self._staff_station_warehouse_id = 1
+
+        # 중복 이벤트 억제를 위한 상태 캐시
+        self._pending_section_moves: set[tuple[int, int]] = set()
+        self._pending_packaging_moves: set[int] = set()
+        self._pending_returns: set[int] = set()
+        self._pending_detections: set[tuple[int, int]] = set()
+        self._handover_published: set[int] = set()
 
         # Main Service pose 조회용 클라이언트
         self._main_location_pose_client = None
@@ -272,6 +279,14 @@ class MockRobotNode(Node):
             response.message = 'Pickee simulation disabled'
             return response
 
+        target_key = (request.order_id, request.section_id)
+        if target_key in self._pending_section_moves:
+            self.get_logger().debug('[MOCK] Duplicate move_to_section ignored (order=%s, section=%s)', request.order_id, request.section_id)
+            response.success = True
+            response.message = 'Already moving to section'
+            return response
+        self._pending_section_moves.add(target_key)
+
         self.get_logger().info(
             f'[MOCK] Moving to section: Location={request.location_id}, Section={request.section_id}'
         )
@@ -286,15 +301,6 @@ class MockRobotNode(Node):
             self.pickee_move_pub.publish(move_msg)
 
         if hasattr(request, 'location_id') and request.location_id:
-            pose_req = MainGetLocationPose.Request()
-            pose_req.location_id = int(request.location_id)
-            self._call_main_service_async(
-                self._main_location_pose_client,
-                pose_req,
-                'get_location_pose',
-            )
-
-        if hasattr(request, 'location_id'):
             pose_req = MainGetLocationPose.Request()
             pose_req.location_id = int(request.location_id)
             self._call_main_service_async(
@@ -325,6 +331,7 @@ class MockRobotNode(Node):
             self.get_logger().info(f'[MOCK] Arrived at section {request.section_id}')
             self._pickee_state = RobotStatus.WORKING.value
             self._publish_robot_status()
+            self._pending_section_moves.discard(target_key)
             timer.cancel()
 
         timer = self.create_timer(2.0, publish_arrival, clock=self.get_clock())
@@ -339,6 +346,14 @@ class MockRobotNode(Node):
             response.success = False
             response.message = 'Pickee simulation disabled'
             return response
+
+        if request.order_id in self._pending_packaging_moves:
+            self.get_logger().debug('[MOCK] Duplicate move_to_packaging ignored (order=%s)', request.order_id)
+            response.success = True
+            response.message = 'Already moving to packaging'
+            return response
+        self._pending_packaging_moves.add(request.order_id)
+        self._handover_published.discard(request.order_id)
 
         self.get_logger().info('[MOCK] Moving to packaging area')
         self._pickee_state = RobotStatus.MOVING.value
@@ -359,6 +374,11 @@ class MockRobotNode(Node):
 
         def publish_handover():
             nonlocal handover_timer
+            if request.order_id in self._handover_published:
+                if handover_timer is not None:
+                    handover_timer.cancel()
+                return
+            self._handover_published.add(request.order_id)
             if self.pickee_handover_pub:
                 handover_msg = PickeeCartHandover()
                 handover_msg.robot_id = request.robot_id
@@ -426,6 +446,7 @@ class MockRobotNode(Node):
                 self.get_logger().info('[MOCK] Arrived at packaging area')
             self._pickee_state = RobotStatus.WORKING.value
             self._publish_robot_status()
+            self._pending_packaging_moves.discard(request.order_id)
             if arrival_timer is not None:
                 arrival_timer.cancel()
             handover_timer = self.create_timer(0.5, publish_handover, clock=self.get_clock())
@@ -445,6 +466,13 @@ class MockRobotNode(Node):
 
         base_location_id = int(getattr(request, 'location_id', 0))
         order_id = self.current_order_id or 0
+
+        if order_id in self._pending_returns:
+            self.get_logger().debug('[MOCK] Duplicate return_to_base ignored (order=%s)', order_id)
+            response.success = True
+            response.message = 'Already returning to base'
+            return response
+        self._pending_returns.add(order_id)
 
         self.get_logger().info(f'[MOCK] Returning to base (location={base_location_id})')
         if base_location_id > 0:
@@ -485,6 +513,7 @@ class MockRobotNode(Node):
             if arrival_timer is not None:
                 arrival_timer.cancel()
             charging_timer = self.create_timer(1.0, finish_charging, clock=self.get_clock())
+            self._pending_returns.discard(order_id)
 
         arrival_timer = self.create_timer(4.0, publish_arrival, clock=self.get_clock())
 
@@ -548,6 +577,14 @@ class MockRobotNode(Node):
             response.message = 'Pickee simulation disabled'
             return response
 
+        detect_key = (request.order_id, tuple(sorted(request.product_ids)))
+        if detect_key in self._pending_detections:
+            self.get_logger().debug('[MOCK] Duplicate product_detect ignored (order=%s, products=%s)', request.order_id, list(request.product_ids))
+            response.success = True
+            response.message = 'Detection already in progress'
+            return response
+        self._pending_detections.add(detect_key)
+
         self.get_logger().info(f'[MOCK] Detecting products: {list(request.product_ids)}')
 
         def publish_detection():
@@ -557,7 +594,7 @@ class MockRobotNode(Node):
 
             bbox_number = 1
             for product_id in request.product_ids:
-                detected = PickeeDetectedProduct()
+                detected = DetectedProduct()
                 detected.product_id = product_id
                 detected.bbox_number = bbox_number
                 detection_msg.products.append(detected)
@@ -567,6 +604,7 @@ class MockRobotNode(Node):
                 self.pickee_detection_pub.publish(detection_msg)
             self._publish_robot_status()
             self.get_logger().info('[MOCK] Product detection complete')
+            self._pending_detections.discard(detect_key)
             timer.cancel()
 
         timer = self.create_timer(1.5, publish_detection, clock=self.get_clock())

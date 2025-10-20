@@ -49,7 +49,8 @@ setup(
     entry_points={
         'console_scripts': [
             'main_service_node = main_service.main_service_node:main',
-            'test_client = main_service.scripts.test_client:main',
+            'test_client = tests.utils.test_client:main',
+            'interactive_mock_app = tests.utils.interactive_mock_app:main',
             'mock_llm_server = tests.mocks.mock_llm_server:main',
             'mock_robot_node = tests.mocks.mock_robot_node:main',
             'mock_pickee_node = tests.mocks.mock_pickee_node:main',

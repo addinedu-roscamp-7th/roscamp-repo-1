@@ -90,8 +90,14 @@ class OrderService:
         
         # Local state
         self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
-        self._order_section_queue: Dict[int, List[Dict[str, Any]]] = {} # 주문별 방문 섹션 목록 {order_id: [{location_id, section_id}, ...]}
+        self._order_section_queue: Dict[int, List[Dict[str, Any]]] = {} # 주문별 방문 섹션 목록 {order_id: [{location_id, section_id, is_manual}, ...]}
         self._section_item_count: Dict[int, int] = {} # 주문별 현재 섹션에서 피킹할 상품 종류 수
+        self._current_section_info: Dict[int, Dict[str, Any]] = {} # 주문별 현재 작업중인 섹션 정보 {order_id: {location_id, section_id, is_manual}}
+        self._pending_detection_sections: Dict[int, set[int]] = {} # 주문별 감지 요청 진행 중인 섹션
+        self._processed_cart_handover: set[int] = set() # 중복 handover 처리 방지
+        self._last_move_location: Dict[int, int] = {}
+        self._last_arrival_signature: Dict[int, tuple[int, int]] = {}
+        self._last_detection_signature: Dict[int, tuple[int, ...]] = {}
 
         # Failure handler (순환 참조 제거됨)
         self._failure_handler = RobotFailureHandler(
@@ -191,34 +197,68 @@ class OrderService:
                     raise RuntimeError(f"Failed to dispatch pick task: {response.message}")
 
                 if product_locations:
-                    # 방문해야 할 섹션 목록 생성 (중복 제거 및 정렬)
-                    unique_sections = sorted(
-                        list({(pl.location_id, pl.section_id) for pl in product_locations}),
-                        key=lambda x: x[1] # section_id 기준으로 정렬
-                    )
+                    # 1. 상품별 auto_select 정보 로드
+                    product_ids = [item["product_id"] for item in items]
+                    products = session.query(Product).filter(Product.product_id.in_(product_ids)).all()
+                    auto_select_map = {p.product_id: p.auto_select for p in products}
+
+                    # 2. 섹션별 수동/자동 여부 판별 (수동 우선)
+                    #    - 한 섹션에 수동 선택(auto_select=False) 상품이 하나라도 있으면 '수동 섹션'으로 간주
+                    section_is_manual: Dict[Tuple[int, int], bool] = {}  # (loc_id, sec_id) -> is_manual
+                    for pl in product_locations:
+                        key = (pl.location_id, pl.section_id)
+                        # auto_select가 False이면 수동 아이템. DB에 없으면 자동(True)으로 간주.
+                        is_manual_item = not auto_select_map.get(pl.product_id, True)
+                        
+                        if is_manual_item:
+                            section_is_manual[key] = True  # 하나라도 수동이면 그 섹션은 수동
+                        elif key not in section_is_manual:
+                            section_is_manual[key] = False # 수동 아이템이 아직 없으면 자동으로 설정
+
+                    # 3. 수동/자동 섹션 분리 및 정렬
+                    manual_sections = []
+                    auto_sections = []
                     
+                    # 모든 유니크 섹션을 section_id 기준으로 정렬
+                    unique_sections_all = sorted(
+                        list({(pl.location_id, pl.section_id) for pl in product_locations}),
+                        key=lambda x: x[1]
+                    )
+
+                    for loc_id, sec_id in unique_sections_all:
+                        key = (loc_id, sec_id)
+                        if section_is_manual.get(key, False):  # 수동 섹션인 경우
+                            manual_sections.append(key)
+                        else:
+                            auto_sections.append(key)
+                    
+                    # 4. 수동 피킹 섹션을 먼저 방문하도록 큐 구성
+                    combined_sections = manual_sections + auto_sections
+
                     self._order_section_queue[new_order.order_id] = [
-                        {"location_id": loc_id, "section_id": sec_id}
-                        for loc_id, sec_id in unique_sections
+                        {"location_id": loc_id, "section_id": sec_id, "is_manual": section_is_manual.get((loc_id, sec_id), False)}
+                        for loc_id, sec_id in combined_sections
                     ]
                     logger.info(f"Order {new_order.order_id} section queue: {self._order_section_queue[new_order.order_id]}")
 
-                    # 첫 번째 섹션으로 이동 명령
-                    first_section = self._order_section_queue[new_order.order_id].pop(0)
-                    try:
-                        move_req = PickeeWorkflowMoveToSection.Request(
-                            robot_id=robot_id, 
-                            order_id=new_order.order_id, 
-                            location_id=first_section['location_id'], 
-                            section_id=first_section['section_id']
-                        )
-                        await self._robot.dispatch_move_to_section(move_req)
-                    except Exception as move_exc:
-                        logger.error("Failed to dispatch move_to_section for order %d: %s", new_order.order_id, move_exc)
-                        if self._allocator and reserved_robot_id is not None:
-                            await self._allocator.release_robot(reserved_robot_id, new_order.order_id)
-                            self._assignment_manager.release_pickee(new_order.order_id)
-                        raise
+                    # 첫 번째 섹션으로 이동 명령 (큐는 전체 계획을 그대로 유지)
+                    if self._order_section_queue[new_order.order_id]:
+                        first_section = self._order_section_queue[new_order.order_id][0]
+                        self._current_section_info[new_order.order_id] = first_section # 현재 섹션 정보 저장
+                        try:
+                            move_req = PickeeWorkflowMoveToSection.Request(
+                                robot_id=robot_id, 
+                                order_id=new_order.order_id, 
+                                location_id=first_section['location_id'], 
+                                section_id=first_section['section_id']
+                            )
+                            await self._robot.dispatch_move_to_section(move_req)
+                        except Exception as move_exc:
+                            logger.error("Failed to dispatch move_to_section for order %d: %s", new_order.order_id, move_exc)
+                            if self._allocator and reserved_robot_id is not None:
+                                await self._allocator.release_robot(reserved_robot_id, new_order.order_id)
+                                self._assignment_manager.release_pickee(new_order.order_id)
+                            raise
 
                 session.commit()
                 logger.info("Order %d created and dispatched to robot %d", new_order.order_id, robot_id)
@@ -286,13 +326,28 @@ class OrderService:
 
     async def handle_moving_status(self, msg: "PickeeMoveStatus") -> None:
         """Pickee 이동 상태 처리"""
-        logger.info("Handling moving status for order %d", msg.order_id)
+        last_location = self._last_move_location.get(msg.order_id)
+        if last_location == msg.location_id:
+            logger.debug("Ignoring duplicate moving status for order %d (location %s)", msg.order_id, msg.location_id)
+            return
+        self._last_move_location[msg.order_id] = msg.location_id
+        logger.info("Handling moving status for order %d (location %s)", msg.order_id, msg.location_id)
         self._failure_handler.cancel_reservation_monitor(msg.order_id, msg.robot_id)
         await self._notifier.notify_robot_moving(msg)
 
     async def handle_arrival_notice(self, msg: "PickeeArrival") -> None:
         """Pickee 도착 알림 처리"""
         is_section = msg.section_id is not None and msg.section_id >= 0
+        signature = (msg.location_id, msg.section_id if is_section else -1)
+        if self._last_arrival_signature.get(msg.order_id) == signature:
+            logger.debug(
+                "Ignoring duplicate arrival notice for order %d at location %s section %s",
+                msg.order_id,
+                msg.location_id,
+                msg.section_id if is_section else 'N/A',
+            )
+            return
+        self._last_arrival_signature[msg.order_id] = signature
         logger.info("Handling arrival notice for order %d at section %s", msg.order_id, msg.section_id if is_section else 'N/A')
         await self._notifier.notify_robot_arrived(msg)
         if not is_section:
@@ -320,27 +375,105 @@ class OrderService:
                 await self._move_to_next_or_end(msg.order_id, msg.robot_id)
                 return
 
+            pending_sections = self._pending_detection_sections.setdefault(msg.order_id, set())
+            if msg.section_id in pending_sections:
+                logger.debug("Detection already pending for order %d section %d. Skipping duplicate arrival.", msg.order_id, msg.section_id)
+                return
+            pending_sections.add(msg.section_id)
+
             req = PickeeProductDetect.Request(robot_id=msg.robot_id, order_id=msg.order_id, product_ids=product_ids)
             await self._robot.dispatch_product_detect(req)
         except Exception as e:
             logger.exception("Failed to start product detection for order %d: %s", msg.order_id, e)
 
     async def handle_product_detected(self, msg: "PickeeProductDetection") -> None:
-        """Pickee 상품 인식 완료 처리"""
+        """Pickee 상품 인식 완료 처리. 수동/자동 피킹 분기."""
+        product_signature = tuple(sorted((p.product_id, p.bbox_number) for p in msg.products))
+        if self._last_detection_signature.get(msg.order_id) == product_signature:
+            logger.debug("Ignoring duplicate product detection for order %d.", msg.order_id)
+            return
+        self._last_detection_signature[msg.order_id] = product_signature
         logger.info("Handling product detection for order %d. Found %d products.", msg.order_id, len(msg.products))
-        product_ids = [p.product_id for p in msg.products]
-        products_data = []
-        if product_ids:
-            with self._db.session_scope() as session:
-                product_map = self._load_products(session, product_ids)
-                products_data = [{"product_id": p.product_id, "name": product_map.get(p.product_id).name if product_map.get(p.product_id) else "", "bbox_number": p.bbox_number} for p in msg.products]
+        
+        current_section = self._current_section_info.get(msg.order_id)
+        if not current_section:
+            logger.debug("Stale product detection received for order %d. No current section info; ignoring.", msg.order_id)
+            return
+
+        is_manual_section = current_section.get('is_manual', True) # 기본값을 True(수동)로 하여 안전하게 처리
+
+        # 공통: 인식된 상품 BBox 정보 저장
         self._detected_product_bbox[msg.order_id] = {p.product_id: p.bbox_number for p in msg.products}
-        await self._notifier.notify_product_selection_start(msg, products_data)
+
+        if is_manual_section:
+            # 수동 피킹: 기존 로직대로 앱에 사용자 선택 요청
+            logger.info(f"Order {msg.order_id} is in a manual section. Notifying user for selection.")
+            product_ids = [p.product_id for p in msg.products]
+            products_data = []
+            if product_ids:
+                with self._db.session_scope() as session:
+                    product_map = self._load_products(session, product_ids)
+                    products_data = [{ "product_id": p.product_id, "name": product_map.get(p.product_id).name if product_map.get(p.product_id) else "", "bbox_number": p.bbox_number} for p in msg.products]
+            await self._notifier.notify_product_selection_start(msg, products_data)
+        else:
+            # 자동 피킹: 사용자 확인 없이 즉시 상품 선택 요청
+            logger.info(f"Order {msg.order_id} is in an auto section. Selecting all detected products.")
+            
+            selection_tasks = []
+            for p in msg.products:
+                logger.info(f"Auto-selecting product {p.product_id} for order {msg.order_id}")
+                selection_tasks.append(
+                    self.select_product(
+                        order_id=msg.order_id,
+                        robot_id=msg.robot_id,
+                        bbox_number=p.bbox_number,
+                        product_id=p.product_id
+                    )
+                )
+            
+            if selection_tasks:
+                await asyncio.gather(*selection_tasks)
+            else:
+                # 자동 피킹 섹션인데 인식된 상품이 없는 경우.
+                # handle_arrival_notice에서 상품이 없으면 detect를 호출하지 않고 바로 다음으로 넘기므로
+                # 이 경우는 거의 발생하지 않지만, 방어적으로 다음 단계로 이동.
+                logger.warning(f"Auto-section for order {msg.order_id} but no products detected to select. Moving to next.")
+                await self._move_to_next_or_end(msg.order_id, msg.robot_id)
 
     async def _move_to_next_or_end(self, order_id: int, robot_id: int):
         """다음 섹션으로 이동하거나, 모든 섹션 방문 시 쇼핑을 종료합니다."""
-        if self._order_section_queue.get(order_id):
+        
+        # 현재 섹션 정보 가져오기
+        completed_section = self._current_section_info.get(order_id)
+        
+        # 다음 방문할 섹션 확인 (큐는 전체 계획이므로 이미 방문한 섹션을 제거)
+        queue = self._order_section_queue.get(order_id)
+        if completed_section and queue:
+            first_entry = queue[0]
+            if (
+                first_entry.get('section_id') == completed_section.get('section_id') and
+                first_entry.get('location_id') == completed_section.get('location_id')
+            ):
+                queue.pop(0)
+
+        if completed_section:
+            pending_sections = self._pending_detection_sections.get(order_id)
+            if pending_sections is not None:
+                pending_sections.discard(completed_section.get('section_id'))
+                if not pending_sections:
+                    self._pending_detection_sections.pop(order_id, None)
+
+        next_section_info = queue[0] if queue else None
+
+        # 수동 -> 자동 전환 시점 확인 및 알림
+        if completed_section and completed_section.get('is_manual') and next_section_info and not next_section_info.get('is_manual'):
+            logger.info(f"Order {order_id}: Manual picking complete. Notifying user.")
+            await self._notifier.notify_manual_picking_complete(order_id)
+
+        if queue:
             next_section = self._order_section_queue[order_id].pop(0)
+            self._current_section_info[order_id] = next_section # 현재 섹션 정보 업데이트
+            self._last_detection_signature.pop(order_id, None)
             logger.info(f"Moving to next section {next_section['section_id']} for order {order_id}")
             move_req = PickeeWorkflowMoveToSection.Request(
                 robot_id=robot_id,
@@ -351,9 +484,14 @@ class OrderService:
             await self._robot.dispatch_move_to_section(move_req)
         else:
             logger.info(f"All sections visited for order {order_id}. Ending shopping.")
-            # 큐와 카운터 정리
+            # 큐와 상태 변수 정리
             self._order_section_queue.pop(order_id, None)
             self._section_item_count.pop(order_id, None)
+            self._current_section_info.pop(order_id, None)
+            self._pending_detection_sections.pop(order_id, None)
+            self._last_detection_signature.pop(order_id, None)
+            self._last_arrival_signature.pop(order_id, None)
+            self._last_move_location.pop(order_id, None)
             
             # 피킹 완료 알림 전송
             await self._notifier.notify_picking_complete(order_id, robot_id)
@@ -390,14 +528,31 @@ class OrderService:
         """Pickee 장바구니 전달 완료 처리"""
         order_id = msg.order_id
         robot_id = msg.robot_id
+        if order_id in self._processed_cart_handover:
+            logger.debug("Cart handover already processed for order %d. Skipping duplicate message.", order_id)
+            return
+        self._processed_cart_handover.add(order_id)
         logger.info("Handling cart handover for order %d, starting packing process.", order_id)
+
         packee_robot_id: Optional[int] = None
         try:
             if self._allocator:
                 context = AllocationContext(order_id=order_id, required_type=RobotType.PACKEE)
-                reserved_state = await self._allocator.reserve_robot(context)
-                if reserved_state:
-                    packee_robot_id = reserved_state.robot_id
+                max_attempts = 3
+                retry_delay = 0.5
+                for attempt in range(1, max_attempts + 1):
+                    reserved_state = await self._allocator.reserve_robot(context)
+                    if reserved_state:
+                        packee_robot_id = reserved_state.robot_id
+                        break
+                    logger.warning(
+                        "Packee allocation attempt %d/%d failed for order %d. Retrying in %.1fs.",
+                        attempt,
+                        max_attempts,
+                        order_id,
+                        retry_delay,
+                    )
+                    await asyncio.sleep(retry_delay)
 
             if packee_robot_id is None:
                 logger.error("No available Packee robot for order %d.", order_id)
@@ -438,6 +593,10 @@ class OrderService:
             if packee_robot_id:
                 await self._allocator.release_robot(packee_robot_id, order_id)
             await self._failure_handler.fail_order(order_id, "Failed during cart handover.")
+        finally:
+            # 실패 시 중복 메시지 재처리를 허용하기 위해 상태를 복원한다.
+            if packee_robot_id is None and order_id in self._processed_cart_handover:
+                self._processed_cart_handover.discard(order_id)
 
     async def handle_packee_availability(self, msg: "PackeeAvailability") -> None:
         """Packee 작업 가능 여부 확인 처리"""
@@ -460,6 +619,7 @@ class OrderService:
             await self._notifier.emit_work_info_notification(order_id=msg.order_id, robot_id=msg.robot_id)
 
             self._detected_product_bbox.pop(msg.order_id, None)
+            self._processed_cart_handover.discard(msg.order_id)
             await self._failure_handler.release_robot_for_order(msg.order_id)
 
             if not msg.success:
