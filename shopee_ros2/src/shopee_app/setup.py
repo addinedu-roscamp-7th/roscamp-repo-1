@@ -21,6 +21,7 @@ setup(
         'rclpy',
         'shopee_interfaces',
     ],
+    python_requires='>=3.12,<3.13',
     zip_safe=False,
     maintainer='Shopee Robotics Team',
     maintainer_email='dev@shopee.app',
