@@ -15,6 +15,7 @@ find_package(rosidl_default_generators REQUIRED)
 set(msg_files
   "msg/ArmPoseStatus.msg"
   "msg/BBox.msg"
+  "msg/DetectionInfo.msg"
   "msg/Obstacle.msg"
   "msg/PackeeArmTaskStatus.msg"
   "msg/PackeeAvailability.msg"

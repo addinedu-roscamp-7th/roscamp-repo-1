@@ -1,4 +1,4 @@
 int32 product_id
 int32 bbox_number
-shopee_interfaces/BBox bbox_coords
+shopee_interfaces/DetectionInfo detection_info
 float32 confidence
