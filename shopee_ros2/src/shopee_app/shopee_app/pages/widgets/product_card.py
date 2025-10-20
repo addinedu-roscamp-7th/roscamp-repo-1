@@ -9,24 +9,24 @@ from shopee_app.ui_gen.promoded_class import Ui_product_form as Ui_PromotionCard
 
 
 class ProductCard(QWidget):
-    _fallback_image = (
+    FALLBACK_IMAGE = (
         Path(__file__).resolve().parent.parent / 'image' / 'product_no_image.png'
     )
-    _default_size = QtCore.QSize(230, 315)
+    DEFAULT_SIZE = QtCore.QSize(230, 315)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ui = Ui_PromotionCard()
         self.ui.setupUi(self)
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setMinimumSize(self._default_size)
+        self.setMinimumSize(self.DEFAULT_SIZE)
         size_policy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.setSizePolicy(size_policy)
         self.ui.label_prod_image.setScaledContents(False)
-        self._source_pixmap: QtGui.QPixmap | None = None
+        self.source_pixmap: QtGui.QPixmap | None = None
 
     def sizeHint(self) -> QtCore.QSize:
-        return self._default_size
+        return self.DEFAULT_SIZE
 
     def apply_product(self, product: ProductData) -> None:
         self.ui.label_prod_name.setText(product.name)
@@ -41,25 +41,25 @@ class ProductCard(QWidget):
 
     def apply_image(self, path: Path | None) -> None:
         if path is None or not path.exists():
-            path = self._fallback_image
-        self._source_pixmap = QtGui.QPixmap(str(path))
-        self._update_image_pixmap()
+            path = self.FALLBACK_IMAGE
+        self.source_pixmap = QtGui.QPixmap(str(path))
+        self.update_image_pixmap()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._update_image_pixmap()
+        self.update_image_pixmap()
 
-    def _update_image_pixmap(self) -> None:
+    def update_image_pixmap(self) -> None:
         label = self.ui.label_prod_image
-        if self._source_pixmap is None or self._source_pixmap.isNull():
+        if self.source_pixmap is None or self.source_pixmap.isNull():
             label.clear()
             return
         target_width = label.width()
         target_height = label.height()
         if target_width <= 0 or target_height <= 0:
-            label.setPixmap(self._source_pixmap)
+            label.setPixmap(self.source_pixmap)
             return
-        scaled_pixmap = self._source_pixmap.scaled(
+        scaled_pixmap = self.source_pixmap.scaled(
             label.size(),
             QtCore.Qt.AspectRatioMode.KeepAspectRatio,
             QtCore.Qt.TransformationMode.SmoothTransformation,
