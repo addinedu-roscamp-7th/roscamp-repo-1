@@ -306,17 +306,25 @@ ros2 service call /pickee/video_stream/stop shopee_interfaces/srv/PickeeMainVide
 # Mobile 속도 제어
 ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeMobileSpeedControl "{
   robot_id: 1,
-  order_id: 123,
-  speed_mode: 'decelerate',
+  order_id: 44,
+  speed_mode: "decelerate",
   target_speed: 0.3,
-  obstacles: [
+  obstacles:[
     {
       obstacle_type: "person",
+      position: {x: 1.0, y: 1.0},
       distance: 1.5,
-      velocity: 0.8
+      velocity: 0.8,
+      bbox: {
+        x1: 1,
+        y1: 1,
+        x2: 2,
+        y2: 2,
+      },
+      confidence: 0.98,
     }
   ],
-  reason: 'obstacle_detected'
+  reason: "dynamic_obstacle_near"
 }"
 
 # 로봇 상태 발행 (자동으로 1Hz로 발행됨, 수동 테스트 불필요)
