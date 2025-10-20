@@ -52,6 +52,9 @@ setup(
             'test_pose_subscriber = pickee_mobile.topic_test.pose_sub:main',
             'test_velocity_controller = pickee_mobile.topic_test.control_vel:main',
             'bringup = pickee_mobile.bringup:main',
+            'get_clicked = pickee_mobile.goal_test.get_clicked:main',
+            'get_clicked_move = pickee_mobile.goal_test.get_send_goal:main',
+            'custom_goal_move = pickee_mobile.goal_test.custom_goal:main',
         ],
     },
 )

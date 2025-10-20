@@ -41,11 +41,8 @@ class GetSendGoal(Node):
         goal_msg.pose.pose.position.y = y
         goal_msg.pose.pose.position.z = 0.0
 
-        # 목표 방향 각도 계산
-        dx = x - self.goal_x_old
-        dy = y - self.goal_y_old
-
-        yaw = math.atan2(dy, dx)  # 라디안
+        
+        yaw = 10
         yaw_deg = math.degrees(yaw)
 
         # 목표 방향 (쿼터니언 변환)
