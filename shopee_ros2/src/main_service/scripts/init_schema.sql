@@ -122,7 +122,6 @@ CREATE TABLE product (
     height INT,
     weight INT,
     fragile BOOLEAN,
-    img_path VARCHAR(50),
     FOREIGN KEY (allergy_info_id) REFERENCES allergy_info(allergy_info_id),
     FOREIGN KEY (section_id) REFERENCES section(section_id),
     FOREIGN KEY (warehouse_id) REFERENCES warehouse(warehouse_id)

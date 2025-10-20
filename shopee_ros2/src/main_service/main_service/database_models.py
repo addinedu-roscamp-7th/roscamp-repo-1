@@ -105,7 +105,6 @@ class Product(Base):
     height = Column(Integer, nullable=True)
     weight = Column(Integer, nullable=True)
     fragile = Column(Boolean, nullable=True)
-    img_path = Column(String(50), nullable=True)
 
     allergy_info = relationship("AllergyInfo")
     section = relationship("Section")

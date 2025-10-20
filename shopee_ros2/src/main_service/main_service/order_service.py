@@ -174,11 +174,14 @@ class OrderService:
                 else:
                     robot_id = 1
 
-                product_locations = self._product_builder.build_product_locations(session, order_id)
-                
                 for item in items:
                     new_item = OrderItem(order_id=new_order.order_id, product_id=item["product_id"], quantity=item["quantity"])
                     session.add(new_item)
+
+                # OrderItem을 데이터베이스에 기록하여 build_product_locations에서 조회할 수 있도록 함
+                session.flush()
+
+                product_locations = self._product_builder.build_product_locations(session, order_id)
 
                 request = PickeeWorkflowStartTask.Request(robot_id=robot_id, order_id=new_order.order_id, user_id=user_id, product_list=product_locations)
                 response = await self._robot.dispatch_pick_task(request)
@@ -403,11 +406,12 @@ class OrderService:
         return dict(self._detected_product_bbox.get(order_id, {}))
 
     async def get_active_orders_snapshot(self) -> Dict[str, Any]:
-        now = datetime.now(timezone.utc)
+        # DB는 timezone-naive 로컬 시간으로 저장되므로, 비교도 로컬 시간으로 수행
+        now = datetime.now()
         active_orders: List[Dict[str, Any]] = []
         status_counter: Dict[int, int] = {}
         truly_active_count = 0
-        
+
         with self._db.session_scope() as session:
             recent_completed_cutoff = now - timedelta(minutes=30)
             orders = session.query(Order).filter((Order.order_status < 8) | ((Order.order_status >= 8) & (Order.end_time >= recent_completed_cutoff))).order_by(Order.start_time.desc()).all()
@@ -415,7 +419,17 @@ class OrderService:
             for order in orders:
                 total_items, total_price = self._calculate_order_summary(session, order.order_id)
                 progress_value = self._state_manager.get_progress(order.order_status)
-                active_orders.append({"order_id": order.order_id, "customer_id": order.customer.id if order.customer else None, "status_code": order.order_status, "status": self._state_manager.get_label(order.order_status), "progress": progress_value, "started_at": order.start_time.isoformat() if order.start_time else None, "elapsed_seconds": (now - order.start_time).total_seconds() if order.start_time else None, "pickee_robot_id": self._assignment_manager.get_pickee(order.order_id), "packee_robot_id": self._assignment_manager.get_packee(order.order_id), "total_items": total_items, "total_price": total_price})
+
+                # DB의 start_time과 현재 시간 모두 timezone-naive이므로 직접 비교
+                # 완료된 주문은 end_time을 사용, 진행 중인 주문은 현재 시간을 사용
+                elapsed_seconds = None
+                if order.start_time:
+                    if order.end_time:
+                        elapsed_seconds = (order.end_time - order.start_time).total_seconds()
+                    else:
+                        elapsed_seconds = (now - order.start_time).total_seconds()
+
+                active_orders.append({"order_id": order.order_id, "customer_id": order.customer.id if order.customer else None, "status_code": order.order_status, "status": self._state_manager.get_label(order.order_status), "progress": progress_value, "started_at": order.start_time.isoformat() if order.start_time else None, "elapsed_seconds": elapsed_seconds, "pickee_robot_id": self._assignment_manager.get_pickee(order.order_id), "packee_robot_id": self._assignment_manager.get_packee(order.order_id), "total_items": total_items, "total_price": total_price})
                 status_counter[order.order_status] = status_counter.get(order.order_status, 0) + 1
                 
                 # 세션 안에서 truly_active_count 계산
@@ -463,6 +477,7 @@ class OrderService:
         Args:
             window_minutes: 조회 대상 시간(분)
         """
+        # DB는 timezone-naive이므로 datetime.now()를 사용
         cutoff = datetime.now() - timedelta(minutes=window_minutes)
         summary: Dict[str, int] = {}
         with self._db.session_scope() as session:
@@ -494,6 +509,7 @@ class OrderService:
             robot_states: 사전 조회한 로봇 상태 목록
             orders_snapshot: 사전 조회한 주문 스냅샷
         """
+        # DB는 timezone-naive이므로 datetime.now()를 사용
         window_start = datetime.now() - timedelta(minutes=window_minutes)
         processing_times: List[float] = []
         completed_orders_count = 0

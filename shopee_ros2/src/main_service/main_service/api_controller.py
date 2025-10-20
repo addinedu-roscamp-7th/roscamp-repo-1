@@ -112,6 +112,7 @@ class APIController:
             while not reader.at_eof():
                 # 한 줄 읽기 (JSON + \n)
                 line = await reader.readline()
+                logger.debug(f"Received raw data: {line}")
                 if not line:
                     break
                 

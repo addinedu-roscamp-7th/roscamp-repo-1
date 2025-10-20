@@ -131,16 +131,16 @@ Main = Shopee Main Service
 }
 ```
 
-### 상품 목록
+### 전체 상품 요청
 
 **요청**
 - From: App
 - To: Main Service
-- Message Type: `product_list`
+- Message Type: `total_product`
 
 ```json
 {
-  "type": "product_list",
+  "type": "total_product",
   "data": {
     "user_id": "string"
   }
@@ -150,9 +150,9 @@ Main = Shopee Main Service
 **예시**
 ```json
 {
-  "type": "product_list",
+  "type": "total_product",
   "data": {
-    "user_id": "customer001"
+    "user_id": "홍길동"
   }
 }
 ```
@@ -160,11 +160,11 @@ Main = Shopee Main Service
 **응답**
 - From: Main Service
 - To: App
-- Message Type: `product_list_response`
+- Message Type: `total_product_response`
 
 ```json
 {
-  "type": "product_list_response",
+  "type": "total_product_response",
   "result": true,
   "error_code": "string",
   "data": {
@@ -196,7 +196,7 @@ Main = Shopee Main Service
 **예시**
 ```json
 {
-  "type": "product_list_response",
+  "type": "total_product_response",
   "result": true,
   "error_code": "",
   "data": {
@@ -221,7 +221,7 @@ Main = Shopee Main Service
     ],
     "total_count": 5
   },
-  "message": "상품 목록 조회 성공"
+  "message": "get list successfully"
 }
 ```
 
