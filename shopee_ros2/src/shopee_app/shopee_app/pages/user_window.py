@@ -71,6 +71,7 @@ class UserWindow(QWidget):
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self.products = self.load_initial_products()
+        self.update_cart_summary()
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
     def closeEvent(self, event):
@@ -441,12 +442,12 @@ class UserWindow(QWidget):
         total_price = sum(
             item.total_price for item in self.cart_items.values() if item.is_selected
         )
-        label_qty = getattr(self.ui, "label_total_qty", None)
-        label_price = getattr(self.ui, "label_total_price", None)
-        if label_qty is not None:
-            label_qty.setText(f"{total_qty}개")
-        if label_price is not None:
-            label_price.setText(f"{total_price:,} 원")
+        label_quantity = getattr(self.ui, "label_total_count", None)
+        label_amount = getattr(self.ui, "label_pay_price", None)
+        if label_quantity is not None:
+            label_quantity.setText(f"{total_qty}")
+        if label_amount is not None:
+            label_amount.setText(f"{total_price:,}")
 
     def load_initial_products(self) -> list[ProductData]:
         image_root = Path(__file__).resolve().parent.parent / "image"
