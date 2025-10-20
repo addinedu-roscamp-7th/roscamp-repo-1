@@ -5,77 +5,87 @@ import os
 import math
 import logging
 from typing import Optional
+import cv2
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 명세서 기반 설정
-HOST = '0.0.0.0'
+HOST = '192.168.0.25'  # 수신자(Main Service)의 IP 주소. 로컬 테스트를 위해 127.0.0.1로 설정
 PORT = 6000
-HEADER_SIZE = 72
+HEADER_SIZE = 200
 CHUNK_DATA_SIZE = 1400
-
-# 테스트용 이미지 파일 경로
-IMAGE_PATH = os.path.join(os.path.dirname(__file__), 'test_image.jpg')
+JPEG_QUALITY = 90  # JPEG 압축 품질 (0-100)
 
 class VisionStreamingClient:
     """
     UDP를 통해 비동기적으로 영상 프레임을 스트리밍하는 클라이언트입니다.
-    streaming_service.py의 구조를 참고하여 송신자 역할을 수행합니다.
     """
-    def __init__(self, host: str, port: int, image_path: str):
+    def __init__(self, host: str, port: int, robot_id: int = 1, camera_index: int = 0):
         self._host = host
         self._port = port
-        self._image_path = image_path
+        self._robot_id = robot_id
+        self._camera_index = camera_index
+        self.cap: Optional[cv2.VideoCapture] = None
         self._transport: Optional[asyncio.DatagramTransport] = None
-        self._image_data: bytes = b''
-        self._total_chunks: int = 0
-
-    def _load_image_data(self):
-        """테스트용 이미지 데이터를 로드하거나, 없을 경우 가짜 데이터를 생성합니다."""
-        try:
-            with open(self._image_path, 'rb') as f:
-                self._image_data = f.read()
-            logging.info(f"테스트 이미지 로드 완료: {self._image_path} ({len(self._image_data)} bytes)")
-        except FileNotFoundError:
-            logging.warning(f"테스트 이미지 파일을 찾을 수 없어, 가짜 데이터를 생성합니다. ({self._image_path})")
-            self._image_data = b'\xAA' * (100 * 1024) # 100KB 더미 데이터
-        
-        image_size = len(self._image_data)
-        self._total_chunks = math.ceil(image_size / CHUNK_DATA_SIZE)
-        logging.info(f"이미지 크기: {image_size} bytes, 총 청크 수: {self._total_chunks}")
 
     async def start(self):
-        """UDP 클라이언트(Endpoint)를 시작하고 전송을 준비합니다."""
-        self._load_image_data()
+        """UDP 클라이언트(Endpoint)를 시작하고 카메라를 준비합니다."""
         loop = asyncio.get_running_loop()
         
-        # DatagramEndpoint를 생성합니다. 송신자는 별도의 프로토콜 클래스가 필요 없는 경우가 많습니다.
+        self.cap = cv2.VideoCapture(self._camera_index)
+        if not self.cap.isOpened():
+            logging.error(f"카메라 인덱스 {self._camera_index}를 열 수 없습니다.")
+            raise IOError(f"Cannot open camera {self._camera_index}")
+        
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        logging.info(f"카메라 {self._camera_index} 열기 성공 (640x480)")
+
         self._transport, _ = await loop.create_datagram_endpoint(
-            lambda: asyncio.DatagramProtocol(), # 기본 프로토콜 사용
+            lambda: asyncio.DatagramProtocol(),
             remote_addr=(self._host, self._port)
         )
         logging.info(f"UDP 클라이언트 시작. 서버 주소: {self._host}:{self._port}")
 
     async def stream_frames(self):
-        """이미지 프레임을 무한 루프로 스트리밍합니다."""
-        if not self._transport:
+        """웹캠 프레임을 캡처하여 무한 루프로 스트리밍합니다."""
+        if not self._transport or not self.cap:
             logging.error("클라이언트가 시작되지 않았습니다. start()를 먼저 호출하세요.")
             return
 
         frame_id = 0
         while True:
-            logging.info(f"--- Frame ID: {frame_id} 전송 시작 ---")
-            for i in range(self._total_chunks):
+            ret, frame = self.cap.read()
+            if not ret:
+                logging.warning("웹캠에서 프레임을 읽는 데 실패했습니다. 1초 후 재시도합니다.")
+                await asyncio.sleep(1)
+                continue
+
+            # 프레임을 JPEG로 인코딩
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
+            result, encimg = cv2.imencode('.jpg', frame, encode_param)
+            if not result:
+                logging.warning("프레임을 JPEG로 인코딩하는 데 실패했습니다.")
+                continue
+            
+            image_data = encimg.tobytes()
+            image_size = len(image_data)
+            total_chunks = math.ceil(image_size / CHUNK_DATA_SIZE)
+
+            logging.info(f"--- Frame ID: {frame_id} (size: {image_size} bytes, chunks: {total_chunks}) 전송 시작 ---")
+            
+            for i in range(total_chunks):
                 start = i * CHUNK_DATA_SIZE
                 end = start + CHUNK_DATA_SIZE
-                chunk_data = self._image_data[start:end]
+                chunk_data = image_data[start:end]
                 
                 header = {
                     "type": "video_frame",
+                    "robot_id": self._robot_id,
                     "frame_id": frame_id,
                     "chunk_idx": i,
-                    "total_chunks": self._total_chunks,
+                    "total_chunks": total_chunks,
                     "data_size": len(chunk_data),
                     "timestamp": int(time.time() * 1000),
                     "width": 640,
@@ -86,17 +96,21 @@ class VisionStreamingClient:
                 header_bytes = json.dumps(header).encode('utf-8')
                 padded_header = header_bytes.ljust(HEADER_SIZE)
                 packet = padded_header + chunk_data
-                
-                self._transport.sendto(packet)
+
                 # 비동기 환경에서는 아주 짧은 sleep이라도 이벤트 루프에 제어권을 넘겨주는 것이 좋습니다.
                 await asyncio.sleep(0.001)
+                
+                self._transport.sendto(packet)
 
-            logging.info(f"  - Frame ID: {frame_id}의 모든 청크 ({self._total_chunks}개) 전송 완료.")
             frame_id += 1
-            await asyncio.sleep(1) # 1초에 한 프레임
+            # 약 30 FPS로 전송하기 위한 대기 시간
+            await asyncio.sleep(1/60)
 
     def stop(self):
-        """UDP 클라이언트를 종료합니다."""
+        """카메라와 UDP 클라이언트를 종료합니다."""
+        if self.cap:
+            self.cap.release()
+            logging.info("카메라 자원 해제.")
         if self._transport:
             self._transport.close()
             logging.info("UDP 클라이언트 종료.")
@@ -108,12 +122,12 @@ class VisionStreamingClient:
 
 async def main():
     """메인 실행 함수"""
-    client = VisionStreamingClient(HOST, PORT, IMAGE_PATH)
+    # 사용할 카메라 인덱스(보통 0)를 지정합니다.
+    client = VisionStreamingClient(host=HOST, port=PORT, robot_id=1, camera_index=0)
     try:
-        await client.start()
-        await client.stream_frames()
-    except KeyboardInterrupt:
-        logging.info("사용자에 의해 중단됨.")
+        await client.start_and_stream()
+    except (IOError, KeyboardInterrupt) as e:
+        logging.info(f"실행 중단: {e}")
     finally:
         client.stop()
 
