@@ -123,7 +123,7 @@
       <item>
        <widget class="QLabel" name="label_user_name">
         <property name="text">
-         <string>TextLabel</string>
+         <string>최쇼피 님</string>
         </property>
        </widget>
       </item>
@@ -232,7 +232,7 @@
             </size>
            </property>
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="side_allergy_filter_page">
             <property name="sizePolicy">
@@ -307,8 +307,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>113</width>
-                  <height>286</height>
+                  <width>198</width>
+                  <height>690</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -348,7 +348,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="listWidget_2"/>
+                  <widget class="QListWidget" name="widget_remote_select_list"/>
                  </item>
                  <item>
                   <widget class="QLabel" name="label_14">
@@ -358,7 +358,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="listWidget_3"/>
+                  <widget class="QListWidget" name="widget_auto_select_list"/>
                  </item>
                 </layout>
                </widget>

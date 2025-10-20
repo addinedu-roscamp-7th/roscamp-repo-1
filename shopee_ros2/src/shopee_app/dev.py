@@ -25,6 +25,11 @@ UI_FILES = {
     / "dialog_profile.ui": MODULE_ROOT
     / "ui_gen"
     / "dialog_profile.py",
+    MODULE_ROOT
+    / "ui"
+    / "cart_select_item.ui": MODULE_ROOT
+    / "ui_gen"
+    / "cart_select_item.py",
 }
 
 OUT_DIR = MODULE_ROOT / "ui_gen"

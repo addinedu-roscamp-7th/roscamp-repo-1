@@ -1,20 +1,26 @@
+from pathlib import Path
+from dataclasses import replace
+
 from PyQt6 import QtCore
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QListWidgetItem
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
-from pathlib import Path
 
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
+from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
+
 
 
 class UserWindow(QWidget):
@@ -30,6 +36,7 @@ class UserWindow(QWidget):
         self.products_container = getattr(self.ui, "grid_products", None)
         self.product_grid = getattr(self.ui, "gridLayout_2", None)
         self.products: list[ProductData] = []
+        self.product_index: dict[int, ProductData] = {}
 
         self.cart_items: dict[int, CartItemData] = {}
         self.cart_widgets: dict[int, CartItemWidget] = {}
@@ -72,11 +79,15 @@ class UserWindow(QWidget):
         self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
-        self.products = self.load_initial_products()
+        self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
         self.service_client = MainServiceClient()
         self.current_user_id = "admin"
+        self.current_order_id: int | None = None
+        self.current_robot_id: int | None = None
+        self.remote_selection_items: list[CartItemData] = []
+        self.auto_selection_items: list[CartItemData] = []
 
         self.profile_dialog = ProfileDialog(self)
         self.ui.btn_profile.clicked.connect(self.open_profile_dialog)
@@ -175,21 +186,22 @@ class UserWindow(QWidget):
         self.set_mode("pick")
 
     def request_create_order(self) -> bool:
-        if not getattr(self, "service_client", None):
+        if not getattr(self, 'service_client', None):
             return False
 
-        user_id = getattr(self, "current_user_id", "")
+        user_id = getattr(self, 'current_user_id', '')
         if not user_id:
-            QMessageBox.warning(self, "주문 생성 실패", "사용자 정보가 없습니다.")
+            QMessageBox.warning(self, '주문 생성 실패', '사용자 정보가 없습니다.')
             return False
 
         selected_items = [item for item in self.cart_items.values() if item.is_selected]
         if not selected_items:
-            QMessageBox.warning(self, "주문 생성 실패", "선택된 상품이 없습니다.")
+            QMessageBox.warning(self, '주문 생성 실패', '선택된 상품이 없습니다.')
             return False
 
+        selected_snapshot = [replace(item) for item in selected_items]
         total_amount = sum(item.total_price for item in selected_items)
-        payment_method = "card"
+        payment_method = 'card'
 
         try:
             response = self.service_client.create_order(
@@ -199,27 +211,123 @@ class UserWindow(QWidget):
                 total_amount=total_amount,
             )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, "주문 생성 실패", str(exc))
-            return False
+            QMessageBox.warning(self, '주문 생성 실패', str(exc))
+            return self.handle_fake_order(selected_snapshot, selected_items)
 
         if not response:
-            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
-            return False
+            QMessageBox.warning(self, '주문 생성 실패', '서버 응답이 없습니다.')
+            return self.handle_fake_order(selected_snapshot, selected_items)
 
-        if response.get("result"):
+        if response.get('result'):
+            order_data = response.get('data') or {}
+            self.handle_order_created(selected_snapshot, order_data)
+            self.clear_ordered_cart_items(selected_items)
             QMessageBox.information(
                 self,
-                "주문 생성 완료",
-                response.get("message") or "주문이 생성되었습니다.",
+                '주문 생성 완료',
+                response.get('message') or '주문이 생성되었습니다.',
             )
             return True
 
         QMessageBox.warning(
             self,
-            "주문 생성 실패",
-            response.get("message") or "주문 생성에 실패했습니다.",
+            '주문 생성 실패',
+            response.get('message') or '주문 생성에 실패했습니다.',
         )
-        return False
+        return self.handle_fake_order(selected_snapshot, selected_items)
+
+    def handle_order_created(
+        self,
+        ordered_items: list[CartItemData],
+        order_data: dict,
+    ) -> None:
+        remote_items, auto_items = self.categorize_cart_items(ordered_items)
+        self.remote_selection_items = remote_items
+        self.auto_selection_items = auto_items
+
+        remote_widget = getattr(self.ui, 'widget_remote_select_list', None)
+        auto_widget = getattr(self.ui, 'widget_auto_select_list', None)
+        self.populate_selection_list(remote_widget, remote_items, '원격 선택 대기')
+        self.populate_selection_list(auto_widget, auto_items, '자동 선택 대기')
+
+        self.current_order_id = order_data.get('order_id')
+        self.current_robot_id = order_data.get('robot_id')
+
+        status_label = getattr(self.ui, 'label_12', None)
+        if status_label is not None:
+            if self.current_robot_id is not None:
+                status_label.setText(f'로봇 {self.current_robot_id} 이동중')
+            else:
+                status_label.setText('로봇 이동중')
+
+    def clear_ordered_cart_items(self, items: list[CartItemData]) -> None:
+        for item in items:
+            if item.product_id in self.cart_items:
+                del self.cart_items[item.product_id]
+            self.remove_cart_widget(item.product_id)
+        self.update_cart_summary()
+        self.sync_select_all_state()
+
+    def handle_fake_order(
+        self,
+        ordered_snapshot: list[CartItemData],
+        original_items: list[CartItemData],
+    ) -> bool:
+        QMessageBox.information(
+            self,
+            '임시 주문 진행',
+            'Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.',
+        )
+        self.handle_order_created(
+            ordered_snapshot,
+            {
+                'order_id': -1,
+                'robot_id': None,
+            },
+        )
+        self.clear_ordered_cart_items(original_items)
+        return True
+
+    def categorize_cart_items(
+        self,
+        items: list[CartItemData],
+    ) -> tuple[list[CartItemData], list[CartItemData]]:
+        # TODO: 서버에서 상품별 선택 방식 정보를 제공하면 해당 데이터를 사용한다.
+        half = (len(items) + 1) // 2
+        return items[:half], items[half:]
+
+    def populate_selection_list(
+        self,
+        list_widget,
+        items: list[CartItemData],
+        status_text: str,
+    ) -> None:
+        if list_widget is None:
+            return
+
+        list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.NoSelection,
+        )
+        list_widget.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        list_widget.setSpacing(6)
+        list_widget.clear()
+        if not items:
+            list_widget.addItem(QListWidgetItem('표시할 상품이 없습니다.'))
+            return
+
+        for index, item in enumerate(items, start=1):
+            widget = CartSelectItemWidget()
+            widget.apply_item(
+                index=index,
+                name=item.name,
+                quantity=item.quantity,
+                status_text=status_text,
+                image_path=item.image_path,
+            )
+            list_item = QListWidgetItem()
+            list_item.setSizeHint(widget.sizeHint())
+            list_widget.addItem(list_item)
+            list_widget.setItemWidget(list_item, widget)
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)
@@ -544,6 +652,10 @@ class UserWindow(QWidget):
             label_quantity.setText(f"{total_qty}")
         if label_amount is not None:
             label_amount.setText(f"{total_price:,}")
+
+    def set_products(self, products: list[ProductData]) -> None:
+        self.products = products
+        self.product_index = {product.product_id: product for product in products}
 
     def load_initial_products(self) -> list[ProductData]:
         image_root = Path(__file__).resolve().parent.parent / "image"
