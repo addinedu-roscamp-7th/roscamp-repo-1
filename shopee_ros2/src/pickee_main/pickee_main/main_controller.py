@@ -79,17 +79,30 @@ from shopee_interfaces.srv import (
 
 
 class PickeeMainController(Node):
-    # Pickee 로봇의 메인 컨트롤러 노드
+    '''
+    Pickee 로봇의 메인 컨트롤러 노드
+    
+    == 주행 알고리즘 집중화 설계 ==
+    새로운 설계에서 PickeeMain의 역할:
+    1. 고수준 상태 관리 및 워크플로우 제어
+    2. Vision 장애물 정보를 Mobile에 단순 전달
+    3. Mobile에 목적지 좌표만 전달 (Global Path 계획 제거)
+    
+    PickeeMobile에서 모든 주행 알고리즘 수행:
+    - Global Path 자동 생성 (A* 알고리즘 등)
+    - 장애물 정보 기반 Global Path 동적 수정
+    - Local Path Planning 및 장애물 회피
+    '''
     
     def __init__(self):
         super().__init__('pickee_main_controller')
         
-        # ROS2 파라미터 선언
+        # ROS2 파라미터 선언 (새로운 설계: 주행 관련 파라미터는 Mobile에서 관리)
         self.declare_parameter('robot_id', 1)
         self.declare_parameter('battery_threshold_available', 30.0)
         self.declare_parameter('battery_threshold_unavailable', 10.0)
-        self.declare_parameter('default_linear_speed', 1.0)
-        self.declare_parameter('default_angular_speed', 0.5)
+        self.declare_parameter('default_linear_speed', 1.0)  # 기본값만, 실제 제어는 Mobile에서
+        self.declare_parameter('default_angular_speed', 0.5)  # 기본값만, 실제 제어는 Mobile에서
         self.declare_parameter('main_service_timeout', 5.0)
         self.declare_parameter('component_service_timeout', 3.0)
         
@@ -443,14 +456,28 @@ class PickeeMainController(Node):
 
     # Mobile 관련 콜백 함수들
     def mobile_arrival_callback(self, msg):
-        # Mobile 도착 알림 콜백
-        self.get_logger().info(f'Mobile arrival: robot_id={msg.robot_id}, location_id={msg.location_id}')
+        '''
+        Mobile 도착 알림 콜백
+        
+        docs 인터페이스 명세 반영 (Pic_Main_vs_Pic_Mobile.md):
+        - Mobile에서 목적지 도착 시 자동으로 알림 전송
+        - 중앙집중식 설계로 Mobile이 모든 경로 계획/실행 담당
+        '''
+        self.get_logger().info(f'📍 Mobile 도착 알림: robot_id={msg.robot_id}, location_id={msg.location_id}')
+        self.get_logger().info(f'🎯 → 목적지 도달 완료 (Mobile 자체 경로 계획/실행)')
+        
         # 상태 기계에 도착 이벤트 전달
         self.arrival_received = True
         self.arrived_location_id = msg.location_id
 
     def mobile_pose_callback(self, msg):
-        # Mobile 위치 업데이트 콜백
+        '''
+        Mobile 위치 업데이트 콜백
+        
+        docs 시퀀스 다이어그램 반영:
+        - Mobile에서 실시간 위치/배터리 정보 주기적 전송
+        - 통합 상태 모니터링을 위한 정보 업데이트
+        '''
         # 로봇 상태에 현재 위치 정보 업데이트
         self.current_position_x = msg.current_pose.x
         self.current_position_y = msg.current_pose.y
@@ -530,25 +557,33 @@ class PickeeMainController(Node):
         self.detection_result = msg
 
     def vision_obstacles_callback(self, msg):
-        # Vision 장애물 감지 콜백
+        '''
+        Vision 장애물 감지 콜백
+        
+        새로운 설계 (docs SC_02_2_1, SC_02_2_2 반영):
+        - Main은 경로 계획을 하지 않고 장애물 정보만 Mobile에 전달
+        - Mobile에서 모든 주행 알고리즘 (장애물 분석, Global Path 수정, Local Path Planning) 수행
+        '''
         self.get_logger().info(f'Vision obstacles: robot_id={msg.robot_id}, count={len(msg.obstacles)}')
         
-        # 장애물 감지 시 Mobile에 속도 제어 명령 전송
+        # docs 인터페이스 명세에 따라 장애물 정보를 Mobile에 그대로 전달
         if len(msg.obstacles) > 0:
             self.publish_mobile_speed_control(
                 speed_mode='decelerate',
                 target_speed=0.3,
-                obstacles=msg.obstacles,
-                reason='obstacles_detected'
+                obstacles=msg.obstacles,  # Vision 장애물 정보 그대로 전달
+                reason='vision_obstacle_detected'  # docs 예시와 일치
             )
+            self.get_logger().info('장애물 정보를 Mobile에 전달 → Mobile에서 경로 계획 수행')
         else:
             # 장애물이 없으면 정상 속도로 복귀
             self.publish_mobile_speed_control(
                 speed_mode='normal',
                 target_speed=1.0,
                 obstacles=[],
-                reason='obstacles_cleared'
+                reason='obstacles_cleared'  # docs 예시와 일치
             )
+            self.get_logger().info('장애물 해소 → Mobile에서 정상 주행 재개')
 
     def vision_staff_location_callback(self, msg):
         # Vision 직원 위치 콜백
@@ -606,14 +641,24 @@ class PickeeMainController(Node):
 
     # Service Client 래퍼 함수들
     async def call_mobile_move_to_location(self, location_id, target_pose, global_path=None, navigation_mode='normal'):
-        # Mobile에 위치 이동 명령
+        '''
+        Mobile에 위치 이동 명령
+        
+        docs 인터페이스 명세 반영:
+        - Main은 목적지 좌표만 전달, Mobile이 자체적으로 Global Path 생성
+        - global_path=None이면 Mobile에서 A* 알고리즘 등으로 자동 생성
+        - 응답 메시지: "Navigation started, path planning by mobile"
+        '''
         request = PickeeMobileMoveToLocation.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         request.location_id = location_id
         request.target_pose = target_pose
-        request.global_path = global_path or []
+        request.global_path = global_path or []  # 빈 배열이면 Mobile에서 자동 생성
         request.navigation_mode = navigation_mode
+        
+        # docs SC_06_4, SC_02_1 시퀀스 반영: 목적지만 전달
+        self.get_logger().info(f'Mobile에 목적지 전달: location_id={location_id}, pose=({target_pose.x:.2f}, {target_pose.y:.2f}) → Mobile이 자체 경로 생성')
         
         if not self.mobile_move_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Mobile move service not available')
@@ -628,12 +673,20 @@ class PickeeMainController(Node):
             return False
 
     async def call_mobile_update_global_path(self, location_id, global_path):
-        # Mobile에 전역 경로 업데이트 명령
+        '''
+        Mobile에 전역 경로 업데이트 명령
+        
+        docs 인터페이스 명세 반영:
+        - 특별한 경우에만 사용 (일반적으로는 Mobile이 자체적으로 경로 생성)
+        - 새로운 설계에서는 거의 사용되지 않음
+        '''
         request = PickeeMobileUpdateGlobalPath.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
         request.location_id = location_id
         request.global_path = global_path
+        
+        self.get_logger().info(f'특별한 경우: Mobile에 Global Path 업데이트 (일반적으로는 Mobile 자체 생성 권장)')
         
         if not self.mobile_update_global_path_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Mobile update global path service not available')
@@ -934,17 +987,30 @@ class PickeeMainController(Node):
         self.get_logger().info(f'Published product loaded: product_id={product_id}, success={success}')
 
     def publish_mobile_speed_control(self, speed_mode, target_speed, obstacles=None, reason=''):
-        # Mobile 속도 제어 명령 발행
+        '''
+        Mobile 속도 제어 및 장애물 정보 전달
+        
+        docs 인터페이스 명세 반영 (Pic_Main_vs_Pic_Mobile.md):
+        - Vision에서 감지한 장애물 정보를 Mobile에 전달
+        - Mobile이 자체적으로 경로 계획 및 장애물 회피 수행
+        - reason 필드 예시: "vision_obstacle_detected", "obstacles_cleared"
+        '''
         msg = PickeeMobileSpeedControl()
         msg.robot_id = self.robot_id
         msg.order_id = self.current_order_id
         msg.speed_mode = speed_mode  # "normal", "decelerate", "stop"
         msg.target_speed = target_speed
-        msg.obstacles = obstacles or []
+        msg.obstacles = obstacles or []  # Vision 장애물 정보 전달
         msg.reason = reason
-        
+
         self.mobile_speed_control_pub.publish(msg)
-        self.get_logger().info(f'Published mobile speed control: mode={speed_mode}, target_speed={target_speed}, reason={reason}')
+        
+        # docs 시퀀스 다이어그램 반영: Mobile에서 모든 처리 수행됨을 명시
+        if obstacles and len(obstacles) > 0:
+            self.get_logger().info(f'📡 Mobile 속도제어+장애물정보 전달: mode={speed_mode}, obstacles={len(obstacles)}개, reason={reason}')
+            self.get_logger().info(f'🤖 → Mobile에서 처리: 장애물 분석 → 경로 수정 → 통합 제어')
+        else:
+            self.get_logger().info(f'📡 Mobile 속도제어: mode={speed_mode}, speed={target_speed}, reason={reason}')
 
     async def get_product_location(self, product_id):
         # Main Service에서 상품 위치 조회
