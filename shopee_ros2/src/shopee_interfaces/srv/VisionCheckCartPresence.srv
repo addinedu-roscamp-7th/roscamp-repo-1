@@ -1,0 +1,9 @@
+# 장바구니 존재 확인 (Pickee, Packee 공통)
+
+int32 robot_id
+int32 order_id             # Pickee만 사용, Packee는 0
+---
+bool success               # 작업 성공 여부
+bool cart_present          # 장바구니 존재 여부
+float32 confidence         # 감지 신뢰도, Pickee는 0.0
+string message

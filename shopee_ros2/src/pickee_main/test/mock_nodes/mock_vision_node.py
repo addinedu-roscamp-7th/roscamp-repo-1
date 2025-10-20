@@ -14,7 +14,7 @@ from shopee_interfaces.srv import (
     PickeeVisionSetMode,
     PickeeVisionTrackStaff,
     PickeeVisionCheckProductInCart,
-    PickeeVisionCheckCartPresence,
+    VisionCheckCartPresence,
     PickeeVisionVideoStreamStart,
     PickeeVisionVideoStreamStop,
     PickeeVisionRegisterStaff,
@@ -52,7 +52,7 @@ class MockVisionNode(Node):
         )
         
         self.check_cart_presence_service = self.create_service(
-            PickeeVisionCheckCartPresence,
+            VisionCheckCartPresence,
             '/pickee/vision/check_cart_presence',
             self.check_cart_presence_callback
         )

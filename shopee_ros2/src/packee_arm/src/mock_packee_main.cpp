@@ -11,11 +11,12 @@
 
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
 #include "shopee_interfaces/msg/b_box.hpp"
-#include "shopee_interfaces/msg/packee_arm_task_status.hpp"
+#include "shopee_interfaces/msg/arm_task_status.hpp"
 #include "shopee_interfaces/msg/point3_d.hpp"
-#include "shopee_interfaces/srv/packee_arm_move_to_pose.hpp"
-#include "shopee_interfaces/srv/packee_arm_pick_product.hpp"
-#include "shopee_interfaces/srv/packee_arm_place_product.hpp"
+#include "shopee_interfaces/msg/detected_product.hpp"
+#include "shopee_interfaces/srv/arm_move_to_pose.hpp"
+#include "shopee_interfaces/srv/arm_pick_product.hpp"
+#include "shopee_interfaces/srv/arm_place_product.hpp"
 
 using namespace std::chrono_literals;
 
@@ -45,21 +46,21 @@ public:
     }
 
     // 서비스 클라이언트 생성
-    move_client_ = this->create_client<shopee_interfaces::srv::PackeeArmMoveToPose>(
+    move_client_ = this->create_client<shopee_interfaces::srv::ArmMoveToPose>(
       "/packee/arm/move_to_pose");
-    pick_client_ = this->create_client<shopee_interfaces::srv::PackeeArmPickProduct>(
+    pick_client_ = this->create_client<shopee_interfaces::srv::ArmPickProduct>(
       "/packee/arm/pick_product");
-    place_client_ = this->create_client<shopee_interfaces::srv::PackeeArmPlaceProduct>(
+    place_client_ = this->create_client<shopee_interfaces::srv::ArmPlaceProduct>(
       "/packee/arm/place_product");
 
     // 상태 토픽 구독
     pose_status_sub_ = this->create_subscription<shopee_interfaces::msg::ArmPoseStatus>(
       "/packee/arm/pose_status", 10,
       std::bind(&MockPackeeMain::OnPoseStatus, this, std::placeholders::_1));
-    pick_status_sub_ = this->create_subscription<shopee_interfaces::msg::PackeeArmTaskStatus>(
+    pick_status_sub_ = this->create_subscription<shopee_interfaces::msg::ArmTaskStatus>(
       "/packee/arm/pick_status", 10,
       std::bind(&MockPackeeMain::OnPickStatus, this, std::placeholders::_1));
-    place_status_sub_ = this->create_subscription<shopee_interfaces::msg::PackeeArmTaskStatus>(
+    place_status_sub_ = this->create_subscription<shopee_interfaces::msg::ArmTaskStatus>(
       "/packee/arm/place_status", 10,
       std::bind(&MockPackeeMain::OnPlaceStatus, this, std::placeholders::_1));
 
@@ -74,9 +75,9 @@ public:
   }
 
 private:
-  using MoveClient = rclcpp::Client<shopee_interfaces::srv::PackeeArmMoveToPose>;
-  using PickClient = rclcpp::Client<shopee_interfaces::srv::PackeeArmPickProduct>;
-  using PlaceClient = rclcpp::Client<shopee_interfaces::srv::PackeeArmPlaceProduct>;
+  using MoveClient = rclcpp::Client<shopee_interfaces::srv::ArmMoveToPose>;
+  using PickClient = rclcpp::Client<shopee_interfaces::srv::ArmPickProduct>;
+  using PlaceClient = rclcpp::Client<shopee_interfaces::srv::ArmPlaceProduct>;
   using MoveFuture = MoveClient::SharedFuture;
   using PickFuture = PickClient::SharedFuture;
   using PlaceFuture = PlaceClient::SharedFuture;
@@ -137,7 +138,7 @@ private:
       status_msg->message.c_str());
   }
 
-  void OnPickStatus(const shopee_interfaces::msg::PackeeArmTaskStatus::SharedPtr status_msg) {
+  void OnPickStatus(const shopee_interfaces::msg::ArmTaskStatus::SharedPtr status_msg) {
     // 픽업 상태 수신 로그
     RCLCPP_INFO(
       this->get_logger(),
@@ -149,7 +150,7 @@ private:
       status_msg->message.c_str());
   }
 
-  void OnPlaceStatus(const shopee_interfaces::msg::PackeeArmTaskStatus::SharedPtr status_msg) {
+  void OnPlaceStatus(const shopee_interfaces::msg::ArmTaskStatus::SharedPtr status_msg) {
     // 담기 상태 수신 로그
     RCLCPP_INFO(
       this->get_logger(),
@@ -198,7 +199,7 @@ private:
   void HandleFuture(const std::string & action_name) {
     // 비동기 서비스 응답 처리
     bool future_ready = false;
-    bool accepted = true;
+    bool success = true;
     std::string message;
 
     std::visit(
@@ -212,7 +213,7 @@ private:
             return;
           }
           auto response = future.get();
-          accepted = response->accepted;
+          success = response->success;
           message = response->message;
           future_ready = true;
         }
@@ -224,7 +225,7 @@ private:
 
     current_future_ = std::monostate{};
 
-    if (!accepted) {
+    if (!success) {
       RCLCPP_ERROR(
         this->get_logger(),
         "%s 명령이 Arm 컨트롤러에서 거부되었습니다: message=%s",
@@ -235,7 +236,7 @@ private:
 
     RCLCPP_INFO(
       this->get_logger(),
-      "%s 서비스 응답 수신: accepted=true, message=%s",
+      "%s 서비스 응답 수신: success=true, message=%s",
       action_name.c_str(), message.c_str());
 
     if (action_name == "자세 변경") {
@@ -258,7 +259,7 @@ private:
 
   void SendMoveRequest() {
     // 자세 변경 서비스 호출
-    auto request = std::make_shared<shopee_interfaces::srv::PackeeArmMoveToPose::Request>();
+    auto request = std::make_shared<shopee_interfaces::srv::ArmMoveToPose::Request>();
     request->robot_id = robot_id_;
     request->order_id = order_id_;
     request->pose_type = "cart_view";
@@ -267,19 +268,23 @@ private:
 
   void SendPickRequest() {
     // 상품 픽업 서비스 호출
-    auto request = std::make_shared<shopee_interfaces::srv::PackeeArmPickProduct::Request>();
+    auto request = std::make_shared<shopee_interfaces::srv::ArmPickProduct::Request>();
     request->robot_id = robot_id_;
     request->order_id = order_id_;
-    request->product_id = CurrentProductId();
     request->arm_side = CurrentArmSide();
-    request->target_position = CreatePoint3D(0.3F, 0.1F, 0.75F);
-    request->bbox = CreateBBox(120, 180, 250, 320);
+
+    // DetectedProduct 생성
+    request->target_product.product_id = CurrentProductId();
+    request->target_product.bbox = CreateBBox(120, 180, 250, 320);
+    request->target_product.position = CreatePoint3D(0.3F, 0.1F, 0.75F);
+    request->target_product.confidence = 0.95F;
+
     current_future_ = pick_client_->async_send_request(request);
   }
 
   void SendPlaceRequest() {
     // 상품 담기 서비스 호출
-    auto request = std::make_shared<shopee_interfaces::srv::PackeeArmPlaceProduct::Request>();
+    auto request = std::make_shared<shopee_interfaces::srv::ArmPlaceProduct::Request>();
     request->robot_id = robot_id_;
     request->order_id = order_id_;
     request->product_id = CurrentProductId();
@@ -335,8 +340,8 @@ private:
   PlaceClient::SharedPtr place_client_;
 
   rclcpp::Subscription<shopee_interfaces::msg::ArmPoseStatus>::SharedPtr pose_status_sub_;
-  rclcpp::Subscription<shopee_interfaces::msg::PackeeArmTaskStatus>::SharedPtr pick_status_sub_;
-  rclcpp::Subscription<shopee_interfaces::msg::PackeeArmTaskStatus>::SharedPtr place_status_sub_;
+  rclcpp::Subscription<shopee_interfaces::msg::ArmTaskStatus>::SharedPtr pick_status_sub_;
+  rclcpp::Subscription<shopee_interfaces::msg::ArmTaskStatus>::SharedPtr place_status_sub_;
 
   rclcpp::TimerBase::SharedPtr timer_;
 };

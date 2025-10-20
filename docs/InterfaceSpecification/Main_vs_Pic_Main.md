@@ -111,12 +111,14 @@ Pic Main = Pickee Main Controller
   DetectedProduct[] products
   ```
 
-- **DetectedProduct**
+- **DetectedProduct** (Pickee 사용 필드)
   ```plaintext
   int32 product_id
-  int32 bbox_number
-  DetectionInfo detection_info
   float32 confidence
+  BBox bbox
+  int32 bbox_number       # 앱 UI 선택용
+  DetectionInfo detection_info
+  Point3D position        # (0, 0, 0) 미사용
   ```
 
 - **DetectionInfo**

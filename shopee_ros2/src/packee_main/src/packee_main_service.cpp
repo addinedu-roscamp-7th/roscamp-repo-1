@@ -5,24 +5,24 @@
 
 #include "shopee_interfaces/srv/packee_packing_check_availability.hpp"
 #include "shopee_interfaces/srv/packee_packing_start.hpp"
-#include "shopee_interfaces/srv/packee_vision_check_cart_presence.hpp"
+#include "shopee_interfaces/srv/vision_check_cart_presence.hpp"
 #include "shopee_interfaces/srv/packee_vision_detect_products_in_cart.hpp"
 #include "shopee_interfaces/srv/packee_vision_verify_packing_complete.hpp"
-#include "shopee_interfaces/srv/packee_arm_move_to_pose.hpp"
-#include "shopee_interfaces/srv/packee_arm_pick_product.hpp"
-#include "shopee_interfaces/srv/packee_arm_place_product.hpp"
+#include "shopee_interfaces/srv/arm_move_to_pose.hpp"
+#include "shopee_interfaces/srv/arm_pick_product.hpp"
+#include "shopee_interfaces/srv/arm_place_product.hpp"
 
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
 using CheckAvailability = shopee_interfaces::srv::PackeePackingCheckAvailability;
 using StartPacking = shopee_interfaces::srv::PackeePackingStart;
-using CheckCartPresence = shopee_interfaces::srv::PackeeVisionCheckCartPresence;
+using CheckCartPresence = shopee_interfaces::srv::VisionCheckCartPresence;
 using DetectProductsInCart = shopee_interfaces::srv::PackeeVisionDetectProductsInCart;
 using VerifyPackingComplete = shopee_interfaces::srv::PackeeVisionVerifyPackingComplete;
-using ArmMoveToPose = shopee_interfaces::srv::PackeeArmMoveToPose;
-using ArmPickProduct = shopee_interfaces::srv::PackeeArmPickProduct;
-using ArmPlaceProduct = shopee_interfaces::srv::PackeeArmPlaceProduct;
+using ArmMoveToPose = shopee_interfaces::srv::ArmMoveToPose;
+using ArmPickProduct = shopee_interfaces::srv::ArmPickProduct;
+using ArmPlaceProduct = shopee_interfaces::srv::ArmPlaceProduct;
 
 class PackingServiceServer : public rclcpp::Node
 {
@@ -149,10 +149,10 @@ public:
             rclcpp::FutureReturnCode::SUCCESS)
         {
             auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "MovePose accepted: %s, message: %s",
-                        response->accepted ? "true" : "false",
+            RCLCPP_INFO(this->get_logger(), "MovePose success: %s, message: %s",
+                        response->success ? "true" : "false",
                         response->message.c_str());
-            return response->accepted;
+            return response->success;
         }
         return false;
     }
@@ -165,19 +165,22 @@ public:
         auto request = std::make_shared<ArmPickProduct::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
-        request->product_id = product_id;
         request->arm_side = arm_side;
 
+        // DetectedProduct 생성
+        request->target_product.product_id = product_id;
+        request->target_product.confidence = 0.95f;
+
         if(target_position.size() == 3) {
-            request->target_position.x = target_position[0];
-            request->target_position.y = target_position[1];
-            request->target_position.z = target_position[2];
+            request->target_product.position.x = target_position[0];
+            request->target_product.position.y = target_position[1];
+            request->target_product.position.z = target_position[2];
         }
         if(bbox.size() == 4) {
-            request->bbox.x1 = bbox[0];
-            request->bbox.y1 = bbox[1];
-            request->bbox.x2 = bbox[2];
-            request->bbox.y2 = bbox[3];
+            request->target_product.bbox.x1 = bbox[0];
+            request->target_product.bbox.y1 = bbox[1];
+            request->target_product.bbox.x2 = bbox[2];
+            request->target_product.bbox.y2 = bbox[3];
         }
 
         if (!pick_product_client_->wait_for_service(1s)) {
@@ -190,10 +193,10 @@ public:
             rclcpp::FutureReturnCode::SUCCESS)
         {
             auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PickProduct accepted: %s, message: %s",
-                        response->accepted ? "true" : "false",
+            RCLCPP_INFO(this->get_logger(), "PickProduct success: %s, message: %s",
+                        response->success ? "true" : "false",
                         response->message.c_str());
-            return response->accepted;
+            return response->success;
         }
         return false;
     }
@@ -224,10 +227,10 @@ public:
             rclcpp::FutureReturnCode::SUCCESS)
         {
             auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PlaceProduct accepted: %s, message: %s",
-                        response->accepted ? "true" : "false",
+            RCLCPP_INFO(this->get_logger(), "PlaceProduct success: %s, message: %s",
+                        response->success ? "true" : "false",
                         response->message.c_str());
-            return response->accepted;
+            return response->success;
         }
         return false;
     }

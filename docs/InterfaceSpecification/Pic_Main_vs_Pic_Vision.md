@@ -45,10 +45,15 @@ Pic Vision = Pickee Vision AI Service
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeTtsRequest.srv`
 
 **구조체 매핑**
-- `DetectedProduct` → `shopee_interfaces/msg/PickeeDetectedProduct`
+- `DetectedProduct` → `shopee_interfaces/msg/DetectedProduct` (Pickee/Packee 공통)
 - `Obstacle` → `shopee_interfaces/msg/Obstacle`
 - `BBox` → `shopee_interfaces/msg/BBox`
 - `Point2D` → `shopee_interfaces/msg/Point2D`
+- `DetectionInfo` → `shopee_interfaces/msg/DetectionInfo`
+
+**DetectedProduct 필드 사용 규칙 (Pickee)**
+- 사용 필드: `product_id`, `confidence`, `bbox`, `bbox_number`, `detection_info`
+- 미사용 필드: `position` (0, 0, 0)
 
 ## 👁️‍🗨️ 인터페이스 상세 정의
 
@@ -68,12 +73,14 @@ PickeeDetectedProduct[] products
 string message
 ```
 
-- **PickeeDetectedProduct**
+- **DetectedProduct** (Pickee 사용 필드)
 ```plaintext
 int32 product_id
-int32 bbox_number
-DetectionInfo detection_info
 float32 confidence
+BBox bbox
+int32 bbox_number       # 앱 UI 선택용
+DetectionInfo detection_info
+Point3D position        # (0, 0, 0) 미사용
 ```
 
 - **DetectionInfo**

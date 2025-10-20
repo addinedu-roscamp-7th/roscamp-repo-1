@@ -1,6 +1,6 @@
 import rclpy 
 from rclpy.node import Node
-from shopee_interfaces.srv import PackeeVisionCheckCartPresence
+from shopee_interfaces.srv import VisionCheckCartPresence
 
 
 class CheckCart(Node):
@@ -8,7 +8,7 @@ class CheckCart(Node):
     def __init__(self):
         super().__init__("check_cart_presence")
         self.server = self.create_service(
-            PackeeVisionCheckCartPresence,
+            VisionCheckCartPresence,
             "packee/vision/check_cart_presence", # 타입명
             self.callback_service
         )
