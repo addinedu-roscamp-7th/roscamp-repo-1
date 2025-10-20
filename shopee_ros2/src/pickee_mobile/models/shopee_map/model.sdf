@@ -7,7 +7,7 @@
       <visual name="shopee_visual">
         <geometry>
           <mesh>
-            <uri>/home/lim/vicpinky_cpp_ws/src/vicPinky_cpp/src/vic_pinky/vicpinky_gazebo/models/shopee_map/meshes/shopee.obj</uri>
+            <uri>model://shopee_map/meshes/shopee.obj</uri>
           </mesh>
         </geometry>
         <material>
@@ -18,7 +18,7 @@
       <collision name="shopee_collision">
         <geometry>
           <mesh>
-            <uri>/home/lim/vicpinky_cpp_ws/src/vicPinky_cpp/src/vic_pinky/vicpinky_gazebo/models/shopee_map/meshes/shopee.obj</uri>
+            <uri>model://shopee_map/meshes/shopee.obj</uri>
           </mesh>
         </geometry>
       </collision>

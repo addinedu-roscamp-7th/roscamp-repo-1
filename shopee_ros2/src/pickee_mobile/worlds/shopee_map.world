@@ -48,7 +48,7 @@
 
     <include>
       <name>shopee_map</name>
-      <uri>/home/lim/vicpinky_cpp_ws/src/vicPinky_cpp/src/vic_pinky/vicpinky_gazebo/models/shopee_map</uri>
+      <uri>model://shopee_map</uri>
       <pose>0 0 0.01 0 0 0</pose>
     </include>
   </world>
