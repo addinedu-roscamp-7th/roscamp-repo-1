@@ -22,7 +22,14 @@ class State(ABC):
     
     # 내부 컴포넌트 Service Client 래퍼 함수들에 접근하기 위한 헬퍼 메소드들
     async def mobile_move_to_location(self, location_id, target_pose, global_path=None, navigation_mode='normal'):
-        # Mobile 이동 명령
+        '''
+        Mobile 이동 명령 (docs 중앙집중식 설계 적용)
+        
+        인터페이스 명세 (Pic_Main_vs_Pic_Mobile.md) 반영:
+        - 목적지만 전달하면 Mobile이 A* 알고리즘으로 Global Path 자동 생성
+        - Vision 장애물 정보는 별도 토픽으로 실시간 전달됨
+        - Mobile에서 통합적으로 경로 계획 + 장애물 회피 + 실행 수행
+        '''
         return await self._node.call_mobile_move_to_location(location_id, target_pose, global_path, navigation_mode)
     
     async def arm_move_to_pose(self, pose_type):
