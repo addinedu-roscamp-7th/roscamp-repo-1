@@ -76,7 +76,7 @@ class UserWindow(QWidget):
         self.update_cart_summary()
 
         self.service_client = MainServiceClient()
-        self.current_user_id = "customer001"
+        self.current_user_id = "admin"
 
         self.profile_dialog = ProfileDialog(self)
         self.ui.btn_profile.clicked.connect(self.open_profile_dialog)
@@ -87,8 +87,8 @@ class UserWindow(QWidget):
         super().closeEvent(event)
 
     def on_pay_clicked(self):
-        self.request_product_list()
-        self.set_mode("pick")
+        if self.request_create_order():
+            self.set_mode("pick")
 
     def setup_cart_section(self):
         self.cart_container = getattr(self.ui, "widget_3", None)
@@ -174,22 +174,52 @@ class UserWindow(QWidget):
     def on_store_button_clicked(self):
         self.set_mode("pick")
 
-    def request_product_list(self) -> None:
-        """상품 목록을 Main Service에 요청한다."""
+    def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
-            return
+            return False
 
         user_id = getattr(self, "current_user_id", "")
         if not user_id:
-            QMessageBox.warning(self, "상품 목록 요청 실패", "사용자 정보가 없습니다.")
-            return
+            QMessageBox.warning(self, "주문 생성 실패", "사용자 정보가 없습니다.")
+            return False
+
+        selected_items = [item for item in self.cart_items.values() if item.is_selected]
+        if not selected_items:
+            QMessageBox.warning(self, "주문 생성 실패", "선택된 상품이 없습니다.")
+            return False
+
+        total_amount = sum(item.total_price for item in selected_items)
+        payment_method = "card"
 
         try:
-            response = self.service_client.request_product_list(user_id)
-            # TODO: 응답 데이터를 UI에 반영하는 로직을 구현한다.
-            print("상품 목록 응답:", response)
+            response = self.service_client.create_order(
+                user_id=user_id,
+                cart_items=selected_items,
+                payment_method=payment_method,
+                total_amount=total_amount,
+            )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, "상품 목록 요청 실패", str(exc))
+            QMessageBox.warning(self, "주문 생성 실패", str(exc))
+            return False
+
+        if not response:
+            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
+            return False
+
+        if response.get("result"):
+            QMessageBox.information(
+                self,
+                "주문 생성 완료",
+                response.get("message") or "주문이 생성되었습니다.",
+            )
+            return True
+
+        QMessageBox.warning(
+            self,
+            "주문 생성 실패",
+            response.get("message") or "주문 생성에 실패했습니다.",
+        )
+        return False
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)
