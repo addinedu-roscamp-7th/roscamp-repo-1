@@ -1,2 +1,3 @@
 pyqt6
 watchdog
+pyyaml

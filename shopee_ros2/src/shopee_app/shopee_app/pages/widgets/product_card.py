@@ -4,8 +4,8 @@ from PyQt6 import QtGui
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
 
-from ui_gen.promoded_class import Ui_product_form as Ui_PromotionCard
-from pages.models.product_data import ProductData
+from shopee_app.pages.models.product_data import ProductData
+from shopee_app.ui_gen.promoded_class import Ui_product_form as Ui_PromotionCard
 
 
 class ProductCard(QWidget):

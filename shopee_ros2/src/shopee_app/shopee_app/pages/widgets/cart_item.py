@@ -3,8 +3,8 @@ from PyQt6 import QtGui
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
-from ui_gen.cart_item import Ui_CartItemWidget
-from pages.models.cart_item_data import CartItemData
+from shopee_app.pages.models.cart_item_data import CartItemData
+from shopee_app.ui_gen.cart_item import Ui_CartItemWidget
 
 
 class CartItemWidget(QWidget):

@@ -13,4 +13,4 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.venv_gui/bin/activate"
 
 # 3) 앱 실행
-exec python "$SCRIPT_DIR/app.py"
+exec python -m shopee_app.launcher

@@ -1,7 +1,7 @@
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
-from ui_gen.layout_admin import Ui_Form_admin as Ui_AdminLayout
+from shopee_app.ui_gen.layout_admin import Ui_Form_admin as Ui_AdminLayout
 
 
 class AdminWindow(QWidget):

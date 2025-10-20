@@ -6,11 +6,11 @@ from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
 
-from ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
-from pages.widgets.product_card import ProductCard
-from pages.widgets.cart_item import CartItemWidget
-from pages.models.product_data import ProductData
-from pages.models.cart_item_data import CartItemData
+from shopee_app.pages.models.cart_item_data import CartItemData
+from shopee_app.pages.models.product_data import ProductData
+from shopee_app.pages.widgets.cart_item import CartItemWidget
+from shopee_app.pages.widgets.product_card import ProductCard
+from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 
 
 class UserWindow(QWidget):
