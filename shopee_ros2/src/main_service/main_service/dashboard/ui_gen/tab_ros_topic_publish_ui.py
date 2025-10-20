@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_ros_topic_publish.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_ros_topic_publish.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -79,3 +79,13 @@ class Ui_RosTopicPublishTab(object):
         self.topic_desc_label.setText(_translate("RosTopicPublishTab", "← 좌측에서 시뮬레이션할 토픽을 선택하세요 (로봇→Main 방향 테스트용)"))
         self.publish_button.setText(_translate("RosTopicPublishTab", "📤 토픽 발행 (시뮬레이션)"))
         self.log_groupbox.setTitle(_translate("RosTopicPublishTab", "📋 시뮬레이션 로그"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    RosTopicPublishTab = QtWidgets.QWidget()
+    ui = Ui_RosTopicPublishTab()
+    ui.setupUi(RosTopicPublishTab)
+    RosTopicPublishTab.show()
+    sys.exit(app.exec())

@@ -15,8 +15,10 @@ import socket
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
+from .constants import EventTopic
 from .event_bus import EventBus
 
 logger = logging.getLogger(__name__)
@@ -115,6 +117,16 @@ class APIController:
                 logger.debug(f"Received raw data: {line}")
                 if not line:
                     break
+
+                # TCP 수신 이벤트 발행 (대시보드용)
+                await self._event_bus.publish(
+                    EventTopic.TCP_MESSAGE_RECEIVED,
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "peer": f"{peer[0]}:{peer[1]}",
+                        "payload": line.decode().strip(),
+                    },
+                )
                 
                 # 요청 처리 및 응답 생성
                 response = await self._dispatch(line.decode(), peer)
@@ -256,6 +268,16 @@ class APIController:
             serialized = (payload if payload.endswith("\n") else payload + "\n").encode()
         else:
             serialized = (json.dumps(payload) + "\n").encode()
+
+        # TCP 송신 이벤트 발행 (대시보드용)
+        await self._event_bus.publish(
+            EventTopic.TCP_MESSAGE_SENT,
+            {
+                "timestamp": datetime.now().isoformat(),
+                "peer": f"{session.peer[0]}:{session.peer[1]}",
+                "payload": serialized.decode().strip(),
+            },
+        )
 
         try:
             async with session.lock:

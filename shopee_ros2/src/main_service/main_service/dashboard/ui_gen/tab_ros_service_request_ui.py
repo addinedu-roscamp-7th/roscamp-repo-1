@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_ros_service_request.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_ros_service_request.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -131,3 +131,13 @@ class Ui_RosServiceRequestTab(object):
         self.call_button.setText(_translate("RosServiceRequestTab", "📤 서비스 호출"))
         self.result_groupbox.setTitle(_translate("RosServiceRequestTab", "📋 결과 로그"))
         self.clear_log_button.setText(_translate("RosServiceRequestTab", "🗑️ 로그 지우기"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    RosServiceRequestTab = QtWidgets.QWidget()
+    ui = Ui_RosServiceRequestTab()
+    ui.setupUi(RosServiceRequestTab)
+    RosServiceRequestTab.show()
+    sys.exit(app.exec())

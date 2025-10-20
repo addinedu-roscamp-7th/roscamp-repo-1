@@ -40,12 +40,6 @@
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <property name="sizes">
-      <list>
-       <number>300</number>
-       <number>1580</number>
-      </list>
-     </property>
      <widget class="QGroupBox" name="message_list_groupbox">
       <property name="title">
        <string>📡 TCP 메시지 목록</string>

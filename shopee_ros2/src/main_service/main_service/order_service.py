@@ -90,6 +90,8 @@ class OrderService:
         
         # Local state
         self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
+        self._order_section_queue: Dict[int, List[Dict[str, Any]]] = {} # 주문별 방문 섹션 목록 {order_id: [{location_id, section_id}, ...]}
+        self._section_item_count: Dict[int, int] = {} # 주문별 현재 섹션에서 피킹할 상품 종류 수
 
         # Failure handler (순환 참조 제거됨)
         self._failure_handler = RobotFailureHandler(
@@ -189,10 +191,26 @@ class OrderService:
                     raise RuntimeError(f"Failed to dispatch pick task: {response.message}")
 
                 if product_locations:
-                    first_location = product_locations[0]
+                    # 방문해야 할 섹션 목록 생성 (중복 제거 및 정렬)
+                    unique_sections = sorted(
+                        list({(pl.location_id, pl.section_id) for pl in product_locations}),
+                        key=lambda x: x[1] # section_id 기준으로 정렬
+                    )
+                    
+                    self._order_section_queue[new_order.order_id] = [
+                        {"location_id": loc_id, "section_id": sec_id}
+                        for loc_id, sec_id in unique_sections
+                    ]
+                    logger.info(f"Order {new_order.order_id} section queue: {self._order_section_queue[new_order.order_id]}")
+
+                    # 첫 번째 섹션으로 이동 명령
+                    first_section = self._order_section_queue[new_order.order_id].pop(0)
                     try:
                         move_req = PickeeWorkflowMoveToSection.Request(
-                            robot_id=robot_id, order_id=new_order.order_id, location_id=first_location.location_id, section_id=first_location.section_id
+                            robot_id=robot_id, 
+                            order_id=new_order.order_id, 
+                            location_id=first_section['location_id'], 
+                            section_id=first_section['section_id']
                         )
                         await self._robot.dispatch_move_to_section(move_req)
                     except Exception as move_exc:
@@ -282,10 +300,26 @@ class OrderService:
             return
         try:
             with self._db.session_scope() as session:
-                product_ids = [item.product_id for item in session.query(OrderItem).filter_by(order_id=msg.order_id).all()]
+                # 현재 섹션에 있는 상품들만 조회
+                products_in_section = (
+                    session.query(OrderItem.product_id)
+                    .join(Product, OrderItem.product_id == Product.product_id)
+                    .filter(OrderItem.order_id == msg.order_id)
+                    .filter(Product.section_id == msg.section_id)
+                    .all()
+                )
+                product_ids = [pid for pid, in products_in_section]
+
+            # 현재 섹션에서 피킹할 상품 종류 수 저장
+            self._section_item_count[msg.order_id] = len(product_ids)
+            logger.info(f"Order {msg.order_id} has {len(product_ids)} item types to pick in section {msg.section_id}")
+
             if not product_ids:
-                logger.warning("No products to detect for order %d", msg.order_id)
+                logger.warning("No products to detect for order %d in section %d. Moving to next.", msg.order_id, msg.section_id)
+                # 이 섹션에 상품이 없으면 바로 다음 단계로 진행
+                await self._move_to_next_or_end(msg.order_id, msg.robot_id)
                 return
+
             req = PickeeProductDetect.Request(robot_id=msg.robot_id, order_id=msg.order_id, product_ids=product_ids)
             await self._robot.dispatch_product_detect(req)
         except Exception as e:
@@ -303,20 +337,54 @@ class OrderService:
         self._detected_product_bbox[msg.order_id] = {p.product_id: p.bbox_number for p in msg.products}
         await self._notifier.notify_product_selection_start(msg, products_data)
 
+    async def _move_to_next_or_end(self, order_id: int, robot_id: int):
+        """다음 섹션으로 이동하거나, 모든 섹션 방문 시 쇼핑을 종료합니다."""
+        if self._order_section_queue.get(order_id):
+            next_section = self._order_section_queue[order_id].pop(0)
+            logger.info(f"Moving to next section {next_section['section_id']} for order {order_id}")
+            move_req = PickeeWorkflowMoveToSection.Request(
+                robot_id=robot_id,
+                order_id=order_id,
+                location_id=next_section['location_id'],
+                section_id=next_section['section_id']
+            )
+            await self._robot.dispatch_move_to_section(move_req)
+        else:
+            logger.info(f"All sections visited for order {order_id}. Ending shopping.")
+            # 큐와 카운터 정리
+            self._order_section_queue.pop(order_id, None)
+            self._section_item_count.pop(order_id, None)
+            
+            # 피킹 완료 알림 전송
+            await self._notifier.notify_picking_complete(order_id, robot_id)
+            
+            await self.end_shopping(order_id, robot_id)
+
     async def handle_pickee_selection(self, msg: "PickeeProductSelection") -> None:
-        """Pickee 상품 선택 결과 처리"""
+        """Pickee 상품 선택 결과 처리 및 다음 섹션 이동 처리"""
         logger.info("Handling pickee selection result for order %d", msg.order_id)
+        
+        # 사용자에게 카트 업데이트 알림
         summary = {}
         with self._db.session_scope() as session:
             product = session.query(Product).filter_by(product_id=msg.product_id).first()
             total_items, total_price = self._calculate_order_summary(session, msg.order_id)
             summary = {"product": {"product_id": msg.product_id, "name": product.name if product else "", "quantity": msg.quantity, "price": product.price if product else 0}, "total_items": total_items, "total_price": total_price}
         await self._notifier.notify_cart_update(msg, summary)
+
+        # BBox 맵 정리
         bbox_map = self._detected_product_bbox.get(msg.order_id)
         if bbox_map and msg.product_id in bbox_map:
             bbox_map.pop(msg.product_id, None)
             if not bbox_map:
                 self._detected_product_bbox.pop(msg.order_id, None)
+
+        # 현재 섹션의 모든 상품을 담았는지 확인 후 다음 단계 진행
+        if msg.order_id in self._section_item_count:
+            self._section_item_count[msg.order_id] -= 1
+            if self._section_item_count[msg.order_id] <= 0:
+                logger.info(f"Section complete for order {msg.order_id}. Moving to next step.")
+                await self._move_to_next_or_end(msg.order_id, msg.robot_id)
 
     async def handle_cart_handover(self, msg: "PickeeCartHandover") -> None:
         """Pickee 장바구니 전달 완료 처리"""

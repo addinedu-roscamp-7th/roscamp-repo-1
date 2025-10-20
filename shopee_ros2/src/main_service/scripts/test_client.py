@@ -75,37 +75,63 @@ async def run_full_workflow(host: str, port: int, interactive: bool, speech_sele
         )
         await asyncio.sleep(0.5)
 
-        await wait_step(5, 'Testing Product Selection')
-        await asyncio.sleep(1.0)
-        if speech_selection:
-            await client.send_request(
-                'product_selection_by_text',
-                {
-                    'order_id': order_id,
-                    'robot_id': robot_id,
-                    'speech': speech_selection,
-                },
-            )
-        else:
-            await client.send_request(
-                'product_selection',
-                {
-                    'order_id': order_id,
-                    'robot_id': robot_id,
-                    'bbox_number': 1,
-                    'product_id': 1,
-                },
-            )
-        await asyncio.sleep(1.0)
+        print("\n[5] Starting Interactive Shopping Loop...")
+        print("    Waiting for notifications from the server...")
 
-        await wait_step(6, 'Testing Shopping End')
-        await client.send_request(
-            'shopping_end',
-            {'user_id': 'admin', 'order_id': order_id, 'robot_id': robot_id},
-        )
-        await asyncio.sleep(1.0)
+        shopping_finished = False
+        try:
+            # 90초 타임아웃 설정
+            for _ in range(45): # 2초씩 45번 = 90초
+                # 2초 동안 서버로부터 알림을 수집
+                notifications = await client.drain_notifications(timeout=2.0)
+                
+                if not notifications:
+                    # 알림이 없으면 계속 대기
+                    continue
 
-        await wait_step(7, 'Testing Video Stream Stop')
+                for notification in notifications:
+                    if notification['type'] == 'product_selection_start':
+                        print("\n  -> Received product_selection_start notification")
+                        products_to_pick = notification['data']['products']
+                        if not products_to_pick:
+                            print("     No products to pick in this section.")
+                            continue
+
+                        # 이 섹션에서 첫 번째 상품을 자동으로 선택
+                        product_to_pick = products_to_pick[0]
+                        product_id = product_to_pick['product_id']
+                        bbox_number = product_to_pick['bbox_number']
+                        
+                        print(f"     Automatically selecting product_id={product_id} (bbox={bbox_number})")
+                        
+                        # 상품 선택 요청 전송
+                        await client.send_request(
+                            'product_selection',
+                            {
+                                'order_id': order_id,
+                                'robot_id': robot_id,
+                                'product_id': product_id,
+                                'bbox_number': bbox_number,
+                            },
+                        )
+
+                    elif notification['type'] == 'packing_info_notification' and 'order_status' in notification.get('data', {}):
+                        # 포장이 완료되면 쇼핑 워크플로우가 끝난 것으로 간주
+                        print("\n  -> Received packing complete notification. Shopping workflow is complete.")
+                        shopping_finished = True
+                        break # 내부 루프 종료
+                
+                if shopping_finished:
+                    break # 외부 루프 종료
+
+            if not shopping_finished:
+                print("\n✗ Shopping loop timed out after 90 seconds.")
+
+        except Exception as e:
+            print(f"\n✗ An error occurred during the shopping loop: {e}")
+
+
+        await wait_step(6, 'Testing Video Stream Stop')
         await client.send_request(
             'video_stream_stop',
             {'robot_id': robot_id, 'user_id': 'admin', 'user_type': 'customer'},

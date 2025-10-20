@@ -184,6 +184,8 @@ class DashboardController:
         self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED, self._on_ros_topic_received)
         self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED, self._on_ros_service_event)
         self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_RECEIVED, self._on_tcp_received)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_SENT, self._on_tcp_sent)
         self._snapshot_task = asyncio.create_task(self._snapshot_loop())
 
     async def stop(self) -> None:
@@ -242,3 +244,11 @@ class DashboardController:
     async def _on_ros_service_event(self, event_data: Dict[str, Any]) -> None:
         """ROS 서비스 호출/응답 이벤트를 GUI로 전달한다."""
         await self._bridge.publish_async({'type': 'ros_service', 'data': event_data})
+
+    async def _on_tcp_received(self, event_data: Dict[str, Any]) -> None:
+        """TCP 수신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'tcp_event', 'data': {'topic': EventTopic.TCP_MESSAGE_RECEIVED.value, 'data': event_data}})
+
+    async def _on_tcp_sent(self, event_data: Dict[str, Any]) -> None:
+        """TCP 송신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'tcp_event', 'data': {'topic': EventTopic.TCP_MESSAGE_SENT.value, 'data': event_data}})

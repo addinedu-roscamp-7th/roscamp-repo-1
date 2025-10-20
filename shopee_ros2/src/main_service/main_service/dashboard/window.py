@@ -26,6 +26,7 @@ from .tabs.video_monitor_tab import VideoMonitorTab
 from .tabs.ros_service_request_tab import RosServiceRequestTab
 from .tabs.ros_topic_publish_tab import RosTopicPublishTab
 from .tabs.tcp_tester_tab import TcpTesterTab
+from .tabs.tcp_monitor_tab import TCPMonitorTab
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
 
         # TCP 테스터 탭 추가
         self.tcp_tester_tab = TcpTesterTab()
+        self.tcp_monitor_tab = TCPMonitorTab()
 
         # DB 관리 탭은 db_manager가 있을 때만 추가
         self.db_admin_tab = None
@@ -93,6 +95,7 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         self.tab_widget.addTab(self.ros_service_request_tab, 'ROS2 서비스 호출')
         self.tab_widget.addTab(self.ros_topic_publish_tab, 'ROS2 토픽 시뮬레이터')
         self.tab_widget.addTab(self.tcp_tester_tab, 'TCP 테스터')
+        self.tab_widget.addTab(self.tcp_monitor_tab, 'TCP 모니터')
 
         # 영상 모니터링 탭 추가 (있는 경우)
         if self.video_monitor_tab:
@@ -159,6 +162,8 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
                 self._handle_ros_topic(payload.get('data', {}))
             elif payload_type == 'ros_service':
                 self._handle_ros_service(payload.get('data', {}))
+            elif payload_type == 'tcp_event':
+                self._handle_tcp_event(payload.get('data', {}))
 
     def _handle_snapshot(self, snapshot: Dict[str, Any]):
         """스냅샷 데이터를 처리하여 모든 탭을 업데이트한다."""
@@ -183,6 +188,10 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
     def _handle_ros_service(self, event_data: Dict[str, Any]):
         """ROS 서비스 수신 이벤트를 처리하여 서비스 모니터 탭에 추가한다."""
         self.service_monitor_tab.handle_service_event(event_data)
+
+    def _handle_tcp_event(self, event_data: Dict[str, Any]):
+        """TCP 송/수신 이벤트를 처리하여 TCP 모니터 탭에 추가한다."""
+        self.tcp_monitor_tab.handle_tcp_event(event_data)
 
     def _update_statusbar(self, snapshot: Dict[str, Any]):
         """상태바 업데이트"""

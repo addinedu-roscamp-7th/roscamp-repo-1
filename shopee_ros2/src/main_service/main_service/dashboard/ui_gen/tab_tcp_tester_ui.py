@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/tab_tcp_tester.ui'
+# Form implementation generated from reading ui file 'shopee_ros2/src/main_service/main_service/dashboard/ui/tab_tcp_tester.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -22,6 +22,7 @@ class Ui_TcpTesterTab(object):
         self.main_splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.main_splitter.setObjectName("main_splitter")
         self.message_list_groupbox = QtWidgets.QGroupBox(parent=self.main_splitter)
+        self.message_list_groupbox.setMinimumSize(QtCore.QSize(300, 0))
         self.message_list_groupbox.setObjectName("message_list_groupbox")
         self.verticalLayout_left = QtWidgets.QVBoxLayout(self.message_list_groupbox)
         self.verticalLayout_left.setObjectName("verticalLayout_left")
@@ -158,3 +159,13 @@ class Ui_TcpTesterTab(object):
         self.send_button.setText(_translate("TcpTesterTab", "📤 메시지 전송"))
         self.log_groupbox.setTitle(_translate("TcpTesterTab", "📋 통신 로그"))
         self.clear_log_button.setText(_translate("TcpTesterTab", "🗑️ 로그 지우기"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    TcpTesterTab = QtWidgets.QWidget()
+    ui = Ui_TcpTesterTab()
+    ui.setupUi(TcpTesterTab)
+    TcpTesterTab.show()
+    sys.exit(app.exec())
