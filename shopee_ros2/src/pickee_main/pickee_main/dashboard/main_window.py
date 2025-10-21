@@ -69,6 +69,9 @@ class MainWindow(QMainWindow):
             return 'color:green; font-weight:bold;'
         elif node_name.startswith('pickee_vision_system'):
             return 'color:green; font-weight:bold;'
+        elif node_name.startswith('mock_shopee_main'):
+            return 'color:crimson; font-weight:bold;'
+        
         return ''
 
     def append_log(self, node_name, level, message, is_state_log):

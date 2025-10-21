@@ -6,6 +6,8 @@
     <arg name="world" default="$(find-pkg-share pickee_mobile)/worlds/$(var world_name)"/>
     <arg name="bridge_params" default="$(find-pkg-share pickee_mobile)/params/pinky_bridge.yaml"/>
     
+    <!-- Gazebo 모델 경로 설정 -->
+    <set_env name="GAZEBO_MODEL_PATH" value="$(find-pkg-share pickee_mobile)/models"/>
     <set_env name="GZ_SIM_RESOURCE_PATH" value="$(find-pkg-share pickee_mobile)/../:/$(find-pkg-share pickee_mobile)/models:/$(env HOME)/.gazebo/models"/>
 
     <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">

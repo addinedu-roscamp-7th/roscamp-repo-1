@@ -9,6 +9,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import and_
+from sqlalchemy.orm import Query, load_only
 
 from .database_models import Product, Section, Warehouse, Location
 
@@ -181,7 +182,6 @@ class InventoryService:
                 height=int(payload["height"]) if payload.get("height") is not None else None,
                 weight=int(payload["weight"]) if payload.get("weight") is not None else None,
                 fragile=self._to_bool(payload["fragile"]) if payload.get("fragile") is not None else None,
-                img_path=str(payload["img_path"]) if payload.get("img_path") else None,
             )
             session.add(product)
 
@@ -196,7 +196,7 @@ class InventoryService:
             if not product:
                 return False
 
-            for field in ("barcode", "name", "category", "img_path"):
+            for field in ("barcode", "name", "category"):
                 if field in payload and payload[field] is not None:
                     setattr(product, field, str(payload[field]))
 
@@ -241,7 +241,6 @@ class InventoryService:
             "height": product.height,
             "weight": product.weight,
             "fragile": product.fragile,
-            "img_path": product.img_path,
         }
 
     def _resolve_warehouse_id(self, session, section_id: int, fallback: Optional[int] = None) -> int:
@@ -283,8 +282,12 @@ class InventoryService:
             False: 재고 부족
         """
         with self._db.session_scope() as session:
+            query = session.query(Product)
+            if isinstance(query, Query):
+                query = query.options(load_only(Product.quantity))
+
             # SELECT FOR UPDATE로 락 걸기 (동시성 제어)
-            product = session.query(Product).filter_by(
+            product = query.filter_by(
                 product_id=product_id
             ).with_for_update().first()
 
@@ -321,7 +324,11 @@ class InventoryService:
             quantity: 복구할 수량
         """
         with self._db.session_scope() as session:
-            product = session.query(Product).filter_by(
+            query = session.query(Product)
+            if isinstance(query, Query):
+                query = query.options(load_only(Product.quantity))
+
+            product = query.filter_by(
                 product_id=product_id
             ).first()
 

@@ -14,9 +14,11 @@ class StateMachine:
         self._current_state.on_enter()
 
     def execute(self):
-        # 현재 상태의 execute 메소드를 호출합니다.
+        # 현재 상태의 execute 메소드를 호출하고, 상태 전환이 필요한지 확인합니다.
         if self._current_state:
-            self._current_state.execute()
+            new_state = self._current_state.execute()
+            if new_state:
+                self.transition_to(new_state)
     
     def get_current_state_name(self):
         # 현재 상태의 클래스 이름을 반환합니다.

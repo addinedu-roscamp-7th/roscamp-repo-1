@@ -1,4 +1,0 @@
-int32 product_id
-int32 bbox_number
-shopee_interfaces/BBox bbox_coords
-float32 confidence

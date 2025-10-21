@@ -6,32 +6,295 @@ Pic Arm = Pickee Arm Controller
 > **ROS2 Interface:** `shopee_interfaces/msg/ArmPoseStatus.msg`
 
 ### `/pickee/arm/pick_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PickeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/pickee/arm/place_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PickeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/pickee/arm/move_to_pose`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmMoveToPose.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmMoveToPose.srv`
 
 ### `/pickee/arm/pick_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmPickProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPickProduct.srv`
 
 ### `/pickee/arm/place_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmPlaceProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPlaceProduct.srv`
 
-## Topic 인터페이스
+## 🤖 인터페이스 상세 정의
 
-| 구분 | 메시지명 | 토픽 | From | To | 메시지 구조 | 예시 |
-|---|---|---|---|---|---|---|
-| **자세 변경 상태** | `/pickee/arm/pose_status` | Topic | Pic Arm | Pic Main | `int32 robot_id`<br>`int32 order_id`<br>`string pose_type`<br>`string status`<br>`float32 progress`<br>`string message`<br><br>**status**<br>`"in_progress"` - 진행 중<br>`"completed"` - 완료<br>`"failed"` - 실패 | **진행 중**<br>`robot_id: 1`<br>`order_id: 3`<br>`pose_type: "shelf_view"`<br>`status: "in_progress"`<br>`progress: 0.6`<br>`message: "Moving to shelf view pose"`<br><br>**완료**<br>`robot_id: 1`<br>`order_id: 4`<br>`pose_type: "shelf_view"`<br>`status: "completed"`<br>`progress: 1.0`<br>`message: "Reached shelf view pose"`<br><br>**실패**<br>`robot_id: 1`<br>`order_id: 5`<br>`pose_type: "cart_view"`<br>`status: "failed"`<br>`progress: 0.3`<br>`message: "Joint limit exceeded"` |
-| **픽업 상태** | `/pickee/arm/pick_status` | Topic | Pic Arm | Pic Main | `int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br>`string status`<br>`string current_phase`<br>`float32 progress`<br>`string message`<br><br>**status**<br>`"in_progress"` - 진행 중<br>`"completed"` - 완료<br>`"failed"` - 실패<br><br>**current_phase**<br>`"planning"` - 경로 계획 중<br>`"approaching"` - 접근 중<br>`"grasping"` - 그립 중<br>`"lifting"` - 들어올리는 중<br>`"done"` - 완료 | **진행 중 - 경로 계획**<br>`robot_id: 1`<br>`order_id: 4`<br>`product_id: 5`<br>`status: "in_progress"`<br>`current_phase: "planning"`<br>`progress: 0.2`<br>`message: "Planning grasp trajectory"`<br><br>**진행 중 - 그립**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 5`<br>`status: "in_progress"`<br>`current_phase: "grasping"`<br>`progress: 0.7`<br>`message: "Grasping product"`<br><br>**완료**<br>`robot_id: 1`<br>`order_id: 23`<br>`product_id: 32`<br>`status: "completed"`<br>`current_phase: "done"`<br>`progress: 1.0`<br>`message: "Product picked successfully"`<br><br>**실패**<br>`robot_id: 1`<br>`order_id: 6`<br>`product_id: 7`<br>`status: "failed"`<br>`current_phase: "grasping"`<br>`progress: 0.7`<br>`message: "Grasp failed - gripper error"` |
-| **담기 상태** | `/pickee/arm/place_status` | Topic | Pic Arm | Pic Main | `int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br>`string status`<br>`string current_phase`<br>`float32 progress`<br>`string message`<br><br>**status**<br>`"in_progress"` - 진행 중<br>`"completed"` - 완료<br>`"failed"` - 실패<br><br>**current_phase**<br>`"planning"` - 경로 계획 중<br>`"moving"` - 이동 중<br>`"placing"` - 놓는 중<br>`"releasing"` - 그립 해제 중<br>`"done"` - 완료 | **진행 중 - 이동**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`status: "in_progress"`<br>`current_phase: "moving"`<br>`progress: 0.5`<br>`message: "Moving to cart"`<br><br>**완료**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`status: "completed"`<br>`current_phase: "done"`<br>`progress: 1.0`<br>`message: "Product placed in cart successfully"`<br><br>**실패**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`status: "failed"`<br>`current_phase: "planning"`<br>`progress: 0.1`<br>`message: "Path planning failed - collision detected"` |
+## 📦 메시지 (Messages)
 
-## Service 인터페이스
+---
 
-| 구분 | 서비스명 | 서비스 | From | To | 메시지 구조 | 예시 |
-|---|---|---|---|---|---|---|
-| **자세 변경 요청** | `/pickee/arm/move_to_pose` | Service | Pic Main | Pic Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`string pose_type`<br><br>**Response**<br>`bool success`<br>`string message`<br><br>**pose_type**<br>`"shelf_view"` - 매대 확인 자세<br>`"cart_view"` - 장바구니 확인 자세<br>`"standby"` - 대기 자세 | **Request**<br>`robot_id: 1`<br>`order_id: 3`<br>`pose_type: "shelf_view"`<br><br>**Response**<br>`success: true`<br>`message: "Pose change command accepted"` |
-| **상품 픽업 요청** | `/pickee/arm/pick_product` | Service | Pic Main | Pic Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`DetectedProduct target_product`<br><br>**Response**<br>`bool accepted`<br>`string message` | **Request**<br>`robot_id: 1`<br>`order_id: 3`<br>`target_product: {`<br>`  product_id: 4`<br>`  bbox_number: 1`<br>`  bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}`<br>`  confidence: 0.95`<br>`}`<br><br>**Response**<br>`accepted: true`<br>`message: "Pick command accepted"` |
-| **상품 담기 요청** | `/pickee/arm/place_product` | Service | Pic Main | Pic Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br><br>**Response**<br>`bool accepted`<br>`string message` | **Request**<br>`robot_id: 1`<br>`order_id: 21`<br>`product_id: 34`<br><br>**Response**<br>`accepted: true`<br>`message: "Place command accepted"` |
+### 🧍 자세 변경 상태  
+- **Topic**: `/pickee/arm/pose_status`  
+- **From → To**: Pic Arm → Pic Main  
+- **Message Fields**:
+```plaintext
+int32 robot_id
+int32 order_id
+string pose_type       # "shelf_view", "cart_view", "standby"
+string status          # "in_progress", "completed", "failed"
+float32 progress       # 0.0 ~ 1.0
+string message
+```
+
+#### 예시:
+- 진행 중:
+```plaintext
+pose_type: "shelf_view"
+status: "in_progress"
+progress: 0.6
+message: "Moving to shelf view pose"
+```
+- 완료:
+```plaintext
+status: "completed"
+progress: 1.0
+message: "Reached shelf view pose"
+```
+- 실패:
+```plaintext
+status: "failed"
+progress: 0.3
+message: "Joint limit exceeded"
+```
+
+---
+
+### ✋ 픽업 상태  
+- **Topic**: `/pickee/arm/pick_status`  
+- **From → To**: Pic Arm → Pic Main  
+- **Message Fields**:
+```plaintext
+int32 robot_id
+int32 order_id
+int32 product_id
+string arm_side        # Pickee는 ""로 송신
+string status          # "in_progress", "completed", "failed"
+string current_phase   # "planning", "approaching", "grasping", "lifting", "done"
+float32 progress       # 0.0 ~ 1.0
+string message
+```
+
+#### 예시:
+- 경로 계획 중:
+```plaintext
+status: "in_progress"
+current_phase: "planning"
+progress: 0.2
+message: "Planning grasp trajectory"
+```
+- 그립 중:
+```plaintext
+status: "in_progress"
+current_phase: "grasping"
+progress: 0.7
+message: "Grasping product"
+```
+- 완료:
+```plaintext
+status: "completed"
+current_phase: "done"
+progress: 1.0
+message: "Product picked successfully"
+```
+- 실패:
+```plaintext
+status: "failed"
+current_phase: "grasping"
+progress: 0.7
+message: "Grasp failed - gripper error"
+```
+
+---
+
+### 📥 담기 상태  
+- **Topic**: `/pickee/arm/place_status`  
+- **From → To**: Pic Arm → Pic Main  
+- **Message Fields**:
+```plaintext
+int32 robot_id
+int32 order_id
+int32 product_id
+string arm_side        # Pickee는 ""로 송신
+string status          # "in_progress", "completed", "failed"
+string current_phase   # "planning", "moving", "placing", "releasing", "done"
+float32 progress
+string message
+```
+
+> ※ Packee와의 공통 규격으로 `arm_side`가 포함되며 Pickee는 빈 문자열을 유지한다.
+
+#### 예시:
+- 이동 중:
+```plaintext
+status: "in_progress"
+current_phase: "moving"
+progress: 0.5
+message: "Moving to cart"
+```
+- 완료:
+```plaintext
+status: "completed"
+current_phase: "done"
+progress: 1.0
+message: "Product placed in cart successfully"
+```
+- 실패:
+```plaintext
+status: "failed"
+current_phase: "planning"
+progress: 0.1
+message: "Path planning failed - collision detected"
+```
+
+---
+
+## 🛠️ 서비스 (Services)
+
+---
+
+### 🤖 자세 변경 요청  
+- **Service**: `/pickee/arm/move_to_pose`  
+- **From → To**: Pic Main → Pic Arm
+
+#### Request:
+```plaintext
+int32 robot_id
+int32 order_id
+string pose_type       # "shelf_view", "cart_view", "standby"
+```
+
+#### Response:
+```plaintext
+bool success
+string message
+```
+
+#### 예시:
+```plaintext
+Request:
+robot_id: 1
+order_id: 3
+pose_type: "shelf_view"
+
+Response:
+success: true
+message: "Pose change command accepted"
+```
+
+---
+
+### 🛒 상품 픽업 요청  
+- **Service**: `/pickee/arm/pick_product`  
+- **From → To**: Pic Main → Pic Arm
+
+#### Request:
+```plaintext
+int32 robot_id
+int32 order_id
+string arm_side                 # Pickee는 "" 사용
+shopee_interfaces/msg/DetectedProduct target_product
+```
+
+- **DetectedProduct** (Pickee 사용 필드 강조)
+```plaintext
+int32 product_id
+int32 bbox_number
+shopee_interfaces/msg/DetectionInfo detection_info
+shopee_interfaces/msg/BBox bbox
+float32 confidence
+shopee_interfaces/msg/Point3D position                # Depth 미사용 시 (0, 0, 0)
+```
+
+- **DetectionInfo**
+```plaintext
+shopee_interfaces/msg/Point2D[] polygon
+shopee_interfaces/msg/BBox bbox_coords
+```
+
+- **Point2D**
+```plaintext
+float32 x
+float32 y
+```
+
+- **BBox**
+```plaintext
+int32 x1
+int32 y1
+int32 x2
+int32 y2
+```
+
+#### Response:
+```plaintext
+bool success
+string message
+```
+
+#### 예시:
+```plaintext
+Request:
+  robot_id: 1
+  order_id: 3
+  arm_side: ""
+  target_product: {
+    product_id: 4
+    bbox_number: 1
+    detection_info: {
+      polygon: [...]
+      bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+    }
+    bbox: {x1: 100, y1: 150, x2: 200, y2: 250}
+    confidence: 0.95
+    position: {x: 0.0, y: 0.0, z: 0.0}
+  }
+
+Response:
+  success: true
+  message: "Pick command accepted"
+```
+
+---
+
+### 📥 상품 담기 요청  
+- **Service**: `/pickee/arm/place_product`  
+- **From → To**: Pic Main → Pic Arm
+
+#### Request:
+```plaintext
+int32 robot_id
+int32 order_id
+int32 product_id
+string arm_side                # Pickee는 "" 사용
+shopee_interfaces/msg/Point3D box_position           # Depth 미사용 시 (0, 0, 0)
+```
+
+- **Point3D**
+```plaintext
+float32 x
+float32 y
+float32 z
+```
+
+#### Response:
+```plaintext
+bool success
+string message
+```
+
+#### 예시:
+```plaintext
+Request:
+  robot_id: 1
+  order_id: 21
+  product_id: 34
+  arm_side: ""
+  box_position: {x: 0.0, y: 0.0, z: 0.0}
+
+Response:
+  success: true
+  message: "Place command accepted"
+```

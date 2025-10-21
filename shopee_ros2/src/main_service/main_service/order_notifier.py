@@ -171,6 +171,37 @@ class OrderNotifier:
             order_id=msg.order_id,
         )
 
+    async def notify_picking_complete(self, order_id: int, robot_id: int) -> None:
+        """모든 상품 피킹 완료를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "picking_complete_notification",
+                "result": True,
+                "error_code": None,
+                "data": {
+                    "order_id": order_id,
+                    "robot_id": robot_id,
+                },
+                "message": "모든 상품을 장바구니에 담았습니다. 포장 스테이션으로 이동합니다.",
+            },
+            order_id=order_id,
+        )
+
+    async def notify_manual_picking_complete(self, order_id: int) -> None:
+        """수동 피킹 단계 완료를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "manual_picking_complete",
+                "result": True,
+                "error_code": None,
+                "data": {
+                    "order_id": order_id,
+                },
+                "message": "수동 선택 상품을 모두 담았습니다. 이제부터 로봇이 나머지 상품을 자동으로 담습니다.",
+            },
+            order_id=order_id,
+        )
+
     async def notify_packing_info(self, order_id: int, payload: dict) -> None:
         """포장 정보를 알립니다."""
         await self._push_to_user(

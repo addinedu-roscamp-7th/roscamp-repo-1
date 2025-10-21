@@ -98,6 +98,7 @@ class Product(Base):
     category = Column(String(10), nullable=False)
     allergy_info_id = Column(Integer, ForeignKey('allergy_info.allergy_info_id'), nullable=False)
     is_vegan_friendly = Column(Boolean, nullable=False)
+    auto_select = Column(Boolean, nullable=False, default=True)
     section_id = Column(Integer, ForeignKey('section.section_id'), nullable=False)
     warehouse_id = Column(Integer, ForeignKey('warehouse.warehouse_id'), nullable=False)
     length = Column(Integer, nullable=True)
@@ -105,7 +106,6 @@ class Product(Base):
     height = Column(Integer, nullable=True)
     weight = Column(Integer, nullable=True)
     fragile = Column(Boolean, nullable=True)
-    img_path = Column(String(50), nullable=True)
 
     allergy_info = relationship("AllergyInfo")
     section = relationship("Section")

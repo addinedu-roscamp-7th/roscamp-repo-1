@@ -265,6 +265,19 @@ class MainServiceApp:
                 "message": "ok",
             }
 
+        async def handle_total_product(data, peer=None):
+            """전체 상품 목록 조회 처리"""
+            user_id = data.get("user_id", "")
+            result = await self._product_service.get_all_products()
+
+            return {
+                "type": "total_product_response",
+                "result": True,
+                "error_code": "",
+                "data": result,  # {"products": [...], "total_count": N}
+                "message": "get list successfully",
+            }
+
         async def handle_order_create(data, peer=None):
             """주문 생성 처리"""
             user_id = data.get("user_id")
@@ -817,6 +830,7 @@ class MainServiceApp:
             {
                 "user_login": handle_user_login,
                 "product_search": handle_product_search,
+                "total_product": handle_total_product,
                 "order_create": handle_order_create,
                 "product_selection": handle_product_selection,
                 "product_selection_by_text": handle_product_selection_by_text,
@@ -947,10 +961,11 @@ def main() -> None:
         if settings.GUI_ENABLED and service_app._dashboard_controller:
             from .dashboard import DashboardWindow
             window = DashboardWindow(
-                service_app._dashboard_controller.bridge,
-                service_app._robot,
-                service_app._db,
-                service_app._streaming_service
+                bridge=service_app._dashboard_controller.bridge,
+                ros_node=service_app._robot,
+                db_manager=service_app._db,
+                streaming_service=service_app._streaming_service,
+                loop=service_app._dashboard_controller._loop
             )
             window.show()
             logger.info("Dashboard GUI window created")

@@ -238,6 +238,10 @@ class EventTopic(Enum):
     ROS_SERVICE_CALLED = "ros_service_called"    # ROS 서비스 호출 (대시보드용)
     ROS_SERVICE_RESPONDED = "ros_service_responded" # ROS 서비스 응답 (대시보드용)
 
+    # === TCP 통신 이벤트 (대시보드용) ===
+    TCP_MESSAGE_RECEIVED = "tcp_message_received"
+    TCP_MESSAGE_SENT = "tcp_message_sent"
+
 
 # === 기타 상수 ===
 

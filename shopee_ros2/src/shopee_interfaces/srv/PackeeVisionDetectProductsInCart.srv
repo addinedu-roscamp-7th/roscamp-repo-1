@@ -3,6 +3,6 @@ int32 order_id
 int32[] expected_product_ids
 ---
 bool success
-shopee_interfaces/PackeeDetectedProduct[] products
+shopee_interfaces/DetectedProduct[] products
 int32 total_detected
 string message

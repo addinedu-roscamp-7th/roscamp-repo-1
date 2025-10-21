@@ -46,8 +46,7 @@ class MovingToShelfState(State):
                     
                     # 실패 상태로 전환 (대기 상태로 돌아감)
                     from .waiting_loading import WaitingLoadingState
-                    new_state = WaitingLoadingState(self._node)
-                    self._node.state_machine.transition_to(new_state)
+                    return WaitingLoadingState(self._node)
                     
                     # TTS로 실패 알림
                     self._node.speak_text(f'위치 {self.target_location_id}번의 좌표를 찾을 수 없습니다.')
@@ -62,8 +61,7 @@ class MovingToShelfState(State):
                 self._node.arrival_received = False  # 플래그 리셋
                 
                 from .detecting_product import DetectingProductState
-                new_state = DetectingProductState(self._node)
-                self._node.state_machine.transition_to(new_state)
+                return DetectingProductState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('MOVING_TO_SHELF 상태 탈출')

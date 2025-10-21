@@ -57,6 +57,7 @@
 - `/pickee/robot_status` (`PickeeRobotStatus.msg`): 현재 로봇의 상태, 위치, 배터리 등을 주기적으로 발행.
 - `/pickee/arrival_notice` (`PickeeArrival.msg`): 목적지 도착 시 발행.
 - `/pickee/product_detected` (`PickeeProductDetection.msg`): 상품 인식 완료 시 BBox 정보와 함께 발행.
+- `/pickee/mobile/speed_control` (`PickeeMobileSpeedControl.msg`): Vision에서 감지한 장애물 정보를 Mobile에 전달하여 Mobile 자체적으로 경로 계획 및 장애물 회피를 수행하도록 지원.
 - 기타 `Main_vs_Pic_Main.md`에 명시된 모든 토픽
 
 #### Service Clients
@@ -85,7 +86,7 @@
   - `/pickee/arm/place_status` (`PickeeArmTaskStatus.msg`): 상품 놓기 작업의 진행 상태를 구독.
 - **from Vision**
   - `/pickee/vision/detection_result` (`PickeeVisionDetection.msg`): 상품 인식 결과를 구독.
-  - `/pickee/vision/obstacle_detected` (`PickeeVisionObstacles.msg`): 장애물 감지 정보를 구독하여 Mobile 제어에 반영.
+  - `/pickee/vision/obstacle_detected` (`PickeeVisionObstacles.msg`): 장애물 감지 정보를 구독하여 Mobile에 전달.
 
 ## 5. 주요 기능 로직 (Key Logic)
 

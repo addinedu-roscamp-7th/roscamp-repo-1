@@ -64,8 +64,7 @@ class MovingToPackingState(State):
             self._node.publish_arrival_notice(self.packing_location_id)
             
             from .waiting_handover import WaitingHandoverState
-            new_state = WaitingHandoverState(self._node)
-            self.transition_to(new_state)
+            return WaitingHandoverState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('MOVING_TO_PACKING 상태 탈출')

@@ -14,17 +14,16 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
   "msg/ArmPoseStatus.msg"
+  "msg/ArmTaskStatus.msg"
   "msg/BBox.msg"
+  "msg/DetectedProduct.msg"
+  "msg/DetectionInfo.msg"
   "msg/Obstacle.msg"
-  "msg/PackeeArmTaskStatus.msg"
   "msg/PackeeAvailability.msg"
-  "msg/PackeeDetectedProduct.msg"
   "msg/PackeePackingComplete.msg"
   "msg/PackeeRobotStatus.msg"
-  "msg/PickeeArmTaskStatus.msg"
   "msg/PickeeArrival.msg"
   "msg/PickeeCartHandover.msg"
-  "msg/PickeeDetectedProduct.msg"
   "msg/PickeeMobileArrival.msg"
   "msg/PickeeMobilePose.msg"
   "msg/PickeeMobileSpeedControl.msg"
@@ -47,22 +46,18 @@ set(msg_files
 )
 
 set(srv_files
+  "srv/ArmMoveToPose.srv"
+  "srv/ArmPickProduct.srv"
+  "srv/ArmPlaceProduct.srv"
   "srv/MainGetAvailableRobots.srv"
   "srv/MainGetProductLocation.srv"
   "srv/MainGetLocationPose.srv"
   "srv/MainGetWarehousePose.srv"
   "srv/MainGetSectionPose.srv"
-  "srv/PackeeArmMoveToPose.srv"
-  "srv/PackeeArmPickProduct.srv"
-  "srv/PackeeArmPlaceProduct.srv"
   "srv/PackeePackingCheckAvailability.srv"
   "srv/PackeePackingStart.srv"
-  "srv/PackeeVisionCheckCartPresence.srv"
   "srv/PackeeVisionDetectProductsInCart.srv"
   "srv/PackeeVisionVerifyPackingComplete.srv"
-  "srv/PickeeArmMoveToPose.srv"
-  "srv/PickeeArmPickProduct.srv"
-  "srv/PickeeArmPlaceProduct.srv"
   "srv/PickeeMainVideoStreamStart.srv"
   "srv/PickeeMainVideoStreamStop.srv"
   "srv/PickeeMobileMoveToLocation.srv"
@@ -70,7 +65,6 @@ set(srv_files
   "srv/PickeeProductDetect.srv"
   "srv/PickeeProductProcessSelection.srv"
   "srv/PickeeTtsRequest.srv"
-  "srv/PickeeVisionCheckCartPresence.srv"
   "srv/PickeeVisionCheckProductInCart.srv"
   "srv/PickeeVisionDetectProducts.srv"
   "srv/PickeeVisionRegisterStaff.srv"
@@ -84,6 +78,7 @@ set(srv_files
   "srv/PickeeWorkflowReturnToBase.srv"
   "srv/PickeeWorkflowReturnToStaff.srv"
   "srv/PickeeWorkflowStartTask.srv"
+  "srv/VisionCheckCartPresence.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

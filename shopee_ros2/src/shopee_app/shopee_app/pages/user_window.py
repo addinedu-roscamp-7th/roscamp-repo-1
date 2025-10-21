@@ -1,23 +1,43 @@
 from pathlib import Path
+from dataclasses import replace
+from typing import Any
+
 from PyQt6 import QtCore
+from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QTransform
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QListWidgetItem
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
 
+from shopee_app.services.app_notification_client import AppNotificationClient
+from shopee_app.services.main_service_client import MainServiceClient
+from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
+from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
+from shopee_app.pages.widgets.profile_dialog import ProfileDialog
 
 
 class UserWindow(QWidget):
 
     closed = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        *,
+        user_info: dict[str, Any] | None = None,
+        service_client: MainServiceClient | None = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.ui = Ui_UserLayout()
         self.ui.setupUi(self)
@@ -26,6 +46,7 @@ class UserWindow(QWidget):
         self.products_container = getattr(self.ui, "grid_products", None)
         self.product_grid = getattr(self.ui, "gridLayout_2", None)
         self.products: list[ProductData] = []
+        self.product_index: dict[int, ProductData] = {}
 
         self.cart_items: dict[int, CartItemData] = {}
         self.cart_widgets: dict[int, CartItemWidget] = {}
@@ -38,9 +59,7 @@ class UserWindow(QWidget):
             self.cart_items_layout.addItem(self.cart_spacer)
         self.ui.chk_select_all.stateChanged.connect(self.on_select_all_changed)
         if hasattr(self.ui, "btn_selected_delete"):
-            self.ui.btn_selected_delete.clicked.connect(
-                self.on_delete_selected_clicked
-            )
+            self.ui.btn_selected_delete.clicked.connect(self.on_delete_selected_clicked)
 
         self.current_columns = -1
         self.cart_container = None
@@ -48,6 +67,8 @@ class UserWindow(QWidget):
         self.cart_body = None
         self.cart_header = None
         self.cart_toggle_button = None
+        self.cart_icon_up: QIcon | None = None
+        self.cart_icon_down: QIcon | None = None
         self.product_scroll = None
         self.cart_expanded = False
         self.cart_container_layout = None
@@ -70,23 +91,53 @@ class UserWindow(QWidget):
         self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
-        self.products = self.load_initial_products()
+        self.set_products(self.load_initial_products())
         self.update_cart_summary()
+
+        self.user_info: dict[str, Any] = dict(user_info or {})
+        self.service_client = service_client if service_client is not None else MainServiceClient()
+        self.current_user_id = str(self.user_info.get("user_id") or "")
+        self.current_order_id: int | None = None
+        self.current_robot_id: int | None = None
+        self.remote_selection_items: list[CartItemData] = []
+        self.auto_selection_items: list[CartItemData] = []
+
+        self.profile_dialog = ProfileDialog(self)
+        self.profile_dialog.set_user_info(self.user_info)
+        profile_button = getattr(self.ui, "btn_profile", None)
+        if profile_button is not None:
+            icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
+            if icon_path.exists():
+                profile_button.setIcon(QIcon(str(icon_path)))
+                profile_button.setIconSize(QtCore.QSize(32, 32))
+            profile_button.setText("")
+            if hasattr(profile_button, "setFlat"):
+                profile_button.setFlat(True)
+            elif hasattr(profile_button, "setAutoRaise"):
+                profile_button.setAutoRaise(True)
+            profile_button.setToolTip("프로필 보기")
+            profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
+        self._update_user_header()
+        self.notification_client: AppNotificationClient | None = None
+
     def closeEvent(self, event):
+        if self.notification_client is not None:
+            self.notification_client.stop()
         self.closed.emit()
         super().closeEvent(event)
 
     def on_pay_clicked(self):
-        self.set_mode("pick")
+        if self.request_create_order():
+            self.set_mode("pick")
 
     def setup_cart_section(self):
         self.cart_container = getattr(self.ui, "widget_3", None)
         self.cart_frame = getattr(self.ui, "cart_frame", None)
         self.cart_body = getattr(self.ui, "cart_body", None)
         self.cart_header = getattr(self.ui, "cart_header", None)
-        self.cart_toggle_button = getattr(self.ui, "pushButton_2", None)
+        self.cart_toggle_button = getattr(self.ui, "btn_chevron_up", None)
         self.product_scroll = getattr(self.ui, "scrollArea", None)
 
         if not self.cart_frame:
@@ -114,8 +165,19 @@ class UserWindow(QWidget):
             self.cart_body.hide()
 
         if self.cart_toggle_button is not None:
-            self.cart_toggle_button.setText("펼치기")
+            icon_path = Path(__file__).resolve().parent / "icons" / "chevron-up-circle.svg"
+            if icon_path.exists():
+                base_pixmap = QPixmap(str(icon_path))
+                if not base_pixmap.isNull():
+                    self.cart_icon_up = QIcon(base_pixmap)
+                    rotated_pixmap = base_pixmap.transformed(QTransform().rotate(180))
+                    self.cart_icon_down = QIcon(rotated_pixmap)
+                    self.cart_toggle_button.setIcon(self.cart_icon_up)
             self.cart_toggle_button.clicked.connect(self.on_cart_toggle_clicked)
+            self.cart_toggle_button.setFlat(True)
+            self.cart_toggle_button.setIconSize(QtCore.QSize(28, 28))
+            self.cart_toggle_button.setText("")
+            self.cart_toggle_button.setToolTip("장바구니 펼치기")
 
         if self.product_scroll is not None:
             self.product_scroll.show()
@@ -165,6 +227,408 @@ class UserWindow(QWidget):
     def on_store_button_clicked(self):
         self.set_mode("pick")
 
+    def request_create_order(self) -> bool:
+        if not getattr(self, "service_client", None):
+            return False
+
+        user_id = getattr(self, "current_user_id", "")
+        if not user_id:
+            QMessageBox.warning(self, "주문 생성 실패", "사용자 정보가 없습니다.")
+            return False
+
+        selected_items = [item for item in self.cart_items.values() if item.is_selected]
+        if not selected_items:
+            QMessageBox.warning(self, "주문 생성 실패", "선택된 상품이 없습니다.")
+            return False
+
+        selected_snapshot = [replace(item) for item in selected_items]
+        total_amount = sum(item.total_price for item in selected_items)
+        payment_method = "card"
+
+        try:
+            response = self.service_client.create_order(
+                user_id=user_id,
+                cart_items=selected_items,
+                payment_method=payment_method,
+                total_amount=total_amount,
+            )
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, "주문 생성 실패", str(exc))
+            return self.handle_fake_order(selected_snapshot, selected_items)
+
+        if not response:
+            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
+            return self.handle_fake_order(selected_snapshot, selected_items)
+
+        if response.get("result"):
+            order_data = response.get("data") or {}
+            self.handle_order_created(selected_snapshot, order_data)
+            self.clear_ordered_cart_items(selected_items)
+            QMessageBox.information(
+                self,
+                "주문 생성 완료",
+                response.get("message") or "주문이 생성되었습니다.",
+            )
+            return True
+
+        QMessageBox.warning(
+            self,
+            "주문 생성 실패",
+            response.get("message") or "주문 생성에 실패했습니다.",
+        )
+        return self.handle_fake_order(selected_snapshot, selected_items)
+
+    def on_notification_received(self, payload: dict) -> None:
+        """푸시 알림 수신 시 처리."""
+        msg_type = payload.get("type")
+        if msg_type == "robot_moving_notification":
+            self.handle_robot_moving_notification(payload)
+        elif msg_type == "robot_arrived_notification":
+            self.handle_robot_arrived_notification(payload)
+        elif msg_type == "picking_complete_notification":
+            self.handle_picking_complete_notification(payload)
+        elif msg_type == "product_selection_start":
+            self.handle_product_selection_start(payload)
+        elif msg_type == "cart_update_notification":
+            self.handle_cart_update_notification(payload)
+
+    def on_notification_error(self, message: str) -> None:
+        """알림 수신 중 오류 발생 시 사용자에게 전달."""
+        # TODO: GUI에 상태 표시 위젯을 추가해 오류 메시지를 노출한다.
+        print(f"알림 수신 오류: {message}")
+
+    def handle_order_created(
+        self,
+        ordered_items: list[CartItemData],
+        order_data: dict,
+    ) -> None:
+        self._ensure_notification_listener()
+        remote_items, auto_items = self.categorize_cart_items(ordered_items)
+        self.remote_selection_items = remote_items
+        self.auto_selection_items = auto_items
+
+        remote_widget = getattr(self.ui, "widget_remote_select_list", None)
+        auto_widget = getattr(self.ui, "widget_auto_select_list", None)
+        self.populate_selection_list(remote_widget, remote_items, "원격 선택 대기")
+        self.populate_selection_list(auto_widget, auto_items, "자동 선택 대기")
+
+        self.current_order_id = order_data.get("order_id")
+        self.current_robot_id = order_data.get("robot_id")
+
+        status_label = getattr(self.ui, "label_12", None)
+        if status_label is not None:
+            if self.current_robot_id is not None:
+                status_label.setText(f"로봇 {self.current_robot_id} 이동중")
+            else:
+                status_label.setText("로봇 이동중")
+
+    def clear_ordered_cart_items(self, items: list[CartItemData]) -> None:
+        for item in items:
+            if item.product_id in self.cart_items:
+                del self.cart_items[item.product_id]
+            self.remove_cart_widget(item.product_id)
+        self.update_cart_summary()
+        self.sync_select_all_state()
+
+    def handle_fake_order(
+        self,
+        ordered_snapshot: list[CartItemData],
+        original_items: list[CartItemData],
+    ) -> bool:
+        QMessageBox.information(
+            self,
+            "임시 주문 진행",
+            "Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.",
+        )
+        self.handle_order_created(
+            ordered_snapshot,
+            {
+                "order_id": -1,
+                "robot_id": None,
+            },
+        )
+        self.clear_ordered_cart_items(original_items)
+        return True
+
+    def handle_robot_moving_notification(self, payload: dict) -> None:
+        """로봇 이동 알림에 따라 상태 텍스트를 갱신한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+        destination = data.get("destination")
+        message_text = payload.get("message") or "로봇 이동중"
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if destination:
+            formatted = f"{message_text} : {destination}"
+        else:
+            formatted = message_text
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+
+        print(f"[알림] {formatted}")
+
+    def handle_robot_arrived_notification(self, payload: dict) -> None:
+        """로봇 도착 알림에 따라 상태 텍스트를 갱신한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        section_id = data.get("section_id")
+        location_id = data.get("location_id")
+        if isinstance(section_id, int) and section_id >= 0:
+            location_text = f"SECTION_{section_id}"
+        elif location_id is not None:
+            location_text = f"LOCATION_{location_id}"
+        else:
+            location_text = None
+
+        message_text = payload.get("message") or "로봇 도착"
+        if location_text:
+            formatted = f"{message_text} : {location_text}"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def handle_picking_complete_notification(self, payload: dict) -> None:
+        """모든 상품 담기 완료 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        message_text = payload.get("message") or "모든 상품 담기가 완료되었습니다"
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(message_text)
+        if footer_label is not None:
+            footer_label.setText(message_text)
+        print(f"[알림] {message_text}")
+
+    def handle_product_selection_start(self, payload: dict) -> None:
+        """상품 선택 시작 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        products = data.get("products") or []
+        product_names: list[str] = []
+        for product in products:
+            name = product.get("name")
+            if name:
+                product_names.append(str(name))
+        if product_names:
+            products_text = ", ".join(product_names[:3])
+            if len(product_names) > 3:
+                products_text += " 외"
+        else:
+            products_text = None
+
+        message_text = payload.get("message") or "상품 선택을 시작합니다"
+        if products_text:
+            formatted = f"{message_text} ({products_text})"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def handle_cart_update_notification(self, payload: dict) -> None:
+        """장바구니 담기 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        action = data.get("action")
+        product = data.get("product") or {}
+        product_name = product.get("name")
+        quantity = product.get("quantity")
+
+        if action == "add":
+            default_message = "상품이 장바구니에 담겼습니다"
+        elif action == "remove":
+            default_message = "상품이 장바구니에서 제거되었습니다"
+        else:
+            default_message = "장바구니가 갱신되었습니다"
+        message_text = payload.get("message") or default_message
+
+        details: list[str] = []
+        if product_name:
+            details.append(str(product_name))
+        if quantity is not None:
+            details.append(f"x{quantity}")
+        if details:
+            formatted = f"{message_text} ({' '.join(details)})"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def _ensure_notification_listener(self) -> None:
+        """주문 생성 시 알림 리스너를 시작한다."""
+        if self.notification_client is not None:
+            if not self.notification_client.isRunning():
+                self.notification_client.start()
+            return
+        self.notification_client = AppNotificationClient(
+            config=self.service_client.config
+        )
+        self.notification_client.notification_received.connect(
+            self.on_notification_received
+        )
+        self.notification_client.connection_error.connect(self.on_notification_error)
+        self.notification_client.start()
+
+    def categorize_cart_items(
+        self,
+        items: list[CartItemData],
+    ) -> tuple[list[CartItemData], list[CartItemData]]:
+        # TODO: 서버에서 상품별 선택 방식 정보를 제공하면 해당 데이터를 사용한다.
+        half = (len(items) + 1) // 2
+        return items[:half], items[half:]
+
+    def populate_selection_list(
+        self,
+        list_widget,
+        items: list[CartItemData],
+        status_text: str,
+    ) -> None:
+        if list_widget is None:
+            return
+
+        list_widget.setSelectionMode(
+            QAbstractItemView.SelectionMode.NoSelection,
+        )
+        list_widget.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        list_widget.setSpacing(6)
+        list_widget.clear()
+        if not items:
+            list_widget.addItem(QListWidgetItem("표시할 상품이 없습니다."))
+            return
+
+        for index, item in enumerate(items, start=1):
+            widget = CartSelectItemWidget()
+            widget.apply_item(
+                index=index,
+                name=item.name,
+                quantity=item.quantity,
+                status_text=status_text,
+                image_path=item.image_path,
+            )
+            list_item = QListWidgetItem()
+            list_item.setSizeHint(widget.sizeHint())
+            list_widget.addItem(list_item)
+            list_widget.setItemWidget(list_item, widget)
+
+    def open_profile_dialog(self) -> None:
+        dialog = getattr(self, "profile_dialog", None)
+        button = getattr(self.ui, "btn_profile", None)
+        if dialog is None or button is None:
+            return
+
+        dialog.set_user_info(self.user_info)
+        dialog.adjustSize()
+        anchor = button.mapToGlobal(button.rect().bottomRight())
+        x = anchor.x() - dialog.width()
+        y = anchor.y() + 6
+
+        parent_widget = self.window()
+        if parent_widget is not None:
+            parent_top_left = parent_widget.mapToGlobal(QtCore.QPoint(0, 0))
+            parent_rect = QtCore.QRect(parent_top_left, parent_widget.size())
+            if x < parent_rect.left():
+                x = parent_rect.left()
+            if x + dialog.width() > parent_rect.right():
+                x = parent_rect.right() - dialog.width()
+            if y + dialog.height() > parent_rect.bottom():
+                y = anchor.y() - dialog.height() - 6
+            if y < parent_rect.top():
+                y = parent_rect.top()
+        else:
+            window_handle = button.window().windowHandle() if button.window() else None
+            screen = window_handle.screen() if window_handle is not None else None
+            if screen is not None:
+                available = screen.availableGeometry()
+                if x < available.left():
+                    x = available.left()
+                if x + dialog.width() > available.right():
+                    x = available.right() - dialog.width()
+                if y + dialog.height() > available.bottom():
+                    y = anchor.y() - dialog.height() - 6
+                if y < available.top():
+                    y = available.top()
+
+        dialog.move(int(x), int(y))
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _update_user_header(self) -> None:
+        name = str(self.user_info.get('name') or self.user_info.get('user_id') or '사용자')
+        label = getattr(self.ui, 'label_user_name', None)
+        if label is not None:
+            label.setText(f'{name} 님')
+
     def set_mode(self, mode):
         if mode == self.current_mode:
             return
@@ -204,9 +668,12 @@ class UserWindow(QWidget):
 
     def apply_cart_state(self):
         if self.cart_toggle_button is not None:
-            self.cart_toggle_button.setText(
-                "접기" if self.cart_expanded else "펼치기"
-            )
+            tooltip = "장바구니 접기" if self.cart_expanded else "장바구니 펼치기"
+            self.cart_toggle_button.setToolTip(tooltip)
+            if self.cart_icon_up is not None or self.cart_icon_down is not None:
+                icon = self.cart_icon_down if self.cart_expanded and self.cart_icon_down is not None else self.cart_icon_up
+                if icon is not None:
+                    self.cart_toggle_button.setIcon(icon)
 
         if self.cart_body:
             self.cart_body.setVisible(self.cart_expanded)
@@ -448,6 +915,10 @@ class UserWindow(QWidget):
             label_quantity.setText(f"{total_qty}")
         if label_amount is not None:
             label_amount.setText(f"{total_price:,}")
+
+    def set_products(self, products: list[ProductData]) -> None:
+        self.products = products
+        self.product_index = {product.product_id: product for product in products}
 
     def load_initial_products(self) -> list[ProductData]:
         image_root = Path(__file__).resolve().parent.parent / "image"

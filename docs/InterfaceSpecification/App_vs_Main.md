@@ -131,16 +131,16 @@ Main = Shopee Main Service
 }
 ```
 
-### 상품 목록
+### 전체 상품 요청
 
 **요청**
 - From: App
 - To: Main Service
-- Message Type: `product_list`
+- Message Type: `total_product`
 
 ```json
 {
-  "type": "product_list",
+  "type": "total_product",
   "data": {
     "user_id": "string"
   }
@@ -150,9 +150,9 @@ Main = Shopee Main Service
 **예시**
 ```json
 {
-  "type": "product_list",
+  "type": "total_product",
   "data": {
-    "user_id": "customer001"
+    "user_id": "홍길동"
   }
 }
 ```
@@ -160,11 +160,11 @@ Main = Shopee Main Service
 **응답**
 - From: Main Service
 - To: App
-- Message Type: `product_list_response`
+- Message Type: `total_product_response`
 
 ```json
 {
-  "type": "product_list_response",
+  "type": "total_product_response",
   "result": true,
   "error_code": "string",
   "data": {
@@ -196,7 +196,7 @@ Main = Shopee Main Service
 **예시**
 ```json
 {
-  "type": "product_list_response",
+  "type": "total_product_response",
   "result": true,
   "error_code": "",
   "data": {
@@ -221,7 +221,7 @@ Main = Shopee Main Service
     ],
     "total_count": 5
   },
-  "message": "상품 목록 조회 성공"
+  "message": "get list successfully"
 }
 ```
 
@@ -1273,6 +1273,38 @@ Main = Shopee Main Service
     "total_price": 8640
   },
   "message": "상품이 장바구니에 담겼습니다"
+}
+```
+
+### 피킹 완료 알림
+
+- From: Main Service
+- To: App
+- Message Type: `picking_complete_notification`
+
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "order_id": "int",
+    "robot_id": "int"
+  },
+  "message": "string"
+}
+```
+
+**예시**
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "data": {
+    "order_id": 23,
+    "robot_id": 1
+  },
+  "message": "모든 상품을 장바구니에 담았습니다."
 }
 ```
 

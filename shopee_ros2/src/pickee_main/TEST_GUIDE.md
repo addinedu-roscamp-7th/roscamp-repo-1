@@ -251,13 +251,12 @@ ros2 service call /pickee/workflow/move_to_packaging shopee_interfaces/srv/Picke
 # 기지로 복귀
 ros2 service call /pickee/workflow/return_to_base shopee_interfaces/srv/PickeeWorkflowReturnToBase "{
   robot_id: 1,
-  order_id: 123
+  location_id: 123
 }"
 
 # 직원에게 복귀
 ros2 service call /pickee/workflow/return_to_staff shopee_interfaces/srv/PickeeWorkflowReturnToStaff "{
   robot_id: 1,
-  order_id: 123
 }"
 ```
 
@@ -267,7 +266,6 @@ ros2 service call /pickee/workflow/return_to_staff shopee_interfaces/srv/PickeeW
 ros2 service call /pickee/product/detect shopee_interfaces/srv/PickeeProductDetect "{
   robot_id: 1,
   order_id: 123,
-  location_id: 10,
   product_ids: [1, 2, 3]
 }"
 
@@ -276,8 +274,7 @@ ros2 service call /pickee/product/process_selection shopee_interfaces/srv/Pickee
   robot_id: 1,
   order_id: 123,
   product_id: 456,
-  quantity: 2,
-  user_selection: true
+  bbox_number: 1
 }"
 ```
 
@@ -309,11 +306,25 @@ ros2 service call /pickee/video_stream/stop shopee_interfaces/srv/PickeeMainVide
 # Mobile 속도 제어
 ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeMobileSpeedControl "{
   robot_id: 1,
-  order_id: 123,
-  speed_mode: 'decelerate',
+  order_id: 44,
+  speed_mode: "decelerate",
   target_speed: 0.3,
-  obstacles: [],
-  reason: 'obstacle_detected'
+  obstacles:[
+    {
+      obstacle_type: "person",
+      position: {x: 1.0, y: 1.0},
+      distance: 1.5,
+      velocity: 0.8,
+      bbox: {
+        x1: 1,
+        y1: 1,
+        x2: 2,
+        y2: 2,
+      },
+      confidence: 0.98,
+    }
+  ],
+  reason: "dynamic_obstacle_near"
 }"
 
 # 로봇 상태 발행 (자동으로 1Hz로 발행됨, 수동 테스트 불필요)
@@ -360,7 +371,7 @@ ros2 service call /pickee/workflow/start_task shopee_interfaces/srv/PickeeWorkfl
 ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeWorkflowMoveToSection "{robot_id: 1, order_id: 123, section_id: 1}"
 
 # 4. 제품 감지
-ros2 service call /pickee/product/detect shopee_interfaces/srv/PickeeProductDetect "{robot_id: 1, order_id: 123, location_id: 10, product_ids: [1]}"
+ros2 service call /pickee/product/detect shopee_interfaces/srv/PickeeProductDetect "{robot_id: 1, order_id: 123, product_ids: [1]}"
 
 # 5. 쇼핑 종료
 ros2 service call /pickee/workflow/end_shopping shopee_interfaces/srv/PickeeWorkflowEndShopping "{robot_id: 1, order_id: 123}"
@@ -418,6 +429,7 @@ ros2 topic pub --once /pickee/arm/place_status shopee_interfaces/msg/PickeeArmTa
   message: 'Test place completed'
 }"
 
+ros2 topic echo /pickee/arm/pose_status
 ros2 topic pub --once /pickee/arm/pose_status shopee_interfaces/msg/ArmPoseStatus "{
   robot_id: 1,
   order_id: 1,

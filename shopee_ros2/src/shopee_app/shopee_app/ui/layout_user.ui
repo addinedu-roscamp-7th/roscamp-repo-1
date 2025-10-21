@@ -114,11 +114,34 @@
        </spacer>
       </item>
       <item>
-       <widget class="QToolButton" name="toolButton">
+       <widget class="QToolButton" name="btn_profile">
         <property name="text">
-         <string>My Profile</string>
+         <string>proflie</string>
         </property>
        </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_user_name">
+        <property name="text">
+         <string>최쇼피 님</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_7">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>10</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </widget>
@@ -225,7 +248,7 @@
             </size>
            </property>
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="side_allergy_filter_page">
             <property name="sizePolicy">
@@ -300,8 +323,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>113</width>
-                  <height>286</height>
+                  <width>198</width>
+                  <height>690</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -341,7 +364,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="listWidget_2"/>
+                  <widget class="QListWidget" name="widget_remote_select_list"/>
                  </item>
                  <item>
                   <widget class="QLabel" name="label_14">
@@ -351,7 +374,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="listWidget_3"/>
+                  <widget class="QListWidget" name="widget_auto_select_list"/>
                  </item>
                 </layout>
                </widget>
@@ -678,16 +701,32 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPushButton" name="pushButton_2">
+                    <widget class="QPushButton" name="btn_chevron_up">
                      <property name="text">
                       <string>접기</string>
                      </property>
                     </widget>
                    </item>
                    <item>
+                    <spacer name="horizontalSpacer_6">
+                     <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                     </property>
+                     <property name="sizeType">
+                      <enum>QSizePolicy::Fixed</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>20</width>
+                       <height>20</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                   <item>
                     <widget class="QLabel" name="label_4">
                      <property name="text">
-                      <string>총액:</string>
+                      <string>총액 : </string>
                      </property>
                     </widget>
                    </item>
@@ -756,7 +795,7 @@
           <item>
            <widget class="QFrame" name="frame">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::NoFrame</enum>
             </property>
             <property name="frameShadow">
              <enum>QFrame::Raised</enum>
@@ -769,7 +808,7 @@
               <number>20</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>5</number>
              </property>
              <property name="rightMargin">
               <number>20</number>
@@ -780,15 +819,45 @@
              <item>
               <widget class="QFrame" name="frame_2">
                <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+                <enum>QFrame::NoFrame</enum>
                </property>
                <property name="frameShadow">
                 <enum>QFrame::Raised</enum>
                </property>
                <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="8,10">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
                 <item>
                  <widget class="QWidget" name="map_area" native="true">
-                  <layout class="QVBoxLayout" name="verticalLayout_12">
+                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,17">
+                   <property name="spacing">
+                    <number>0</number>
+                   </property>
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
                    <item>
                     <widget class="QLabel" name="label_8">
                      <property name="text">
@@ -798,6 +867,9 @@
                    </item>
                    <item>
                     <widget class="QLabel" name="label_13">
+                     <property name="frameShape">
+                      <enum>QFrame::Panel</enum>
+                     </property>
                      <property name="text">
                       <string>지도</string>
                      </property>
@@ -809,9 +881,42 @@
                 <item>
                  <widget class="QWidget" name="widget" native="true">
                   <layout class="QVBoxLayout" name="verticalLayout_15" stretch="5,3">
+                   <property name="spacing">
+                    <number>0</number>
+                   </property>
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
                    <item>
                     <widget class="QWidget" name="robot_view" native="true">
-                     <layout class="QVBoxLayout" name="verticalLayout_14">
+                     <property name="focusPolicy">
+                      <enum>Qt::NoFocus</enum>
+                     </property>
+                     <layout class="QVBoxLayout" name="verticalLayout_14" stretch="1,10">
+                      <property name="spacing">
+                       <number>0</number>
+                      </property>
+                      <property name="leftMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="bottomMargin">
+                       <number>0</number>
+                      </property>
                       <item>
                        <layout class="QHBoxLayout" name="horizontalLayout_7">
                         <item>
@@ -839,6 +944,9 @@
                       </item>
                       <item>
                        <widget class="QLabel" name="label_9">
+                        <property name="frameShape">
+                         <enum>QFrame::Box</enum>
+                        </property>
                         <property name="text">
                          <string>로봇 영상</string>
                         </property>
@@ -849,7 +957,22 @@
                    </item>
                    <item>
                     <widget class="QWidget" name="order_select_area" native="true">
-                     <layout class="QVBoxLayout" name="verticalLayout_17">
+                     <layout class="QVBoxLayout" name="verticalLayout_17" stretch="1,10">
+                      <property name="spacing">
+                       <number>0</number>
+                      </property>
+                      <property name="leftMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="topMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="rightMargin">
+                       <number>0</number>
+                      </property>
+                      <property name="bottomMargin">
+                       <number>0</number>
+                      </property>
                       <item>
                        <widget class="QLabel" name="label_11">
                         <property name="text">
@@ -859,6 +982,9 @@
                       </item>
                       <item>
                        <widget class="QLabel" name="label_12">
+                        <property name="frameShape">
+                         <enum>QFrame::Box</enum>
+                        </property>
                         <property name="text">
                          <string>이동중입니다</string>
                         </property>
@@ -902,7 +1028,7 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QLabel" name="label_7">
+                 <widget class="QLabel" name="label_robot_notification">
                   <property name="text">
                    <string>현재 쇼피패키 감자칩 60g 으로 이동중</string>
                   </property>
