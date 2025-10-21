@@ -1,4 +1,4 @@
-image: map1021_modifi.pgm
+image: map1021_modify.pgm
 mode: trinary
 resolution: 0.050
 origin: [-8.740, -3.527, 0]
