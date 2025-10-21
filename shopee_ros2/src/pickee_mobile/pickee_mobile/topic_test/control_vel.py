@@ -5,6 +5,7 @@ import sys
 import threading
 import termios
 import tty
+import os
 
 class TwistModifier(Node):
     """Twist 메시지를 키보드 입력에 따라 수정하고 /cmd_vel_modified로 발행"""
@@ -12,71 +13,62 @@ class TwistModifier(Node):
     def __init__(self):
         super().__init__('twist_modifier')
 
-        # 기존 /cmd_vel 토픽 구독
+        # 기존 /cmd_vel 구독
         self.subscription = self.create_subscription(
-            Twist,
-            'cmd_vel',
-            self.twist_callback,
-            10
+            Twist, 'cmd_vel', self.modify_cmd_vel_callback, 10
         )
 
-        # 수정된 /cmd_vel_modified 토픽 발행
+        # 수정된 /cmd_vel_modified 발행
         self.publisher_ = self.create_publisher(Twist, '/cmd_vel_modified', 10)
 
-        # 키보드 상태 초기값
-        self.key_command = 'z'  # 기본: 그대로 전달
+        # 키 상태
+        self.key_command = 'z'  # 기본값: 정상 속도
 
-        # 키보드 입력 스레드 시작
-        threading.Thread(target=self.keyboard_listener, daemon=True).start()
+        # 키보드 입력 스레드
+        self.keyboard_thread = threading.Thread(target=self.keyboard_listener, daemon=True)
+        self.keyboard_thread.start()
 
-        self.get_logger().info('✅ Twist Modifier Node started (Keyboard control: z/x/c)')
+        self.get_logger().info('✅ Twist Modifier Node started (Keys: z=normal, x=slow, c=stop, v=exit)')
 
-    def twist_callback(self, msg: Twist):
-        """Twist 메시지를 키보드 입력에 따라 수정 후 발행"""
+    def modify_cmd_vel_callback(self, msg: Twist):
+        """Twist 메시지를 키 입력에 따라 수정 후 발행"""
         modified_twist = Twist()
 
-        # 키보드 입력에 따른 배율 결정
-        if self.key_command == 'x':      # 감속
-            scale = 0.5
-            self.get_logger().info('감속')
-        elif self.key_command == 'z':    # 정상속도
-            scale = 1.0
-            self.get_logger().info('정상속도')
-        elif self.key_command == 'c':    # 일시정지
+        # 키 명령에 따른 배율 설정
+        if self.key_command == 'x':
+            scale = 0.8
+            state = '감속'
+        elif self.key_command == 'c':
             scale = 0.0
-            self.get_logger().info('일시정지')
+            state = '정지'
         else:
             scale = 1.0
+            state = '정상속도'
 
-        # 모든 선형 속도에 적용
+        # 속도 적용
         modified_twist.linear.x = msg.linear.x * scale
         modified_twist.linear.y = msg.linear.y * scale
         modified_twist.linear.z = msg.linear.z * scale
-
-        # 모든 각속도에 적용
         modified_twist.angular.x = msg.angular.x * scale
         modified_twist.angular.y = msg.angular.y * scale
         modified_twist.angular.z = msg.angular.z * scale
 
-        # 메시지 발행
         self.publisher_.publish(modified_twist)
 
         self.get_logger().info(
-            f"Key={self.key_command} | Scale={scale} | "
-            f"Linear=({msg.linear.x:.2f},{msg.linear.y:.2f},{msg.linear.z:.2f}) -> "
-            f"({modified_twist.linear.x:.2f},{modified_twist.linear.y:.2f},{modified_twist.linear.z:.2f}) | "
-            f"Angular=({msg.angular.x:.2f},{msg.angular.y:.2f},{msg.angular.z:.2f}) -> "
-            f"({modified_twist.angular.x:.2f},{modified_twist.angular.y:.2f},{modified_twist.angular.z:.2f})"
+            f"[{state}] Linear: ({msg.linear.x:.2f}, {msg.linear.y:.2f}) -> "
+            f"({modified_twist.linear.x:.2f}, {modified_twist.linear.y:.2f}), "
+            f"Angular: ({msg.angular.z:.2f}) -> ({modified_twist.angular.z:.2f})"
         )
 
     def keyboard_listener(self):
-        """키보드 입력을 비동기적으로 처리"""
+        """키보드 입력 감시 (항상 종료 시 터미널 복원)"""
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
-        tty.setcbreak(fd)
 
         try:
-            while True:
+            tty.setcbreak(fd)
+            while rclpy.ok():
                 ch = sys.stdin.read(1)
                 if ch in ['x', 'z', 'c']:
                     self.key_command = ch
@@ -85,22 +77,32 @@ class TwistModifier(Node):
                     self.get_logger().info("✅ 'v' pressed. Shutting down node...")
                     rclpy.shutdown()
                     break
+        except Exception as e:
+            self.get_logger().error(f"Keyboard listener error: {e}")
         finally:
+            # 항상 터미널 복원
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-
+            os.system("stty sane")
+            print("\033[0m")  # 터미널 색상 초기화
+            print("🔁 Terminal restored. You can type normally again.")
 
 def main(args=None):
     rclpy.init(args=args)
+    node = None
     try:
         node = TwistModifier()
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        print("\n🧹 KeyboardInterrupt detected. Cleaning up...")
+    except Exception as e:
+        print(f"❌ Error: {e}")
     finally:
-        node.destroy_node()
+        if node is not None:
+            node.destroy_node()
         rclpy.shutdown()
-
+        os.system("stty sane")
+        print("\033[0m")  # 색상 리셋
+        print("✅ Node terminated. Terminal input restored.")
 
 if __name__ == '__main__':
     main()
