@@ -44,6 +44,16 @@ class MainServiceClient:
     def __init__(self, config: MainServiceConfig | None = None):
         self.config = config if config is not None else MainServiceConfig()
 
+    def login(self, user_id: str, password: str) -> dict:
+        payload = {
+            "type": "user_login",
+            "data": {
+                "user_id": user_id,
+                "password": password,
+            },
+        }
+        return self.send(payload)
+
     def create_order(
         self,
         user_id: str,

@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import replace
+from typing import Any
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
@@ -30,7 +31,13 @@ class UserWindow(QWidget):
 
     closed = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        *,
+        user_info: dict[str, Any] | None = None,
+        service_client: MainServiceClient | None = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.ui = Ui_UserLayout()
         self.ui.setupUi(self)
@@ -87,14 +94,16 @@ class UserWindow(QWidget):
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
-        self.service_client = MainServiceClient()
-        self.current_user_id = "admin"
+        self.user_info: dict[str, Any] = dict(user_info or {})
+        self.service_client = service_client if service_client is not None else MainServiceClient()
+        self.current_user_id = str(self.user_info.get("user_id") or "")
         self.current_order_id: int | None = None
         self.current_robot_id: int | None = None
         self.remote_selection_items: list[CartItemData] = []
         self.auto_selection_items: list[CartItemData] = []
 
         self.profile_dialog = ProfileDialog(self)
+        self.profile_dialog.set_user_info(self.user_info)
         profile_button = getattr(self.ui, "btn_profile", None)
         if profile_button is not None:
             icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
@@ -110,6 +119,7 @@ class UserWindow(QWidget):
             profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
+        self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
 
     def closeEvent(self, event):
@@ -576,6 +586,7 @@ class UserWindow(QWidget):
         if dialog is None or button is None:
             return
 
+        dialog.set_user_info(self.user_info)
         dialog.adjustSize()
         anchor = button.mapToGlobal(button.rect().bottomRight())
         x = anchor.x() - dialog.width()
@@ -611,6 +622,12 @@ class UserWindow(QWidget):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def _update_user_header(self) -> None:
+        name = str(self.user_info.get('name') or self.user_info.get('user_id') or '사용자')
+        label = getattr(self.ui, 'label_user_name', None)
+        if label is not None:
+            label.setText(f'{name} 님')
 
     def set_mode(self, mode):
         if mode == self.current_mode:
