@@ -1,19 +1,43 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 from dataclasses import dataclass
+from dataclasses import field
 
 
 class MainServiceClientError(Exception):
     """Main Service 통신 오류."""
 
 
+def _int_from_env(key: str, default: int) -> int:
+    """환경 변수에서 정수를 읽고 실패 시 기본값을 반환한다."""
+    value = os.getenv(key)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _float_from_env(key: str, default: float) -> float:
+    """환경 변수에서 실수를 읽고 실패 시 기본값을 반환한다."""
+    value = os.getenv(key)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
 @dataclass
 class MainServiceConfig:
-    host: str = "192.168.0.25"
-    port: int = 5000
-    timeout: float = 3.0
+    host: str = field(default_factory=lambda: os.getenv("SHOPEE_MAIN_HOST", "192.168.0.25"))
+    port: int = field(default_factory=lambda: _int_from_env("SHOPEE_MAIN_PORT", 5000))
+    timeout: float = field(default_factory=lambda: _float_from_env("SHOPEE_MAIN_TIMEOUT", 3.0))
 
 
 class MainServiceClient:

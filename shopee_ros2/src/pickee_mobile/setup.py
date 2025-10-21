@@ -55,7 +55,7 @@ setup(
             'get_clicked = pickee_mobile.goal_test.get_clicked:main',
             'get_clicked_move = pickee_mobile.goal_test.get_send_goal:main',
             'custom_goal_move = pickee_mobile.goal_test.custom_goal:main',
-            'amcl_pose_listener = pickee_mobile.get_amcl_pose:main',
+            'get_amcl_pose = pickee_mobile.get_amcl_pose:main',
         ],
     },
 )

@@ -74,28 +74,18 @@ source install/setup.bash
 
 **메인 컨트롤러 노드:**
 ```bash
-ros2 run pickee_mobile mobile_controller
+#시뮬레이션
+ros2 launch pickee_mobile gazebo_bringup.launch.xml 
+ros2 launch pickee_mobile nav2_bringup_launch.xml use_sim_time:=True
+ros2 launch pickee_mobile nav2_view.launch.xml
 ```
 
-**Launch 파일을 이용한 실행 (예시):**
-*   **로봇 시뮬레이션 및 내비게이션 스택 실행:**
-    ```bash
-    ros2 launch pickee_mobile gazebo_bringup.launch.xml
-    ros2 launch pickee_mobile bringup_launch.xml
-    ```
-*   **RViz를 통한 로봇 모델 시각화:**
-    ```bash
-    ros2 launch pickee_mobile display.launch.xml
-    ```
-*   **맵 빌딩 (SLAM) 실행:**
-    ```bash
-    ros2 launch pickee_mobile map_building.launch.xml
-    ```
-*   **RViz를 통한 맵 뷰 및 내비게이션 뷰:**
-    ```bash
-    ros2 launch pickee_mobile map_view.launch.xml
-    ros2 launch pickee_mobile nav2_view.launch.xml
-    ```
+```bash
+#실제 로봇
+ros2 launch pickee_mobile mobile_bringup.launch.xml #로봇
+ros2 launch pickee_mobile nav2_bringup_launch.xml #로봇
+ros2 launch pickee_mobile nav2_view.launch.xml #pc
+```
 
 **Mock 노드 (각각 별도의 터미널에서 실행):**
 ```bash

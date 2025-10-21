@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QWidget
 
+from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.pages.models.cart_item_data import CartItemData
@@ -20,7 +21,6 @@ from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
-
 
 
 class UserWindow(QWidget):
@@ -93,7 +93,11 @@ class UserWindow(QWidget):
         self.ui.btn_profile.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
+        self.notification_client: AppNotificationClient | None = None
+
     def closeEvent(self, event):
+        if self.notification_client is not None:
+            self.notification_client.stop()
         self.closed.emit()
         super().closeEvent(event)
 
@@ -186,22 +190,22 @@ class UserWindow(QWidget):
         self.set_mode("pick")
 
     def request_create_order(self) -> bool:
-        if not getattr(self, 'service_client', None):
+        if not getattr(self, "service_client", None):
             return False
 
-        user_id = getattr(self, 'current_user_id', '')
+        user_id = getattr(self, "current_user_id", "")
         if not user_id:
-            QMessageBox.warning(self, '주문 생성 실패', '사용자 정보가 없습니다.')
+            QMessageBox.warning(self, "주문 생성 실패", "사용자 정보가 없습니다.")
             return False
 
         selected_items = [item for item in self.cart_items.values() if item.is_selected]
         if not selected_items:
-            QMessageBox.warning(self, '주문 생성 실패', '선택된 상품이 없습니다.')
+            QMessageBox.warning(self, "주문 생성 실패", "선택된 상품이 없습니다.")
             return False
 
         selected_snapshot = [replace(item) for item in selected_items]
         total_amount = sum(item.total_price for item in selected_items)
-        payment_method = 'card'
+        payment_method = "card"
 
         try:
             response = self.service_client.create_order(
@@ -211,54 +215,68 @@ class UserWindow(QWidget):
                 total_amount=total_amount,
             )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '주문 생성 실패', str(exc))
+            QMessageBox.warning(self, "주문 생성 실패", str(exc))
             return self.handle_fake_order(selected_snapshot, selected_items)
 
         if not response:
-            QMessageBox.warning(self, '주문 생성 실패', '서버 응답이 없습니다.')
+            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
             return self.handle_fake_order(selected_snapshot, selected_items)
 
-        if response.get('result'):
-            order_data = response.get('data') or {}
+        if response.get("result"):
+            order_data = response.get("data") or {}
             self.handle_order_created(selected_snapshot, order_data)
             self.clear_ordered_cart_items(selected_items)
             QMessageBox.information(
                 self,
-                '주문 생성 완료',
-                response.get('message') or '주문이 생성되었습니다.',
+                "주문 생성 완료",
+                response.get("message") or "주문이 생성되었습니다.",
             )
             return True
 
         QMessageBox.warning(
             self,
-            '주문 생성 실패',
-            response.get('message') or '주문 생성에 실패했습니다.',
+            "주문 생성 실패",
+            response.get("message") or "주문 생성에 실패했습니다.",
         )
         return self.handle_fake_order(selected_snapshot, selected_items)
+
+    def on_notification_received(self, payload: dict) -> None:
+        """푸시 알림 수신 시 처리."""
+        msg_type = payload.get("type")
+        if msg_type == "robot_moving_notification":
+            self.handle_robot_moving_notification(payload)
+        elif msg_type == "robot_arrived_notification":
+            self.handle_robot_arrived_notification(payload)
+
+    def on_notification_error(self, message: str) -> None:
+        """알림 수신 중 오류 발생 시 사용자에게 전달."""
+        # TODO: GUI에 상태 표시 위젯을 추가해 오류 메시지를 노출한다.
+        print(f"알림 수신 오류: {message}")
 
     def handle_order_created(
         self,
         ordered_items: list[CartItemData],
         order_data: dict,
     ) -> None:
+        self._ensure_notification_listener()
         remote_items, auto_items = self.categorize_cart_items(ordered_items)
         self.remote_selection_items = remote_items
         self.auto_selection_items = auto_items
 
-        remote_widget = getattr(self.ui, 'widget_remote_select_list', None)
-        auto_widget = getattr(self.ui, 'widget_auto_select_list', None)
-        self.populate_selection_list(remote_widget, remote_items, '원격 선택 대기')
-        self.populate_selection_list(auto_widget, auto_items, '자동 선택 대기')
+        remote_widget = getattr(self.ui, "widget_remote_select_list", None)
+        auto_widget = getattr(self.ui, "widget_auto_select_list", None)
+        self.populate_selection_list(remote_widget, remote_items, "원격 선택 대기")
+        self.populate_selection_list(auto_widget, auto_items, "자동 선택 대기")
 
-        self.current_order_id = order_data.get('order_id')
-        self.current_robot_id = order_data.get('robot_id')
+        self.current_order_id = order_data.get("order_id")
+        self.current_robot_id = order_data.get("robot_id")
 
-        status_label = getattr(self.ui, 'label_12', None)
+        status_label = getattr(self.ui, "label_12", None)
         if status_label is not None:
             if self.current_robot_id is not None:
-                status_label.setText(f'로봇 {self.current_robot_id} 이동중')
+                status_label.setText(f"로봇 {self.current_robot_id} 이동중")
             else:
-                status_label.setText('로봇 이동중')
+                status_label.setText("로봇 이동중")
 
     def clear_ordered_cart_items(self, items: list[CartItemData]) -> None:
         for item in items:
@@ -275,18 +293,98 @@ class UserWindow(QWidget):
     ) -> bool:
         QMessageBox.information(
             self,
-            '임시 주문 진행',
-            'Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.',
+            "임시 주문 진행",
+            "Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.",
         )
         self.handle_order_created(
             ordered_snapshot,
             {
-                'order_id': -1,
-                'robot_id': None,
+                "order_id": -1,
+                "robot_id": None,
             },
         )
         self.clear_ordered_cart_items(original_items)
         return True
+
+    def handle_robot_moving_notification(self, payload: dict) -> None:
+        """로봇 이동 알림에 따라 상태 텍스트를 갱신한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+        destination = data.get("destination")
+        message_text = payload.get("message") or "로봇 이동중"
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if destination:
+            formatted = f"{message_text} : {destination}"
+        else:
+            formatted = message_text
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+
+        print(f"[알림] {formatted}")
+
+    def handle_robot_arrived_notification(self, payload: dict) -> None:
+        """로봇 도착 알림에 따라 상태 텍스트를 갱신한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        section_id = data.get("section_id")
+        location_id = data.get("location_id")
+        if isinstance(section_id, int) and section_id >= 0:
+            location_text = f"SECTION_{section_id}"
+        elif location_id is not None:
+            location_text = f"LOCATION_{location_id}"
+        else:
+            location_text = None
+
+        message_text = payload.get("message") or "로봇 도착"
+        if location_text:
+            formatted = f"{message_text} : {location_text}"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def _ensure_notification_listener(self) -> None:
+        """주문 생성 시 알림 리스너를 시작한다."""
+        if self.notification_client is not None:
+            if not self.notification_client.isRunning():
+                self.notification_client.start()
+            return
+        self.notification_client = AppNotificationClient(
+            config=self.service_client.config
+        )
+        self.notification_client.notification_received.connect(
+            self.on_notification_received
+        )
+        self.notification_client.connection_error.connect(self.on_notification_error)
+        self.notification_client.start()
 
     def categorize_cart_items(
         self,
@@ -312,7 +410,7 @@ class UserWindow(QWidget):
         list_widget.setSpacing(6)
         list_widget.clear()
         if not items:
-            list_widget.addItem(QListWidgetItem('표시할 상품이 없습니다.'))
+            list_widget.addItem(QListWidgetItem("표시할 상품이 없습니다."))
             return
 
         for index, item in enumerate(items, start=1):
