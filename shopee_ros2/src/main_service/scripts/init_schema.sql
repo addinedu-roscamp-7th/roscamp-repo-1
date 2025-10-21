@@ -115,6 +115,7 @@ CREATE TABLE product (
     category VARCHAR(10) NOT NULL,
     allergy_info_id INT NOT NULL,
     is_vegan_friendly BOOLEAN NOT NULL,
+    auto_select BOOLEAN NOT NULL DEFAULT TRUE,
     section_id INT NOT NULL,
     warehouse_id INT NOT NULL,
     length INT,
