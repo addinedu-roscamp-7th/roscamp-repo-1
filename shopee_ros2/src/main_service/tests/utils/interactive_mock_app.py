@@ -149,16 +149,11 @@ async def send_shopping_end(client: MainServiceClient, state: AppState) -> None:
     """쇼핑 종료 요청을 전송한다."""
     if state.order_id is None:
         state.order_id = prompt_int('주문 ID 입력', 1)
-    if state.robot_id is None:
-        state.robot_id = prompt_int('로봇 ID 입력', 1)
     order_id = prompt_int('주문 ID 입력', state.order_id)
-    robot_id = prompt_int('로봇 ID 입력', state.robot_id)
     state.order_id = order_id
-    state.robot_id = robot_id
     payload = {
         'user_id': state.user_id,
         'order_id': order_id,
-        'robot_id': robot_id,
     }
     await client.send_request('shopping_end', payload)
 

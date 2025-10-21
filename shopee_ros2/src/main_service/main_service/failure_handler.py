@@ -213,7 +213,7 @@ class RobotFailureHandler:
             {
                 'type': 'robot_reassignment_notification',
                 'result': True,
-                'error_code': None,
+                'error_code': '',
                 'data': {
                     'order_id': order_id,
                     'old_robot_id': old_robot_id,

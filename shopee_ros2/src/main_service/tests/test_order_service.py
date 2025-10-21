@@ -12,6 +12,7 @@ from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
 
 from main_service.database_models import Customer, Order, OrderItem, Product, Section, Shelf, Location
 from main_service.order_service import OrderService
+from main_service.config import settings
 
 # Mark all tests in this file as asyncio
 pytestmark = pytest.mark.asyncio
@@ -526,6 +527,34 @@ class TestOrderServicePickingModes:
 
         # Check that the first move command goes to the manual section
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
+
+
+class TestOrderServiceEndShopping:
+    """Test suite for OrderService.end_shopping."""
+
+    async def test_end_shopping_resolves_robot_assignment(
+        self,
+        order_service: OrderService,
+        mock_robot_coordinator: AsyncMock,
+        mock_db_manager: MagicMock,
+    ) -> None:
+        order_id = 501
+        robot_id = 42
+
+        order_service._assignment_manager.assign_pickee(order_id, robot_id)
+
+        mock_robot_coordinator.dispatch_shopping_end.return_value = MagicMock(success=True, message="")
+        order_service._state_manager.set_status_picked_up = MagicMock(return_value=True)
+
+        with patch.object(order_service, "_calculate_order_summary", return_value=(2, 3000)):
+            with patch.object(settings, "PICKEE_PACKING_LOCATION_ID", None):
+                success, summary = await order_service.end_shopping(order_id)
+
+        assert success is True
+        assert summary == {"total_items": 2, "total_price": 3000}
+        mock_robot_coordinator.dispatch_shopping_end.assert_awaited_once()
+        sent_request = mock_robot_coordinator.dispatch_shopping_end.await_args[0][0]
+        assert sent_request.robot_id == robot_id
         move_req = mock_robot_coordinator.dispatch_move_to_section.await_args.args[0]
         assert move_req.section_id == 100
 
@@ -637,4 +666,3 @@ class TestOrderServicePickingModes:
         order_service._notifier.notify_manual_picking_complete.assert_awaited_once_with(order_id)
         # Also assert that the robot is dispatched to the next section
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
-

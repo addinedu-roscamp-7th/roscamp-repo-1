@@ -83,11 +83,13 @@ class ProductService:
 
         Args:
             query: 자연어 검색어 (예: "비건 사과")
-            filters: 추가 필터 (현재 미사용)
+            filters: 추가 필터 (알레르기/비건 등)
 
         Returns:
             dict: {"products": list[dict], "total_count": int}
         """
+        normalized_filters = filters if isinstance(filters, dict) else None
+
         # 1. LLM을 통해 검색 조건 생성
         # 예: "name LIKE '%사과%' AND is_vegan_friendly = true"
         where_clause = await self._llm.generate_search_query(query)
@@ -96,33 +98,71 @@ class ProductService:
         if not where_clause:
             logger.warning('LLM query generation failed. Falling back to basic search.')
             self._llm.record_fallback()
-            return self._basic_keyword_search(query)
+            return self._basic_keyword_search(query, normalized_filters)
 
         if not self._is_safe_where_clause(where_clause):
             logger.warning('Discarding unsafe LLM WHERE clause: %s', where_clause)
             self._llm.record_fallback()
-            return self._basic_keyword_search(query)
+            return self._basic_keyword_search(query, normalized_filters)
 
         # 3. LLM이 생성한 WHERE 절을 사용하여 안전하게 쿼리 실행
         full_query = text(f"SELECT * FROM product WHERE {where_clause}")
         with self._db.session_scope() as session:
             products = session.query(Product).from_statement(full_query).all()
-            product_list = [self._product_to_dict(p) for p in products]
+            filtered_products = self._apply_filters(products, normalized_filters)
+            product_list = [self._product_to_dict(p) for p in filtered_products]
             return {
                 "products": product_list,
                 "total_count": len(product_list)
             }
 
-    def _basic_keyword_search(self, keyword: str) -> Dict[str, Any]:
+    def _basic_keyword_search(self, keyword: str, filters: Optional[dict] = None) -> Dict[str, Any]:
         """LLM 실패 시 기본 LIKE 검색을 수행합니다."""
         pattern = f"%{keyword}%"
         with self._db.session_scope() as session:
             products = session.query(Product).filter(Product.name.like(pattern)).all()
-            product_list = [self._product_to_dict(p) for p in products]
+            filtered_products = self._apply_filters(products, filters)
+            product_list = [self._product_to_dict(p) for p in filtered_products]
             return {
                 "products": product_list,
                 "total_count": len(product_list)
             }
+
+    def _apply_filters(self, products: List[Product], filters: Optional[dict]) -> List[Product]:
+        """필터 조건을 적용해 상품 목록을 걸러냅니다."""
+        if not filters:
+            return products
+
+        allergy_filters = filters.get('allergy_info') if isinstance(filters.get('allergy_info'), dict) else {}
+        is_vegan_filter = filters.get('is_vegan')
+
+        filtered: List[Product] = []
+        for product in products:
+            if isinstance(is_vegan_filter, (bool, str, int)) and self._to_filter_bool(is_vegan_filter) and not product.is_vegan_friendly:
+                continue
+
+            if allergy_filters:
+                allergy_info = product.allergy_info
+                if allergy_info:
+                    blocked = False
+                    for allergen, avoid in allergy_filters.items():
+                        if self._to_filter_bool(avoid) and getattr(allergy_info, allergen, False):
+                            blocked = True
+                            break
+                    if blocked:
+                        continue
+            filtered.append(product)
+        return filtered
+
+    @staticmethod
+    def _to_filter_bool(value: Any) -> bool:
+        """필터 값이 참으로 간주되는지 판단합니다."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized in {'true', '1', 'yes', 'y'}
+        return bool(value)
 
     def _is_safe_where_clause(self, clause: str) -> bool:
         """
