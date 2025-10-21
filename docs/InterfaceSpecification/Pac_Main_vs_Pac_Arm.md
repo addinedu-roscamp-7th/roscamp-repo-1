@@ -6,19 +6,19 @@ Pac Arm = Packee Arm Controller
 > **ROS2 Interface:** `shopee_interfaces/msg/ArmPoseStatus.msg`
 
 ### `/packee/arm/pick_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PackeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/packee/arm/place_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PackeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/packee/arm/move_to_pose`
-> **ROS2 Interface:** `shopee_interfaces/srv/PackeeArmMoveToPose.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmMoveToPose.srv`
 
 ### `/packee/arm/pick_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PackeeArmPickProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPickProduct.srv`
 
 ### `/packee/arm/place_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PackeeArmPlaceProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPlaceProduct.srv`
 
 
 
@@ -34,6 +34,6 @@ Pac Arm = Packee Arm Controller
 
 | 구분 | 서비스명 | 서비스 | From | To | 메시지 구조 | 예시 |
 |---|---|---|---|---|---|---|
-| **자세 변경 명령** | `/packee/arm/move_to_pose` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`string pose_type`<br><br>**Response**<br>`bool accepted`<br>`string message`<br><br>**pose_type**<br>`"cart_view"` - 장바구니 확인 자세<br>`"standby"` - 대기 자세 | **Request**<br>`robot_id: 1`<br>`order_id: 3`<br>`pose_type: "cart_view"`<br><br>**Response**<br>`accepted: true`<br>`message: "Pose change command accepted"` |
-| **상품 픽업 명령** | `/packee/arm/pick_product` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br>`string arm_side`<br>`Point3D target_position`<br>`BBox bbox`<br><br>**Response**<br>`bool accepted`<br>`string message`<br><br>**arm_side**<br>`"left"` - 좌측 팔 사용<br>`"right"` - 우측 팔 사용 | **Request - 좌측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "left"`<br>`target_position: {x: 0.3, y: 0.15, z: 0.8}`<br>`bbox: {x1: 120, y1: 180, x2: 250, y2: 320}`<br><br>**Response**<br>`accepted: true`<br>`message: "Left arm pick command accepted"`<br><br>**Request - 우측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "right"`<br>`target_position: {x: 0.25, y: -0.1, z: 0.75}`<br>`bbox: {x1: 280, y1: 150, x2: 380, y2: 280}`<br><br>**Response**<br>`accepted: true`<br>`message: "Right arm pick command accepted"` |
-| **상품 담기 명령** | `/packee/arm/place_product` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br>`string arm_side`<br>`Point3D box_position`<br><br>**Response**<br>`bool accepted`<br>`string message`<br><br>**arm_side**<br>`"left"` - 좌측 팔 사용<br>`"right"` - 우측 팔 사용 | **Request - 좌측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "left"`<br>`box_position: {x: 0.5, y: 0.3, z: 0.2}`<br><br>**Response**<br>`accepted: true`<br>`message: "Left arm place command accepted"`<br><br>**Request - 우측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "right"`<br>`box_position: {x: 0.5, y: -0.3, z: 0.2}`<br><br>**Response**<br>`accepted: true`<br>`message: "Right arm place command accepted"` |
+| **자세 변경 명령** | `/packee/arm/move_to_pose` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`string pose_type`<br><br>**Response**<br>`bool success`<br>`string message`<br><br>**pose_type**<br>`"cart_view"` - 장바구니 확인 자세<br>`"standby"` - 대기 자세 | **Request**<br>`robot_id: 1`<br>`order_id: 3`<br>`pose_type: "cart_view"`<br><br>**Response**<br>`success: true`<br>`message: "Pose change command accepted"` |
+| **상품 픽업 명령** | `/packee/arm/pick_product` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`string arm_side`<br>`shopee_interfaces/msg/DetectedProduct target_product`<br><br>**DetectedProduct 사용 규칙 (Packee)**<br>`int32 product_id`<br>`float32 confidence`<br>`shopee_interfaces/msg/BBox bbox`<br>`shopee_interfaces/msg/Point3D position`<br>`int32 bbox_number` (0 고정)<br>`shopee_interfaces/msg/DetectionInfo detection_info` (빈 배열)<br><br>**Response**<br>`bool success`<br>`string message`<br><br>**arm_side**<br>`"left"` - 좌측 팔 사용<br>`"right"` - 우측 팔 사용 | **Request - 좌측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`arm_side: "left"`<br>`target_product:`<br>`  product_id: 3`<br>`  bbox: {x1: 120, y1: 180, x2: 250, y2: 320}`<br>`  position: {x: 0.3, y: 0.15, z: 0.8}`<br>`  confidence: 0.94`<br><br>**Response**<br>`success: true`<br>`message: "Left arm pick command accepted"`<br><br>**Request - 우측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`arm_side: "right"`<br>`target_product:`<br>`  product_id: 3`<br>`  bbox: {x1: 280, y1: 150, x2: 380, y2: 280}`<br>`  position: {x: 0.25, y: -0.1, z: 0.75}`<br>`  confidence: 0.96`<br><br>**Response**<br>`success: true`<br>`message: "Right arm pick command accepted"` |
+| **상품 담기 명령** | `/packee/arm/place_product` | Service | Pac Main | Pac Arm | **Request**<br>`int32 robot_id`<br>`int32 order_id`<br>`int32 product_id`<br>`string arm_side`<br>`shopee_interfaces/msg/Point3D box_position`<br><br>**Response**<br>`bool success`<br>`string message`<br><br>**arm_side**<br>`"left"` - 좌측 팔 사용<br>`"right"` - 우측 팔 사용 | **Request - 좌측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "left"`<br>`box_position: {x: 0.5, y: 0.3, z: 0.2}`<br><br>**Response**<br>`success: true`<br>`message: "Left arm place command accepted"`<br><br>**Request - 우측 팔**<br>`robot_id: 1`<br>`order_id: 3`<br>`product_id: 3`<br>`arm_side: "right"`<br>`box_position: {x: 0.5, y: -0.3, z: 0.2}`<br><br>**Response**<br>`success: true`<br>`message: "Right arm place command accepted"` |

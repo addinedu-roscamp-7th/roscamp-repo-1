@@ -6,19 +6,19 @@ Pic Arm = Pickee Arm Controller
 > **ROS2 Interface:** `shopee_interfaces/msg/ArmPoseStatus.msg`
 
 ### `/pickee/arm/pick_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PickeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/pickee/arm/place_status`
-> **ROS2 Interface:** `shopee_interfaces/msg/PickeeArmTaskStatus.msg`
+> **ROS2 Interface:** `shopee_interfaces/msg/ArmTaskStatus.msg`
 
 ### `/pickee/arm/move_to_pose`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmMoveToPose.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmMoveToPose.srv`
 
 ### `/pickee/arm/pick_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmPickProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPickProduct.srv`
 
 ### `/pickee/arm/place_product`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeArmPlaceProduct.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/ArmPlaceProduct.srv`
 
 ## 🤖 인터페이스 상세 정의
 
@@ -70,6 +70,7 @@ message: "Joint limit exceeded"
 int32 robot_id
 int32 order_id
 int32 product_id
+string arm_side        # Pickee는 ""로 송신
 string status          # "in_progress", "completed", "failed"
 string current_phase   # "planning", "approaching", "grasping", "lifting", "done"
 float32 progress       # 0.0 ~ 1.0
@@ -116,11 +117,14 @@ message: "Grasp failed - gripper error"
 int32 robot_id
 int32 order_id
 int32 product_id
+string arm_side        # Pickee는 ""로 송신
 string status          # "in_progress", "completed", "failed"
 string current_phase   # "planning", "moving", "placing", "releasing", "done"
 float32 progress
 string message
 ```
+
+> ※ Packee와의 공통 규격으로 `arm_side`가 포함되며 Pickee는 빈 문자열을 유지한다.
 
 #### 예시:
 - 이동 중:
@@ -190,21 +194,24 @@ message: "Pose change command accepted"
 ```plaintext
 int32 robot_id
 int32 order_id
-PickeeDetectedProduct target_product
+string arm_side                 # Pickee는 "" 사용
+shopee_interfaces/msg/DetectedProduct target_product
 ```
 
-- **PickeeDetectedProduct**
+- **DetectedProduct** (Pickee 사용 필드 강조)
 ```plaintext
 int32 product_id
 int32 bbox_number
-DetectionInfo detection_info
+shopee_interfaces/msg/DetectionInfo detection_info
+shopee_interfaces/msg/BBox bbox
 float32 confidence
+shopee_interfaces/msg/Point3D position                # Depth 미사용 시 (0, 0, 0)
 ```
 
 - **DetectionInfo**
 ```plaintext
-Point2D[] polygon     # 다각형 꼭짓점 좌표 리스트
-BBox bbox_coords
+shopee_interfaces/msg/Point2D[] polygon
+shopee_interfaces/msg/BBox bbox_coords
 ```
 
 - **Point2D**
@@ -223,31 +230,32 @@ int32 y2
 
 #### Response:
 ```plaintext
-bool accepted
+bool success
 string message
 ```
 
 #### 예시:
 ```plaintext
 Request:
-robot_id: 1
-order_id: 3
-target_product: {
-  product_id: 4
-  bbox_number: 1
-  detection_info: {
-    polygon: [...]
-    bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+  robot_id: 1
+  order_id: 3
+  arm_side: ""
+  target_product: {
+    product_id: 4
+    bbox_number: 1
+    detection_info: {
+      polygon: [...]
+      bbox_coords: {x1: 100, y1: 150, x2: 200, y2: 250}
+    }
+    bbox: {x1: 100, y1: 150, x2: 200, y2: 250}
+    confidence: 0.95
+    position: {x: 0.0, y: 0.0, z: 0.0}
   }
-  confidence: 0.95
-}
 
 Response:
-accepted: true
-message: "Pick command accepted"
+  success: true
+  message: "Pick command accepted"
 ```
-
-📝 *2025.10.20 - DetectionInfo 사용으로 polygon 정보 포함*
 
 ---
 
@@ -260,22 +268,33 @@ message: "Pick command accepted"
 int32 robot_id
 int32 order_id
 int32 product_id
+string arm_side                # Pickee는 "" 사용
+shopee_interfaces/msg/Point3D box_position           # Depth 미사용 시 (0, 0, 0)
+```
+
+- **Point3D**
+```plaintext
+float32 x
+float32 y
+float32 z
 ```
 
 #### Response:
 ```plaintext
-bool accepted
+bool success
 string message
 ```
 
 #### 예시:
 ```plaintext
 Request:
-robot_id: 1
-order_id: 21
-product_id: 34
+  robot_id: 1
+  order_id: 21
+  product_id: 34
+  arm_side: ""
+  box_position: {x: 0.0, y: 0.0, z: 0.0}
 
 Response:
-accepted: true
-message: "Place command accepted"
+  success: true
+  message: "Place command accepted"
 ```

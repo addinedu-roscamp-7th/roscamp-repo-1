@@ -2,6 +2,10 @@ Pic Main = Pickee Main Controller
 
 Pic Vision = Pickee Vision AI Service
 
+---
+
+## ROS2 Topic
+
 ### `/pickee/vision/detection_result`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeVisionDetection.msg`
 
@@ -17,6 +21,10 @@ Pic Vision = Pickee Vision AI Service
 ### `/pickee/vision/register_staff_result`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeVisionStaffRegister.msg`
 
+---
+
+## ROS2 Service
+
 ### `/pickee/vision/detect_products`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionDetectProducts.srv`
 
@@ -24,7 +32,7 @@ Pic Vision = Pickee Vision AI Service
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionCheckProductInCart.srv`
 
 ### `/pickee/vision/check_cart_presence`
-> **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionCheckCartPresence.srv`
+> **ROS2 Interface:** `shopee_interfaces/srv/VisionCheckCartPresence.srv`
 
 ### `/pickee/vision/video_stream_start`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeVisionVideoStreamStart.srv`
@@ -69,7 +77,7 @@ Pic Vision = Pickee Vision AI Service
 int32 robot_id
 int32 order_id
 bool success
-PickeeDetectedProduct[] products
+shopee_interfaces/msg/DetectedProduct[] products
 string message
 ```
 
@@ -77,16 +85,16 @@ string message
 ```plaintext
 int32 product_id
 float32 confidence
-BBox bbox
-int32 bbox_number       # 앱 UI 선택용
-DetectionInfo detection_info
-Point3D position        # (0, 0, 0) 미사용
+shopee_interfaces/msg/BBox bbox
+int32 bbox_number         # 앱 UI 선택용
+shopee_interfaces/msg/DetectionInfo detection_info
+shopee_interfaces/msg/Point3D position          # (0, 0, 0) 고정
 ```
 
 - **DetectionInfo**
 ```plaintext
-Point2D[] polygon       # 다각형 꼭짓점 좌표 리스트
-BBox bbox_coords
+shopee_interfaces/msg/Point2D[] polygon       # 다각형 꼭짓점 좌표 리스트
+shopee_interfaces/msg/BBox bbox_coords
 ```
 
 - **Point2D**
@@ -130,18 +138,18 @@ string message
 ```plaintext
 int32 robot_id
 int32 order_id
-Obstacle[] obstacles
+shopee_interfaces/msg/Obstacle[] obstacles
 string message
 ```
 
 - **Obstacle**
 ```plaintext
 string obstacle_type    # 예: "cart", "box", "product", "shelf", "person", "other_robot", "cart_moving"
-Point2D position        # 장애물 중심 위치 (m)
+shopee_interfaces/msg/Point2D position        # 장애물 중심 위치 (m)
 float32 distance        # 로봇으로부터의 거리 (m)
 float32 velocity        # 속도 (m/s)
-Vector2D direction      # 동적 장애물만 해당
-BBox bbox
+shopee_interfaces/msg/Vector2D direction      # 동적 장애물만 해당
+shopee_interfaces/msg/BBox bbox
 float32 confidence      # 인식 신뢰도
 ```
 
@@ -173,7 +181,7 @@ int32 y2
 - **Message Fields**:
 ```plaintext
 int32 robot_id
-Point2D relative_position   # 로봇 기준 상대 위치 (m)
+shopee_interfaces/msg/Point2D relative_position   # 로봇 기준 상대 위치 (m)
 float32 distance
 bool is_tracking
 ```
@@ -248,6 +256,7 @@ int32 order_id
 ```plaintext
 bool success
 bool cart_present
+float32 confidence    # 픽커 비전: 0.0 또는 기본값
 string message
 ```
 

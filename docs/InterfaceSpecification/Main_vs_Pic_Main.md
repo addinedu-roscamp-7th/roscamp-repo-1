@@ -2,6 +2,8 @@ Main = Shopee Main Service
 
 Pic Main = Pickee Main Controller
 
+---
+
 ### `/pickee/moving_status`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeMoveStatus.msg`
 
@@ -24,6 +26,8 @@ Pic Main = Pickee Main Controller
 
 ### `/pickee/product/loaded`
 > **ROS2 Interface:** `shopee_interfaces/msg/PickeeProductLoaded.msg`
+
+---
 
 ### `/pickee/workflow/start_task`
 > **ROS2 Interface:** `shopee_interfaces/srv/PickeeWorkflowStartTask.srv`
@@ -108,23 +112,23 @@ Pic Main = Pickee Main Controller
   ```plaintext
   int32 robot_id
   int32 order_id
-  DetectedProduct[] products
+  shopee_interfaces/msg/DetectedProduct[] products
   ```
 
-- **DetectedProduct** (Pickee 사용 필드)
+- **DetectedProduct**
   ```plaintext
   int32 product_id
   float32 confidence
-  BBox bbox
-  int32 bbox_number       # 앱 UI 선택용
-  DetectionInfo detection_info
-  Point3D position        # (0, 0, 0) 미사용
+  shopee_interfaces/msg/BBox bbox
+  int32 bbox_number
+  shopee_interfaces/msg/DetectionInfo detection_info
+  shopee_interfaces/msg/Point3D position
   ```
 
 - **DetectionInfo**
   ```plaintext
-  Point2D[] polygon   # polygon: 다각형 꼭짓점 좌표 리스트
-  BBox bbox_coords
+  shopee_interfaces/msg/Point2D[] polygon
+  shopee_interfaces/msg/BBox bbox_coords
   ```
 
 - **Point2D**
@@ -140,8 +144,6 @@ Pic Main = Pickee Main Controller
   int32 x2
   int32 y2
   ```
-
-📝 *2025.10.20 - DetectionInfo로 통합. polygon 좌표 사용.*
 
 ---
 
@@ -452,7 +454,7 @@ int32 location_id
 
 #### Response:
 ```plaintext
-shopee_interfaces/Pose2D pose
+shopee_interfaces/msg/Pose2D pose
 bool success
 string message
 ```
@@ -471,7 +473,7 @@ int32 warehouse_id
 
 #### Response:
 ```plaintext
-shopee_interfaces/Pose2D pose
+shopee_interfaces/msg/Pose2D pose
 bool success
 string message
 ```
@@ -490,7 +492,7 @@ int32 section_id
 
 #### Response:
 ```plaintext
-shopee_interfaces/Pose2D pose
+shopee_interfaces/msg/Pose2D pose
 bool success
 string message
 ```
