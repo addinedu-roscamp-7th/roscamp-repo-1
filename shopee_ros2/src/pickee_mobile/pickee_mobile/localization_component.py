@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from shopee_interfaces.msg import PickeeMobilePose, Pose2D
 import math
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 class LocalizationComponent:
     '''
@@ -16,6 +17,13 @@ class LocalizationComponent:
         self.pose_publisher = self.node.create_publisher(
             PickeeMobilePose,
             '/pickee/mobile/pose',
+            10
+        )
+
+        self.get_current_pose_subscriber = self.node.create_subscription(
+            PoseWithCovarianceStamped,
+            '/amcl_pose',
+            self.get_current_pose,
             10
         )
         self.node.get_logger().info('Localization Component 초기화 완료.')
@@ -69,14 +77,33 @@ class LocalizationComponent:
         self.pose_publisher.publish(pose_msg)
         self.node.get_logger().info(f'robot_id: {self.robot_id}, order_id: {self.order_id}, pose: ({self.current_pose.x:.2f}, {self.current_pose.y:.2f}, {self.current_pose.theta:.2f}), linear_velocity: {self.current_linear_velocity:.2f}, angular_velocity: {self.current_angular_velocity:.2f}, battery: {self.current_battery_level:.2f}%, state: {self.current_state}')
 
-    def get_current_pose(self):
-        '''
-        현재 추정된 로봇의 위치 정보를 반환합니다.
-        '''
-        return self.current_pose.x, self.current_pose.y, self.current_pose.theta
+    def get_current_pose(self, msg: PoseWithCovarianceStamped):
+        """
+        AMCL에서 전달받은 PoseWithCovarianceStamped 메시지를 기반으로
+        로봇의 현재 위치(x, y, theta)를 업데이트합니다.
+        """
+        # 메시지에서 위치 좌표 추출
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+
+        # 쿼터니언을 yaw(θ)로 변환
+        qz = msg.pose.pose.orientation.z
+        qw = msg.pose.pose.orientation.w
+        theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
+
+        # 내부 상태 업데이트
+        self.current_pose.x = x
+        self.current_pose.y = y
+        self.current_pose.theta = theta
+
+        # 로그 출력
+        self.node.get_logger().info(
+            f'📡 AMCL Pose 업데이트: x={x:.3f}, y={y:.3f}, theta={math.degrees(theta):.1f}°'
+        )
 
     def get_battery_level(self):
         '''
         현재 배터리 잔량을 반환합니다.
         '''
         return self.battery_level
+    

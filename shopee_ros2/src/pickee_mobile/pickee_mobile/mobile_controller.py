@@ -6,6 +6,8 @@ from pickee_mobile.localization_component import LocalizationComponent
 from pickee_mobile.path_planning_component import PathPlanningComponent
 from pickee_mobile.motion_control_component import MotionControlComponent
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D # 추가
+from geometry_msgs.msg import PoseWithCovarianceStamped
+
 
 class MobileController(Node):
     '''
@@ -30,6 +32,7 @@ class MobileController(Node):
             '/pickee/mobile/arrival',
             10
         )
+
 
         # 상태 기계 초기화
         self.state_machine = StateMachine(IdleState(self), self)
