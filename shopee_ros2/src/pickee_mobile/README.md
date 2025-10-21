@@ -70,7 +70,7 @@ colcon build --packages-select pickee_mobile
 source install/setup.bash
 ```
 
-### 4.3. 노드 실행
+### 4.3. 프로젝트 노드 실행
 
 **메인 컨트롤러 노드:**
 
@@ -103,6 +103,24 @@ ros2 run pickee_mobile mock_pose_subscriber
 ros2 run pickee_mobile mock_arrival_and_move_status_subscriber
 ```
 
-## 5. 라이선스
+## 5. 부분 기능 실행
 
-이 패키지는 Apache-2.0 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하십시오.
+이하의 코드들은 테스트에 사용해서 버전이 업데이트된 이후로는 불완전하거나 기능을 수행하지 못할 수 있다. 언급하지 않은 코드들은 그닥 중요하지 않은 코드이다.
+기본적으로 위의 메인 컨트롤러 노드들을 실행한 이후에 rviz 창을 확인하며 사용해야 한다.
+
+### 4.1. goal_test
+
+지정 좌표 얻기, 목적지 지정, 현재 좌표 읽기를 하는 노드
+
+*   **`send_goal_gui.py`**: gui를 사용해서 로봇을 특정 좌표, 각도로 이동시킨다.
+
+
+### 4.2. topic_test
+
+로봇의 속도, 위치, 목적지 등의 토픽을 `subscribe`하거나 `publish` 하는 노드
+
+*   **`control_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 속도 설정에 맞게 값을 변경한 후 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드, 현재 속도 변경과 일시정지는 작동하지 않는다.
+
+*   **`pub_cmd_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 그대로 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드. 
+
+*   **`pub_pose.py`**: 로봇의 `/cmd_vel`, `/amcl_pose` 등의 정보 토픽들을 **Subscribe** 해서 인터페이스 명세서에 맞게 **Publish**해주는 노드. 로봇이 이동중인지 도착(정지)중인지 추가해야 한다.
