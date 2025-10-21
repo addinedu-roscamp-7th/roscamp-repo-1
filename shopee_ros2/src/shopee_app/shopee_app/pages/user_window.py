@@ -247,6 +247,12 @@ class UserWindow(QWidget):
             self.handle_robot_moving_notification(payload)
         elif msg_type == "robot_arrived_notification":
             self.handle_robot_arrived_notification(payload)
+        elif msg_type == "picking_complete_notification":
+            self.handle_picking_complete_notification(payload)
+        elif msg_type == "product_selection_start":
+            self.handle_product_selection_start(payload)
+        elif msg_type == "cart_update_notification":
+            self.handle_cart_update_notification(payload)
 
     def on_notification_error(self, message: str) -> None:
         """알림 수신 중 오류 발생 시 사용자에게 전달."""
@@ -360,6 +366,115 @@ class UserWindow(QWidget):
         message_text = payload.get("message") or "로봇 도착"
         if location_text:
             formatted = f"{message_text} : {location_text}"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def handle_picking_complete_notification(self, payload: dict) -> None:
+        """모든 상품 담기 완료 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        message_text = payload.get("message") or "모든 상품 담기가 완료되었습니다"
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(message_text)
+        if footer_label is not None:
+            footer_label.setText(message_text)
+        print(f"[알림] {message_text}")
+
+    def handle_product_selection_start(self, payload: dict) -> None:
+        """상품 선택 시작 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        products = data.get("products") or []
+        product_names: list[str] = []
+        for product in products:
+            name = product.get("name")
+            if name:
+                product_names.append(str(name))
+        if product_names:
+            products_text = ", ".join(product_names[:3])
+            if len(product_names) > 3:
+                products_text += " 외"
+        else:
+            products_text = None
+
+        message_text = payload.get("message") or "상품 선택을 시작합니다"
+        if products_text:
+            formatted = f"{message_text} ({products_text})"
+        else:
+            formatted = message_text
+
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if status_label is not None:
+            status_label.setText(formatted)
+        if footer_label is not None:
+            footer_label.setText(formatted)
+        print(f"[알림] {formatted}")
+
+    def handle_cart_update_notification(self, payload: dict) -> None:
+        """장바구니 담기 알림을 처리한다."""
+        if not payload.get("result"):
+            return
+        if self.current_order_id is None:
+            return
+        data = payload.get("data") or {}
+        order_id = data.get("order_id")
+        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+            return
+        robot_id = data.get("robot_id")
+        if robot_id is not None:
+            self.current_robot_id = robot_id
+
+        action = data.get("action")
+        product = data.get("product") or {}
+        product_name = product.get("name")
+        quantity = product.get("quantity")
+
+        if action == "add":
+            default_message = "상품이 장바구니에 담겼습니다"
+        elif action == "remove":
+            default_message = "상품이 장바구니에서 제거되었습니다"
+        else:
+            default_message = "장바구니가 갱신되었습니다"
+        message_text = payload.get("message") or default_message
+
+        details: list[str] = []
+        if product_name:
+            details.append(str(product_name))
+        if quantity is not None:
+            details.append(f"x{quantity}")
+        if details:
+            formatted = f"{message_text} ({' '.join(details)})"
         else:
             formatted = message_text
 
