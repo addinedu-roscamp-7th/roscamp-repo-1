@@ -5,7 +5,7 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 import math
 
 
-class LocalizationComponent(Node):
+class GetAmclPose(Node):
     """
     Pickee Mobile의 위치 추정 노드.
     AMCL로부터 PoseWithCovarianceStamped 메시지를 받아
@@ -27,6 +27,12 @@ class LocalizationComponent(Node):
             PoseWithCovarianceStamped,
             '/amcl_pose',
             self.get_current_pose,
+            10
+        )
+
+        self.create_publisher(
+            Pose2D,
+            '/pickee/mobile/amcl_pose',
             10
         )
 
@@ -56,10 +62,12 @@ class LocalizationComponent(Node):
             f'📍 AMCL Pose 업데이트 → x={x:.3f}, y={y:.3f}, θ={math.degrees(theta):.1f}°'
         )
 
+        
+
 
 def main(args=None):
     rclpy.init(args=args)
-    node = LocalizationComponent()
+    node = GetAmclPose()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
