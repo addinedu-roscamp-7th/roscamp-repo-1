@@ -26,15 +26,27 @@ while True:
     if not ret:
         break
     
-    results = model.predict(source=frame, stream=True, conf=0.8)
+    results = model.predict(source=frame, conf=0.8, iou=0.5)
 
-    for r in results:
+    for result in results:
         # ✅ 예측된 프레임 가져오기 (마스크 포함된 이미지)
-        im_array = r.plot()  # 바운딩 박스 + 세그멘테이션 마스크 시각화됨
+        im_array = result.plot()  # 바운딩 박스 + 세그멘테이션 마스크 시각화됨
         cv2.imshow('',im_array)
 
         # # ✅ 비디오 파일로 프레임 저장
         # out.write(im_array)
+        for mask, box in zip(result.masks.xy, result.boxes):
+                class_id = int(box.cls)
+                class_name = result.names[class_id]
+                bbox = box.xyxy[0].tolist()
+                detection = {
+                    'class_id': class_id,
+                    'class_name': class_name,
+                    'confidence': float(box.conf),
+                    'polygon': len(mask.tolist()),
+                    'bbox': [int(coord) for coord in bbox]
+                }
+                print(detection)
 
     # ❌ 종료 조건: ESC 키
     if cv2.waitKey(1) & 0xFF == 27:

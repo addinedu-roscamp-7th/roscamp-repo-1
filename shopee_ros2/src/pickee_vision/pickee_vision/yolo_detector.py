@@ -21,22 +21,25 @@ class YoloDetector:
         :return: 감지된 객체 정보 리스트. 예: 
                  [{'class_id': 0, 'confidence': 0.95, 'polygon': [[x1, y1], [x2, y2], ...]}, ...]
         """
-        results = self.model(frame)
+        results = self.model.predict(source=frame, conf=0.8, iou=0.7) # stream=False가 기본값
         detections = []
 
-        if results[0].masks is None:
-            return detections
+        # predict의 결과는 리스트 형태이므로 순회합니다. (단일 이미지이므로 루프는 한 번만 실행됨)
+        for result in results:
+            if result.masks is None:
+                continue
 
-        # masks.xy는 폴리곤 좌표의 리스트 (각각 numpy 배열)
-        # boxes는 클래스 ID와 confidence를 포함
-        for mask, box in zip(results[0].masks.xy, results[0].boxes):
-            bbox = box.xyxy[0].tolist() # BBox 좌표 [x1, y1, x2, y2]
-            detection = {
-                'class_id': int(box.cls),
-                'confidence': float(box.conf),
-                'polygon': mask.tolist(),  # numpy 배열을 리스트로 변환
-                'bbox': [int(coord) for coord in bbox] # 정수형으로 변환
-            }
-            detections.append(detection)
+            for mask, box in zip(result.masks.xy, result.boxes):
+                class_id = int(box.cls)
+                class_name = result.names[class_id]
+                bbox = box.xyxy[0].tolist()
+                detection = {
+                    'class_id': class_id,
+                    'class_name': class_name,
+                    'confidence': float(box.conf),
+                    'polygon': mask.tolist(),
+                    'bbox': [int(coord) for coord in bbox]
+                }
+                detections.append(detection)
         
         return detections

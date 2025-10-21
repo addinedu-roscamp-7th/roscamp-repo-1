@@ -80,6 +80,8 @@
 
 #### 2단계: 핵심 로직 구현
 - 각 노드에 실제 AI 모델(yolov8s-seg.pt 사용, 객체 인식을 segment로 인식하므로 좌표 추출을 Polygon으로 할것)
+- 로컬에서와 Shopee Main UDP통신으로는 이미지가 아닌 영상으로 객체 인식 화면을 확인 및 전송하면서, Pickee Main 과의 통신에서는 detect_products 서비스 요청이 오면 해당 프레임만 detection_result 토픽으로 발행
+- detection_result 토픽으로 발행하는 이미지에는 bbox_number와 bbox 테두리와 polygon 테두리만 그려서 발행하기
 - 해당 좌표에 따라 로봇팔을 제어할 6자유도 좌표를 추출하는 알고리즘 작성(IBVS기반 알고리즘 구성 예정)
 - 카메라 및 하드웨어 드라이버 연동
 - UDP 영상 스트리밍 클라이언트 상세 구현 및 `camera_service_node`와 통합
