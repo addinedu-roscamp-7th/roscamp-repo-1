@@ -205,7 +205,7 @@ int32 bbox_number
 shopee_interfaces/msg/DetectionInfo detection_info
 shopee_interfaces/msg/BBox bbox
 float32 confidence
-shopee_interfaces/msg/Point3D position                # Depth 미사용 시 (0, 0, 0)
+shopee_interfaces/msg/Pose6D pose               
 ```
 
 - **DetectionInfo**
@@ -269,14 +269,17 @@ int32 robot_id
 int32 order_id
 int32 product_id
 string arm_side                # Pickee는 "" 사용
-shopee_interfaces/msg/Point3D box_position           # Depth 미사용 시 (0, 0, 0)
+shopee_interfaces/msg/Pose6D pose          
 ```
 
-- **Point3D**
+- **Pose6D**
 ```plaintext
-float32 x
-float32 y
-float32 z
+float32 joint_!
+float32 joint_2
+float32 joint_3
+float32 joint_4
+float32 joint_5
+float32 joint_6
 ```
 
 #### Response:
@@ -292,7 +295,7 @@ Request:
   order_id: 21
   product_id: 34
   arm_side: ""
-  box_position: {x: 0.0, y: 0.0, z: 0.0}
+  pose: {joint_1!: 0.0, joint_2: 0.0, joint3: 0.0, joint_4: 0.0, joint_5: 0.0, joint_6: 0.0}
 
 Response:
   success: true
