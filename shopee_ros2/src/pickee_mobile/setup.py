@@ -56,6 +56,7 @@ setup(
             'get_clicked_move = pickee_mobile.goal_test.get_send_goal:main',
             'custom_goal_move = pickee_mobile.goal_test.custom_goal:main',
             'get_amcl_pose = pickee_mobile.get_amcl_pose:main',
+            'pub_cmd_vel = pickee_mobile.topic_test.pub_cmd_vel:main',
         ],
     },
 )

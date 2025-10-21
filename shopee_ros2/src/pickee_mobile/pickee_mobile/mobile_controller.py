@@ -22,6 +22,7 @@ class MobileController(Node):
         # 파라미터 선언 (PathPlanningComponent에서 선언되므로 여기서는 제거)
 
         # 컴포넌트 초기화
+        self.get_amcl_pose = LocalizationComponent()
         self.localization_component = LocalizationComponent(self)
         self.path_planning_component = PathPlanningComponent(self)
         self.motion_control_component = MotionControlComponent(self)

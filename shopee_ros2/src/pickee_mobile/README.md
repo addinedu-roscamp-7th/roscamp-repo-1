@@ -73,11 +73,15 @@ source install/setup.bash
 ### 4.3. 노드 실행
 
 **메인 컨트롤러 노드:**
+
+
+
 ```bash
 #시뮬레이션
 ros2 launch pickee_mobile gazebo_bringup.launch.xml 
 ros2 launch pickee_mobile nav2_bringup_launch.xml use_sim_time:=True
 ros2 launch pickee_mobile nav2_view.launch.xml
+ros2 run pickee_mobile pub_cmd_vel # 속도 토픽 발행
 ```
 
 ```bash
@@ -85,7 +89,10 @@ ros2 launch pickee_mobile nav2_view.launch.xml
 ros2 launch pickee_mobile mobile_bringup.launch.xml #로봇
 ros2 launch pickee_mobile nav2_bringup_launch.xml #로봇
 ros2 launch pickee_mobile nav2_view.launch.xml #pc
+ros2 run pickee_mobile pub_cmd_vel
 ```
+
+기존에 /cmd_vel 토픽을 발행해서 pickee의 속도를 제어 했는데 속도 제어를 위해 /cmd_vel_modified 토픽을 받아서 속도 제어를 한다. 따라서 위의 3개의 launch 파일만 실행하면 로봇이 움직이지 않기 때문에 4번째 노드를 실행해야 한다.
 
 **Mock 노드 (각각 별도의 터미널에서 실행):**
 ```bash
