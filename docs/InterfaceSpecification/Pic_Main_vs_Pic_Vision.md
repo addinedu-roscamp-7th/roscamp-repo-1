@@ -88,7 +88,7 @@ float32 confidence
 shopee_interfaces/msg/BBox bbox
 int32 bbox_number         # 앱 UI 선택용
 shopee_interfaces/msg/DetectionInfo detection_info
-shopee_interfaces/msg/Point3D position          # (0, 0, 0) 고정
+shopee_interfaces/msg/Pose6D pose         
 ```
 
 - **DetectionInfo**
