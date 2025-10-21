@@ -2,6 +2,9 @@ from pathlib import Path
 from dataclasses import replace
 
 from PyQt6 import QtCore
+from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QTransform
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
@@ -57,6 +60,8 @@ class UserWindow(QWidget):
         self.cart_body = None
         self.cart_header = None
         self.cart_toggle_button = None
+        self.cart_icon_up: QIcon | None = None
+        self.cart_icon_down: QIcon | None = None
         self.product_scroll = None
         self.cart_expanded = False
         self.cart_container_layout = None
@@ -90,7 +95,19 @@ class UserWindow(QWidget):
         self.auto_selection_items: list[CartItemData] = []
 
         self.profile_dialog = ProfileDialog(self)
-        self.ui.btn_profile.clicked.connect(self.open_profile_dialog)
+        profile_button = getattr(self.ui, "btn_profile", None)
+        if profile_button is not None:
+            icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
+            if icon_path.exists():
+                profile_button.setIcon(QIcon(str(icon_path)))
+                profile_button.setIconSize(QtCore.QSize(32, 32))
+            profile_button.setText("")
+            if hasattr(profile_button, "setFlat"):
+                profile_button.setFlat(True)
+            elif hasattr(profile_button, "setAutoRaise"):
+                profile_button.setAutoRaise(True)
+            profile_button.setToolTip("프로필 보기")
+            profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
 
         self.notification_client: AppNotificationClient | None = None
@@ -110,7 +127,7 @@ class UserWindow(QWidget):
         self.cart_frame = getattr(self.ui, "cart_frame", None)
         self.cart_body = getattr(self.ui, "cart_body", None)
         self.cart_header = getattr(self.ui, "cart_header", None)
-        self.cart_toggle_button = getattr(self.ui, "pushButton_2", None)
+        self.cart_toggle_button = getattr(self.ui, "btn_chevron_up", None)
         self.product_scroll = getattr(self.ui, "scrollArea", None)
 
         if not self.cart_frame:
@@ -138,8 +155,19 @@ class UserWindow(QWidget):
             self.cart_body.hide()
 
         if self.cart_toggle_button is not None:
-            self.cart_toggle_button.setText("펼치기")
+            icon_path = Path(__file__).resolve().parent / "icons" / "chevron-up-circle.svg"
+            if icon_path.exists():
+                base_pixmap = QPixmap(str(icon_path))
+                if not base_pixmap.isNull():
+                    self.cart_icon_up = QIcon(base_pixmap)
+                    rotated_pixmap = base_pixmap.transformed(QTransform().rotate(180))
+                    self.cart_icon_down = QIcon(rotated_pixmap)
+                    self.cart_toggle_button.setIcon(self.cart_icon_up)
             self.cart_toggle_button.clicked.connect(self.on_cart_toggle_clicked)
+            self.cart_toggle_button.setFlat(True)
+            self.cart_toggle_button.setIconSize(QtCore.QSize(28, 28))
+            self.cart_toggle_button.setText("")
+            self.cart_toggle_button.setToolTip("장바구니 펼치기")
 
         if self.product_scroll is not None:
             self.product_scroll.show()
@@ -623,7 +651,12 @@ class UserWindow(QWidget):
 
     def apply_cart_state(self):
         if self.cart_toggle_button is not None:
-            self.cart_toggle_button.setText("접기" if self.cart_expanded else "펼치기")
+            tooltip = "장바구니 접기" if self.cart_expanded else "장바구니 펼치기"
+            self.cart_toggle_button.setToolTip(tooltip)
+            if self.cart_icon_up is not None or self.cart_icon_down is not None:
+                icon = self.cart_icon_down if self.cart_expanded and self.cart_icon_down is not None else self.cart_icon_up
+                if icon is not None:
+                    self.cart_toggle_button.setIcon(icon)
 
         if self.cart_body:
             self.cart_body.setVisible(self.cart_expanded)

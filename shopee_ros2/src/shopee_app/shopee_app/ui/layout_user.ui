@@ -127,6 +127,22 @@
         </property>
        </widget>
       </item>
+      <item>
+       <spacer name="horizontalSpacer_7">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>10</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
      </layout>
     </widget>
    </item>
@@ -685,7 +701,7 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPushButton" name="pushButton_2">
+                    <widget class="QPushButton" name="btn_chevron_up">
                      <property name="text">
                       <string>접기</string>
                      </property>
