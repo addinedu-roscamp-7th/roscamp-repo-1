@@ -10,6 +10,7 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
 from PyQt6.QtWidgets import QListWidgetItem
+from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
@@ -87,6 +88,9 @@ class UserWindow(QWidget):
         self.store_button = None
         self.nav_group = None
         self.current_mode = None
+        self.selection_container = getattr(self.ui, "widget_selection_container", None)
+        self.selection_grid = getattr(self.ui, "grid_selection_buttons_2", None)
+        self.selection_buttons: list[QPushButton] = []
         self.setup_cart_section()
         self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
@@ -121,6 +125,7 @@ class UserWindow(QWidget):
 
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
+        self._initialize_selection_grid()
 
     def closeEvent(self, event):
         if self.notification_client is not None:
@@ -477,6 +482,7 @@ class UserWindow(QWidget):
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
+        self.populate_selection_buttons(products)
         print(f"[알림] {formatted}")
 
     def handle_cart_update_notification(self, payload: dict) -> None:
@@ -538,6 +544,45 @@ class UserWindow(QWidget):
         )
         self.notification_client.connection_error.connect(self.on_notification_error)
         self.notification_client.start()
+
+    def _initialize_selection_grid(self) -> None:
+        if self.selection_grid is None:
+            return
+        while self.selection_grid.count():
+            item = self.selection_grid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+        for column in range(5):
+            self.selection_grid.setColumnStretch(column, 1)
+
+    def populate_selection_buttons(self, products: list[dict[str, Any]]) -> None:
+        if self.selection_grid is None:
+            return
+        while self.selection_grid.count():
+            item = self.selection_grid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self.selection_buttons.clear()
+
+        parent = self.selection_container if self.selection_container is not None else self
+        for index, product in enumerate(products):
+            button = QPushButton(parent)
+            button.setFixedSize(123, 36)
+            name = str(product.get('name') or product.get('product_id') or f"선택지 {index + 1}")
+            button.setText(name)
+            button.setProperty('product_data', product)
+            button.clicked.connect(lambda _, info=product: self.on_selection_button_clicked(info))
+            row, column = divmod(index, 5)
+            self.selection_grid.addWidget(button, row, column)
+            self.selection_buttons.append(button)
+        for column in range(5):
+            self.selection_grid.setColumnStretch(column, 1)
+
+    def on_selection_button_clicked(self, product: dict[str, Any]) -> None:
+        product_name = product.get('name') or product.get('product_id')
+        QMessageBox.information(self, '상품 선택', f"{product_name} 선택지 버튼이 눌렸습니다.")
 
     def categorize_cart_items(
         self,
