@@ -19,7 +19,12 @@ class MockPoseSubscriber(Node):
         )
 
     def pose_callback(self, msg: PickeeMobilePose):
-        self.get_logger().info(f'Pose 수신: x={msg.current_pose.x:.2f}, y={msg.current_pose.y:.2f}, theta={msg.current_pose.theta:.2f}, battery={msg.battery_level:.1f}%, status={msg.status}')
+        self.get_logger().info(f'Pose 수신: robot_id={msg.robot_id}, order_id={msg.order_id}, '
+                               f'x={msg.current_pose.x:.2f}, y={msg.current_pose.y:.2f}, '
+                               f'theta={msg.current_pose.theta:.2f}, '
+                               f'linear_vel={msg.linear_velocity:.3f}, angular_vel={msg.angular_velocity:.3f}, '
+                               f'battery={msg.battery_level:.1f}%, status={msg.status}')
+    
 
 def main(args=None):
     rclpy.init(args=args)
