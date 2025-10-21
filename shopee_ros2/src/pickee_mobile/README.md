@@ -81,7 +81,8 @@ source install/setup.bash
 ros2 launch pickee_mobile gazebo_bringup.launch.xml 
 ros2 launch pickee_mobile nav2_bringup_launch.xml use_sim_time:=True
 ros2 launch pickee_mobile nav2_view.launch.xml
-ros2 run pickee_mobile pub_cmd_vel # 속도 토픽 발행
+# 속도 토픽 발행
+ros2 run pickee_mobile pub_cmd_vel 
 ```
 
 ```bash
