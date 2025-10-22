@@ -88,7 +88,7 @@ ros2 run main_service main_service_node
 App 개발자가 빠르게 테스트하려면 아래 런치 파일을 사용할 수 있습니다.
 
 ```bash
-ros2 launch main_service mock_environment.launch.py \
+ros2 launch main_service app_support.launch.py \
   api_host:=0.0.0.0 \
   api_port:=5000 \
   llm_base_url:=http://localhost:5001 \
@@ -99,6 +99,53 @@ ros2 launch main_service mock_environment.launch.py \
 - Mock LLM 서버와 Mock Robot 노드가 함께 실행되며, Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
 - GUI는 기본적으로 비활성화(`SHOPEE_GUI_ENABLED=false`)되어 있으므로 GUI가 필요하면 런치에서 환경 변수를 별도로 지정하세요.
 - DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
+
+### Pickee Main 연동용 실행
+
+Pickee Main 개발자가 실제 노드를 기동하면서 Main Service와 Mock LLM을 함께 실행하려면 다음 런치 파일을 사용하세요.
+
+```bash
+ros2 launch main_service pickee_main_support.launch.py \
+  api_host:=0.0.0.0 \
+  api_port:=5000 \
+  llm_base_url:=http://localhost:5001 \
+  db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
+```
+
+- Main Service와 Mock LLM 서버가 함께 실행되어 상품 검색 시나리오를 바로 검증할 수 있습니다.
+- Pickee Main이 ROS 토픽/서비스를 발행하면 Main Service가 그대로 수신하여 주문/상태 동기화 흐름을 검증할 수 있습니다.
+- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
+
+### App 연동용 실행
+
+Shopee App 개발자가 TCP API를 단독으로 검증할 때는 다음 런치 파일을 사용합니다.
+
+```bash
+ros2 launch main_service app_support.launch.py \
+  api_host:=0.0.0.0 \
+  api_port:=5000 \
+  llm_base_url:=http://localhost:5001 \
+  db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
+```
+
+- Main Service와 Mock LLM이 함께 기동되며, 별도의 Mock App 없이 `test_client.py` 또는 App 클라이언트에서 곧바로 연동할 수 있습니다.
+- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
+
+### Packee Main 연동용 실행
+
+Packee Main 개발자는 다음 런치 파일로 Main Service를 단독 실행해 연동 테스트를 진행할 수 있습니다.
+
+```bash
+ros2 launch main_service packee_main_support.launch.py \
+  api_host:=0.0.0.0 \
+  api_port:=5000 \
+  llm_base_url:=http://localhost:5001 \
+  db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
+```
+
+- 불필요한 Mock 구성 없이 Main Service만 실행하며 Packee Main 측 모듈과 실시간으로 연동할 수 있습니다.
+- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
+- Packee Main에서 발행하는 상태/이벤트 토픽이 Main Service에 전달되어 포장 워크플로우 전체를 검증할 수 있습니다.
 
 ## 모니터링 대시보드
 

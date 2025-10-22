@@ -60,11 +60,11 @@ def generate_launch_description() -> LaunchDescription:
         SetEnvironmentVariable('PYTHONUNBUFFERED', '1'),
     ]
 
+    # Mock LLM 프로세스 (필요 시 Pickee Main 런치에서 재활용 가능하도록 노출 유지)
     mock_llm_process = ExecuteProcess(
         cmd=['ros2', 'run', 'main_service', 'mock_llm_server'],
         output='screen',
     )
-
     mock_robot_node = Node(
         package='main_service',
         executable='mock_robot_node',
