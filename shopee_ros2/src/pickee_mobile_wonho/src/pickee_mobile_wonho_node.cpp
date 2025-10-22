@@ -1,9 +1,14 @@
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+// Nav2 Action 헤더
+#include <nav2_msgs/action/navigate_to_pose.hpp>
 
 // Shopee Interface 메시지 및 서비스 헤더
 #include <shopee_interfaces/msg/pickee_mobile_pose.hpp>
@@ -71,6 +76,10 @@ public:
             std::bind(&PickeeMobileWonhoNode::update_global_path_callback, this,
                      std::placeholders::_1, std::placeholders::_2));
         
+        // Nav2 Action Client 초기화
+        nav2_action_client_ = rclcpp_action::create_client<NavigateToPose>(
+            this, "/navigate_to_pose");
+            
         // Timer 초기화 - 주기적으로 위치 정보 발행
         auto timer_period = std::chrono::milliseconds(static_cast<int>(1000.0 / pose_publish_rate_));
         pose_timer_ = this->create_wall_timer(
@@ -79,6 +88,7 @@ public:
             
         RCLCPP_INFO(this->get_logger(), "로봇 ID: %d, 위치 발행 주기: %.1f Hz", robot_id_, pose_publish_rate_);
         RCLCPP_INFO(this->get_logger(), "Shopee 인터페이스 통신이 준비되었습니다.");
+        RCLCPP_INFO(this->get_logger(), "Nav2 Action Client가 준비되었습니다.");
     }
 
 private:
@@ -107,6 +117,15 @@ private:
     // Services (Shopee Interface - service 서버들)
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_to_location_service_;
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath>::SharedPtr update_global_path_service_;
+    
+    // Nav2 Action Client
+    using NavigateToPose = nav2_msgs::action::NavigateToPose;
+    rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
+    
+    // 현재 네비게이션 상태 추적
+    bool navigation_in_progress_ = false;
+    int current_target_location_id_ = 0;
+    shopee_interfaces::msg::Pose2D current_target_pose_;
     
     // Timers
     rclcpp::TimerBase::SharedPtr pose_timer_;
@@ -234,19 +253,96 @@ private:
             return;
         }
         
+        // Nav2 Action 서버가 사용 가능한지 확인
+        if (!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))) {
+            RCLCPP_ERROR(this->get_logger(), "Nav2 Action 서버가 사용할 수 없습니다!");
+            response->success = false;
+            response->message = "Nav2 Action 서버 연결 실패";
+            return;
+        }
+        
         current_order_id_ = request->order_id;
-        change_status("moving", "네비게이션 시작");
+        current_target_location_id_ = request->location_id;
+        current_target_pose_ = request->target_pose;
         
         RCLCPP_INFO(this->get_logger(), "목표 위치: (%.2f, %.2f, %.2f)", 
                     request->target_pose.x, request->target_pose.y, request->target_pose.theta);
         
-        // TODO: Nav2에 네비게이션 목표 전달 구현
+        // Nav2 네비게이션 목표 생성
+        auto goal_msg = NavigateToPose::Goal();
+        
+        // 목표 위치 설정 (map 프레임 기준)
+        goal_msg.pose.header.frame_id = "map";
+        goal_msg.pose.header.stamp = this->get_clock()->now();
+        goal_msg.pose.pose.position.x = request->target_pose.x;
+        goal_msg.pose.pose.position.y = request->target_pose.y;
+        goal_msg.pose.pose.position.z = 0.0;
+        
+        // theta를 quaternion으로 변환
+        tf2::Quaternion q;
+        q.setRPY(0, 0, request->target_pose.theta);
+        goal_msg.pose.pose.orientation.x = q.x();
+        goal_msg.pose.pose.orientation.y = q.y();
+        goal_msg.pose.pose.orientation.z = q.z();
+        goal_msg.pose.pose.orientation.w = q.w();
+        
+        // Nav2 Action 전송 옵션 설정
+        auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
+        
+        // 목표 응답 콜백
+        send_goal_options.goal_response_callback = 
+            [this](rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr goal_handle) {
+                if (!goal_handle) {
+                    RCLCPP_ERROR(this->get_logger(), "Nav2 네비게이션 목표가 거부되었습니다!");
+                    change_status("error", "네비게이션 목표 거부");
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "Nav2 네비게이션 목표가 수락되었습니다!");
+                    navigation_in_progress_ = true;
+                    change_status("moving", "Nav2 네비게이션 진행 중");
+                }
+            };
+        
+        // 피드백 콜백
+        send_goal_options.feedback_callback = 
+            [this](rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr,
+                   const std::shared_ptr<const NavigateToPose::Feedback> feedback) {
+                RCLCPP_DEBUG(this->get_logger(), "Nav2 네비게이션 진행 중... 남은 거리: %.2f m", 
+                            feedback->distance_remaining);
+            };
+        
+        // 결과 콜백
+        send_goal_options.result_callback = 
+            [this](const rclcpp_action::ClientGoalHandle<NavigateToPose>::WrappedResult & result) {
+                navigation_in_progress_ = false;
+                
+                switch (result.code) {
+                    case rclcpp_action::ResultCode::SUCCEEDED:
+                        RCLCPP_INFO(this->get_logger(), "Nav2 네비게이션 성공! 목적지에 도착했습니다.");
+                        change_status("idle", "네비게이션 완료");
+                        // Shopee 인터페이스로 도착 알림 발행
+                        publish_arrival_notification(current_target_location_id_, current_target_pose_);
+                        break;
+                    case rclcpp_action::ResultCode::ABORTED:
+                        RCLCPP_ERROR(this->get_logger(), "Nav2 네비게이션이 중단되었습니다.");
+                        change_status("error", "네비게이션 중단");
+                        break;
+                    case rclcpp_action::ResultCode::CANCELED:
+                        RCLCPP_WARN(this->get_logger(), "Nav2 네비게이션이 취소되었습니다.");
+                        change_status("stopped", "네비게이션 취소");
+                        break;
+                    default:
+                        RCLCPP_ERROR(this->get_logger(), "Nav2 네비게이션 결과를 알 수 없습니다.");
+                        change_status("error", "네비게이션 알 수 없는 결과");
+                        break;
+                }
+            };
+        
+        // Nav2 Action 전송
+        RCLCPP_INFO(this->get_logger(), "Nav2에 네비게이션 목표 전송 중...");
+        nav2_action_client_->async_send_goal(goal_msg, send_goal_options);
         
         response->success = true;
-        response->message = "네비게이션 시작됨";
-        
-        // 잠시 후 도착 알림 시뮬레이션 (실제로는 Nav2 완료 콜백에서 처리)
-        // publish_arrival_notification(request->location_id, request->target_pose);
+        response->message = "Nav2 네비게이션 시작됨";
     }
     
     /**
