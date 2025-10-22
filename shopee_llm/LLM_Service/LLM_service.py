@@ -26,6 +26,7 @@ def search_query():
     mocup_data = "닭에 관련한 정보 알려줘"
     receive_data = http_handler.get_data_from_request()
     search_query_messange = llm_handler.get_llm_reponse(receive_data)
+    print("[상품 정보]:",jsonify(search_query_messange))
     return jsonify(search_query_messange)
 # ------------------------------ 상품 픽업 요청 처리  ------------------------------
 # 클라이언트에서 /llm/bbox 경로로 GET 요청이 들어오면 app.route에 등록된 함수가 실행
@@ -36,6 +37,7 @@ def bbox():
     mocup_data = "18번 골라"
     receive_data = http_handler.get_data_from_request()
     pickup_message = llm_handler.get_llm_reponse(receive_data)
+    print("[픽업 정보]:",jsonify(pickup_message))
     return jsonify(pickup_message)
 # ------------------------------ 발화 의도 분석 ------------------------------
 # 클라이언트에서 /llm/intent_detection 경로로 GET 요청이 들어오면 app.route에 등록된 함수가 실행
@@ -46,6 +48,7 @@ def intent_detection():
     mocup_data = "신선식품 매대로 가줘"
     receive_data = http_handler.get_data_from_request()
     intent_message = llm_handler.get_llm_reponse(receive_data)
+    print("[이동 정보]:",jsonify(intent_message))
     return jsonify(intent_message)
 # ------------------------------ 서버 실행 ------------------------------
 # port 5000번으로 클라이언트 실행
