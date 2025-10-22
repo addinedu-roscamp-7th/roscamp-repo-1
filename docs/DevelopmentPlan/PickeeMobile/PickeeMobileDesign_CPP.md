@@ -1,32 +1,53 @@
-# Shopee Pickee Mobile 상세 설계 (C++ 버전)
+# Shopee Pickee Mobile 상세 설계 (Nav2 기반 C++ 버전)
 
 ## 1. 개요 (Overview)
 
-Pickee Mobile은 Shopee 로봇 쇼핑 시스템의 핵심 구성 요소 중 하나로, Pickee Main Controller의 지시에 따라 지정된 위치로 자율적으로 이동하며 물품 픽업 작업을 지원하는 이동 로봇 플랫폼이다. 주요 역할은 정확한 위치 추정, 효율적인 경로 계획 및 추종, 안전한 이동 제어, 그리고 Pickee Main Controller와의 실시간 통신을 통해 시스템의 전반적인 운영 효율성을 높이는 것이다.
+Pickee Mobile은 Shopee 로봇 쇼핑 시스템의 핵심 구성 요소 중 하나로, **ROS2 Nav2 스택을 기반**으로 하여 Pickee Main Controller의 지시에 따라 지정된 위치로 자율적으로 이동하며 물품 픽업 작업을 지원하는 이동 로봇 플랫폼이다. Nav2의 검증된 네비게이션 알고리즘들을 활용하면서 Shopee 시스템에 특화된 통신 인터페이스를 제공한다.
+
+**주요 아키텍처:**
+- **Nav2 기반 네비게이션**: AMCL 로컬라이제이션, Nav2 경로 계획, BehaviorTree 네비게이터
+- **브리지 노드**: Nav2와 Shopee 시스템 간의 통신 인터페이스 제공
+- **상태 관리**: 로봇의 현재 상태 및 미션 진행 상황 관리
 
 **주요 책임:**
-- Pickee Main Controller로부터 이동 명령 수신 및 수행
+- Pickee Main Controller로부터 이동 명령 수신 및 Nav2로 전달
+- Nav2를 통한 정확한 위치 추정 (AMCL) 및 경로 계획
 - 로봇의 현재 위치, 속도, 배터리 잔량 및 상태를 Pickee Main Controller에 주기적으로 보고
-- 지정된 목적지에 정확하고 안전하게 도착
-- 모든 주행 알고리즘 집중 처리: Global Path 계획/수정, Local Path Planning, 장애물 회피
-- Vision에서 제공하는 장애물 정보 기반 경로 계획 및 동적 수정
-- 실시간 센서 데이터를 활용하여 자율 주행 및 장애물 회피
+- Nav2의 GlobalPlanner와 LocalPlanner를 활용한 안전하고 효율적인 네비게이션
+- Vision에서 제공하는 장애물 정보를 costmap에 반영하여 동적 경로 수정
 - 배터리 잔량 모니터링 및 보고
 
-## 2. 노드 아키텍처 (Node Architecture)
+## 2. 시스템 아키텍처 (System Architecture)
 
-- **노드 이름**: `pickee_mobile_controller`
-- **실행 파일**: `pickee_mobile_controller` (CMake target)
-- **실행 방식**: `ros2 run pickee_mobile pickee_mobile_controller`
+### 2.1. Nav2 기반 구성요소
 
-Pickee Mobile은 ROS2 C++로 개발되며, 다음과 같은 주요 노드 및 컴포넌트로 구성된다.
+**Nav2 표준 노드들:**
+- **map_server**: 미리 생성된 맵 파일(`shopee_map3.yaml`) 제공
+- **amcl**: Adaptive Monte Carlo Localization으로 로봇 위치 추정
+- **planner_server**: A* 알고리즘 기반 전역 경로 계획
+- **controller_server**: DWB 컨트롤러를 통한 지역 경로 추종
+- **behavior_server**: 복구 동작 (백업, 스핀, 대기 등) 관리
+- **bt_navigator**: BehaviorTree 기반 네비게이션 로직 제어
+- **waypoint_follower**: 웨이포인트 시퀀스 추종
+- **velocity_smoother**: 속도 명령 스무딩
 
-*   **LocalizationComponent:** 센서 데이터를 활용하여 로봇의 현재 위치를 정확하게 추정한다. `std::shared_ptr<LocalizationComponent>`로 관리되며, RAII 패턴을 적용한다.
-*   **PathPlanningComponent:** 목적지 정보를 기반으로 Global Path를 생성하고, Vision에서 제공되는 장애물 정보를 반영하여 Global Path를 동적으로 수정한다. 또한 실시간 센서 데이터를 활용해 Local Path를 계획하여 안전하고 효율적인 경로를 생성한다.
-*   **MotionControlComponent:** Path Planning Component에서 생성된 경로를 추종하며 로봇의 모터 및 조향을 제어한다. Real-time 제어를 위한 고성능 C++ 구현이 적용된다.
-*   **StateMachine:** Pickee Mobile의 현재 상태(이동 중, 정지, 대기, 오류 등)를 관리하고, 각 상태에 따른 동작을 제어한다. `std::unique_ptr<State>` 기반 상태 패턴을 사용한다.
-*   **CommunicationInterface:** Pickee Main Controller와의 ROS2 통신 인터페이스를 담당한다. `rclcpp::Service`, `rclcpp::Publisher`, `rclcpp::Subscription` 등을 활용한다.
-*   **SensorManager:** 로봇의 이동을 위한 모터 및 엔코더, 환경 인식을 위한 LiDAR, 카메라, IMU 등의 센서 데이터를 통합 관리한다.
+**Launch 파일 구성:**
+- `nav2_bringup_launch.xml`: Nav2 전체 스택 시작
+- `localization_launch.xml`: AMCL 및 map_server만 시작
+- `navigation_launch.xml`: 네비게이션 서버들만 시작
+
+### 2.2. Shopee 통신 브리지 노드
+
+- **노드 이름**: `pickee_mobile_bridge`
+- **실행 파일**: `pickee_mobile_bridge` (CMake target)  
+- **실행 방식**: `ros2 run pickee_mobile_wonho pickee_mobile_bridge`
+
+**주요 컴포넌트:**
+*   **NavigationBridge:** Nav2 Action 클라이언트를 통해 `NavigateToPose` 액션 호출 및 상태 모니터링
+*   **CommunicationInterface:** Pickee Main Controller와의 ROS2 통신 인터페이스 담당
+*   **StateManager:** 네비게이션 상태 및 시스템 상태 관리
+*   **PoseReporter:** Nav2 `/amcl_pose`를 구독하여 위치 정보를 Shopee 포맷으로 변환 및 발행
+*   **CostmapUpdater:** Vision에서 제공하는 장애물 정보를 Nav2 costmap에 동적으로 반영
 
 ## 3. 상태 관리 (State Management)
 
@@ -128,64 +149,72 @@ private:
 
 ## 5. 주요 기능 로직 (Key Logic)
 
-### 5.1. 위치 추정 및 보고 (Localization & Reporting)
-*   **알고리즘:** 엔코더, IMU, LiDAR, 카메라 등 다양한 센서 데이터를 융합하여 로봇의 2D 위치(x, y, theta)를 실시간으로 추정한다. AMCL(Adaptive Monte Carlo Localization) 또는 EKF(Extended Kalman Filter) C++ 라이브러리 활용.
-*   **성능 최적화:** Eigen 라이브러리를 활용한 행렬 연산 최적화 및 SIMD 명령어 활용.
-*   **보고:** `rclcpp::TimerBase`를 사용하여 100ms 주기로 위치 정보를 발행.
+### 5.1. Nav2 기반 네비게이션 (Nav2 Navigation Stack)
+*   **위치 추정 (AMCL):** Nav2의 AMCL 노드를 사용하여 파티클 필터 기반 로봇 위치 추정
+    - 센서: LiDAR (`/scan_filtered` 토픽)
+    - 오도메트리: `/odom` 토픽
+    - 맵 정합을 통한 글로벌 위치 보정
+*   **전역 경로 계획:** Nav2 Planner Server (NavFn/A* 기본)
+*   **지역 경로 추종:** Nav2 Controller Server (DWB 컨트롤러)
+*   **동적 장애물 회피:** Costmap 기반 실시간 장애물 처리
 
 ```cpp
-class LocalizationComponent {
+class NavigationBridge {
 private:
-    Eigen::Vector3d current_pose_;  // [x, y, theta]
-    Eigen::Matrix3d pose_covariance_;
-    std::shared_ptr<KalmanFilter> ekf_filter_;
+    // Nav2 Action Client
+    rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_action_client_;
+    
+    // 상태 구독자들
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr amcl_pose_sub_;
+    rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_plan_sub_;
+    rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr local_plan_sub_;
     
 public:
-    void UpdateSensorData(const sensor_msgs::msg::LaserScan::SharedPtr scan);
-    void UpdateOdometry(const nav_msgs::msg::Odometry::SharedPtr odom);
-    Eigen::Vector3d GetCurrentPose() const;
-    Eigen::Matrix3d GetPoseCovariance() const;
+    void SendNavigationGoal(const geometry_msgs::msg::PoseStamped& goal);
+    void CancelNavigation();
+    bool IsNavigationActive() const;
+    NavigationStatus GetNavigationStatus() const;
 };
 ```
 
-### 5.2. 경로 계획 및 추종 (Path Planning & Following)
-*   **전역 경로 생성:** A* 알고리즘의 고성능 C++ 구현으로 Grid-based path planning 수행.
-*   **지역 경로 계획:** DWA(Dynamic Window Approach) 또는 TEB(Timed-Elastic Band) 알고리즘을 C++로 구현하여 실시간 장애물 회피.
-*   **경로 추종:** PID 제어기 또는 Model Predictive Control(MPC)을 C++로 구현하여 정밀한 경로 추종.
+### 5.2. 동적 장애물 처리 (Dynamic Obstacle Handling)
+*   **Costmap 업데이트:** Vision에서 감지된 장애물을 Nav2 costmap에 실시간 반영
+*   **충돌 회피:** Nav2의 DWB 컨트롤러를 통한 자동 장애물 회피
+*   **복구 동작:** Nav2 Behavior Server를 통한 자동 복구 (백업, 회전, 클리어 등)
 
 ```cpp
-class PathPlanningComponent {
+class CostmapUpdater {
 private:
-    std::unique_ptr<AStarPlanner> global_planner_;
-    std::unique_ptr<DWAPlanner> local_planner_;
-    nav_msgs::msg::Path global_path_;
-    nav_msgs::msg::Path local_path_;
+    rclcpp::Publisher<nav2_msgs::msg::Costmap>::SharedPtr costmap_updates_pub_;
+    rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr obstacles_sub_;
     
 public:
-    bool PlanGlobalPath(const geometry_msgs::msg::PoseStamped& start, 
-                       const geometry_msgs::msg::PoseStamped& goal);
-    bool PlanLocalPath(const sensor_msgs::msg::LaserScan::SharedPtr scan);
-    void UpdateObstacles(const std::vector<geometry_msgs::msg::Point>& obstacles);
+    void UpdateObstacles(const vision_msgs::msg::Detection2DArray::SharedPtr obstacles);
+    void ClearObstacles();
+    void AddObstacle(const geometry_msgs::msg::Point& position, double radius);
 };
 ```
 
-### 5.3. 속도 제어 및 장애물 처리 (Speed Control & Obstacle Handling)
-*   **실시간 제어:** 고빈도 제어 루프(50-100Hz)를 위한 최적화된 C++ 구현.
-*   **안전 제어:** Emergency stop 및 collision avoidance를 위한 interrupt-driven 안전 로직.
+### 5.3. Shopee 시스템 연동 (Shopee System Integration)
+*   **명령 변환:** Shopee 명령을 Nav2 Action으로 변환
+*   **상태 보고:** Nav2 상태를 Shopee 포맷으로 변환하여 보고
+*   **속도 제어:** Nav2 `/cmd_vel` 토픽 모니터링 및 제한
 
 ```cpp
-class MotionControlComponent {
+class PickeeMobileBridge : public rclcpp::Node {
 private:
-    std::unique_ptr<PIDController> linear_pid_;
-    std::unique_ptr<PIDController> angular_pid_;
-    geometry_msgs::msg::Twist current_cmd_vel_;
-    std::atomic<bool> emergency_stop_;
+    std::unique_ptr<NavigationBridge> nav_bridge_;
+    std::unique_ptr<CostmapUpdater> costmap_updater_;
+    std::unique_ptr<StateManager> state_manager_;
+    
+    // Shopee 인터페이스
+    rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_service_;
+    rclcpp::Publisher<shopee_interfaces::msg::PickeeMobilePose>::SharedPtr pose_pub_;
     
 public:
-    void UpdateTargetPath(const nav_msgs::msg::Path& path);
-    geometry_msgs::msg::Twist ComputeControlCommand(const Eigen::Vector3d& current_pose);
-    void EmergencyStop();
-    void SetSpeedLimits(double max_linear, double max_angular);
+    void HandleMoveCommand(const std::shared_ptr<shopee_interfaces::srv::PickeeMobileMoveToLocation::Request> request,
+                          std::shared_ptr<shopee_interfaces::srv::PickeeMobileMoveToLocation::Response> response);
+    void PublishCurrentPose();
 };
 ```
 
@@ -229,72 +258,125 @@ public:
 *   **성능:** `std::unique_ptr`을 활용한 효율적인 상태 전환 및 메모리 관리.
 *   **안전성:** 상태 전환 시 exception safety 및 RAII 패턴 적용.
 
-## 6. 파라미터 (ROS2 Parameters)
+## 6. 설정 및 파라미터 (Configuration & Parameters)
 
+### 6.1. Nav2 파라미터 (nav2_params.yaml)
+```yaml
+# AMCL 파라미터
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2  # 회전으로 인한 회전 노이즈
+    alpha2: 0.2  # 병진으로 인한 회전 노이즈
+    alpha3: 0.2  # 병진으로 인한 병진 노이즈
+    alpha4: 0.2  # 회전으로 인한 병진 노이즈
+    base_frame_id: "base_footprint"
+    global_frame_id: "map"
+    laser_max_range: 100.0
+    laser_min_range: -1.0
+    max_particles: 2000
+    min_particles: 500
+    scan_topic: scan_filtered
+
+# BT Navigator 파라미터
+bt_navigator:
+  ros__parameters:
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+
+# Controller Server 파라미터 (DWB)
+controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+```
+
+### 6.2. Shopee 브리지 파라미터
 ```cpp
-// 파라미터 선언 및 초기화
-class PickeeMobileController : public rclcpp::Node {
+class PickeeMobileBridge : public rclcpp::Node {
 private:
     void DeclareParameters() {
         this->declare_parameter("robot_id", 1);
-        this->declare_parameter("default_linear_speed", 0.5);
-        this->declare_parameter("default_angular_speed", 0.3);
+        this->declare_parameter("pose_publish_frequency", 10.0);
+        this->declare_parameter("navigation_timeout", 300.0);
+        this->declare_parameter("arrival_tolerance_xy", 0.25);
+        this->declare_parameter("arrival_tolerance_yaw", 0.5);
         this->declare_parameter("battery_threshold_low", 20.0);
-        this->declare_parameter("arrival_position_tolerance", 0.05);
-        this->declare_parameter("arrival_angle_tolerance", 0.1);
-        this->declare_parameter("path_planning_frequency", 10.0);
-        this->declare_parameter("motion_control_frequency", 20.0);
-    }
-    
-    void LoadParameters() {
-        robot_id_ = this->get_parameter("robot_id").as_int();
-        default_linear_speed_ = this->get_parameter("default_linear_speed").as_double();
-        // ... 기타 파라미터 로딩
     }
 };
 ```
 
-- `robot_id` (int): 로봇의 고유 ID. (기본값: 1)
-- `default_linear_speed` (double): 기본 주행 선속도. (기본값: 0.5 m/s)
-- `default_angular_speed` (double): 기본 주행 각속도. (기본값: 0.3 rad/s)
-- `battery_threshold_low` (double): 배터리 부족 경고 임계값. (기본값: 20.0 %)
-- `arrival_position_tolerance` (double): 목적지 도착 판단을 위한 위치 허용 오차. (기본값: 0.05 m)
-- `arrival_angle_tolerance` (double): 목적지 도착 판단을 위한 각도 허용 오차. (기본값: 0.1 rad)
-- `path_planning_frequency` (double): 지역 경로 계획 주기. (기본값: 10.0 Hz)
-- `motion_control_frequency` (double): 모션 제어 주기. (기본값: 20.0 Hz)
+**주요 파라미터:**
+- `robot_id` (int): 로봇의 고유 ID (기본값: 1)
+- `pose_publish_frequency` (double): 위치 정보 발행 주기 (기본값: 10.0 Hz)
+- `navigation_timeout` (double): 네비게이션 타임아웃 시간 (기본값: 300.0 s)
+- `arrival_tolerance_xy` (double): 도착 판단 위치 허용 오차 (기본값: 0.25 m)
+- `arrival_tolerance_yaw` (double): 도착 판단 각도 허용 오차 (기본값: 0.5 rad)
+- `battery_threshold_low` (double): 배터리 부족 경고 임계값 (기본값: 20.0 %)
 
 ## 7. 데이터 흐름 (Data Flow)
 
 ```mermaid
-graph LR
+graph TB
     subgraph Pickee Main Controller
-        PMC_A[Move Command] --> PMC_B(Path Planning)
-        PMC_B --> PMC_C[Global Path Update]
-        PMC_D[Speed Control Command]
+        PMC_A[Move Command]
+        PMC_B[Speed Control]
+        PMC_C[Pose Monitor]
+        PMC_D[Arrival Monitor]
     end
 
-    subgraph Pickee Mobile C++
-        PM_A[SensorManager] --> PM_B(LocalizationComponent)
-        PM_B --> PM_C(StateMachine)
-        PM_C --> PM_D[PosePublisher]
-        PM_C --> PM_E[ArrivalPublisher]
-        PM_F[SpeedControlSubscriber] --> PM_C
-        PM_G[MoveToLocationService] --> PM_C
-        PM_H[UpdateGlobalPathService] --> PM_C
-        PM_C --> PM_I(PathPlanningComponent)
-        PM_I --> PM_J(MotionControlComponent)
-        PM_J --> PM_K[ActuatorInterface]
-        PM_B -- Pose --> PM_I
-        PM_F -- Obstacles --> PM_I
-        PM_G -- Target Pose, Global Path --> PM_I
-        PM_H -- New Global Path --> PM_I
+    subgraph Shopee Bridge Node
+        SB_A[Move Service Handler]
+        SB_B[Navigation Bridge]  
+        SB_C[Pose Reporter]
+        SB_D[State Manager]
+        SB_E[Costmap Updater]
     end
 
-    PMC_A -- /pickee/mobile/move_to_location (Service Request) --> PM_G
-    PMC_C -- /pickee/mobile/update_global_path (Service Request) --> PM_H
-    PMC_D -- /pickee/mobile/speed_control (Topic) --> PM_F
-    PM_D -- /pickee/mobile/pose (Topic) --> PMC_A
-    PM_E -- /pickee/mobile/arrival (Topic) --> PMC_A
+    subgraph Nav2 Stack
+        N2_A[BT Navigator]
+        N2_B[AMCL]
+        N2_C[Planner Server]
+        N2_D[Controller Server]
+        N2_E[Map Server]
+        N2_F[Behavior Server]
+    end
+
+    subgraph Robot Hardware
+        RH_A[LiDAR /scan]
+        RH_B[Odometry /odom]
+        RH_C[Motors /cmd_vel]
+    end
+
+    PMC_A -- /pickee/mobile/move_to_location --> SB_A
+    PMC_B -- /pickee/mobile/speed_control --> SB_D
+    SB_C -- /pickee/mobile/pose --> PMC_C
+    SB_D -- /pickee/mobile/arrival --> PMC_D
+
+    SB_A --> SB_B
+    SB_B -- NavigateToPose Action --> N2_A
+    N2_B -- /amcl_pose --> SB_C
+    N2_A -- /cmd_vel --> RH_C
+
+    RH_A --> N2_B
+    RH_A --> N2_C  
+    RH_A --> N2_D
+    RH_B --> N2_B
+    N2_E -- /map --> N2_B
+    N2_E -- /map --> N2_C
+
+    N2_C -- /plan --> N2_D
+    SB_E -- /costmap_updates --> N2_C
+    SB_E -- /costmap_updates --> N2_D
 ```
 
 ## 8. 오류 처리 (Error Handling)
@@ -445,10 +527,10 @@ public:
 
 ## 11. 빌드 및 테스트 (Build & Testing)
 
-### 11.1. CMakeLists.txt 구성 예시
+### 11.1. CMakeLists.txt 구성 (Nav2 기반)
 ```cmake
 cmake_minimum_required(VERSION 3.8)
-project(pickee_mobile)
+project(pickee_mobile_wonho)
 
 # C++ 표준 설정
 if(NOT CMAKE_CXX_STANDARD)
@@ -457,108 +539,136 @@ endif()
 
 # 컴파일러 옵션
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -O3 -march=native)
+  add_compile_options(-Wall -Wextra -Wpedantic -O3)
 endif()
 
-# ROS2 의존성
+# ROS2 의존성 - Nav2 포함
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(shopee_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
-# 실행 파일 생성
-add_executable(pickee_mobile_controller
+# Shopee 브리지 노드
+add_executable(pickee_mobile_bridge
   src/main.cpp
-  src/mobile_controller.cpp
-  src/components/localization_component.cpp
-  src/components/path_planning_component.cpp
-  src/components/motion_control_component.cpp
-  src/state_machine.cpp
-  src/states/idle_state.cpp
-  src/states/moving_state.cpp
-  src/states/stopped_state.cpp
-  src/states/charging_state.cpp
-  src/states/error_state.cpp
+  src/pickee_mobile_bridge.cpp
+  src/navigation_bridge.cpp
+  src/costmap_updater.cpp
+  src/state_manager.cpp
 )
 
 # 헤더 파일 경로
-target_include_directories(pickee_mobile_controller PUBLIC
+target_include_directories(pickee_mobile_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
-# 의존성 링크
-target_link_libraries(pickee_mobile_controller Eigen3::Eigen)
-
-ament_target_dependencies(pickee_mobile_controller
+# 의존성 연결
+ament_target_dependencies(pickee_mobile_bridge
   rclcpp
+  rclcpp_action
+  rclcpp_components
   shopee_interfaces
   geometry_msgs
   sensor_msgs
   nav_msgs
+  nav2_msgs
   tf2_ros
+  tf2_geometry_msgs
 )
 
 # 설치
-install(TARGETS pickee_mobile_controller
+install(TARGETS pickee_mobile_bridge
   DESTINATION lib/${PROJECT_NAME})
 
-# 설정 파일 설치
-install(DIRECTORY config launch
-  DESTINATION share/${PROJECT_NAME})
-
-# 테스트
-if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
-  
-  ament_add_gtest(test_state_machine
-    test/test_state_machine.cpp
-    src/state_machine.cpp
-  )
-  
-  target_include_directories(test_state_machine PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    
-  ament_target_dependencies(test_state_machine rclcpp)
-endif()
+# Launch, config, map 파일들 설치
+install(DIRECTORY
+  launch
+  params
+  map
+  urdf
+  rviz
+  worlds
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 ament_package()
 ```
 
-### 11.2. 단위 테스트 예시
+### 11.2. 실행 및 사용법
+
+**1. Nav2 및 브리지 노드 실행:**
+```bash
+# Nav2 전체 스택 시작
+ros2 launch pickee_mobile_wonho nav2_bringup_launch.xml
+
+# Shopee 브리지 노드 시작
+ros2 run pickee_mobile_wonho pickee_mobile_bridge
+
+# 또는 통합 launch 파일로 시작
+ros2 launch pickee_mobile_wonho mobile_bringup.launch.xml
+```
+
+**2. 네비게이션 명령 테스트:**
+```bash
+# Shopee 인터페이스를 통한 이동 명령
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation \
+  "target_location: {x: 2.0, y: 1.0, theta: 0.0}"
+
+# Nav2 직접 명령 (테스트용)
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "pose: {header: {frame_id: 'map'}, pose: {position: {x: 2.0, y: 1.0}, orientation: {w: 1.0}}}"
+```
+
+**3. 상태 모니터링:**
+```bash
+# 로봇 위치 정보 확인
+ros2 topic echo /pickee/mobile/pose
+
+# Nav2 AMCL 위치 확인  
+ros2 topic echo /amcl_pose
+
+# 네비게이션 상태 확인
+ros2 topic echo /navigate_to_pose/_action/status
+```
+
+### 11.3. 단위 테스트 예시
 ```cpp
-// test/test_state_machine.cpp
+// test/test_navigation_bridge.cpp
 #include <gtest/gtest.h>
 #include <rclcpp/rclcpp.hpp>
-#include "pickee_mobile/state_machine.hpp"
-#include "pickee_mobile/states/idle_state.hpp"
-#include "pickee_mobile/states/moving_state.hpp"
+#include "pickee_mobile_wonho/navigation_bridge.hpp"
 
-class StateMachineTest : public ::testing::Test {
+class NavigationBridgeTest : public ::testing::Test {
 protected:
     void SetUp() override {
         rclcpp::init(0, nullptr);
-        auto logger = std::make_shared<rclcpp::Logger>(rclcpp::get_logger("test"));
-        state_machine_ = std::make_unique<StateMachine>(logger);
+        node_ = std::make_shared<rclcpp::Node>("test_node");
+        nav_bridge_ = std::make_unique<NavigationBridge>(node_);
     }
     
     void TearDown() override {
         rclcpp::shutdown();
     }
     
-    std::unique_ptr<StateMachine> state_machine_;
+    rclcpp::Node::SharedPtr node_;
+    std::unique_ptr<NavigationBridge> nav_bridge_;
 };
 
-TEST_F(StateMachineTest, InitialState) {
-    EXPECT_EQ(state_machine_->GetCurrentStateType(), StateType::IDLE);
-}
-
-TEST_F(StateMachineTest, StateTransition) {
-    auto moving_state = std::make_unique<MovingState>();
-    state_machine_->TransitionTo(std::move(moving_state));
-    EXPECT_EQ(state_machine_->GetCurrentStateType(), StateType::MOVING);
+TEST_F(NavigationBridgeTest, SendGoalTest) {
+    geometry_msgs::msg::PoseStamped goal;
+    goal.header.frame_id = "map";
+    goal.pose.position.x = 2.0;
+    goal.pose.position.y = 1.0;
+    goal.pose.orientation.w = 1.0;
+    
+    nav_bridge_->SendNavigationGoal(goal);
+    EXPECT_TRUE(nav_bridge_->IsNavigationActive());
 }
 ```

@@ -1,5 +1,9 @@
 from .state import State
 from shopee_interfaces.srv import MainGetLocationPose
+import threading
+import asyncio
+from .waiting_loading import WaitingLoadingState
+from .detecting_product import DetectingProductState
 
 class MovingToShelfState(State):
     # 상품위치이동중 상태
@@ -27,8 +31,6 @@ class MovingToShelfState(State):
                     self._node.get_logger().info(f'좌표 수신 ({target_pose.x}, {target_pose.y}), 로봇 이동 명령 전달.')
                     
                     # 3. Mobile에 이동 명령 전달 (스레드에서 비동기 실행)
-                    import threading
-                    import asyncio
                     
                     def run_async():
                         try:
@@ -45,7 +47,6 @@ class MovingToShelfState(State):
                     self._node.get_logger().error(f'위치 ID에 대한 좌표 수신 실패: {self.target_location_id}')
                     
                     # 실패 상태로 전환 (대기 상태로 돌아감)
-                    from .waiting_loading import WaitingLoadingState
                     return WaitingLoadingState(self._node)
                     
                     # TTS로 실패 알림
@@ -60,7 +61,6 @@ class MovingToShelfState(State):
                 self._node.get_logger().info('선반 도착, 상품 인식 시작')
                 self._node.arrival_received = False  # 플래그 리셋
                 
-                from .detecting_product import DetectingProductState
                 return DetectingProductState(self._node)
     
     def on_exit(self):

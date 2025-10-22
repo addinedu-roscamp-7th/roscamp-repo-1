@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sdf version="1.6">
+  <model name="shopee_map">
+    <static>true</static>
+    <link name="shopee_link">
+      <pose>0 0 0 1.5708 0 0</pose>
+      <visual name="shopee_visual">
+        <geometry>
+          <mesh>
+            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>0.8 0.8 0.8 1</diffuse>
+        </material>
+      </visual>
+      <collision name="shopee_collision">
+        <geometry>
+          <mesh>
+            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>
