@@ -52,7 +52,7 @@ def generate_launch_description() -> LaunchDescription:
         SetEnvironmentVariable('SHOPEE_API_PORT', api_port),
         SetEnvironmentVariable('SHOPEE_LLM_BASE_URL', llm_base_url),
         SetEnvironmentVariable('SHOPEE_DB_URL', db_url),
-        SetEnvironmentVariable('SHOPEE_GUI_ENABLED', LaunchConfiguration('gui_enabled')),
+        SetEnvironmentVariable('SHOPEE_GUI_ENABLED', 'true'),
         SetEnvironmentVariable('SHOPEE_LOG_LEVEL', 'INFO'),
         SetEnvironmentVariable('PYTHONUNBUFFERED', '1'),
     ]

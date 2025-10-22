@@ -1,21 +1,23 @@
 
 import asyncio
 import json
-import unittest
+import os
 import threading
+import unittest
 from typing import Any, Dict, List
-
-import pytest
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
 
 import launch
 import launch_testing
-from launch.actions import ExecuteProcess
+import pytest
+import rclpy
+from launch.actions import ExecuteProcess, SetEnvironmentVariable
+from launch.substitutions import LaunchConfiguration
+from rclpy.node import Node
+from std_msgs.msg import String
 
 from main_service.client_utils import MainServiceClient
-from main_service.database_models import Customer, Order, OrderItem, Product, Section, Shelf, Location
+from main_service.database_models import Customer, Order, OrderItem, Product
+from main_service.database_manager import DatabaseManager
 from main_service.config import settings
 
 
@@ -26,8 +28,20 @@ def generate_test_description():
     # 여기서는 설명을 위해 생략
 
     # 1. main_service 노드 실행
+    api_port = LaunchConfiguration('api_port')
+    app_host = LaunchConfiguration('app_host')
+
     main_service_node = ExecuteProcess(
-        cmd=['ros2', 'run', 'main_service', 'main_service_node'],
+        cmd=[
+            'ros2',
+            'run',
+            'main_service',
+            'main_service_node',
+        ],
+        additional_env={
+            'SHOPEE_API_PORT': api_port,
+            'SHOPEE_API_HOST': app_host,
+        },
         output='screen',
         name='main_service'
     )
@@ -41,10 +55,13 @@ def generate_test_description():
     )
 
     return launch.LaunchDescription([
+        launch.actions.DeclareLaunchArgument('api_port', default_value='5100'),
+        launch.actions.DeclareLaunchArgument('app_host', default_value='127.0.0.1'),
+        SetEnvironmentVariable('SHOPEE_API_PORT', api_port),
+        SetEnvironmentVariable('SHOPEE_API_HOST', app_host),
         main_service_node,
         mock_pickee_node,
-        # 모든 노드가 준비될 때까지 기다렸다가 테스트를 시작하라는 신호
-        launch_testing.actions.ReadyToTest()
+        launch_testing.actions.ReadyToTest(),
     ])
 
 
@@ -56,10 +73,13 @@ class TestFullWorkflow(unittest.TestCase):
     def setUpClass(cls):
         # 테스트 전체 시작 시 한 번만 ROS 초기화
         rclpy.init()
+        cls._db_manager = DatabaseManager()
+        cls._seed_test_data()
 
     @classmethod
     def tearDownClass(cls):
-        # 테스트 전체 종료 시 한 번만 ROS 종료
+        # 테스트 전체 종료 시 한 번만 ROS 종료 및 테스트 데이터 정리
+        cls._clear_test_data()
         rclpy.shutdown()
 
     def setUp(self):
@@ -76,13 +96,57 @@ class TestFullWorkflow(unittest.TestCase):
         )
         
         # ROS 노드를 별도 스레드에서 실행
-        self.ros_spin_thread = threading.Thread(target=rclpy.spin, args=(self.test_node,))
+        self._ros_spin_stop = threading.Event()
+
+        def _spin():
+            executor = rclpy.executors.SingleThreadedExecutor()
+            executor.add_node(self.test_node)
+            while rclpy.ok() and not self._ros_spin_stop.is_set():
+                executor.spin_once(timeout_sec=0.1)
+            executor.remove_node(self.test_node)
+
+        self.ros_spin_thread = threading.Thread(target=_spin)
         self.ros_spin_thread.daemon = True
         self.ros_spin_thread.start()
 
     def tearDown(self):
-        # 각 테스트 케이스 종료 후, 노드 소멸
+        # 각 테스트 케이스 종료 후, 노드 및 스레드 종료
+        self._ros_spin_stop.set()
+        if self.ros_spin_thread.is_alive():
+            self.ros_spin_thread.join(timeout=5.0)
         self.test_node.destroy_node()
+
+    @classmethod
+    def _seed_test_data(cls):
+        with cls._db_manager.session_scope() as session:
+            # 사용자 존재 여부 확인 후 생성
+            if not session.query(Customer).filter_by(customer_id='admin').first():
+                session.add(Customer(
+                    customer_id='admin',
+                    password_hash='dummy',
+                    name='Admin',
+                    address='Test Address',
+                ))
+
+            if not session.query(Product).filter_by(product_id=99901).first():
+                session.add(Product(
+                    product_id=99901,
+                    barcode='TEST-99901',
+                    name='E2E Test Product',
+                    quantity=10,
+                    price=1000,
+                    section_id=1,
+                    category='test',
+                    allergy_info_id=1,
+                    is_vegan_friendly=True,
+                ))
+
+    @classmethod
+    def _clear_test_data(cls):
+        with cls._db_manager.session_scope() as session:
+            session.query(OrderItem).filter(OrderItem.product_id == 99901).delete()
+            session.query(Order).filter(Order.customer_id == 'admin').delete()
+            session.query(Product).filter(Product.product_id == 99901).delete()
 
     def feedback_callback(self, msg: String):
         """/test/feedback 토픽 메시지를 수신하면 리스트에 저장"""
@@ -105,7 +169,9 @@ class TestFullWorkflow(unittest.TestCase):
         await asyncio.sleep(2)
 
         # main_service와 통신할 TCP 클라이언트 생성
-        tcp_client = MainServiceClient(host=settings.API_HOST, port=settings.API_PORT)
+        app_host = os.environ.get('SHOPEE_API_HOST', settings.API_HOST)
+        app_port = int(os.environ.get('SHOPEE_API_PORT', settings.API_PORT))
+        tcp_client = MainServiceClient(host=app_host, port=app_port)
         await tcp_client.connect()
 
         try:
@@ -131,10 +197,8 @@ class TestFullWorkflow(unittest.TestCase):
             self.assertTrue(is_robot_available, "Mock robot did not become available in time.")
 
             # 1. (Given) 테스트용 주문 데이터 준비
-            # 실제 DB에 테스트용 사용자와 상품이 있다는 가정 하에 진행
-            # 혹은 테스트 시작 전 DB를 초기화하는 스크립트 필요
             user_id = 'admin'
-            cart_items = [{'product_id': 1, 'quantity': 1}]
+            cart_items = [{'product_id': 99901, 'quantity': 1}]
             order_payload = {
                 'user_id': user_id,
                 'cart_items': cart_items,
@@ -174,4 +238,3 @@ class TestFullWorkflow(unittest.TestCase):
             loop.run_until_complete(self.run_test_scenario())
         finally:
             loop.close()
-

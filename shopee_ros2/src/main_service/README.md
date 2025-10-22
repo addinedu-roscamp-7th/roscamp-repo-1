@@ -12,7 +12,7 @@ ROS2 패키지로 구현된 Shopee 중앙 백엔드 서비스입니다. App, Pic
 
 ## 환경 설정
 
-`main_service/config.py`의 `MainServiceConfig` 클래스 기본값을 프로젝트 환경에 맞게 수정합니다. 아래 항목은 빈번히 조정되는 값입니다 (main_service/main_service/config.py:56-104).
+`main_service/config.py`의 `MainServiceConfig` 클래스 기본값을 프로젝트 환경에 맞게 수정합니다.
 
 ```python
 class MainServiceConfig(BaseSettings):
@@ -27,6 +27,14 @@ class MainServiceConfig(BaseSettings):
 ```
 
 필요하다면 런타임 환경 변수(`export SHOPEE_API_PORT=6000` 등)로 일부 값을 덮어쓸 수 있지만, 기본적인 설정은 코드에 직접 반영한다는 가정으로 유지합니다. 또한 ROS2 관련 환경 변수(`ROS_DOMAIN_ID`, 네임스페이스 등)가 다른 패키지와 충돌하지 않도록 조정하세요.
+
+| 항목 | 기본값 | 현장 환경 예시 | 변경 시 참고 문서 |
+|------|--------|----------------|------------------|
+| `API_HOST`/`API_PORT` | `0.0.0.0:5000` | 스테이징: `10.20.0.12:5500` | `docs/InterfaceSpecification/App_vs_Main.md` |
+| `DB_URL` | `mysql+pymysql://shopee:shopee@localhost:3306/shopee` | 운영 DB: `mysql+pymysql://user:pass@db-prod:3306/shopee` | `docs/DevelopmentPlan/MainService/MainServiceDesign.md` |
+| `LLM_BASE_URL` | `http://localhost:5001` | LLM 서버: `http://llm-prod:8000` | `docs/DevelopmentPlan/MainService/MainServiceDesign.md` 6.2절 |
+
+환경을 전환할 때는 위 표를 기준으로 값을 수정하고, 수정 이력은 관련 설계 문서와 함께 업데이트해 일관성을 유지합니다.
 
 ## 빌드 및 설치
 
@@ -47,7 +55,7 @@ class MainServiceConfig(BaseSettings):
 
 ## 데이터베이스 초기화
 
-`scripts` 폴더에 제공된 스크립트를 사용해 MySQL을 준비합니다 (shopee_ros2/src/main_service/scripts/README.md:21-158).
+`scripts` 폴더에 제공된 스크립트를 사용해 MySQL을 준비합니다.
 
 ```bash
 cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2/src/main_service/scripts
@@ -57,7 +65,7 @@ cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2/src/main_service/scripts
 ```
 
 - 관리자 계정: `admin / admin123`
-- Pickee 2대, Packee 1대 샘플 데이터 포함
+- Pickee 2대, Packee 2대 샘플 데이터 포함
 - 수동 초기화가 필요하면 `init_schema.sql`, `sample_data.sql`을 직접 실행할 수 있습니다.
 
 ## Mock 및 외부 서비스
@@ -67,7 +75,7 @@ cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2/src/main_service/scripts
 - **대시보드**: `config.py`에서 `GUI_ENABLED=True`로 유지하면 PyQt6 GUI가 활성화됩니다.
 - **테스트 클라이언트**: `python3 scripts/test_client.py`로 App↔Main 시나리오를 검증합니다.
 
-Mock 구성 요소는 docs/DevelopmentPlan/MainService/RobotFleetManagement.md:24-89, shopee_ros2/src/main_service/TEST_GUIDE.md:14-109에 정의된 플릿 관리 흐름과 일관되게 동작합니다.
+Mock 구성 요소는 `docs/DevelopmentPlan/MainService/RobotFleetManagement.md`와 `TEST_GUIDE.md`에 정의된 플릿 관리 흐름과 일관되게 동작합니다.
 
 ## 실행 절차
 
@@ -81,24 +89,7 @@ source install/setup.bash
 ros2 run main_service main_service_node
 ```
 
-서비스 시작 시 `RobotStateStore`가 DB의 로봇 목록을 불러와 `RobotStatus.OFFLINE`으로 초기화합니다 (main_service/main_service/main_service_node.py:98-140). ROS 토픽 수신 후 상태가 갱신되며, GUI가 활성화되어 있으면 대시보드가 따라 올라옵니다.
-
-### 통합 Mock 환경 실행
-
-App 개발자가 빠르게 테스트하려면 아래 런치 파일을 사용할 수 있습니다.
-
-```bash
-ros2 launch main_service app_support.launch.py \
-  api_host:=0.0.0.0 \
-  api_port:=5000 \
-  llm_base_url:=http://localhost:5001 \
-  db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee \
-  mock_robot_mode:=all
-```
-
-- Mock LLM 서버와 Mock Robot 노드가 함께 실행되며, Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
-- GUI는 기본적으로 비활성화(`SHOPEE_GUI_ENABLED=false`)되어 있으므로 GUI가 필요하면 런치에서 환경 변수를 별도로 지정하세요.
-- DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
+서비스 시작 시 `RobotStateStore`가 DB의 로봇 목록을 불러와 `RobotStatus.OFFLINE`으로 초기화합니다. ROS 토픽 수신 후 상태가 갱신되며, GUI가 활성화되어 있으면 대시보드가 따라 올라옵니다.
 
 ### Pickee Main 연동용 실행
 
@@ -111,12 +102,11 @@ ros2 launch main_service pickee_main_support.launch.py \
   llm_base_url:=http://localhost:5001 \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
+- Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
+- GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
+- DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
 
-- Main Service와 Mock LLM 서버가 함께 실행되어 상품 검색 시나리오를 바로 검증할 수 있습니다.
-- Pickee Main이 ROS 토픽/서비스를 발행하면 Main Service가 그대로 수신하여 주문/상태 동기화 흐름을 검증할 수 있습니다.
-- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
-
-### App 연동용 실행
+### Shopee App 연동용 실행
 
 Shopee App 개발자가 TCP API를 단독으로 검증할 때는 다음 런치 파일을 사용합니다.
 
@@ -128,8 +118,9 @@ ros2 launch main_service app_support.launch.py \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
 
-- Main Service와 Mock LLM이 함께 기동되며, 별도의 Mock App 없이 `test_client.py` 또는 App 클라이언트에서 곧바로 연동할 수 있습니다.
-- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
+- Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
+- GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
+- DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
 
 ### Packee Main 연동용 실행
 
@@ -142,15 +133,14 @@ ros2 launch main_service packee_main_support.launch.py \
   llm_base_url:=http://localhost:5001 \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
-
-- 불필요한 Mock 구성 없이 Main Service만 실행하며 Packee Main 측 모듈과 실시간으로 연동할 수 있습니다.
-- GUI가 필요하면 `gui_enabled:=true` 인자를 추가하세요.
-- Packee Main에서 발행하는 상태/이벤트 토픽이 Main Service에 전달되어 포장 워크플로우 전체를 검증할 수 있습니다.
+- Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
+- GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
+- DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
 
 ## 모니터링 대시보드
 
 - 5개 탭(개요, 로봇 상태, 주문 관리, 시스템 진단, 이벤트 로그)으로 구성되어 시스템 상태를 1초 주기로 갱신합니다.
-- `ROBOT_ALLOCATION_STRATEGY`, `ROS_SERVICE_RETRY_*`, `ROS_STATUS_HEALTH_TIMEOUT` 등 주요 설정 값은 `config.py`를 참고하세요 (main_service/main_service/config.py:56-104).
+- `ROBOT_ALLOCATION_STRATEGY`, `ROS_SERVICE_RETRY_*`, `ROS_STATUS_HEALTH_TIMEOUT` 등 주요 설정 값은 `config.py`를 참고하세요.
 
 ## 테스트 및 품질 관리
 
@@ -166,7 +156,7 @@ ros2 launch main_service packee_main_support.launch.py \
 
 - **전체 구조**: docs/DevelopmentPlan/MainService/MainServiceDesign.md
 - **로봇 플릿 관리**: docs/DevelopmentPlan/MainService/RobotFleetManagement.md
-- **요구사항 추적**: docs/DevelopmentPlan/MainService/MainServiceDesign.md:96-109
+- **요구사항 추적**: docs/DevelopmentPlan/MainService/MainServiceDesign.md
 - **ROS 인터페이스 명세**: docs/InterfaceSpecification/Main_vs_Pic_Main.md, Main_vs_Pack_Main.md
 - **시퀀스**: docs/SequenceDiagram/SC_02_4.md, SC_02_5.md, SC_03_x.md 등
 
