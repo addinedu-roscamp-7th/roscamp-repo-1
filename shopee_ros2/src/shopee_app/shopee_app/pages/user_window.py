@@ -11,6 +11,7 @@ from PyQt6.QtGui import QTransform
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QListWidgetItem
 from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtWidgets import QMessageBox
@@ -50,6 +51,8 @@ class UserWindow(QWidget):
         self.product_grid = getattr(self.ui, "gridLayout_2", None)
         self.products: list[ProductData] = []
         self.product_index: dict[int, ProductData] = {}
+        self.default_empty_products_message = '표시할 상품이 없습니다.'
+        self.empty_products_message = self.default_empty_products_message
 
         self.cart_items: dict[int, CartItemData] = {}
         self.cart_widgets: dict[int, CartItemWidget] = {}
@@ -399,11 +402,8 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            QMessageBox.information(
-                self, "검색 결과 없음", "조건에 맞는 상품이 없습니다."
-            )
-            fallback_products = self.load_initial_products()
-            self.set_products(fallback_products)
+            self.empty_products_message = '조건에 맞는 상품이 없습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
         # 변환된 상품을 상태에 반영하지 않으면 UI가 최신 정보를 표시하지 못한다.
@@ -1250,6 +1250,29 @@ class UserWindow(QWidget):
         for col in range(columns + 1):
             self.product_grid.setColumnStretch(col, 0)
 
+        if not products:
+            message = getattr(
+                self,
+                'empty_products_message',
+                '표시할 상품이 없습니다.',
+            )
+            placeholder = QLabel(message)
+            placeholder.setObjectName('product_grid_placeholder')
+            placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            placeholder.setWordWrap(True)
+            span = max(1, columns)
+            self.product_grid.addWidget(
+                placeholder,
+                0,
+                0,
+                1,
+                span,
+                QtCore.Qt.AlignmentFlag.AlignCenter,
+            )
+            self.product_grid.setColumnStretch(0, 1)
+            self.product_grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            return
+
         for index, product in enumerate(products):
             row = index // columns
             col = index % columns
@@ -1408,6 +1431,8 @@ class UserWindow(QWidget):
     def set_products(self, products: list[ProductData]) -> None:
         self.products = products
         self.product_index = {product.product_id: product for product in products}
+        if products:
+            self.empty_products_message = self.default_empty_products_message
         self.current_columns = -1
 
     def load_initial_products(self) -> list[ProductData]:
