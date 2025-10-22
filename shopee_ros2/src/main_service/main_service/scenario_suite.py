@@ -328,7 +328,6 @@ async def run_sc_02_5_shopping_end(
             {
                 'user_id': user_id,
                 'order_id': order_id,
-                'robot_id': robot_id,
             },
         )
         if response.get('result', False):

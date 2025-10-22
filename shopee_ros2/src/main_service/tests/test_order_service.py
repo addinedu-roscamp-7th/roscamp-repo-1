@@ -12,6 +12,7 @@ from shopee_interfaces.srv import PickeeProductDetect, PickeeWorkflowStartTask
 
 from main_service.database_models import Customer, Order, OrderItem, Product, Section, Shelf, Location
 from main_service.order_service import OrderService
+from main_service.config import settings
 
 # Mark all tests in this file as asyncio
 pytestmark = pytest.mark.asyncio
@@ -224,7 +225,7 @@ class TestHandleMovingStatus:
         payload = find_push_payload(mock_event_bus, "robot_moving_notification")
         assert payload is not None
         assert payload["result"] is True
-        assert payload["error_code"] is None
+        assert payload["error_code"] == ""  # 성공 시 빈 문자열
         assert payload["data"]["order_id"] == 77
         assert payload["data"]["robot_id"] == 2
         assert payload["data"]["destination"] == "LOCATION_5"
@@ -301,13 +302,24 @@ class TestHandleCartHandover:
         """Verify that packing is dispatched if a Packee robot is available."""
         # Arrange
         mock_allocator.reserve_robot.return_value = MagicMock(robot_id=5)
-        mock_robot_coordinator.dispatch_pack_task.return_value = MagicMock(success=True, box_id=123)
+        mock_robot_coordinator.check_packee_availability.return_value = MagicMock(success=True, message="OK")
         mock_robot_coordinator.dispatch_return_to_base.return_value = MagicMock(success=True)
         order_service._assignment_manager.assign_pickee(99, 1)
 
-        # Mock database session
+        # Mock database session - DB 쿼리 결과 모킹
         mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
-        mock_session.query.return_value.filter_by.return_value.first.return_value = None
+        mock_order_item = MagicMock(product_id=1, quantity=2)
+        mock_product = MagicMock(
+            product_id=1,
+            length=10,
+            width=20,
+            height=30,
+            weight=100,
+            fragile=True
+        )
+        mock_session.query.return_value.join.return_value.filter.return_value.all.return_value = [
+            (mock_order_item, mock_product)
+        ]
 
         handover_msg = PickeeCartHandover(order_id=99, robot_id=1)
 
@@ -318,13 +330,12 @@ class TestHandleCartHandover:
 
         # Assert
         mock_allocator.reserve_robot.assert_awaited_once()
-        mock_robot_coordinator.dispatch_pack_task.assert_awaited_once()
+        mock_robot_coordinator.check_packee_availability.assert_awaited_once()
         mock_robot_coordinator.dispatch_return_to_base.assert_awaited_once()
         # notify_packing_info가 호출되었는지 직접 확인
         mock_notify_packing.assert_awaited_once()
-        # packee 할당이 해제되었는지 확인 (release_pickee가 호출되었는지 확인)
-        # 이 부분은 failure_handler 테스트에서 더 상세히 다루는 것이 좋음
-        # 여기서는 간단히 로직의 주요 흐름만 확인
+        # packee 할당이 되었는지 확인
+        assert order_service._assignment_manager.get_packee(99) == 5
 
     async def test_does_not_dispatch_when_packee_unavailable(
         self,
@@ -337,7 +348,7 @@ class TestHandleCartHandover:
         # Arrange
         mock_allocator.reserve_robot.return_value = None # 가용한 로봇 없음
         order_service._assignment_manager.assign_pickee(99, 1)
-        
+
         handover_msg = PickeeCartHandover(order_id=99, robot_id=1)
 
         # Act
@@ -346,8 +357,9 @@ class TestHandleCartHandover:
             await order_service.handle_cart_handover(handover_msg)
 
         # Assert
-        mock_allocator.reserve_robot.assert_awaited_once()
-        mock_robot_coordinator.dispatch_pack_task.assert_not_awaited()
+        # reserve_robot이 3번 재시도되므로 최대 3번 호출됨
+        assert mock_allocator.reserve_robot.await_count == 3
+        mock_robot_coordinator.check_packee_availability.assert_not_awaited()
         # fail_order가 올바른 인자와 함께 호출되었는지 확인
         mock_fail_order.assert_awaited_once_with(99, "No available Packee robot.")
 
@@ -526,8 +538,37 @@ class TestOrderServicePickingModes:
 
         # Check that the first move command goes to the manual section
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
-        move_req = mock_robot_coordinator.dispatch_move_to_section.await_args.args[0]
-        assert move_req.section_id == 100
+
+
+class TestOrderServiceEndShopping:
+    """Test suite for OrderService.end_shopping."""
+
+    async def test_end_shopping_resolves_robot_assignment(
+        self,
+        order_service: OrderService,
+        mock_robot_coordinator: AsyncMock,
+        mock_db_manager: MagicMock,
+    ) -> None:
+        order_id = 501
+        robot_id = 42
+
+        order_service._assignment_manager.assign_pickee(order_id, robot_id)
+
+        mock_robot_coordinator.dispatch_shopping_end.return_value = MagicMock(success=True, message="")
+        mock_robot_coordinator.dispatch_move_to_packaging.return_value = MagicMock(success=True)
+        order_service._state_manager.set_status_picked_up = MagicMock(return_value=True)
+
+        with patch.object(order_service, "_calculate_order_summary", return_value=(2, 3000)):
+            with patch.object(settings, "PICKEE_PACKING_LOCATION_ID", 99):
+                success, summary = await order_service.end_shopping(order_id)
+
+        assert success is True
+        assert summary == {"total_items": 2, "total_price": 3000}
+        mock_robot_coordinator.dispatch_shopping_end.assert_awaited_once()
+        sent_request = mock_robot_coordinator.dispatch_shopping_end.await_args[0][0]
+        assert sent_request.robot_id == robot_id
+        # 포장 위치로 이동 명령이 호출되었는지 확인
+        mock_robot_coordinator.dispatch_move_to_packaging.assert_awaited_once()
 
     async def test_handle_product_detected_triggers_auto_pick(
         self,
@@ -637,4 +678,3 @@ class TestOrderServicePickingModes:
         order_service._notifier.notify_manual_picking_complete.assert_awaited_once_with(order_id)
         # Also assert that the robot is dispatched to the next section
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
-

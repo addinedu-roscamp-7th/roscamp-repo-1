@@ -174,6 +174,32 @@ class TcpTesterTab(BaseTab, Ui_TcpTesterTab):
                     'password': {'type': 'str', 'default': 'hunter2', 'description': '비밀번호'},
                 },
             },
+            'user_edit': {
+                'category': '요청-응답 API',
+                'name': '사용자 정보 수정',
+                'description': '회원 프로필 수정 요청',
+                'fields': {
+                    'user_id': {'type': 'str', 'default': 'customer001', 'description': '수정 대상 사용자 ID'},
+                    'name': {'type': 'str?', 'default': '홍길동', 'description': '이름 (선택)'},
+                    'gender': {'type': 'bool?', 'default': True, 'description': '성별 (선택, boolean)'},
+                    'age': {'type': 'int?', 'default': 29, 'description': '나이 (선택)'},
+                    'address': {'type': 'str?', 'default': '서울특별시 중구', 'description': '주소 (선택)'},
+                    'is_vegan': {'type': 'bool?', 'default': False, 'description': '비건 여부 (선택)'},
+                    'allergy_info': {
+                        'type': 'json',
+                        'default': {
+                            'nuts': False,
+                            'milk': False,
+                            'seafood': False,
+                            'soy': False,
+                            'peach': False,
+                            'gluten': False,
+                            'eggs': False,
+                        },
+                        'description': '알레르기 정보 (선택, JSON)',
+                    },
+                },
+            },
             'total_product': {
                 'category': '요청-응답 API',
                 'name': '전체 상품 요청',

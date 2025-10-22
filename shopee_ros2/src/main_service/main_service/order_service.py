@@ -48,6 +48,7 @@ if TYPE_CHECKING:
         PickeeCartHandover,
         PickeeMoveStatus,
         PickeeProductDetection,
+        PickeeProductLoaded,
         PickeeProductSelection,
     )
     from .database_manager import DatabaseManager
@@ -98,6 +99,7 @@ class OrderService:
         self._last_move_location: Dict[int, int] = {}
         self._last_arrival_signature: Dict[int, tuple[int, int]] = {}
         self._last_detection_signature: Dict[int, tuple[int, ...]] = {}
+        self._pending_pack_tasks: Dict[int, Dict[str, Any]] = {}
 
         # Failure handler (순환 참조 제거됨)
         self._failure_handler = RobotFailureHandler(
@@ -293,10 +295,39 @@ class OrderService:
             logger.exception("Failed to dispatch product selection: %s", e)
             return False
 
-    async def end_shopping(self, order_id: int, robot_id: int) -> Tuple[bool, Optional[Dict[str, int]]]:
+    async def _resolve_pickee_robot_id(self, order_id: int) -> Optional[int]:
+        """주문에 할당된 Pickee 로봇 ID를 조회합니다."""
+        robot_id = self._assignment_manager.get_pickee(order_id)
+        if robot_id is not None:
+            return robot_id
+
+        robot_id = self._assignment_manager.get_last_pickee(order_id)
+        if robot_id is not None:
+            return robot_id
+
+        if self._state_store:
+            try:
+                states = await self._state_store.list_states(RobotType.PICKEE)
+                for state in states:
+                    if state.active_order_id == order_id:
+                        return state.robot_id
+            except Exception as exc:
+                logger.warning("Failed to resolve pickee robot from state store for order %d: %s", order_id, exc)
+
+        return None
+
+    async def end_shopping(self, order_id: int, robot_id: Optional[int] = None) -> Tuple[bool, Optional[Dict[str, int]]]:
         logger.info("Ending shopping for order %d", order_id)
         try:
-            request = PickeeWorkflowEndShopping.Request(robot_id=robot_id, order_id=order_id)
+            resolved_robot_id = robot_id
+            if resolved_robot_id is None:
+                resolved_robot_id = await self._resolve_pickee_robot_id(order_id)
+            if resolved_robot_id is None:
+                logger.error("Cannot end shopping for order %d: no Pickee robot assignment found.", order_id)
+                return False, None
+
+            robot_id_value = int(resolved_robot_id)
+            request = PickeeWorkflowEndShopping.Request(robot_id=robot_id_value, order_id=order_id)
             response = await self._robot.dispatch_shopping_end(request)
             if not response.success:
                 logger.error("Robot failed to end shopping for order %d: %s", order_id, response.message)
@@ -313,11 +344,11 @@ class OrderService:
             packaging_location_id = settings.PICKEE_PACKING_LOCATION_ID
             if packaging_location_id:
                 try:
-                    move_pack_req = PickeeWorkflowMoveToPackaging.Request(robot_id=robot_id, order_id=order_id, location_id=packaging_location_id)
+                    move_pack_req = PickeeWorkflowMoveToPackaging.Request(robot_id=robot_id_value, order_id=order_id, location_id=packaging_location_id)
                     await self._robot.dispatch_move_to_packaging(move_pack_req)
                 except Exception as pack_exc:
                     logger.error("Failed to dispatch move_to_packaging for order %d: %s", order_id, pack_exc)
-                    await self._notifier._push_to_user({"type": "robot_command_failed", "result": False, "error_code": "ROBOT_002", "data": {"order_id": order_id, "robot_id": robot_id, "command": "move_to_packaging"}, "message": "로봇 이동 명령이 실패했습니다. 직원이 확인 중입니다."}, order_id=order_id)
+                    await self._notifier._push_to_user({"type": "robot_command_failed", "result": False, "error_code": "ROBOT_002", "data": {"order_id": order_id, "robot_id": robot_id_value, "command": "move_to_packaging"}, "message": "로봇 이동 명령이 실패했습니다. 직원이 확인 중입니다."}, order_id=order_id)
 
             return True, summary
         except Exception as e:
@@ -559,49 +590,163 @@ class OrderService:
                 await self._failure_handler.fail_order(order_id, "No available Packee robot.")
                 return
 
-            product_details_for_packee = []
+            product_details_for_packee: List[Dict[str, Any]] = []
             with self._db.session_scope() as session:
-                items_with_products = session.query(OrderItem, Product).join(Product, OrderItem.product_id == Product.product_id).filter(OrderItem.order_id == order_id).all()
+                items_with_products = (
+                    session.query(OrderItem, Product)
+                    .join(Product, OrderItem.product_id == Product.product_id)
+                    .filter(OrderItem.order_id == order_id)
+                    .all()
+                )
                 for order_item, product in items_with_products:
-                    product_details_for_packee.append({"product_id": product.product_id, "quantity": order_item.quantity, "length": product.length or 0, "width": product.width or 0, "height": product.height or 0, "weight": product.weight or 0, "fragile": product.fragile or False})
-            
-            start_req = PackeePackingStart.Request(robot_id=packee_robot_id, order_id=order_id)
-            start_req.products = [ProductInfo(**detail) for detail in product_details_for_packee]
-            start_res = await self._robot.dispatch_pack_task(start_req)
-            if not start_res.success:
-                raise RuntimeError(f"Failed to start packing: {start_res.message}")
-
-            if hasattr(start_res, 'box_id') and start_res.box_id > 0:
-                with self._db.session_scope() as session:
-                    order = session.query(Order).filter_by(order_id=order_id).first()
-                    if order:
-                        order.box_id = start_res.box_id
+                    product_details_for_packee.append(
+                        {
+                            "product_id": product.product_id,
+                            "quantity": order_item.quantity,
+                            "length": product.length or 0,
+                            "width": product.width or 0,
+                            "height": product.height or 0,
+                            "weight": product.weight or 0,
+                            "fragile": product.fragile or False,
+                        }
+                    )
 
             self._assignment_manager.assign_packee(order_id, packee_robot_id)
-            await self._notifier.notify_packing_info(order_id=order_id, payload={'robot_id': packee_robot_id})
-            self._failure_handler.start_reservation_monitor(packee_robot_id, order_id, RobotType.PACKEE)
+            self._pending_pack_tasks[order_id] = {
+                "packee_robot_id": packee_robot_id,
+                "product_details": product_details_for_packee,
+            }
+
+            check_req = PackeePackingCheckAvailability.Request(robot_id=packee_robot_id, order_id=order_id)
+            check_res = await self._robot.check_packee_availability(check_req)
+            if not check_res.success:
+                raise RuntimeError(f"Packee availability check failed: {check_res.message}")
+
+            await self._notifier.notify_packing_info(
+                order_id=order_id,
+                payload={"robot_id": packee_robot_id, "status": "checking_availability"},
+            )
 
             home_location_id = settings.PICKEE_HOME_LOCATION_ID
             if home_location_id:
                 return_req = PickeeWorkflowReturnToBase.Request(robot_id=robot_id, location_id=home_location_id)
                 await self._robot.dispatch_return_to_base(return_req)
 
-            await self._failure_handler._release_pickee(order_id)
-
         except Exception as e:
             logger.exception("Failed to handle cart handover for order %d: %s", order_id, e)
-            if packee_robot_id:
-                await self._allocator.release_robot(packee_robot_id, order_id)
+            self._pending_pack_tasks.pop(order_id, None)
+            if packee_robot_id is not None:
+                self._assignment_manager.release_packee(order_id)
+                if self._allocator:
+                    await self._allocator.release_robot(packee_robot_id, order_id)
             await self._failure_handler.fail_order(order_id, "Failed during cart handover.")
         finally:
-            # 실패 시 중복 메시지 재처리를 허용하기 위해 상태를 복원한다.
+            await self._failure_handler._release_pickee(order_id)
             if packee_robot_id is None and order_id in self._processed_cart_handover:
                 self._processed_cart_handover.discard(order_id)
 
+    async def handle_product_loaded(self, msg: "PickeeProductLoaded") -> None:
+        """창고 물품 적재 완료 이벤트 처리"""
+        order_id = self._assignment_manager.get_pickee_order(msg.robot_id)
+        if order_id is None:
+            order_id = self._assignment_manager.get_last_order_for_pickee(msg.robot_id)
+        if order_id is None:
+            logger.warning(
+                "Received product loaded event from robot %d but no active order mapping was found.",
+                msg.robot_id,
+            )
+            return
+
+        product_summary: Dict[str, Any] = {
+            "product_id": msg.product_id,
+            "quantity": msg.quantity,
+        }
+        total_items = 0
+        total_price = 0
+        with self._db.session_scope() as session:
+            product = session.query(Product).filter_by(product_id=msg.product_id).first()
+            if product:
+                product_summary["name"] = product.name
+                product_summary["price"] = product.price
+            total_items, total_price = self._calculate_order_summary(session, order_id)
+
+        await self._notifier.notify_product_loaded(
+            order_id=order_id,
+            robot_id=msg.robot_id,
+            product=product_summary,
+            total_items=total_items,
+            total_price=total_price,
+            success=msg.success,
+            message=msg.message or "",
+        )
+        await self._notifier.emit_work_info_notification(order_id=order_id, robot_id=msg.robot_id)
+
     async def handle_packee_availability(self, msg: "PackeeAvailability") -> None:
         """Packee 작업 가능 여부 확인 처리"""
-        logger.info("Packee availability for order %d: %s", msg.order_id, msg.available)
-        await self._notifier.emit_work_info_notification(order_id=msg.order_id, robot_id=msg.robot_id)
+        order_id = msg.order_id
+        logger.info(
+            "Packee availability for order %d: available=%s, cart_detected=%s",
+            order_id,
+            msg.available,
+            msg.cart_detected,
+        )
+
+        context = self._pending_pack_tasks.get(order_id)
+        if not context:
+            logger.warning("No pending pack task found for order %d. Ignoring availability result.", order_id)
+            await self._notifier.emit_work_info_notification(order_id=order_id, robot_id=msg.robot_id)
+            return
+
+        expected_robot_id = context.get("packee_robot_id")
+        if expected_robot_id != msg.robot_id:
+            logger.warning(
+                "Availability result robot mismatch for order %d: expected %s, got %s",
+                order_id,
+                expected_robot_id,
+                msg.robot_id,
+            )
+
+        if not msg.available or not msg.cart_detected:
+            reason = "Packee unavailable"
+            if not msg.cart_detected:
+                reason = "Packing cart not detected"
+            await self._notifier.notify_packing_unavailable(order_id, msg.robot_id, reason, msg.message)
+            self._pending_pack_tasks.pop(order_id, None)
+            released_robot = self._assignment_manager.release_packee(order_id)
+            if released_robot is not None and self._allocator:
+                await self._allocator.release_robot(released_robot, order_id)
+            self._processed_cart_handover.discard(order_id)
+            await self._notifier.emit_work_info_notification(order_id=order_id, robot_id=msg.robot_id)
+            return
+
+        try:
+            start_req = PackeePackingStart.Request(robot_id=msg.robot_id, order_id=order_id)
+            start_req.products = [ProductInfo(**detail) for detail in context.get("product_details", [])]
+            start_res = await self._robot.dispatch_pack_task(start_req)
+            if not start_res.success:
+                raise RuntimeError(f"Failed to start packing: {start_res.message}")
+
+            if hasattr(start_res, "box_id") and start_res.box_id > 0:
+                with self._db.session_scope() as session:
+                    order = session.query(Order).filter_by(order_id=order_id).first()
+                    if order:
+                        order.box_id = start_res.box_id
+
+            await self._notifier.notify_packing_info(
+                order_id=order_id,
+                payload={"robot_id": msg.robot_id, "status": "packing_started"},
+            )
+            self._failure_handler.start_reservation_monitor(msg.robot_id, order_id, RobotType.PACKEE)
+        except Exception as exc:
+            logger.exception("Failed to start packing for order %d: %s", order_id, exc)
+            released_robot = self._assignment_manager.release_packee(order_id)
+            if released_robot is not None and self._allocator:
+                await self._allocator.release_robot(released_robot, order_id)
+            await self._failure_handler.fail_order(order_id, "Failed to start packing.")
+            self._processed_cart_handover.discard(order_id)
+        finally:
+            self._pending_pack_tasks.pop(order_id, None)
+            await self._notifier.emit_work_info_notification(order_id=order_id, robot_id=msg.robot_id)
 
     async def handle_packee_complete(self, msg: "PackeePackingComplete") -> None:
         """Packee 포장 완료 처리"""

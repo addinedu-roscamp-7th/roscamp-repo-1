@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from shopee_interfaces.msg import PickeeMobilePose, Pose2D
+from shopee_interfaces.msg import PickeeMobilePose, Pose2D, PickeeMobileArrival
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 import math
 import time
@@ -18,28 +18,11 @@ class GetAmclPose(Node):
         self.get_logger().info('📡 LocalizationComponent 초기화 중...')
 
         # 현재 pose 및 상태 변수 초기화
-        
 
-        self.current_pose = Pose2D()
-        self.current_pose.x = 0.0
-        self.current_pose.y = 0.0
-        self.current_pose.theta = 0.0
-        self.prev_pose = Pose2D()  # 이전 pose 저장용
-        self.robot_id = 0
-        self.order_id = 0
-        self.current_linear_velocity = 0.0
-        self.current_angular_velocity = 0.0
+        self.robot_id = 1
+        self.order_id = 1
         self.current_state = 'IDLE'
         self.current_battery_level = 100.0
-
-        self.pose_msg = PickeeMobilePose()
-        self.pose_msg.robot_id = self.robot_id
-        self.pose_msg.order_id = self.order_id
-        self.pose_msg.current_pose = self.current_pose
-        self.pose_msg.linear_velocity = self.current_linear_velocity
-        self.pose_msg.angular_velocity = self.current_angular_velocity
-        self.pose_msg.battery_level = self.current_battery_level
-        self.pose_msg.status = self.current_state
 
         self.last_pose_update_time = time.time()  # 마지막 pose 갱신 시각
         self.pose_msg = None
@@ -60,10 +43,17 @@ class GetAmclPose(Node):
             10
         )
 
+
         # 📤 발행자 설정
         self.pose_publisher = self.create_publisher(
             PickeeMobilePose,
             '/pickee/mobile/pose',
+            10
+        )
+
+        self.arrival_publisher = self.create_publisher(
+            PickeeMobileArrival,
+            '/pickee/mobile/arrival',
             10
         )
 
@@ -132,22 +122,22 @@ class GetAmclPose(Node):
             f'📍 AMCL Pose 업데이트 → x={x:.3f}, y={y:.3f}, θ={math.degrees(theta):.1f}°'
         )
 
-    # -------------------------------------------------------------
-    # 2초간 pose 변화가 없으면 속도 초기화
-    # -------------------------------------------------------------
-    def check_pose_stability(self):
-        elapsed = time.time() - self.last_pose_update_time
-        if elapsed > 2.0 and self.moving == 1:
-            if self.current_linear_velocity != 0.0 or self.current_angular_velocity != 0.0:
-                self.current_linear_velocity = 0.0
-                self.current_angular_velocity = 0.0
-                self.pose_msg.linear_velocity = self.current_linear_velocity
-                self.pose_msg.angular_velocity = self.current_angular_velocity
-                self.pose_publisher.publish(self.pose_msg)
-                self.get_logger().warn(f'⏸️ 2초간 pose 변화 없음 → 속도 초기화됨 (linear=0, angular=0)')
-        else:
-            
-            self.last_pose_update_time = time.time()
+    def publish_arrival(self, move_status):
+        '''
+        도착 메시지를 발행합니다.
+        '''
+        arrival_msg = PickeeMobileArrival()
+
+        arrival_msg.robot_id = self.robot_id
+        arrival_msg.order_id = self.order_id
+        arrival_msg.location_id = 99
+        arrival_msg.final_pose = self.current_pose
+        arrival_msg.position_error = 0.99
+        arrival_msg.travel_time = 99.0
+        arrival_msg.message = '도착 테스트 메시지입니다.'
+        # arrival_msg.travel_time = ... # 이동 시간은 현재 계산하지 않음
+        self.arrival_publisher.publish(arrival_msg)
+        self.get_logger().info(f'도착 메시지 발행: robot_id={arrival_msg.robot_id}, order_id={arrival_msg.order_id}, location_id={arrival_msg.location_id}, message="{arrival_msg.message}"')
 
 def main(args=None):
     rclpy.init(args=args)

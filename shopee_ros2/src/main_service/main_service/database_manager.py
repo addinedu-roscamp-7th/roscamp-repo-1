@@ -81,7 +81,7 @@ class DatabaseManager:
         finally:
             session.close()  # 항상 종료
             self._active_sessions -= 1
-            logger.debug(f"DB session closed. Active sessions: {self._active_sessions}")
+        logger.debug(f"DB session closed. Active sessions: {self._active_sessions}")
 
     def get_pool_stats(self) -> dict:
         """

@@ -131,6 +131,134 @@ Main = Shopee Main Service
 }
 ```
 
+### 사용자 정보 수정
+
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `user_edit`
+
+```json
+{
+  "type": "user_edit",
+  "data": {
+    "user_id": "string",
+    "name": "string",
+    "gender": "boolean",
+    "age": "int",
+    "address": "string",
+    "allergy_info": {
+      "nuts": "boolean",
+      "milk": "boolean",
+      "seafood": "boolean",
+      "soy": "boolean",
+      "peach": "boolean",
+      "gluten": "boolean",
+      "eggs": "boolean"
+    },
+    "is_vegan": "boolean"
+  }
+}
+```
+
+**예시**
+```json
+{
+  "type": "user_edit",
+  "data": {
+    "user_id": "customer001",
+    "name": "홍길동",
+    "age": 31,
+    "address": "서울시 강남구 테헤란로 123",
+    "allergy_info": {
+      "nuts": true,
+      "milk": false
+    },
+    "is_vegan": true
+  }
+}
+```
+
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `user_edit_response`
+
+```json
+{
+  "type": "user_edit_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "user_id": "string",
+    "name": "string",
+    "gender": "boolean",
+    "age": "int",
+    "address": "string",
+    "allergy_info": {
+      "nuts": "boolean",
+      "milk": "boolean",
+      "seafood": "boolean",
+      "soy": "boolean",
+      "peach": "boolean",
+      "gluten": "boolean",
+      "eggs": "boolean"
+    },
+    "is_vegan": "boolean"
+  },
+  "message": "string"
+}
+```
+
+**성공 예시**
+```json
+{
+  "type": "user_edit_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "user_id": "customer001",
+    "name": "홍길동",
+    "gender": true,
+    "age": 31,
+    "address": "서울시 강남구 테헤란로 123",
+    "allergy_info": {
+      "nuts": true,
+      "milk": false,
+      "seafood": false,
+      "soy": false,
+      "peach": false,
+      "gluten": false,
+      "eggs": false
+    },
+    "is_vegan": true
+  },
+  "message": "User information updated successfully"
+}
+```
+
+**실패 예시 (사용자 없음)**
+```json
+{
+  "type": "user_edit_response",
+  "result": false,
+  "error_code": "AUTH_002",
+  "data": {},
+  "message": "User not found"
+}
+```
+
+**실패 예시 (필수 필드 누락)**
+```json
+{
+  "type": "user_edit_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {},
+  "message": "user_id is required"
+}
+```
+
 ### 전체 상품 요청
 
 **요청**

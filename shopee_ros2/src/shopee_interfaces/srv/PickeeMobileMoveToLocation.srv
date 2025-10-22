@@ -2,8 +2,6 @@ int32 robot_id
 int32 order_id
 int32 location_id
 shopee_interfaces/Pose2D target_pose
-shopee_interfaces/Pose2D[] global_path
-string navigation_mode
 ---
 bool success
 string message

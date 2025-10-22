@@ -82,3 +82,153 @@ class TestUserServiceLogin:
 
         # Assert
         assert result is False
+
+
+class TestUserServiceUpdateUser:
+    """Test suite for the UserService.update_user method."""
+
+    async def test_update_user_basic_info(self, user_service: UserService, mock_db_manager: MagicMock):
+        """Test updating basic user information (name, age, address)."""
+        from main_service.database_models import AllergyInfo
+
+        # Arrange
+        mock_allergy_info = AllergyInfo(
+            allergy_info_id=1,
+            nuts=False,
+            milk=False,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+        mock_customer = Customer(
+            id="testuser",
+            name="Old Name",
+            gender=True,
+            age=25,
+            address="Old Address",
+            is_vegan=False,
+            allergy_info_id=1,
+        )
+        mock_customer.allergy_info = mock_allergy_info
+
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.join.return_value.filter.return_value.first.return_value = mock_customer
+
+        updates = {
+            "name": "New Name",
+            "age": 30,
+            "address": "New Address",
+        }
+
+        # Act
+        result = await user_service.update_user("testuser", updates)
+
+        # Assert
+        assert result is not None
+        assert result["user_id"] == "testuser"
+        assert result["name"] == "New Name"
+        assert result["age"] == 30
+        assert result["address"] == "New Address"
+        mock_session.commit.assert_called_once()
+
+    async def test_update_user_allergy_info(self, user_service: UserService, mock_db_manager: MagicMock):
+        """Test updating allergy information."""
+        from main_service.database_models import AllergyInfo
+
+        # Arrange
+        mock_allergy_info = AllergyInfo(
+            allergy_info_id=1,
+            nuts=False,
+            milk=False,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+        mock_customer = Customer(
+            id="testuser",
+            name="Test User",
+            gender=True,
+            age=25,
+            address="Test Address",
+            is_vegan=False,
+            allergy_info_id=1,
+        )
+        mock_customer.allergy_info = mock_allergy_info
+
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.join.return_value.filter.return_value.first.return_value = mock_customer
+
+        updates = {
+            "allergy_info": {
+                "nuts": True,
+                "milk": True,
+            }
+        }
+
+        # Act
+        result = await user_service.update_user("testuser", updates)
+
+        # Assert
+        assert result is not None
+        assert result["allergy_info"]["nuts"] is True
+        assert result["allergy_info"]["milk"] is True
+        assert result["allergy_info"]["seafood"] is False  # Unchanged
+        mock_session.commit.assert_called_once()
+
+    async def test_update_user_is_vegan(self, user_service: UserService, mock_db_manager: MagicMock):
+        """Test updating vegan preference."""
+        from main_service.database_models import AllergyInfo
+
+        # Arrange
+        mock_allergy_info = AllergyInfo(
+            allergy_info_id=1,
+            nuts=False,
+            milk=False,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+        mock_customer = Customer(
+            id="testuser",
+            name="Test User",
+            gender=True,
+            age=25,
+            address="Test Address",
+            is_vegan=False,
+            allergy_info_id=1,
+        )
+        mock_customer.allergy_info = mock_allergy_info
+
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.join.return_value.filter.return_value.first.return_value = mock_customer
+
+        updates = {"is_vegan": True}
+
+        # Act
+        result = await user_service.update_user("testuser", updates)
+
+        # Assert
+        assert result is not None
+        assert result["is_vegan"] is True
+        mock_session.commit.assert_called_once()
+
+    async def test_update_user_not_found(self, user_service: UserService, mock_db_manager: MagicMock):
+        """Test updating a non-existent user returns None."""
+        # Arrange
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.join.return_value.filter.return_value.first.return_value = None
+
+        updates = {"name": "New Name"}
+
+        # Act
+        result = await user_service.update_user("nonexistent", updates)
+
+        # Assert
+        assert result is None
+        mock_session.commit.assert_not_called()

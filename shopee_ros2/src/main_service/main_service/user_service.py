@@ -102,10 +102,10 @@ class UserService:
     async def get_user_info(self, user_id: str) -> Optional[dict]:
         """
         사용자 정보 조회
-        
+
         Args:
             user_id: 로그인 ID (customer.id)
-            
+
         Returns:
             dict: App_vs_Main.md의 user_login_response 형식에 맞는 사용자 정보
         """
@@ -116,11 +116,90 @@ class UserService:
                 .filter(Customer.id == user_id)
                 .first()
             )
-            
+
             if not customer:
                 return None
-            
+
             # 응답 형식에 맞게 데이터 구성
+            return {
+                "user_id": customer.id,
+                "name": customer.name,
+                "gender": customer.gender,
+                "age": customer.age,
+                "address": customer.address,
+                "allergy_info": {
+                    "nuts": customer.allergy_info.nuts,
+                    "milk": customer.allergy_info.milk,
+                    "seafood": customer.allergy_info.seafood,
+                    "soy": customer.allergy_info.soy,
+                    "peach": customer.allergy_info.peach,
+                    "gluten": customer.allergy_info.gluten,
+                    "eggs": customer.allergy_info.eggs,
+                },
+                "is_vegan": customer.is_vegan,
+            }
+
+    async def update_user(self, user_id: str, updates: dict) -> Optional[dict]:
+        """
+        사용자 정보 수정
+
+        Args:
+            user_id: 로그인 ID (customer.id)
+            updates: 수정할 필드 딕셔너리
+                - name: 이름
+                - gender: 성별
+                - age: 나이
+                - address: 주소
+                - allergy_info: 알레르기 정보 (dict)
+                - is_vegan: 비건 여부
+
+        Returns:
+            dict: 수정된 사용자 정보, 실패 시 None
+        """
+        with self._db.session_scope() as session:
+            customer = (
+                session.query(Customer)
+                .join(AllergyInfo, Customer.allergy_info_id == AllergyInfo.allergy_info_id)
+                .filter(Customer.id == user_id)
+                .first()
+            )
+
+            if not customer:
+                return None
+
+            # 기본 정보 수정
+            if "name" in updates:
+                customer.name = updates["name"]
+            if "gender" in updates:
+                customer.gender = updates["gender"]
+            if "age" in updates:
+                customer.age = updates["age"]
+            if "address" in updates:
+                customer.address = updates["address"]
+            if "is_vegan" in updates:
+                customer.is_vegan = updates["is_vegan"]
+
+            # 알레르기 정보 수정
+            if "allergy_info" in updates and isinstance(updates["allergy_info"], dict):
+                allergy_updates = updates["allergy_info"]
+                if "nuts" in allergy_updates:
+                    customer.allergy_info.nuts = allergy_updates["nuts"]
+                if "milk" in allergy_updates:
+                    customer.allergy_info.milk = allergy_updates["milk"]
+                if "seafood" in allergy_updates:
+                    customer.allergy_info.seafood = allergy_updates["seafood"]
+                if "soy" in allergy_updates:
+                    customer.allergy_info.soy = allergy_updates["soy"]
+                if "peach" in allergy_updates:
+                    customer.allergy_info.peach = allergy_updates["peach"]
+                if "gluten" in allergy_updates:
+                    customer.allergy_info.gluten = allergy_updates["gluten"]
+                if "eggs" in allergy_updates:
+                    customer.allergy_info.eggs = allergy_updates["eggs"]
+
+            session.commit()
+
+            # 수정된 정보 반환
             return {
                 "user_id": customer.id,
                 "name": customer.name,

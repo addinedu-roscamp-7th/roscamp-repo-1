@@ -165,6 +165,8 @@ class MessageType(Enum):
     USER_LOGIN_RESPONSE = "user_login_response"
     USER_LOGOUT = "user_logout"
     USER_LOGOUT_RESPONSE = "user_logout_response"
+    USER_EDIT = "user_edit"
+    USER_EDIT_RESPONSE = "user_edit_response"
     
     # === 상품 검색 ===
     PRODUCT_SEARCH = "product_search"
@@ -234,6 +236,8 @@ class EventTopic(Enum):
     ROBOT_ARRIVED = "robot_arrived"        # 로봇 도착
     ROBOT_TASK_COMPLETED = "robot_task_completed"  # 로봇 작업 완료
     ROBOT_ERROR = "robot_error"            # 로봇 오류
+    ROBOT_FAILURE = "robot_failure"        # 로봇 실패
+    RESERVATION_TIMEOUT = "reservation_timeout"  # 로봇 예약 타임아웃
     ROS_TOPIC_RECEIVED = "ros_topic_received"  # ROS 토픽 수신 (대시보드용)
     ROS_SERVICE_CALLED = "ros_service_called"    # ROS 서비스 호출 (대시보드용)
     ROS_SERVICE_RESPONDED = "ros_service_responded" # ROS 서비스 응답 (대시보드용)

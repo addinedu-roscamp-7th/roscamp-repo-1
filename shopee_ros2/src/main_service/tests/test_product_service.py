@@ -5,7 +5,7 @@ Unit tests for the ProductService.
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from main_service.database_models import Product, Section, Shelf, Location
+from main_service.database_models import Product, Section, Shelf, Location, AllergyInfo
 from main_service.product_service import ProductService
 
 # Mark all tests in this file as asyncio
@@ -128,3 +128,66 @@ class TestProductServiceSearch:
         mock_session.query.return_value.filter.assert_called_once()
         assert results["total_count"] == 1
         assert results["products"][0]["name"] == "사과주스"
+
+    async def test_search_applies_filters(self, product_service: ProductService, mock_db_manager: MagicMock, mock_llm_client: AsyncMock):
+        """알레르기 및 비건 필터가 상품 목록에 반영되는지 검증한다."""
+        query_text = "과일"
+        # safe한 WHERE 절 반환
+        mock_llm_client.generate_search_query.return_value = "name LIKE '%과일%'"
+
+        safe_product = self._create_mock_product(10, "비건 사과")
+        safe_product.is_vegan_friendly = True
+        safe_product.allergy_info = AllergyInfo(
+            allergy_info_id=1,
+            nuts=False,
+            milk=False,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+
+        allergen_product = self._create_mock_product(11, "견과류 믹스")
+        allergen_product.is_vegan_friendly = True
+        allergen_product.allergy_info = AllergyInfo(
+            allergy_info_id=2,
+            nuts=True,
+            milk=False,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+
+        non_vegan_product = self._create_mock_product(12, "치즈 과자")
+        non_vegan_product.is_vegan_friendly = False
+        non_vegan_product.allergy_info = AllergyInfo(
+            allergy_info_id=3,
+            nuts=False,
+            milk=True,
+            seafood=False,
+            soy=False,
+            peach=False,
+            gluten=False,
+            eggs=False,
+        )
+
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+        mock_session.query.return_value.from_statement.return_value.all.return_value = [
+            safe_product,
+            allergen_product,
+            non_vegan_product,
+        ]
+
+        filters = {
+            "allergy_info": {"nuts": True},
+            "is_vegan": True,
+        }
+
+        results = await product_service.search_products(query_text, filters)
+
+        assert results["total_count"] == 1
+        assert len(results["products"]) == 1
+        assert results["products"][0]["product_id"] == safe_product.product_id

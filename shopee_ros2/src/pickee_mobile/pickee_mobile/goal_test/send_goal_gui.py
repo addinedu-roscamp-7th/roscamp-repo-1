@@ -10,6 +10,16 @@ from PyQt5.QtCore import Qt
 class SendGoalGUI(QWidget):
     def __init__(self):
         super().__init__()
+
+        self.goal_publisher = self.create_publisher(
+            PickeeMobilePose,
+            '/pickee/mobile/pose',
+            10
+        )
+
+
+
+
         self.setWindowTitle("ROS2 NavigateToPose (Jazzy용)")
         self.setGeometry(200, 200, 550, 400)
 
@@ -49,7 +59,8 @@ class SendGoalGUI(QWidget):
 
         # 이벤트 연결
         self.btn_generate.clicked.connect(self.generate_command)
-        self.btn_send.clicked.connect(self.send_goal)
+        # self.btn_send.clicked.connect(self.send_goal_action)
+        self.btn_send.clicked.connect(self.send_goal_topic)
 
     def generate_command(self):
         """입력값으로 명령문 생성"""
@@ -68,24 +79,26 @@ class SendGoalGUI(QWidget):
         )
         self.output.setPlainText(command)
 
-    def send_goal(self):
-        """터미널에서 명령 실행"""
-        command = self.output.toPlainText().strip()
-        if not command:
-            self.output.setPlainText("⚠️ 먼저 명령을 생성하세요.")
-            return
+    # def send_goal_action(self):
+    #     """터미널에서 명령 실행"""
+    #     command = self.output.toPlainText().strip()
+    #     if not command:
+    #         self.output.setPlainText("⚠️ 먼저 명령을 생성하세요.")
+    #         return
 
-        self.output.append("\n🚀 명령 실행 중...\n")
-        try:
-            result = subprocess.run(
-                command, shell=True, capture_output=True, text=True
-            )
-            if result.stdout:
-                self.output.append(result.stdout)
-            if result.stderr:
-                self.output.append(result.stderr)
-        except Exception as e:
-            self.output.append(f"❌ 실행 오류: {e}")
+    #     self.output.append("\n🚀 명령 실행 중...\n")
+    #     try:
+    #         result = subprocess.run(
+    #             command, shell=True, capture_output=True, text=True
+    #         )
+    #         if result.stdout:
+    #             self.output.append(result.stdout)
+    #         if result.stderr:
+    #             self.output.append(result.stderr)
+    #     except Exception as e:
+    #         self.output.append(f"❌ 실행 오류: {e}")
+
+    def send_goal_topic(self, x, y, theta):
 
 
 if __name__ == "__main__":
