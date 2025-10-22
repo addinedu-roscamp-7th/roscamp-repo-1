@@ -2,13 +2,38 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
+from shopee_interfaces.srv import PickeeMobileMoveToLocation
+from shopee_interfaces.msg import PickeeMobileArrival
 import math
+
 
 class NavigateClient(Node):
     def __init__(self):
         super().__init__('navigate_to_pose_client')
         self._action_client = ActionClient(self, NavigateToPose, '/navigate_to_pose')
+        self.create_service(PickeeMobileMoveToLocation, '/pickee/mobile/move_to_location', self.pickee_move_to_location_callback)
+        self.arrival_publisher = self.create_publisher(PickeeMobileArrival, '/pickee/mobile/arrival', 10)
 
+    def pickee_move_to_location_callback(self, request, response):
+        self.get_logger().info("===== Move To Location Service Called =====")
+        self.get_logger().info(f"robot_id       : {request.robot_id}")
+        self.get_logger().info(f"order_id       : {request.order_id}")
+        self.get_logger().info(f"location_id    : {request.location_id}")
+
+        target = request.target_pose
+        self.get_logger().info(f"target_pose    : (x={target.x}, y={target.y}, theta={target.theta})")
+
+        try:
+            self.send_goal(target.x, target.y, math.degrees(target.theta))
+            response.success = True
+            response.message = "Successfully received goal."
+        except Exception as e:
+            self.get_logger().error(f"Error sending goal: {e}")
+            response.success = False
+            response.message = f"Failed to receive goal: {e}"
+
+        return response
+    
     def send_goal(self, x, y, yaw_deg):
         self.get_logger().info(f'⏳ Waiting for action server...')
         self._action_client.wait_for_server()

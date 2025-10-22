@@ -44,11 +44,11 @@ setup(
         'console_scripts': [
             'mobile_controller = pickee_mobile.mobile_controller:main',
             'path_planning_component = pickee_mobile.path_planning_component:main',
-            'mock_speed_control_publisher = pickee_mobile.mock.mock_speed_control_publisher:main',
-            'mock_move_to_location_client = pickee_mobile.mock.mock_move_to_location_client:main',
-            'mock_update_global_path_client = pickee_mobile.mock.mock_update_global_path_client:main',
-            'mock_pose_subscriber = pickee_mobile.mock.mock_pose_subscriber:main',
-            'mock_arrival_and_move_status_subscriber = pickee_mobile.mock.mock_arrival_and_move_status_subscriber:main',
+            'mock_speed_control_publisher = pickee_mobile.mock_test.mock_speed_control_publisher:main',
+            'mock_move_to_location_client = pickee_mobile.mock_test.mock_move_to_location_client:main',
+            'mock_update_global_path_client = pickee_mobile.mock_test.mock_update_global_path_client:main',
+            'mock_pose_subscriber = pickee_mobile.mock_test.mock_pose_subscriber:main',
+            'mock_arrival_and_move_status_subscriber = pickee_mobile.mock_test.mock_arrival_and_move_status_subscriber:main',
             'control_vel = pickee_mobile.topic_test.control_vel:main',
             'bringup = pickee_mobile.bringup:main',
             'get_clicked = pickee_mobile.goal_test.get_clicked:main',
@@ -57,7 +57,7 @@ setup(
             'get_amcl_pose = pickee_mobile.topic_test.get_amcl_pose:main',
             'pub_pose = pickee_mobile.topic_test.pub_pose:main',
             'pub_cmd_vel = pickee_mobile.topic_test.pub_cmd_vel:main',
-            ''
+            'main_goal_send_client = pickee_mobile.goal_test.main_goal_send_client:main',
         ],
     },
 )

@@ -11,11 +11,6 @@ class SendGoalGUI(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.goal_publisher = self.create_publisher(
-            PickeeMobilePose,
-            '/pickee/mobile/pose',
-            10
-        )
 
 
 
@@ -98,7 +93,7 @@ class SendGoalGUI(QWidget):
     #     except Exception as e:
     #         self.output.append(f"❌ 실행 오류: {e}")
 
-    def send_goal_topic(self, x, y, theta):
+    
 
 
 if __name__ == "__main__":
