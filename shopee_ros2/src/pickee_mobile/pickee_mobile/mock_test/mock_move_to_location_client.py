@@ -23,7 +23,7 @@ class MockMoveToLocationClient(Node):
 
         self.get_logger().info('service available')
 
-        self.timer = self.create_timer(10.0, self.timer_callback) # 10초마다 실행
+        self.timer = self.create_timer(5.0, self.timer_callback) # 10초마다 실행
 
         self.current_x = 0.0
         self.current_y = 0.0
@@ -39,14 +39,9 @@ class MockMoveToLocationClient(Node):
         request.robot_id = 1
         request.order_id = 123
         request.location_id = 456
-        request.target_pose = Pose2D(x=2.0, y=3.0, theta=1.57)
-        request.global_path = [
-            Pose2D(x=0.0, y=0.0, theta=0.0),
-            Pose2D(x=1.0, y=0.5, theta=0.3),
-            Pose2D(x=2.0, y=1.0, theta=0.6),
-        ]
-        request.navigation_mode = 'NORMAL'
-        
+        request.target_pose = Pose2D(x=1.4430041301250458, y=-0.01415562995672226, theta=0.0)
+    #     x: 0.4130041301250458
+#   y: -0.08875562995672226
         self.future = self.move_to_location_client.call_async(request)
         self.future.add_done_callback(self.move_to_location_response_callback)
         

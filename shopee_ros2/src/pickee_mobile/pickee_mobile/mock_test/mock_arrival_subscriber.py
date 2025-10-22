@@ -15,21 +15,24 @@ class MockArrivalAndMoveStatusSubscriber(Node):
             PickeeMobileArrival,
             '/pickee/mobile/arrival',
             self.arrival_callback,
-            1
-        )
-        self.move_status_subscriber = self.create_subscription(
-            PickeeMoveStatus,
-            '/pickee/mobile/local_path',
-            self.move_status_callback,
             10
         )
 
     def arrival_callback(self, arrival_msg):
         print('reading arrival message')  # 디버그 출력 추가
-        self.get_logger().info(f'도착 메시지 수신: robot_id={arrival_msg.robot_id}, order_id={arrival_msg.order_id}, location_id={arrival_msg.location_id}, message="{arrival_msg.message}"')
 
-    def move_status_callback(self, msg: PickeeMoveStatus):
-        self.get_logger().info(f'Move Status 수신: target_x={msg.target_x:.2f}, dist={msg.distance_to_target:.2f}, arrived={msg.is_arrived}')
+        self.get_logger().info(
+            f"\n📩 [도착 메시지 수신]\n"
+            f"  robot_id      : {arrival_msg.robot_id}\n"
+            f"  order_id      : {arrival_msg.order_id}\n"
+            f"  location_id   : {arrival_msg.location_id}\n"
+            f"  final_pose    : (x={arrival_msg.final_pose.x:.3f}, "
+            f"y={arrival_msg.final_pose.y:.3f}, θ={arrival_msg.final_pose.theta:.3f})\n"
+            f"  position_error: (x={arrival_msg.position_error.x:.3f}, "
+            f"y={arrival_msg.position_error.y:.3f}, θ={arrival_msg.position_error.theta:.3f})\n"
+            f"  travel_time   : {arrival_msg.travel_time:.2f} sec\n"
+            f"  message       : {arrival_msg.message}"
+        )
 
 def main(args=None):
     rclpy.init(args=args)

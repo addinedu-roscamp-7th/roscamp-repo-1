@@ -38,7 +38,7 @@ class GetAmclPose(Node):
 
         self.create_subscription(
             Twist,
-            'cmd_vel_modified',
+            'cmd_vel',
             self.modify_cmd_vel_callback,
             10
         )

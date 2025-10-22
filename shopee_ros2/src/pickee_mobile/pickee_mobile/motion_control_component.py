@@ -19,9 +19,9 @@ class MotionControlComponent:
             self.speed_publisher_callback,
             10
         )
-        self.cmd_vel_modified_publisher = self.node.create_publisher(
+        self.cmd_vel_publisher = self.node.create_publisher(
             Twist,
-            '/cmd_vel_modified',
+            '/cmd_vel',
             10
         )
         self.speed_control_subscriber = self.node.create_subscription(
@@ -73,7 +73,7 @@ class MotionControlComponent:
 
     def speed_publisher_callback(self, msg: Twist):
         '''
-        /cmd_vel 토픽을 수신하여 /cmd_vel_modified로 발행합니다.
+        /cmd_vel 토픽을 수신하여 /cmd_vel로 발행합니다.
         '''
         modified_twist = Twist()
         scale = self.target_speed
@@ -86,7 +86,7 @@ class MotionControlComponent:
         modified_twist.angular.y = msg.angular.y * scale
         modified_twist.angular.z = msg.angular.z * scale
 
-        self.cmd_vel_modified_publisher.publish(modified_twist)
+        self.cmd_vel_publisher.publish(modified_twist)
         # self.node.get_logger().info(f'Cmd_vel Modified 발행: linear.x={modified_twist.linear.x:.2f}, angular.z={modified_twist.angular.z:.2f}')
 
     def local_path_callback(self, msg: PickeeMoveStatus):
