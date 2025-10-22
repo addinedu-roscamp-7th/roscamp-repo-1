@@ -21,7 +21,7 @@ class YoloDetector:
         :return: 감지된 객체 정보 리스트. 예: 
                  [{'class_id': 0, 'confidence': 0.95, 'polygon': [[x1, y1], [x2, y2], ...]}, ...]
         """
-        results = self.model.predict(source=frame, conf=0.8, iou=0.5) # stream=False가 기본값
+        results = self.model.predict(source=frame, conf=0.8) # stream=False가 기본값
         detections = []
 
         # predict의 결과는 리스트 형태이므로 순회합니다. (단일 이미지이므로 루프는 한 번만 실행됨)
