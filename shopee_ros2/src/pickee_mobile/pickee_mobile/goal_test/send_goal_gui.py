@@ -11,10 +11,6 @@ class SendGoalGUI(QWidget):
     def __init__(self):
         super().__init__()
 
-
-
-
-
         self.setWindowTitle("ROS2 NavigateToPose (Jazzy용)")
         self.setGeometry(200, 200, 550, 400)
 

@@ -4,13 +4,14 @@ import time
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+from rclpy.executors import MultiThreadedExecutor
 
 from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
 from shopee_interfaces.srv import PickeeMobileMoveToLocation
-from shopee_interfaces.msg import PickeeMobileArrival
+from shopee_interfaces.msg import PickeeMobileArrival, Pose2D
 
 
 
@@ -28,27 +29,25 @@ class NavigateClient(Node):
         self.arrival_publisher = self.create_publisher(PickeeMobileArrival, 
                                                        '/pickee/mobile/arrival',
                                                          10)
-        
-        self.create_subscription(
-            PoseWithCovarianceStamped,
-            'amcl_pose',
-            self.get_current_pose_callback,
-            10
-        )
 
 
 
     def pickee_move_to_location_callback(self, request, response):
+        # 명령 관련 정보 저장
+        self.robor_id = request.robot_id
+        self.order_id = request.order_id
+        self.location_id = request.location_id
+
         self.get_logger().info("===== Move To Location Service Called =====")
         self.get_logger().info(f"robot_id       : {request.robot_id}")
         self.get_logger().info(f"order_id       : {request.order_id}")
         self.get_logger().info(f"location_id    : {request.location_id}")
-
         target = request.target_pose
         self.get_logger().info(f"target_pose    : (x={target.x}, y={target.y}, theta={target.theta})")
 
+        # 목적지 이동 액션 실행
         try:
-            self.send_goal(target.x, target.y, math.degrees(target.theta)) #목적지 이동 액션 실행
+            self.send_goal(target.x, target.y, math.degrees(target.theta)) 
             response.success = True
             response.message = "Successfully received goal."
         except Exception as e:
@@ -92,7 +91,7 @@ class NavigateClient(Node):
             self.get_logger().info('❌ Goal rejected!')
             return
 
-        self.get_logger().info('✅ Goal accepted!')
+        self.get_logger().info(' Goal accepted!')
         self._get_result_future = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_result_callback)
 
@@ -103,57 +102,71 @@ class NavigateClient(Node):
             f'🔄 Feedback: current position: x={pose.position.x:.2f}, y={pose.position.y:.2f}'
         )
 
+        self.currnet_x = pose.position.x
+        self.currnet_y = pose.position.y
+        qz = pose.orientation.z
+        qw = pose.orientation.w
+        self.current_theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
+
     def get_result_callback(self, future):
         status = future.result().status
         result = future.result().result
 
-        self.end_time = time.time()  # 도착 시각 기록
-        travel_time = self.end_time - self.start_time  # 이동 시간 계산
-
+        
         if status == GoalStatus.STATUS_SUCCEEDED:
+            # 도착 위치와 목표 위치 비교
+            position_error = Pose2D()
+            position_error.x = abs(self.goal[0] - self.currnet_x)
+            position_error.y = abs(self.goal[1] - self.currnet_y)
+            position_error.theta = abs(self.goal[2] - self.current_theta)
+
+            self.end_time = time.time()  # 도착 시각 기록
+            travel_time = self.end_time - self.start_time  # 이동 시간 계산
+
+
             self.get_logger().info("✅ Goal reached successfully!")
-            position_error = math.sqrt((self.x-self.goal[0])**2 + (self.y - self.goal[1])**2)
+            self.get_logger().info(f"Total travel time: {travel_time:.2f} seconds")
+            self.get_logger().info(f"Position error: x={position_error.x:.3f}, y={position_error.y:.3f}, theta={position_error.theta:.3f}")
+
+            arrival_msg = PickeeMobileArrival()
+            arrival_msg.robot_id = self.robor_id
+            arrival_msg.order_id = self.order_id
+            arrival_msg.location_id = self.location_id
+            final_pose = Pose2D()
+            final_pose.x = self.currnet_x
+            final_pose.y = self.currnet_y
+            final_pose.theta = self.current_theta
+            arrival_msg.final_pose = final_pose
+            arrival_msg.position_error = position_error
+            arrival_msg.travel_time = travel_time
+            arrival_msg.message = "Success."
+
+            self.arrival_publisher.publish(arrival_msg)
+
         elif status == GoalStatus.STATUS_ABORTED:
             self.get_logger().info("❌ Goal aborted.")
+
         elif status == GoalStatus.STATUS_CANCELED:
             self.get_logger().info("⚠️ Goal canceled.")
+
         else:
             self.get_logger().info(f"Unknown status: {status}")
 
 
         self.get_logger().info('status')
-
-    def get_current_pose_callback(self, msg: PoseWithCovarianceStamped):
-        '''
-        AMCL Pose 메시지를 구독하여 현재 로봇 위치를 업데이트합니다.
-        '''
-                # 위치 추출
-        self.x = msg.pose.pose.position.x
-        self.y = msg.pose.pose.position.y
-
-        # 쿼터니언 → yaw(θ) 변환
-        qz = msg.pose.pose.orientation.z
-        qw = msg.pose.pose.orientation.w
-        self.theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
-
-
-
         
 def main(args=None):
     rclpy.init(args=args)
     node = NavigateClient()
 
-    # 목표 좌표(x, y)와 회전(yaw) 설정
-    node.send_goal(x=-0.0383292734622955, y=-2.0135283470153809, yaw_deg=0.0)
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
+    
 
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
