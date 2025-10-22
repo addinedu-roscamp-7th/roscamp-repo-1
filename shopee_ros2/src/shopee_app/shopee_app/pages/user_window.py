@@ -95,6 +95,12 @@ class UserWindow(QWidget):
         self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
+        # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
+        self.search_input = getattr(self.ui, "lineEdit", None)
+        # 위젯 존재 여부를 검증하지 않으면 None 객체에 연결을 시도해 런타임 오류가 발생한다.
+        if self.search_input is not None:
+            # 엔터 키 입력 시 검색을 자동으로 수행하지 않으면 사용자의 검색 흐름이 끊어진다.
+            self.search_input.returnPressed.connect(self.on_search_submitted)
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
@@ -122,6 +128,8 @@ class UserWindow(QWidget):
             profile_button.setToolTip("프로필 보기")
             profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
+        # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 더미 데이터가 그대로 남는다.
+        QtCore.QTimer.singleShot(0, self._trigger_initial_product_search)
 
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
@@ -136,6 +144,192 @@ class UserWindow(QWidget):
     def on_pay_clicked(self):
         if self.request_create_order():
             self.set_mode("pick")
+
+    def on_search_submitted(self) -> None:
+        # 검색 위젯이 준비되지 않았다면 검색어를 읽어올 수 없어 조용히 종료한다.
+        if self.search_input is None:
+            return
+        # 입력값에서 공백을 제거하지 않으면 의미 없는 공백 검색으로 서버를 불필요하게 호출한다.
+        query = self.search_input.text().strip()
+        # 검색어로 서버 조회를 하지 않으면 사용자가 요청한 상품 목록을 받아올 수 없다.
+        self.request_product_search(query)
+
+    def _trigger_initial_product_search(self) -> None:
+        # 초기 검색어를 비워두면 전체 상품을 요청할 수 있어 첫 화면에 데이터를 채울 수 있다.
+        initial_query = ""
+        # 초기 검색을 실행하지 않으면 로그인 직후 최신 상품 정보가 표시되지 않는다.
+        self.request_product_search(initial_query)
+
+    def request_product_search(self, query: str) -> None:
+        # 서비스 클라이언트가 없다면 네트워크 요청 자체가 불가능하므로 즉시 반환한다.
+        if self.service_client is None:
+            return
+        # 사용자 ID가 비어 있으면 명세상 필수 필드를 전달할 수 없으므로 요청을 중단한다.
+        if not self.current_user_id:
+            return
+        # 사용자 정보를 기반으로 필터를 구성하지 않으면 개인화된 검색 조건이 적용되지 않는다.
+        allergy_filter, vegan_flag = self._build_search_filter()
+        # 검색 입력 위젯 참조를 보관하지 않으면 이후에 상태를 복원할 수 없다.
+        search_widget = self.search_input
+        # 위젯 존재 여부를 확인하지 않으면 None에 접근하면서 예외가 발생한다.
+        if search_widget is not None:
+            # 요청 동안 입력을 막지 않으면 사용자가 연타하여 중복 요청을 발생시킬 수 있다.
+            search_widget.setEnabled(False)
+        # 네트워크 예외를 처리하지 않으면 오류가 발생할 때 애플리케이션이 그대로 종료된다.
+        try:
+            # 명세에 맞춘 검색 요청을 호출하지 않으면 서버로부터 상품 목록을 받을 수 없다.
+            response = self.service_client.search_products(
+                user_id=self.current_user_id,
+                query=query,
+                allergy_filter=allergy_filter,
+                is_vegan=vegan_flag,
+            )
+        except MainServiceClientError as exc:
+            # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
+            QMessageBox.warning(self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}")
+            # 실패 시 기본 상품을 채워 넣지 않으면 화면이 비어 보이게 된다.
+            self.set_products(self.load_initial_products())
+            # 상품 목록을 다시 그리지 않으면 기존 화면이 갱신되지 않는다.
+            self.refresh_product_grid()
+            return
+        finally:
+            # 요청이 끝난 뒤 입력을 다시 활성화하지 않으면 사용자가 이후 검색을 할 수 없다.
+            if search_widget is not None:
+                search_widget.setEnabled(True)
+        # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
+        if not response:
+            QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        # result 플래그를 확인하지 않으면 서버가 실패를 알린 경우에도 잘못된 데이터를 사용할 수 있다.
+        if not response.get("result"):
+            # 서버가 전달한 메시지를 표시하지 않으면 사용자가 실패 이유를 확인할 수 없다.
+            message = response.get("message") or "상품을 불러오지 못했습니다."
+            QMessageBox.warning(self, "검색 실패", message)
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        # 데이터 섹션을 추출하지 않으면 실제 상품 목록에 접근할 수 없다.
+        data = response.get("data") or {}
+        # 상품 배열이 비어 있을 수 있으므로 안전하게 기본값을 사용한다.
+        product_entries = data.get("products") or []
+        # 응답을 도메인 객체로 변환하지 않으면 UI 카드가 필요한 속성을 읽어올 수 없다.
+        products = self._convert_search_results(product_entries)
+        # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
+        if not products:
+            QMessageBox.information(self, "검색 결과 없음", "조건에 맞는 상품이 없습니다.")
+            self.set_products([])
+            self.refresh_product_grid()
+            return
+        # 변환된 상품을 상태에 반영하지 않으면 UI가 최신 정보를 표시하지 못한다.
+        self.set_products(products)
+        # 상품 목록을 다시 렌더링하지 않으면 화면에 여전히 이전 검색 결과가 남아 있다.
+        self.refresh_product_grid()
+
+    def _build_search_filter(self) -> tuple[dict[str, bool], bool | None]:
+        # 사용자 정보가 비어 있으면 알레르기 필터를 구성할 수 없으므로 빈 딕셔너리를 준비한다.
+        raw_allergy = self.user_info.get("allergy_info") if isinstance(self.user_info, dict) else {}
+        # 필터 값을 누적할 새로운 딕셔너리를 만들지 않으면 원본 데이터를 직접 수정하게 된다.
+        normalized_allergy: dict[str, bool] = {}
+        # 딕셔너리가 아닐 경우 순회가 불가능하므로 타입을 확인한다.
+        if isinstance(raw_allergy, dict):
+            # 각 항목을 순회하지 않으면 개별 알레르기 정보가 필터에 포함되지 않는다.
+            for key, value in raw_allergy.items():
+                # 문자열 키로 변환하지 않으면 Qt JSON 직렬화 시 타입 불일치가 생길 수 있다.
+                normalized_key = str(key)
+                # 값이 불리언이 아니면 명세와 어긋나므로 bool()로 강제한다.
+                normalized_allergy[normalized_key] = bool(value)
+        # 사용자 정보에 비건 여부가 없다면 None을 반환해 서버 기본값을 사용하도록 한다.
+        vegan_value = self.user_info.get("is_vegan") if isinstance(self.user_info, dict) else None
+        # 비건 값이 None이면 두 번째 항목으로 None을 넘겨 서버가 기본 동작을 따르도록 한다.
+        if vegan_value is None:
+            return normalized_allergy, None
+        # bool()로 강제하지 않으면 0과 1 같은 값이 그대로 전달되어 혼란을 줄 수 있다.
+        return normalized_allergy, bool(vegan_value)
+
+    def _convert_search_results(self, entries: list[dict[str, object]]) -> list[ProductData]:
+        # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
+        products: list[ProductData] = []
+        # 이미지 경로를 미리 정해두지 않으면 각 상품마다 반복 계산해야 한다.
+        fallback_image = ProductCard.FALLBACK_IMAGE
+        # 안전한 정수 변환 함수를 정의하지 않으면 잘못된 값이 들어왔을 때 예외로 루프가 중단된다.
+        def to_int(value: object, default: int = 0) -> int:
+            # 변환을 시도하지 않으면 문자열이나 None 타입이 그대로 남아 계산에서 오류가 난다.
+            try:
+                # 변환된 정수를 즉시 반환하지 않으면 호출부가 값을 사용할 수 없다.
+                return int(value)
+            except (TypeError, ValueError):
+                # 변환 실패 시 기본값을 돌려주지 않으면 호출부에서 추가적인 방어 코드를 반복해야 한다.
+                return default
+        # 각각의 상품을 순회하지 않으면 리스트 전체를 변환할 수 없다.
+        for entry in entries:
+            # 항목이 딕셔너리가 아니면 필요한 키를 읽을 수 없어 건너뛴다.
+            if not isinstance(entry, dict):
+                continue
+            # 상품 ID를 추출하지 않으면 장바구니 등 다른 기능에서 식별할 수 없다.
+            product_id_value = entry.get("product_id")
+            try:
+                # ID를 정수로 만들지 않으면 데이터 클래스 생성 시 타입 오류가 난다.
+                product_id = int(product_id_value)
+            except (TypeError, ValueError):
+                # 변환 실패 시 해당 항목을 건너뛰지 않으면 이후 로직이 예외로 중단된다.
+                continue
+            # 이름이 비어 있으면 카드에 빈 문자열이 표시되어 사용자에게 혼란을 준다.
+            name = str(entry.get("name") or "")
+            if not name:
+                # 대체 이름을 제공하지 않으면 화면에서 해당 상품을 구분할 수 없다.
+                name = f"상품 {product_id}"
+            # 카테고리를 기본값으로 설정하지 않으면 None이 그대로 노출된다.
+            category = str(entry.get("category") or "기타")
+            # 가격을 정수로 변환하지 않으면 금액 표시에 문제가 생긴다.
+            price = to_int(entry.get("price"), 0)
+            # 할인율 없이는 할인 가격 계산이 불가능하므로 기본값 0을 사용한다.
+            discount_rate = to_int(entry.get("discount_rate"), 0)
+            # 알레르기 ID가 없으면 0으로 처리해 참조 오류를 막는다.
+            allergy_info_id = to_int(entry.get("allergy_info_id"), 0)
+            # 비건 여부를 bool로 강제하지 않으면 문자열 'false'가 그대로 표시될 수 있다.
+            is_vegan_friendly = bool(entry.get("is_vegan_friendly"))
+            # 섹션 ID가 없으면 0으로 지정해 UI에서 숫자 표시를 유지한다.
+            section_id = to_int(entry.get("section_id"), 0)
+            # 창고 ID가 없을 수 있으므로 기본값 0으로 설정한다.
+            warehouse_id = to_int(entry.get("warehouse_id"), 0)
+            # 길이 정보가 없다면 0으로 두어 치수 계산에서 오류를 피한다.
+            length = to_int(entry.get("length"), 0)
+            # 너비 역시 제공되지 않으면 0으로 기본 처리한다.
+            width = to_int(entry.get("width"), 0)
+            # 높이를 0으로 돌려두지 않으면 None 타입 곱셈에서 오류가 난다.
+            height = to_int(entry.get("height"), 0)
+            # 무게 정보가 누락되면 0으로 처리해 계산 시 에러를 방지한다.
+            weight = to_int(entry.get("weight"), 0)
+            # 깨지기 쉬운지 여부가 None이면 False로 간주하지 않으면 조건문에서 문제가 발생한다.
+            fragile = bool(entry.get("fragile"))
+            try:
+                # 변환된 값을 데이터 클래스로 포장하지 않으면 UI 위젯이 활용할 수 없다.
+                product = ProductData(
+                    product_id=product_id,
+                    name=name,
+                    category=category,
+                    price=price,
+                    discount_rate=discount_rate,
+                    allergy_info_id=allergy_info_id,
+                    is_vegan_friendly=is_vegan_friendly,
+                    section_id=section_id,
+                    warehouse_id=warehouse_id,
+                    length=length,
+                    width=width,
+                    height=height,
+                    weight=weight,
+                    fragile=fragile,
+                    image_path=fallback_image,
+                )
+            except TypeError:
+                # 필수 필드가 누락된 경우 해당 상품만 건너뛰어 전체 처리를 계속한다.
+                continue
+            # 누락 없이 생성된 상품만 리스트에 추가한다.
+            products.append(product)
+        # 변환된 전체 목록을 반환하지 않으면 호출자가 결과를 사용할 수 없다.
+        return products
 
     def setup_cart_section(self):
         self.cart_container = getattr(self.ui, "widget_3", None)
