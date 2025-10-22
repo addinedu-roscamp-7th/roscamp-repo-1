@@ -4,7 +4,7 @@ int32 robot_id
 int32 order_id
 int32 product_id
 string arm_side                              # Packee만 사용 (left/right), Pickee는 빈 문자열 ""
-shopee_interfaces/Point3D box_position       # Depth 미사용 시 (0, 0, 0)
+shopee_interfaces/Pose6D pose   
 ---
 bool success
 string message
