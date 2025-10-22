@@ -22,8 +22,8 @@
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "cmd_vel"
-  gz_topic_name: "cmd_vel"
+- ros_topic_name: "cmd_vel_modify"
+  gz_topic_name: "cmd_vel_modify"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
