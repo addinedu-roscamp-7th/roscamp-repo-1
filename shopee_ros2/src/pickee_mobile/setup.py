@@ -43,33 +43,31 @@ setup(
     entry_points = {
         'console_scripts': [
             # 🚀 System
-            'mobile_controller = pickee_mobile.mobile_controller:main',
-            'path_planning_component = pickee_mobile.path_planning_component:main',
             'bringup = pickee_mobile.bringup:main',
-
-            # 🎯 Goal / Navigation Test
-            'get_clicked = pickee_mobile.goal_test.get_clicked:main',
-            'get_clicked_move = pickee_mobile.goal_test.get_send_goal:main',
-            'custom_goal_move = pickee_mobile.goal_test.custom_goal:main',
-            'main_goal_send_client = pickee_mobile.goal_test.main_goal_send_client:main',
 
             # Main Components
             'main_move_to_location = pickee_mobile.main.main_move_to_location:main',
             'main_pose = pickee_mobile.main.main_pose:main',
-            'main_control_vel = pickee_mobile.main.main_control_vel:main',
+
+             # 🎯 Goal / Navigation Test
+            'get_clicked = pickee_mobile.test.goal_test.get_clicked:main',
+            'get_clicked_move = pickee_mobile.test.goal_test.get_send_goal:main',
+            'custom_goal_move = pickee_mobile.test.goal_test.custom_goal:main',
+            'main_goal_send_client = pickee_mobile.test.goal_test.main_goal_send_client:main',
 
             # 🧭 Topic Test
-            'control_vel = pickee_mobile.topic_test.control_vel:main',
-            'get_amcl_pose = pickee_mobile.topic_test.get_amcl_pose:main',
-            'pub_pose = pickee_mobile.topic_test.pub_pose:main',
-            'pub_cmd_vel = pickee_mobile.topic_test.pub_cmd_vel:main',
+            'control_vel = pickee_mobile.test.topic_test.control_vel:main',
+            'get_amcl_pose = pickee_mobile.test.topic_test.get_amcl_pose:main',
+            'pub_pose = pickee_mobile.test.topic_test.pub_pose:main',
+            'pub_cmd_vel = pickee_mobile.test.topic_test.pub_cmd_vel:main',
+            'main_control_vel_teteop = pickee_mobile.test.topic_test.control_vel_teleop:main',
 
             # 🧪 Mock / Simulation Test
-            'mock_speed_control_publisher = pickee_mobile.mock_test.mock_speed_control_publisher:main',
-            'mock_move_to_location_client = pickee_mobile.mock_test.mock_move_to_location_client:main',
-            'mock_update_global_path_client = pickee_mobile.mock_test.mock_update_global_path_client:main',
-            'mock_pose_subscriber = pickee_mobile.mock_test.mock_pose_subscriber:main',
-            'mock_arrival_subscriber = pickee_mobile.mock_test.mock_arrival_subscriber:main',
+            'mock_speed_control_publisher = pickee_mobile.test.mock_test.mock_speed_control_publisher:main',
+            'mock_move_to_location_client = pickee_mobile.test.mock_test.mock_move_to_location_client:main',
+            'mock_update_global_path_client = pickee_mobile.test.mock_test.mock_update_global_path_client:main',
+            'mock_pose_subscriber = pickee_mobile.test.mock_test.mock_pose_subscriber:main',
+            'mock_arrival_subscriber = pickee_mobile.test.mock_test.mock_arrival_subscriber:main',
         ],
     }
 

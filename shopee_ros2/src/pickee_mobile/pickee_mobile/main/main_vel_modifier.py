@@ -6,37 +6,43 @@ import threading
 import termios
 import tty
 import os
+from shopee_interfaces.msg import PickeeMobileArrival, PickeeMobileSpeedControl, Pose2D
 
+from pickee_mobile.test.goal_test import get_pose
 
-class TwistModifier(Node):
+class VelModifier(Node):
     """키보드 입력에 따라 scale 값을 조정하며 /cmd_vel을 수정 발행"""
 
     def __init__(self):
-        super().__init__('twist_modifier')
+        super().__init__('vel_modifier')
 
         # 기본 scale 값
         self.scale = 1.0
         self.running = True
 
-        # /cmd_vel 구독
-        self.subscription = self.create_subscription(
+        # /cmd_vel, /pickee/mobile/speed_control 구독
+
+        self.subscribe_speed_control = self.create_subscription(
+            PickeeMobileSpeedControl, '/pickee/mobile/speed_control', self.speed_control_callback, 10
+        )
+        self.subscribe_cmd_vel = self.create_subscription(
             Twist, '/cmd_vel', self.modify_cmd_vel_callback, 10
         )
 
-        # 수정된 /cmd_vel 발행
+        # 수정된 /cmd_vel_modified 발행
         self.pickee_vel_publisher = self.create_publisher(Twist, '/cmd_vel_modified', 10)
 
-        # 키 입력 스레드 시작
-        self.input_thread = threading.Thread(target=self.keyboard_input)
-        self.input_thread.daemon = True
-        self.input_thread.start()
+    def speed_control_callback(self, msg: PickeeMobileSpeedControl):
+        """PickeeMobileSpeedControl 메시지를 받아 scale 값 수정"""
+        robot_id = msg.robot_id
+        order_id = msg.order_id
+        speed_mode = msg.speed_mode
+        target_speed = msg.target_speed
+        obstacles = msg.obstacles
+        reason = msg.reason
 
-        self.get_logger().info('✅ cmd_vel Modifier 노드 시작됨 (기본 scale=0.5)')
-        self.get_logger().info('키 입력 명령: [Z:+0.1] [X:-0.1] [A:0] [S:1] [C:종료]')
+        self.get_logger().info(f'🔧 Speed Control로부터 Scale 값 업데이트: {self.scale:.2f}')
 
-    # ---------------------------------------------------------------------
-    # 📦 콜백: /cmd_vel 수신 시
-    # ---------------------------------------------------------------------
     def modify_cmd_vel_callback(self, msg: Twist):
         """Twist 메시지를 현재 scale에 맞춰 수정 후 발행"""
         modified_twist = Twist()
@@ -56,14 +62,10 @@ class TwistModifier(Node):
             f"Angular: ({msg.angular.z:.2f})→({modified_twist.angular.z:.2f})"
         )
 
-    # ---------------------------------------------------------------------
-    # ⌨️ 키보드 입력 스레드
-    # ---------------------------------------------------------------------
+
     def keyboard_input(self):
         """키 입력 감지 스레드"""
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        tty.setcbreak(fd)
+        tty.setcbreak(self.fd)
         try:
             while self.running:
                 key = sys.stdin.read(1).lower()
@@ -78,31 +80,26 @@ class TwistModifier(Node):
                     self.scale = 1.0
                 elif key == 'c':
                     self.get_logger().info('🛑 프로그램 종료 명령(C) 입력됨')
-                    self.running = False
-                    os._exit(0)
+                    self.stop_node()
+                    break
 
-                # scale 범위 제한 (예: -2.0 ~ 2.0)
-                self.scale = max(min(self.scale, 2.0), -2.0)
+                # scale 범위 제한 (0.0 ~ 2.0)
+                self.scale = max(min(self.scale, 2.0), 0.0)
                 self.get_logger().info(f'🔧 현재 Scale: {self.scale:.2f}')
 
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            self.restore_terminal()
 
 
-# -------------------------------------------------------------------------
-# 🚀 메인
-# -------------------------------------------------------------------------
 def main(args=None):
     rclpy.init(args=args)
-    node = TwistModifier()
+    node = VelModifier()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.stop_node()
     finally:
-        node.get_logger().info('cmd_vel Modifier 노드 종료')
-        node.destroy_node()
-        rclpy.shutdown()
+        node.restore_terminal()
 
 
 if __name__ == '__main__':
