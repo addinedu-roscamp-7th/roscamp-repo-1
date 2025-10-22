@@ -43,6 +43,7 @@ class MainServiceConfig:
 class MainServiceClient:
     def __init__(self, config: MainServiceConfig | None = None):
         self.config = config if config is not None else MainServiceConfig()
+        print(f'[MainServiceClient] host={self.config.host} port={self.config.port}')
 
     def login(self, user_id: str, password: str) -> dict:
         payload = {
@@ -87,6 +88,16 @@ class MainServiceClient:
                 "cart_items": order_items,
                 "payment_method": payment_method,
                 "total_amount": int(total_amount),
+            },
+        }
+        return self.send(payload)
+
+    def fetch_total_products(self, user_id: str) -> dict:
+        # 전체 상품 목록을 요청하지 않으면 초기 화면에 최신 데이터를 표시할 수 없다.
+        payload = {
+            "type": "total_product",
+            "data": {
+                "user_id": user_id,
             },
         }
         return self.send(payload)
@@ -159,7 +170,9 @@ class MainServiceClient:
             return {}
 
         try:
-            return json.loads(response.decode("utf-8"))
+            decoded = response.decode('utf-8')
+            print('[MainServiceClient] raw response:', decoded)
+            return json.loads(decoded)
         except json.JSONDecodeError as exc:
             raise MainServiceClientError("JSON 응답을 해석할 수 없습니다.") from exc
 

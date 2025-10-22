@@ -28,8 +28,9 @@
     </node>
 
     <node pkg="ros_gz_bridge" exec="parameter_bridge" name='parameter_bridge' output='screen' args="--ros-args -p config_file:=$(var bridge_params)">
-        
+        <remap from="cmd_vel" to="cmd_vel_modified"/>
     </node>
+    
     <node pkg="ros_gz_image" exec="image_bridge" name='image_bridge' output='screen' args="/camera/image_raw"/>
     <node pkg="ros_gz_image" exec="image_bridge" name='image_bridge' output='screen' args="/camera"/>
 </launch>

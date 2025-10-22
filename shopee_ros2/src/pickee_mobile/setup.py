@@ -56,6 +56,7 @@ setup(
             # Main Components
             'main_move_to_location = pickee_mobile.main.main_move_to_location:main',
             'main_pose = pickee_mobile.main.main_pose:main',
+            'main_control_vel = pickee_mobile.main.main_control_vel:main',
 
             # 🧭 Topic Test
             'control_vel = pickee_mobile.topic_test.control_vel:main',
