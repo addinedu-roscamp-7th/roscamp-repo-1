@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
+from .constants import EventTopic
 from .database_models import Customer, Order, OrderItem, Product, RobotHistory
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ class OrderNotifier:
             user_id = self._get_order_user_id(order_id)
             if user_id:
                 message.setdefault("target_user_id", user_id)
-        await self._event_bus.publish("app_push", message)
+        await self._event_bus.publish(EventTopic.APP_PUSH.value, message)
 
     async def notify_robot_moving(self, msg: "PickeeMoveStatus") -> None:
         """Pickee 이동 상태를 알립니다."""

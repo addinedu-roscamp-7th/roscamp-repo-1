@@ -234,10 +234,10 @@ class MainServiceApp:
             """사용자 로그인 처리"""
             user_id = data.get("user_id", "")
             password = data.get("password", "")
-            
+
             # 로그인 검증
             success = await self._user_service.login(user_id, password)
-            
+
             user_info = None
             if success:
                 # 로그인 성공 시 사용자 정보 조회
@@ -252,6 +252,54 @@ class MainServiceApp:
                 "message": "Login successful" if success and user_info else "Invalid credentials",
                 "error_code": "" if success and user_info else "AUTH_001",
             }
+
+        async def handle_user_edit(data, peer=None):
+            """사용자 정보 수정 처리"""
+            user_id = data.get("user_id", "")
+
+            if not user_id:
+                return {
+                    "type": "user_edit_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "user_id is required",
+                }
+
+            # 수정할 정보 추출
+            updates = {}
+            if "name" in data:
+                updates["name"] = data["name"]
+            if "gender" in data:
+                updates["gender"] = data["gender"]
+            if "age" in data:
+                updates["age"] = data["age"]
+            if "address" in data:
+                updates["address"] = data["address"]
+            if "is_vegan" in data:
+                updates["is_vegan"] = data["is_vegan"]
+            if "allergy_info" in data:
+                updates["allergy_info"] = data["allergy_info"]
+
+            # 사용자 정보 업데이트
+            updated_info = await self._user_service.update_user(user_id, updates)
+
+            if updated_info:
+                return {
+                    "type": "user_edit_response",
+                    "result": True,
+                    "error_code": "",
+                    "data": updated_info,
+                    "message": "User information updated successfully",
+                }
+            else:
+                return {
+                    "type": "user_edit_response",
+                    "result": False,
+                    "error_code": "AUTH_002",
+                    "data": {},
+                    "message": "User not found",
+                }
 
         async def handle_product_search(data, peer=None):
             """상품 검색 처리 (LLM 연동)"""
@@ -832,13 +880,14 @@ class MainServiceApp:
                     'checks': checks
                 },
                 'message': 'Service is healthy' if all_healthy else 'Service degraded',
-                'error_code': '' if all_healthy else 'SYS_002',
+                'error_code': '' if all_healthy else 'SYS_001',
             }
 
         # 핸들러 등록: 메시지 타입 → 처리 함수 매핑
         self._handlers.update(
             {
                 "user_login": handle_user_login,
+                "user_edit": handle_user_edit,
                 "product_search": handle_product_search,
                 "total_product": handle_total_product,
                 "order_create": handle_order_create,

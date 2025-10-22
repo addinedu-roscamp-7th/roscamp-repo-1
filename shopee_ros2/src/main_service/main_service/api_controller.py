@@ -47,7 +47,7 @@ class APIController:
         self,
         host: str,
         port: int,
-        handlers: Dict[str, Callable[[Dict[str, Any]], Awaitable[Dict[str, Any]]]],
+        handlers: Dict[str, Callable[[Dict[str, Any], Optional[Tuple[str, int]]], Awaitable[Dict[str, Any]]]],
         event_bus: "EventBus",
     ) -> None:
         """
@@ -71,7 +71,7 @@ class APIController:
         1. EventBus의 "app_push" 토픽 구독
         2. TCP 서버 소켓 오픈
         """
-        self._event_bus.register_listener("app_push", self._handle_push_event)
+        self._event_bus.register_listener(EventTopic.APP_PUSH.value, self._handle_push_event)
         self._server = await asyncio.start_server(self._handle_client, self._host, self._port)
         addr = ", ".join(str(sock.getsockname()) for sock in self._server.sockets or [])
         logger.info("APIController listening on %s", addr)
@@ -95,7 +95,7 @@ class APIController:
         if self._server:
             self._server.close()
             await self._server.wait_closed()
-        self._event_bus.unregister_listener("app_push", self._handle_push_event)
+        self._event_bus.unregister_listener(EventTopic.APP_PUSH.value, self._handle_push_event)
 
     async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """
@@ -114,13 +114,14 @@ class APIController:
             while not reader.at_eof():
                 # 한 줄 읽기 (JSON + \n)
                 line = await reader.readline()
-                logger.debug(f"Received raw data: {line}")
+                decoded_line = line.decode('utf-8', errors='replace') if line else ''
+                logger.debug(f"Received raw data: {decoded_line or 'empty'}")
                 if not line:
                     break
 
                 # TCP 수신 이벤트 발행 (대시보드용)
                 await self._event_bus.publish(
-                    EventTopic.TCP_MESSAGE_RECEIVED,
+                    EventTopic.TCP_MESSAGE_RECEIVED.value,
                     {
                         "timestamp": datetime.now().isoformat(),
                         "peer": f"{peer[0]}:{peer[1]}",
@@ -129,7 +130,7 @@ class APIController:
                 )
                 
                 # 요청 처리 및 응답 생성
-                response = await self._dispatch(line.decode(), peer)
+                response = await self._dispatch(decoded_line, peer)
                 try:
                     await self._send_to_client(writer, response)
                 except Exception as exc:  # noqa: BLE001
@@ -271,7 +272,7 @@ class APIController:
 
         # TCP 송신 이벤트 발행 (대시보드용)
         await self._event_bus.publish(
-            EventTopic.TCP_MESSAGE_SENT,
+            EventTopic.TCP_MESSAGE_SENT.value,
             {
                 "timestamp": datetime.now().isoformat(),
                 "peer": f"{session.peer[0]}:{session.peer[1]}",
@@ -297,7 +298,7 @@ class APIController:
             logger.debug("No clients to push message: %s", message)
             return
 
-        target_ids = set()
+        target_ids: set[str] = set()
         if isinstance(message.get("target_user_ids"), list):
             target_ids.update(str(uid) for uid in message["target_user_ids"])
         if message.get("target_user_id") is not None:

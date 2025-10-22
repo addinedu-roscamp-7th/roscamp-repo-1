@@ -98,10 +98,11 @@ def ensure_dict(data: Any) -> Dict[str, Any]:
         return data
     
     if hasattr(data, '__dict__'):
-        return data.__dict__
-    
+        return dict(data.__dict__)
+
     if hasattr(data, 'to_dict'):
-        return data.to_dict()
+        result = data.to_dict()
+        return dict(result) if result else {}
     
     raise TypeError(f"Cannot convert {type(data)} to dict")
 
@@ -128,15 +129,15 @@ def safe_get(data: Dict[str, Any], key: str, default: Any = None) -> Any:
     
     # 중첩된 키 처리
     keys = key.split('.')
-    current = data
-    
+    current: Any = data
+
     for k in keys:
         if not isinstance(current, dict):
             return default
         current = current.get(k)
         if current is None:
             return default
-    
+
     return current
 
 
@@ -199,17 +200,19 @@ def format_error_response(
     Returns:
         dict: 표준 에러 응답
     """
-    response = {
+    response: Dict[str, Any] = {
         "type": message_type,
         "result": False,
         "error_code": error_code,
         "message": message,
         "data": {}
     }
-    
+
     if details:
-        response["data"]["details"] = details
-    
+        data_dict = response["data"]
+        if isinstance(data_dict, dict):
+            data_dict["details"] = details
+
     return response
 
 

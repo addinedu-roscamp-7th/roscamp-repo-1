@@ -132,7 +132,8 @@ class TestProductServiceSearch:
     async def test_search_applies_filters(self, product_service: ProductService, mock_db_manager: MagicMock, mock_llm_client: AsyncMock):
         """알레르기 및 비건 필터가 상품 목록에 반영되는지 검증한다."""
         query_text = "과일"
-        mock_llm_client.generate_search_query.return_value = "category = 'fruit'"
+        # safe한 WHERE 절 반환
+        mock_llm_client.generate_search_query.return_value = "name LIKE '%과일%'"
 
         safe_product = self._create_mock_product(10, "비건 사과")
         safe_product.is_vegan_friendly = True

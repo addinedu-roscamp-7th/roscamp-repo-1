@@ -180,12 +180,12 @@ class DashboardController:
         if self._running:
             return
         self._running = True
-        self._event_bus.subscribe(EventTopic.APP_PUSH, self._on_app_push)
-        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED, self._on_ros_topic_received)
-        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED, self._on_ros_service_event)
-        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED, self._on_ros_service_event)
-        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_RECEIVED, self._on_tcp_received)
-        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_SENT, self._on_tcp_sent)
+        self._event_bus.subscribe(EventTopic.APP_PUSH.value, self._on_app_push)
+        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED.value, self._on_ros_topic_received)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED.value, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED.value, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_RECEIVED.value, self._on_tcp_received)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_SENT.value, self._on_tcp_sent)
         self._snapshot_task = asyncio.create_task(self._snapshot_loop())
 
     async def stop(self) -> None:

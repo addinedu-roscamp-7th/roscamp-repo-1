@@ -48,8 +48,8 @@ def pytest_collection_modifyitems(items: list[pytest.Function]) -> None:
         if marker and not inspect.iscoroutinefunction(item.obj):
             # 개별 테스트에 부착된 마커 제거
             item.own_markers = [m for m in item.own_markers if m.name != "asyncio"]
-            # 모듈/클래스 수준에서 부착된 마커 제거
-            item.keywords.pop("asyncio", None)
+            # pytest 8+에서는 keywords를 직접 수정할 수 없으므로 마커만 제거
+            # keywords는 읽기 전용 뷰이므로 pop을 사용하지 않음
 
 
 @pytest.hookimpl(tryfirst=True)
