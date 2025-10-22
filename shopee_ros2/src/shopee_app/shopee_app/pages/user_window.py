@@ -157,7 +157,7 @@ class UserWindow(QWidget):
             profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
         # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 더미 데이터가 그대로 남는다.
-        QtCore.QTimer.singleShot(0, self._trigger_initial_product_search)
+        QtCore.QTimer.singleShot(0, self.request_total_products)
 
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
@@ -300,11 +300,44 @@ class UserWindow(QWidget):
         self.mic_info_label.setText('')
         self.mic_info_label.setVisible(False)
 
-    def _trigger_initial_product_search(self) -> None:
-        # 초기 검색어를 비워두면 전체 상품을 요청할 수 있어 첫 화면에 데이터를 채울 수 있다.
-        initial_query = ""
-        # 초기 검색을 실행하지 않으면 로그인 직후 최신 상품 정보가 표시되지 않는다.
-        self.request_product_search(initial_query)
+    def request_total_products(self) -> None:
+        # 전체 목록을 가져오지 않으면 쇼핑 첫 화면에 표시할 데이터가 부족하다.
+        if self.service_client is None:
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        if not self.current_user_id:
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        try:
+            response = self.service_client.fetch_total_products(self.current_user_id)
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}')
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        if not response:
+            QMessageBox.warning(self, '상품 로드 실패', '서버에서 전체 상품 응답을 받지 못했습니다.')
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        if not response.get('result'):
+            message = response.get('message') or '전체 상품을 가져오지 못했습니다.'
+            QMessageBox.warning(self, '상품 로드 실패', message)
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        data = response.get('data') or {}
+        entries = data.get('products') or []
+        products = self._convert_total_products(entries)
+        if not products:
+            QMessageBox.information(self, '상품 로드 안내', '표시할 상품이 없어 기본 목록을 사용합니다.')
+            self.set_products(self.load_initial_products())
+            self.refresh_product_grid()
+            return
+        self.set_products(products)
+        self.refresh_product_grid()
 
     def request_product_search(self, query: str) -> None:
         # 서비스 클라이언트가 없다면 네트워크 요청 자체가 불가능하므로 즉시 반환한다.
@@ -369,7 +402,8 @@ class UserWindow(QWidget):
             QMessageBox.information(
                 self, "검색 결과 없음", "조건에 맞는 상품이 없습니다."
             )
-            self.set_products([])
+            fallback_products = self.load_initial_products()
+            self.set_products(fallback_products)
             self.refresh_product_grid()
             return
         # 변환된 상품을 상태에 반영하지 않으면 UI가 최신 정보를 표시하지 못한다.
@@ -490,6 +524,44 @@ class UserWindow(QWidget):
             products.append(product)
         # 변환된 전체 목록을 반환하지 않으면 호출자가 결과를 사용할 수 없다.
         return products
+
+    def _convert_total_products(self, entries: list[dict[str, object]]) -> list[ProductData]:
+        # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
+        products: list[ProductData] = []
+        fallback_image = ProductCard.FALLBACK_IMAGE
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                product_id = int(entry.get('product_id'))
+            except (TypeError, ValueError):
+                continue
+            name = str(entry.get('name') or f'상품 {product_id}')
+            category = str(entry.get('category') or '기타')
+            price = int(entry.get('price') or 0)
+            discount_rate = int(entry.get('discount_rate') or 0)
+            is_vegan = bool(entry.get('is_vegan_friendly'))
+            # total_product 응답에는 allergy_info_id, section_id 등이 없으므로 기본값을 채워 넣는다.
+            product = ProductData(
+                product_id=product_id,
+                name=name,
+                category=category,
+                price=price,
+                discount_rate=discount_rate,
+                allergy_info_id=0,
+                is_vegan_friendly=is_vegan,
+                section_id=int(entry.get('section_id') or 0),
+                warehouse_id=int(entry.get('warehouse_id') or 0),
+                length=int(entry.get('length') or 0),
+                width=int(entry.get('width') or 0),
+                height=int(entry.get('height') or 0),
+                weight=int(entry.get('weight') or 0),
+                fragile=bool(entry.get('fragile')),
+                image_path=fallback_image,
+            )
+            products.append(product)
+        return products
+
 
     def setup_cart_section(self):
         self.cart_container = getattr(self.ui, "widget_3", None)
@@ -1336,6 +1408,7 @@ class UserWindow(QWidget):
     def set_products(self, products: list[ProductData]) -> None:
         self.products = products
         self.product_index = {product.product_id: product for product in products}
+        self.current_columns = -1
 
     def load_initial_products(self) -> list[ProductData]:
         image_root = Path(__file__).resolve().parent.parent / "image"
