@@ -47,6 +47,9 @@ class Ui_Form_user(object):
         self.edit_search.setPlaceholderText("")
         self.edit_search.setObjectName("edit_search")
         self.horizontalLayout.addWidget(self.edit_search)
+        self.btn_search = QtWidgets.QPushButton(parent=self.top_bar)
+        self.btn_search.setObjectName("btn_search")
+        self.horizontalLayout.addWidget(self.btn_search)
         spacerItem1 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout.addItem(spacerItem1)
         self.btn_mic = QtWidgets.QToolButton(parent=self.top_bar)
@@ -556,6 +559,7 @@ class Ui_Form_user(object):
         _translate = QtCore.QCoreApplication.translate
         Form_user.setWindowTitle(_translate("Form_user", "Form"))
         self.btn_to_login_page.setText(_translate("Form_user", "로그인 화면"))
+        self.btn_search.setText(_translate("Form_user", "검색"))
         self.btn_mic.setText(_translate("Form_user", "mic"))
         self.label_mic_info.setText(_translate("Form_user", "TextLabel"))
         self.btn_profile.setText(_translate("Form_user", "proflie"))

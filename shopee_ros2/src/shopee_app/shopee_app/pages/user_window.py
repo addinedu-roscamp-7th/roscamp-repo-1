@@ -101,11 +101,17 @@ class UserWindow(QWidget):
         self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
-        self.search_input = getattr(self.ui, "lineEdit", None)
+        self.search_input = getattr(self.ui, "edit_search", None)
+        if self.search_input is None:
+            self.search_input = getattr(self.ui, "lineEdit", None)
         # 위젯 존재 여부를 검증하지 않으면 None 객체에 연결을 시도해 런타임 오류가 발생한다.
         if self.search_input is not None:
             # 엔터 키 입력 시 검색을 자동으로 수행하지 않으면 사용자의 검색 흐름이 끊어진다.
             self.search_input.returnPressed.connect(self.on_search_submitted)
+        self.search_button = getattr(self.ui, 'btn_search', None)
+        if self.search_button is not None:
+            # 버튼을 눌렀을 때 검색이 실행되지 않으면 사용자가 직관적으로 조작하기 어렵다.
+            self.search_button.clicked.connect(self.on_search_button_clicked)
         self.mic_button = getattr(self.ui, 'btn_mic', None)
         if self.mic_button is not None:
             mic_icon_path = Path(__file__).resolve().parent / 'icons' / 'mic.svg'
@@ -137,7 +143,8 @@ class UserWindow(QWidget):
         self.service_client = (
             service_client if service_client is not None else MainServiceClient()
         )
-        self.current_user_id = str(self.user_info.get("user_id") or "")
+        self.current_user_id = ''
+        self._ensure_user_identity()
         self.current_order_id: int | None = None
         self.current_robot_id: int | None = None
         self.remote_selection_items: list[CartItemData] = []
@@ -165,6 +172,21 @@ class UserWindow(QWidget):
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
+
+    def _ensure_user_identity(self) -> str:
+        # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
+        user_id_value = ''
+        if isinstance(self.user_info, dict):
+            raw_id = self.user_info.get('user_id')
+            if raw_id:
+                user_id_value = str(raw_id).strip()
+        if not user_id_value:
+            fallback_user_id = os.getenv('SHOPEE_APP_GUEST_USER_ID', 'guest_user')
+            user_id_value = fallback_user_id
+            if isinstance(self.user_info, dict):
+                self.user_info['user_id'] = user_id_value
+        self.current_user_id = user_id_value
+        return user_id_value
 
     def _setup_speech_recognition(self) -> None:
         if self._stt_worker is not None:
@@ -213,6 +235,10 @@ class UserWindow(QWidget):
         query = self.search_input.text().strip()
         # 검색어로 서버 조회를 하지 않으면 사용자가 요청한 상품 목록을 받아올 수 없다.
         self.request_product_search(query)
+
+    def on_search_button_clicked(self) -> None:
+        # 버튼 클릭과 엔터 입력이 동일하게 동작하도록 검색 제출 함수를 재사용한다.
+        self.on_search_submitted()
 
     def on_microphone_clicked(self) -> None:
         if self._stt_worker is None:
@@ -309,12 +335,13 @@ class UserWindow(QWidget):
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
-        if not self.current_user_id:
+        user_id = self._ensure_user_identity()
+        if not user_id:
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
         try:
-            response = self.service_client.fetch_total_products(self.current_user_id)
+            response = self.service_client.fetch_total_products(user_id)
         except MainServiceClientError as exc:
             QMessageBox.warning(self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}')
             self.set_products(self.load_initial_products())
@@ -346,8 +373,9 @@ class UserWindow(QWidget):
         # 서비스 클라이언트가 없다면 네트워크 요청 자체가 불가능하므로 즉시 반환한다.
         if self.service_client is None:
             return
-        # 사용자 ID가 비어 있으면 명세상 필수 필드를 전달할 수 없으므로 요청을 중단한다.
-        if not self.current_user_id:
+        user_id = self._ensure_user_identity()
+        if not user_id:
+            QMessageBox.warning(self, '검색 실패', '사용자 정보를 확인할 수 없습니다.')
             return
         # 사용자 정보를 기반으로 필터를 구성하지 않으면 개인화된 검색 조건이 적용되지 않는다.
         allergy_filter, vegan_flag = self._build_search_filter()
@@ -361,7 +389,7 @@ class UserWindow(QWidget):
         try:
             # 명세에 맞춘 검색 요청을 호출하지 않으면 서버로부터 상품 목록을 받을 수 없다.
             response = self.service_client.search_products(
-                user_id=self.current_user_id,
+                user_id=user_id,
                 query=query,
                 allergy_filter=allergy_filter,
                 is_vegan=vegan_flag,
