@@ -24,7 +24,7 @@ class TwistModifier(Node):
         )
 
         # 수정된 /cmd_vel 발행
-        self.pickee_vel_publisher = self.create_publisher(Twist, '/cmd_vel_modify', 10)
+        self.pickee_vel_publisher = self.create_publisher(Twist, '/cmd_vel_modified', 10)
 
         # 키 입력 스레드 시작
         self.input_thread = threading.Thread(target=self.keyboard_input)

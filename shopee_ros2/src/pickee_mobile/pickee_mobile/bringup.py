@@ -16,7 +16,7 @@ from pickee_mobile.zlac_driver import ZLACDriver
 
 # --- Configuration Constants ---
 # Topic and Frame Names
-TWIST_SUB_TOPIC_NAME = "cmd_vel_modify"
+TWIST_SUB_TOPIC_NAME = "cmd_vel_modified"
 ODOM_PUB_TOPIC_NAME = "odom"
 JOINT_PUB_TOPIC_NAME = "joint_states"
 ODOM_FRAME_ID = "odom"
