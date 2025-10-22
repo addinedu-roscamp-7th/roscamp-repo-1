@@ -19,8 +19,7 @@ class InitializingState(State):
             self.initialization_complete = True
             
             # CHARGING_UNAVAILABLE 상태로 전환
-            new_state = ChargingUnavailableState(self._node)
-            self._node.state_machine.transition_to(new_state)
+            return ChargingUnavailableState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('INITIALIZING 상태 탈출')

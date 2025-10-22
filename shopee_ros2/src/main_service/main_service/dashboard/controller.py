@@ -82,13 +82,15 @@ class DashboardBridge:
         """
         브릿지를 종료하고 내부 자원을 정리한다.
         """
+        from ..constants import GUI_SHUTDOWN_TIMEOUT
+
         await self._to_gui_async.put(self._stop_sentinel)
         if self._pump_task:
             try:
                 await self._pump_task
             except asyncio.CancelledError:
                 pass
-        self._closed.wait(timeout=1.0)
+        self._closed.wait(timeout=GUI_SHUTDOWN_TIMEOUT)
 
 
 class DashboardDataProvider:
@@ -178,10 +180,12 @@ class DashboardController:
         if self._running:
             return
         self._running = True
-        self._event_bus.subscribe(EventTopic.APP_PUSH, self._on_app_push)
-        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED, self._on_ros_topic_received)
-        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED, self._on_ros_service_event)
-        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.APP_PUSH.value, self._on_app_push)
+        self._event_bus.subscribe(EventTopic.ROS_TOPIC_RECEIVED.value, self._on_ros_topic_received)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_CALLED.value, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.ROS_SERVICE_RESPONDED.value, self._on_ros_service_event)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_RECEIVED.value, self._on_tcp_received)
+        self._event_bus.subscribe(EventTopic.TCP_MESSAGE_SENT.value, self._on_tcp_sent)
         self._snapshot_task = asyncio.create_task(self._snapshot_loop())
 
     async def stop(self) -> None:
@@ -240,3 +244,11 @@ class DashboardController:
     async def _on_ros_service_event(self, event_data: Dict[str, Any]) -> None:
         """ROS 서비스 호출/응답 이벤트를 GUI로 전달한다."""
         await self._bridge.publish_async({'type': 'ros_service', 'data': event_data})
+
+    async def _on_tcp_received(self, event_data: Dict[str, Any]) -> None:
+        """TCP 수신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'tcp_event', 'data': {'topic': EventTopic.TCP_MESSAGE_RECEIVED.value, 'data': event_data}})
+
+    async def _on_tcp_sent(self, event_data: Dict[str, Any]) -> None:
+        """TCP 송신 이벤트를 GUI로 전달한다."""
+        await self._bridge.publish_async({'type': 'tcp_event', 'data': {'topic': EventTopic.TCP_MESSAGE_SENT.value, 'data': event_data}})

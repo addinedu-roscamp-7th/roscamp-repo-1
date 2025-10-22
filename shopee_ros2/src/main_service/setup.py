@@ -8,7 +8,7 @@ package_name = 'main_service'
 setup(
     name=package_name,
     version='0.0.1',
-    packages=find_packages(include=[package_name, f'{package_name}.*']),
+        packages=find_packages(include=[package_name, f'{package_name}.*', 'tests', 'tests.*']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
@@ -16,6 +16,7 @@ setup(
     ],
     install_requires=[
         'setuptools',
+        'PyQt6',
         'pydantic-settings',
         'python-dotenv',
         'SQLAlchemy',
@@ -34,17 +35,28 @@ setup(
     description='Main Service ROS 2 entry point handling TCP API and robot orchestration.',
     license='Apache License 2.0',
     extras_require={
-        'test': ['pytest', 'pytest-asyncio', 'respx'],
+        'test': [
+            'pytest>=7.0.0',
+            'pytest-asyncio>=0.21.0',
+            'pytest-cov>=4.0.0',
+            'respx',
+        ],
+        'dev': [
+            'mypy>=1.0.0',
+            'types-PyMySQL',
+        ],
     },
     entry_points={
         'console_scripts': [
             'main_service_node = main_service.main_service_node:main',
-            'mock_llm_server = main_service.mock_llm_server:main',
-            'mock_robot_node = main_service.mock_robot_node:main',
-            'mock_pickee_node = main_service.mock_pickee_node:main',
-            'mock_packee_node = main_service.mock_packee_node:main',
-            'mock_pickee_vision_node = main_service.mock_pickee_vision_node:main',
-            'mock_app_node = main_service.mock_app_node:main',
+            'test_client = tests.utils.test_client:main',
+            'interactive_mock_app = tests.utils.interactive_mock_app:main',
+            'mock_llm_server = tests.mocks.mock_llm_server:main',
+            'mock_robot_node = tests.mocks.mock_robot_node:main',
+            'mock_pickee_node = tests.mocks.mock_pickee_node:main',
+            'mock_packee_node = tests.mocks.mock_packee_node:main',
+            'mock_pickee_vision_node = tests.mocks.mock_pickee_vision_node:main',
+            'mock_app_node = tests.mocks.mock_app_node:main',
         ],
     },
 )

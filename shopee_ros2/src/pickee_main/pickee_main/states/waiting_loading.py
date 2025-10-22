@@ -39,8 +39,7 @@ class WaitingLoadingState(State):
             
             # 다음 매대로 이동하거나 직원을 추종
             from .following_staff import FollowingStaffState
-            new_state = FollowingStaffState(self._node)
-            self.transition_to(new_state)
+            return FollowingStaffState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('WAITING_LOADING 상태 탈출')

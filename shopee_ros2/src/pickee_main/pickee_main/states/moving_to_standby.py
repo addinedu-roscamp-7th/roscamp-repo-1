@@ -64,8 +64,7 @@ class MovingToStandbyState(State):
             self._node.publish_arrival_notice(self.standby_location_id)
             
             from .charging_available import ChargingAvailableState
-            new_state = ChargingAvailableState(self._node)
-            self.transition_to(new_state)
+            return ChargingAvailableState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('MOVING_TO_STANDBY 상태 탈출')

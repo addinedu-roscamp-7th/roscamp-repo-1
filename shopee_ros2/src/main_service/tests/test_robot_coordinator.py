@@ -80,6 +80,7 @@ def robot_coordinator(mock_state_store: MagicMock, mock_event_bus: MagicMock) ->
         mock_settings.ROS_SERVICE_RETRY_BASE_DELAY = 0.0
         mock_settings.ROS_SERVICE_TIMEOUT = 1.0
         mock_settings.ROS_STATUS_HEALTH_TIMEOUT = 0  # 헬스 타이머 비활성화
+        mock_settings.ROS_EVENT_TOPIC_TIMEOUT = 10.0 # 누락된 설정값 추가
         coordinator = RobotCoordinator(state_store=mock_state_store, event_bus=mock_event_bus)
     return coordinator
 
@@ -541,6 +542,7 @@ class TestRobotHealthMonitor:
             mock_settings.ROS_SERVICE_RETRY_BASE_DELAY = 0.0
             mock_settings.ROS_SERVICE_TIMEOUT = 1.0
             mock_settings.ROS_STATUS_HEALTH_TIMEOUT = 0.1  # 100ms 타임아웃
+            mock_settings.ROS_EVENT_TOPIC_TIMEOUT = 10.0 # 누락된 설정값 추가
 
             coordinator = RobotCoordinator(state_store=mock_state_store, event_bus=mock_event_bus)
             # 현재 실행 중인 이벤트 루프 사용

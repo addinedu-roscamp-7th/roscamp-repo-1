@@ -36,6 +36,23 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Function]) -> None:
+    """
+    동기 테스트에 잘못 적용된 asyncio 마커를 제거한다.
+
+    pytest 8에서는 동기 함수에 asyncio 마커가 남아 있으면 경고가 발생하므로
+    실제로 코루틴 함수가 아닌 경우 마커를 삭제하여 경고를 차단한다.
+    """
+    for item in items:
+        marker = item.get_closest_marker("asyncio")
+        if marker and not inspect.iscoroutinefunction(item.obj):
+            # 개별 테스트에 부착된 마커 제거
+            item.own_markers = [m for m in item.own_markers if m.name != "asyncio"]
+            # pytest 8+에서는 keywords를 직접 수정할 수 없으므로 마커만 제거
+            # keywords는 읽기 전용 뷰이므로 pop을 사용하지 않음
+
+
+@pytest.hookimpl(tryfirst=True)
 def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
     """
     async 테스트 함수를 asyncio 이벤트 루프로 실행한다.

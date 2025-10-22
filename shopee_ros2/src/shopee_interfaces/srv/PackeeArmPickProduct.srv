@@ -1,9 +1,0 @@
-int32 robot_id
-int32 order_id
-int32 product_id
-string arm_side
-shopee_interfaces/Point3D target_position
-shopee_interfaces/BBox bbox
----
-bool accepted
-string message

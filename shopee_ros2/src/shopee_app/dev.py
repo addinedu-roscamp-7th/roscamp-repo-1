@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 import signal
@@ -6,19 +5,34 @@ import subprocess
 from pathlib import Path
 
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from watchdog.events import FileSystemEvent
+from watchdog.events import FileSystemEventHandler
 
 ROOT = Path(__file__).parent.resolve()
+MODULE_ROOT = ROOT / "shopee_app"
 UI_FILES = {
-    ROOT / "ui" / "main_window.ui": ROOT / "ui_gen" / "main_window.py",
-    ROOT / "ui" / "layout_user.ui": ROOT / "ui_gen" / "layout_user.py",
-    ROOT / "ui" / "layout_admin.ui": ROOT / "ui_gen" / "layout_admin.py",
-    ROOT / "ui" / "promoded_class.ui": ROOT / "ui_gen" / "promoded_class.py",
-    ROOT / "ui" / "cart_item.ui": ROOT / "ui_gen" / "cart_item.py",
+    MODULE_ROOT / "ui" / "main_window.ui": MODULE_ROOT / "ui_gen" / "main_window.py",
+    MODULE_ROOT / "ui" / "layout_user.ui": MODULE_ROOT / "ui_gen" / "layout_user.py",
+    MODULE_ROOT / "ui" / "layout_admin.ui": MODULE_ROOT / "ui_gen" / "layout_admin.py",
+    MODULE_ROOT
+    / "ui"
+    / "promoded_class.ui": MODULE_ROOT
+    / "ui_gen"
+    / "promoded_class.py",
+    MODULE_ROOT / "ui" / "cart_item.ui": MODULE_ROOT / "ui_gen" / "cart_item.py",
+    MODULE_ROOT
+    / "ui"
+    / "dialog_profile.ui": MODULE_ROOT
+    / "ui_gen"
+    / "dialog_profile.py",
+    MODULE_ROOT
+    / "ui"
+    / "cart_select_item.ui": MODULE_ROOT
+    / "ui_gen"
+    / "cart_select_item.py",
 }
-OUT_DIR = ROOT / "ui_gen"
 
-PYUIC = "pyuic6"  # venv에 설치된 pyuic6 사용
+OUT_DIR = MODULE_ROOT / "ui_gen"
 
 
 def log(msg: str):
@@ -26,7 +40,8 @@ def log(msg: str):
 
 
 def build_ui(
-    src=ROOT / "ui" / "main_window.ui", dest=ROOT / "ui_gen" / "main_window.py"
+    src=MODULE_ROOT / "ui" / "main_window.ui",
+    dest=MODULE_ROOT / "ui_gen" / "main_window.py",
 ):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     if not (OUT_DIR / "__init__.py").exists():
@@ -35,7 +50,7 @@ def build_ui(
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         raise RuntimeError(f"pyuic6 실패\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
-    log(f".ui -> .py 변환 완료: {dest.relative_to(ROOT)}")
+    log(f".ui -> .py 변환 완료: {dest.relative_to(MODULE_ROOT)}")
 
 
 class DebouncedHandler(FileSystemEventHandler):
@@ -75,14 +90,17 @@ class DebouncedHandler(FileSystemEventHandler):
 
 def start_app():
     # 환경에 따라 python 경로가 다를 수 있어 sys.executable 사용
-    return subprocess.Popen([sys.executable, str(ROOT / "app.py")], cwd=str(ROOT))
+    return subprocess.Popen(
+        [sys.executable, "-m", "shopee_app.launcher"], cwd=str(ROOT)
+    )
 
 
 def main():
     missing = [path.name for path in UI_FILES if not path.exists()]
     existing = {src: dest for src, dest in UI_FILES.items() if src.exists()}
     if missing:
-        log(f'경고: 다음 .ui 파일을 찾을 수 없습니다: {", ".join(missing)}')
+        missing_list = ", ".join(missing)
+        log(f"경고: 다음 .ui 파일을 찾을 수 없습니다: {missing_list}")
     if not existing:
         log(".ui 파일이 없어 변환을 수행할 수 없습니다.")
         sys.exit(1)
@@ -128,7 +146,7 @@ def main():
         proc = start_app()
 
     handler = DebouncedHandler(on_change)
-    observer.schedule(handler, str((ROOT / "ui")), recursive=False)
+    observer.schedule(handler, str((MODULE_ROOT / "ui")), recursive=False)
     observer.start()
 
     # SIGINT/SIGTERM 처리

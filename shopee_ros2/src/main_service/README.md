@@ -132,3 +132,34 @@ pytest tests/
 실제 로봇이나 외부 서비스 없이 `main_service`의 전체 워크플로우를 테스트할 수 있는 가장 효과적인 방법입니다. Mock 컴포넌트(`Mock Robot`, `Mock LLM`)를 사용하여 실제 운영 환경과 유사한 시나리오를 시뮬레이션합니다.
 
 **자세한 실행 방법은 `TEST_GUIDE.md` 파일을 참고하세요.** 이 가이드에는 Mock 컴포넌트 실행, 테스트 클라이언트 사용법, 문제 해결 팁이 상세히 설명되어 있습니다.
+
+### 타입 체크 (Type Checking)
+
+`mypy`를 사용하여 정적 타입 검사를 수행할 수 있습니다.
+
+```bash
+# 개발 의존성 설치 (mypy 포함)
+pip install -e .[dev]
+
+# 타입 체크 실행
+cd src/main_service
+mypy main_service/
+
+# 특정 파일만 체크
+mypy main_service/order_service.py
+```
+
+`mypy.ini` 파일에서 타입 체크 설정을 커스터마이즈할 수 있습니다.
+
+### 테스트 커버리지 측정
+
+`pytest-cov`를 사용하여 테스트 커버리지를 측정할 수 있습니다.
+
+```bash
+# 커버리지 포함 테스트 실행
+pytest tests/ --cov=main_service --cov-report=html --cov-report=term
+
+# HTML 리포트 확인
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+```

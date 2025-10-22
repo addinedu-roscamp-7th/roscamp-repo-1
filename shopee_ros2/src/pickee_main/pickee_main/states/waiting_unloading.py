@@ -27,8 +27,7 @@ class WaitingUnloadingState(State):
             # 하차 완료 후 창고로 복귀하거나 다음 작업 수행
             # 여기서는 직원을 계속 추종하도록 설정
             from .following_staff import FollowingStaffState
-            new_state = FollowingStaffState(self._node)
-            self.transition_to(new_state)
+            return FollowingStaffState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('WAITING_UNLOADING 상태 탈출')

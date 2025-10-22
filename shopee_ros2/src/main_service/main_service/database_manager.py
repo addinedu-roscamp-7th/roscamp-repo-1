@@ -74,13 +74,14 @@ class DatabaseManager:
         try:
             yield session
             session.commit()  # 성공 시 커밋
-        except Exception:
+        except Exception as e:
             session.rollback()  # 실패 시 롤백
+            logger.error(f"Database transaction failed and rolled back: {type(e).__name__}: {e}")
             raise
         finally:
             session.close()  # 항상 종료
             self._active_sessions -= 1
-            logger.debug(f"DB session closed. Active sessions: {self._active_sessions}")
+        logger.debug(f"DB session closed. Active sessions: {self._active_sessions}")
 
     def get_pool_stats(self) -> dict:
         """

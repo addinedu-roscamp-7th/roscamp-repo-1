@@ -1,0 +1,2 @@
+shopee_interfaces/Point2D[] polygon
+shopee_interfaces/BBox bbox_coords

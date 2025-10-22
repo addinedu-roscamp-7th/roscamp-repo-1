@@ -21,6 +21,14 @@ class MainServiceClient:
         self._writer: Optional[asyncio.StreamWriter] = None
         self._async_notifications: list[Dict[str, Any]] = []
         self._pending_messages: list[Dict[str, Any]] = []
+        self._last_notification_signature: Optional[str] = None
+        self._last_notification_type: Optional[str] = None
+        self._repeat_count: int = 0
+        self._silenced_types = {
+            'robot_moving_notification',
+            'work_info_notification',
+        }
+        self._silenced_counts: Dict[str, int] = {}
 
     async def connect(self) -> None:
         """Main Service에 TCP 연결을 생성합니다."""
@@ -36,20 +44,61 @@ class MainServiceClient:
             'cart_update_notification',
             'work_info_notification',
             'packing_info_notification',
+            'picking_complete_notification',
+            'shopping_summary_notification',
             'robot_reassignment_notification',
             'robot_failure_notification',
             'order_failed_notification',
         }
         return msg_type in async_types
 
+    def _notification_signature(self, response: Dict[str, Any]) -> str:
+        """알림 고유 서명을 생성한다."""
+        data = response.get('data')
+        serialized = json.dumps(data, sort_keys=True, ensure_ascii=False) if isinstance(data, (dict, list)) else str(data)
+        return f"{response.get('type','')}|{serialized}"
+
+    def _flush_notification_summary(self) -> None:
+        """중복된 알림이 있었다면 요약 메시지를 출력하고 상태를 초기화한다."""
+        if self._repeat_count > 1 and self._last_notification_type:
+            print(f"    ↳ (same '{self._last_notification_type}' repeated {self._repeat_count - 1} more times)")
+        self._repeat_count = 0
+        self._last_notification_signature = None
+        self._last_notification_type = None
+        self._flush_silenced_summary()
+
+    def _flush_silenced_summary(self) -> None:
+        """누적된 묵음 알림 요약을 출력한다."""
+        if not self._silenced_counts:
+            return
+        summary = ', '.join(f"{msg_type}: {count}" for msg_type, count in self._silenced_counts.items())
+        print(f"    ↳ suppressed notifications -> {summary}")
+        self._silenced_counts.clear()
+
     def _print_notification(self, response: Dict[str, Any]) -> None:
         """비동기 알림 메시지를 콘솔에 출력합니다."""
+        msg_type = response.get('type')
+        if msg_type in self._silenced_types:
+            self._silenced_counts[msg_type] = self._silenced_counts.get(msg_type, 0) + 1
+            return
+
+        signature = self._notification_signature(response)
+        if signature == self._last_notification_signature:
+            self._repeat_count += 1
+            return
+
+        if self._last_notification_signature is not None:
+            self._flush_notification_summary()
+
         print(f'\n  📢 [Async Notification] {response["type"]}')
         if response.get('message'):
             print(f'     Message: {response["message"]}')
         if response.get('data'):
             formatted = json.dumps(response['data'], ensure_ascii=False, indent=2)
             print(f'     Data: {formatted}')
+        self._last_notification_signature = signature
+        self._last_notification_type = response.get('type')
+        self._repeat_count = 1
 
     async def send_request(self, msg_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -82,7 +131,9 @@ class MainServiceClient:
                 response = self._pending_messages.pop(0)
             else:
                 try:
-                    response_line = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
+                    from .constants import TCP_READ_TIMEOUT
+
+                    response_line = await asyncio.wait_for(self._reader.readline(), timeout=TCP_READ_TIMEOUT)
                     if not response_line:
                         print('  ⚠️ Connection closed by server')
                         break
@@ -123,6 +174,8 @@ class MainServiceClient:
 
     async def close(self) -> None:
         """TCP 연결을 종료합니다."""
+        self._flush_notification_summary()
+        self._flush_notification_summary()
         if self._writer:
             self._writer.close()
             await self._writer.wait_closed()

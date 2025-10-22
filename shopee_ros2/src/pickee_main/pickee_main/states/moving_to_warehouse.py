@@ -59,8 +59,7 @@ class MovingToWarehouseState(State):
             self._node.get_logger().info('창고에 도착했습니다. WAITING_LOADING 상태로 전환합니다.')
             
             from .waiting_loading import WaitingLoadingState
-            new_state = WaitingLoadingState(self._node)
-            self.transition_to(new_state)
+            return WaitingLoadingState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('MOVING_TO_WAREHOUSE 상태 탈출')

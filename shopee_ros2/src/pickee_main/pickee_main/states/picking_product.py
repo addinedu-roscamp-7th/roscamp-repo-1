@@ -75,13 +75,11 @@ class PickingProductState(State):
             if hasattr(self._node, 'remaining_products') and self._node.remaining_products:
                 # 다음 매대로 이동
                 from .moving_to_shelf import MovingToShelfState
-                new_state = MovingToShelfState(self._node)
-                self._node.state_machine.transition_to(new_state)
+                return MovingToShelfState(self._node)
             else:
                 # 모든 상품을 담았으면 쇼핑 종료 대기
                 from .charging_available import ChargingAvailableState
-                new_state = ChargingAvailableState(self._node)
-                self._node.state_machine.transition_to(new_state)
+                return ChargingAvailableState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('PICKING_PRODUCT 상태 탈출')

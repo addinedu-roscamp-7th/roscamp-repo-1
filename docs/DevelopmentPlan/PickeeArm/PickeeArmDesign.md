@@ -141,11 +141,26 @@ stateDiagram-v2
 5.  **명령 전송**: 계산된 관절 속도 `q_dot_desired`를 로봇 팔 드라이버에 전송합니다.
 6.  **반복**: 오차 `e`가 허용 범위 내로 줄어들 때까지 2~5단계를 반복합니다.
 
-### 6.2. 예외 처리 방안
+### 6.2. 주요 시나리오 흐름 (Key Scenario Flow)
+`SC_02_3`과 `SC_02_4` 시나리오에 나타난 `pickee_arm`의 전체 동작 흐름은 다음과 같습니다.
 
--   **기구학 해 없음**: `KinematicsModel`이 특정 자세에 대한 IK 해를 찾지 못할 경우, 관련 서비스는 `success: false` 또는 `accepted: false`를 즉시 반환하고, 상태 토픽에 `IK_SOLUTION_NOT_FOUND` 에러를 발행합니다.
--   **자코비안 특이점 (Singularity)**: 제어 중 특이점 영역에 가까워지면, 안전하게 작업을 중단하고 상태 토픽에 `SINGULARITY_REACHED` 에러를 발행합니다.
--   **파지 실패 (Grasp Failure)**: 그리퍼 센서가 상품을 제대로 잡지 못했다고 판단하면, 그리퍼를 열고 재시도 하거나(최대 3회), 최종 실패 처리하고 상태 토픽에 `GRASP_FAILED` 에러를 발행합니다.
+1.  **자세 변경 (선반 보기)**: `pickee_main`으로부터 `move_to_pose(pose_type: "shelf_view")` 서비스 요청을 받습니다. `pickee_vision`이 상품을 잘 인식할 수 있도록 미리 정의된 '선반 확인 자세'로 팔을 움직입니다. 진행 및 완료/실패 상태를 `/pickee/arm/pose_status` 토픽으로 발행합니다.
+
+2.  **상품 피킹**: `pickee_main`으로부터 `pick_product` 서비스 요청을 받습니다.
+    -   `VisualServoingController`를 활성화하여 목표 상품으로 접근 및 파지를 수행합니다.
+    -   동작의 각 단계(`planning`, `approaching`, `grasping`, `lifting`)를 `/pickee/arm/pick_status` 토픽으로 발행합니다.
+
+3.  **상품 플레이스**: `pickee_main`으로부터 `place_product` 서비스 요청을 받습니다.
+    -   미리 정의된 로봇 카트의 위치로 팔을 이동시켜 상품을 놓습니다.
+    -   동작의 각 단계(`planning`, `moving`, `placing`, `releasing`)를 `/pickee/arm/place_status` 토픽으로 발행합니다.
+
+4.  **자세 변경 (장바구니 확인)**: `pickee_main`으로부터 `move_to_pose(pose_type: "cart_view")` 서비스 요청을 받습니다.
+    -   `pickee_vision`이 카트에 담긴 상품을 확인할 수 있도록, 약속된 '장바구니 확인 자세'로 팔을 움직입니다.
+    -   완료 상태를 `/pickee/arm/pose_status` 토픽으로 발행합니다.
+
+5.  **자세 변경 (대기)**: 모든 작업 완료 후, `pickee_main`으로부터 `move_to_pose(pose_type: "standby")` 서비스 요청을 받습니다.
+    -   다음 명령을 대기하기 위한 기본 '대기 자세'로 팔을 복귀시킵니다.
+    -   완료 상태를 `/pickee/arm/pose_status` 토픽으로 발행합니다.
 
 ## 7. 테스트 방안 (Test Strategy)
 

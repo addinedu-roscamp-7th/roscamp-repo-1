@@ -8,15 +8,17 @@ SQLAlchemy ORM 모델 정의
 - `relationship`을 통해 테이블 간의 관계(FK)를 정의합니다.
 """
 
+from typing import Any
+
 from sqlalchemy import (
     create_engine, Column, Integer, String, Boolean, Float, DateTime, ForeignKey
 )
 from sqlalchemy.dialects import mysql
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, declarative_base, relationship
 from sqlalchemy.sql import func
 
 # 모든 ORM 모델이 상속받을 기본 클래스
-Base = declarative_base()
+Base: Any = declarative_base()
 
 # --- 테이블 모델 정의 --- #
 
@@ -98,6 +100,7 @@ class Product(Base):
     category = Column(String(10), nullable=False)
     allergy_info_id = Column(Integer, ForeignKey('allergy_info.allergy_info_id'), nullable=False)
     is_vegan_friendly = Column(Boolean, nullable=False)
+    auto_select = Column(Boolean, nullable=False, default=True)
     section_id = Column(Integer, ForeignKey('section.section_id'), nullable=False)
     warehouse_id = Column(Integer, ForeignKey('warehouse.warehouse_id'), nullable=False)
     length = Column(Integer, nullable=True)
@@ -105,7 +108,6 @@ class Product(Base):
     height = Column(Integer, nullable=True)
     weight = Column(Integer, nullable=True)
     fragile = Column(Boolean, nullable=True)
-    img_path = Column(String(50), nullable=True)
 
     allergy_info = relationship("AllergyInfo")
     section = relationship("Section")

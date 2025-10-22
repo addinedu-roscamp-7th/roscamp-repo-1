@@ -2,10 +2,29 @@
 
 Shopee 프론트엔드 애플리케이션 소스 코드
 
+## 개발 전제
+- Python 3.12.x (ROS2 Jazzy 기본 버전과 일치)
+
 # 실행하기
-1. 가상환경 생성
+
+## ROS2 환경 (권장)
+1. 워크스페이스 루트에서 빌드
     ```
-    python3 -m venv .venv_gui
+    colcon build --packages-select shopee_app
+    ```
+2. 환경 설정
+    ```
+    source install/setup.bash
+    ```
+3. 애플리케이션 실행
+    ```
+    ros2 run shopee_app shopee_app_gui
+    ```
+
+## 독립 실행 (개발용)
+1. 가상환경 생성 (ROS2 패키지 공유)
+    ```
+    python3 -m venv .venv_gui --system-site-packages
     ```
 2. 가상환경 활성화
     ```
@@ -17,12 +36,12 @@ Shopee 프론트엔드 애플리케이션 소스 코드
     ```
 4. 애플리케이션 실행
     ```
-    python app.py
+    python -m shopee_app.launcher
     ```
+    *ROS2 패키지가 공유된 가상환경이 아니면 `PYTHONPATH=/opt/ros/jazzy/lib/python3.12/site-packages:$PYTHONPATH` 를 설정하거나 직접 ROS 환경을 사용해야 합니다.*
 
-
-# 개발모드 실행하기 (ui 파일 자동 변환, designer 변경 저장 시 자동 재시작)
-1. 위 가상환경 및 의존성 설치를 선행
+# 개발모드 실행하기 (ui 파일 자동 변환, Qt Designer 변경 시 자동 재시작)
+1. 위 독립 실행을 위한 가상환경/의존성 설치 완료
 2. 가상환경 활성화
     ```
     source .venv_gui/bin/activate
@@ -31,10 +50,3 @@ Shopee 프론트엔드 애플리케이션 소스 코드
     ```
     python dev.py
     ```
-
-
-# 초기 설정
-1. python3 -m venv .venv_gui
-2. source .venv_gui/bin/activate
-3. pip install -r requirements.txt
-4. python app.py 또는 python dev.py

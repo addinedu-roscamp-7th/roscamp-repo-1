@@ -12,11 +12,12 @@ from .base_tab import BaseTab
 class TopicMonitorTab(BaseTab, Ui_TopicMonitorTab):
     """'ROS2 토픽 모니터' 탭의 UI 및 로직"""
 
-    MAX_LOG_ENTRIES = 100
-
     def __init__(self, parent=None):
+        from ...constants import MAX_TOPIC_LOG_ENTRIES
+
         super().__init__(parent)
         self.setupUi(self)
+        self.MAX_LOG_ENTRIES = MAX_TOPIC_LOG_ENTRIES
 
     def add_ros_topic_event(self, event_data: Dict[str, Any]):
         """ROS 토픽 수신 이벤트를 해당 영역에 표시한다."""

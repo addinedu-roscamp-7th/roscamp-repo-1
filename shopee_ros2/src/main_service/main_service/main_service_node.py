@@ -149,8 +149,11 @@ class MainServiceApp:
                             robot_type_enum = RobotType.PACKEE
                         else:
                             raise ValueError(f"Unknown robot_type ID: {db_robot.robot_type}")
-                    except Exception:
-                        logger.warning(f"Unknown robot_type '{db_robot.robot_type}' for robot_id {db_robot.robot_id}. Skipping.")
+                    except ValueError as e:
+                        logger.warning(f"Invalid robot_type for robot_id {db_robot.robot_id}: {e}. Skipping.")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Unexpected error processing robot_id {db_robot.robot_id}: {type(e).__name__}: {e}. Skipping.")
                         continue
 
                     initial_state = RobotState(
@@ -186,6 +189,7 @@ class MainServiceApp:
             pickee_arrival_cb=self._order_service.handle_arrival_notice,
             pickee_handover_cb=self._order_service.handle_cart_handover,
             pickee_product_detected_cb=self._order_service.handle_product_detected,
+            pickee_product_loaded_cb=self._order_service.handle_product_loaded,
             pickee_selection_cb=self._order_service.handle_pickee_selection,
             packee_availability_cb=self._order_service.handle_packee_availability,
             packee_complete_cb=self._order_service.handle_packee_complete
@@ -230,10 +234,10 @@ class MainServiceApp:
             """사용자 로그인 처리"""
             user_id = data.get("user_id", "")
             password = data.get("password", "")
-            
+
             # 로그인 검증
             success = await self._user_service.login(user_id, password)
-            
+
             user_info = None
             if success:
                 # 로그인 성공 시 사용자 정보 조회
@@ -246,20 +250,82 @@ class MainServiceApp:
                 "result": success and user_info is not None,
                 "data": user_info or {},
                 "message": "Login successful" if success and user_info else "Invalid credentials",
-                "error_code": None if success and user_info else "AUTH_001",
+                "error_code": "" if success and user_info else "AUTH_001",
             }
+
+        async def handle_user_edit(data, peer=None):
+            """사용자 정보 수정 처리"""
+            user_id = data.get("user_id", "")
+
+            if not user_id:
+                return {
+                    "type": "user_edit_response",
+                    "result": False,
+                    "error_code": "SYS_001",
+                    "data": {},
+                    "message": "user_id is required",
+                }
+
+            # 수정할 정보 추출
+            updates = {}
+            if "name" in data:
+                updates["name"] = data["name"]
+            if "gender" in data:
+                updates["gender"] = data["gender"]
+            if "age" in data:
+                updates["age"] = data["age"]
+            if "address" in data:
+                updates["address"] = data["address"]
+            if "is_vegan" in data:
+                updates["is_vegan"] = data["is_vegan"]
+            if "allergy_info" in data:
+                updates["allergy_info"] = data["allergy_info"]
+
+            # 사용자 정보 업데이트
+            updated_info = await self._user_service.update_user(user_id, updates)
+
+            if updated_info:
+                return {
+                    "type": "user_edit_response",
+                    "result": True,
+                    "error_code": "",
+                    "data": updated_info,
+                    "message": "User information updated successfully",
+                }
+            else:
+                return {
+                    "type": "user_edit_response",
+                    "result": False,
+                    "error_code": "AUTH_002",
+                    "data": {},
+                    "message": "User not found",
+                }
 
         async def handle_product_search(data, peer=None):
             """상품 검색 처리 (LLM 연동)"""
             query = data.get("query", "")
-            result = await self._product_service.search_products(query)
+            filters = data.get("filter")
+            result = await self._product_service.search_products(query, filters)
 
             return {
                 "type": "product_search_response",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": result,  # {"products": [...], "total_count": N}
                 "message": "ok",
+            }
+
+        async def handle_total_product(data, peer=None):
+            """전체 상품 목록 조회 처리"""
+            user_id = data.get("user_id", "")
+            result = await self._product_service.get_all_products()
+
+            return {
+                "type": "total_product_response",
+                "result": True,
+                "error_code": "",
+                "data": result,  # {"products": [...], "total_count": N}
+                "message": "get list successfully",
             }
 
         async def handle_order_create(data, peer=None):
@@ -282,7 +348,7 @@ class MainServiceApp:
                 return {
                     "type": "order_create_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {"order_id": order_id, "robot_id": robot_id},
                     "message": "Order successfully created",
                 }
@@ -327,7 +393,7 @@ class MainServiceApp:
                     "bbox_number": bbox_number,
                 },
                 "message": "Product selection processed" if success else "Failed to process selection",
-                "error_code": None if success else "ROBOT_002",
+                "error_code": "" if success else "ROBOT_002",
             }
 
         async def handle_product_selection_by_text(data, peer=None):
@@ -398,7 +464,7 @@ class MainServiceApp:
             return {
                 "type": "product_selection_by_text_response",
                 "result": success,
-                "error_code": None if success else "ROBOT_002",
+                "error_code": "" if success else "ROBOT_002",
                 "data": {
                     "bbox": int(bbox_number),
                     "product_id": int(resolved_product),
@@ -410,19 +476,27 @@ class MainServiceApp:
             """쇼핑 종료 처리"""
             user_id = data.get("user_id") # 로깅/인증용
             order_id = data.get("order_id")
-            robot_id = data.get("robot_id") # 로봇 ID는 App에서 관리한다고 가정
-
-            if not all([user_id, order_id, robot_id]):
+            if not user_id or order_id is None:
                 return {
                     "type": "shopping_end_response",
                     "result": False,
-                    "message": "user_id, order_id, and robot_id are required.",
+                    "message": "user_id and order_id are required.",
                     "error_code": "SYS_001",
                 }
 
-            success, summary = await self._order_service.end_shopping(order_id, robot_id)
+            try:
+                order_id_int = int(order_id)
+            except (TypeError, ValueError):
+                return {
+                    "type": "shopping_end_response",
+                    "result": False,
+                    "message": "order_id must be an integer.",
+                    "error_code": "SYS_001",
+                }
 
-            data_payload = {"order_id": order_id}
+            success, summary = await self._order_service.end_shopping(order_id_int)
+
+            data_payload = {"order_id": order_id_int}
             if summary:
                 data_payload.update(summary)
 
@@ -431,7 +505,7 @@ class MainServiceApp:
                 "result": success,
                 "data": data_payload,
                 "message": "쇼핑이 종료되었습니다" if success else "Failed to end shopping",
-                "error_code": None if success else "ROBOT_002",
+                "error_code": "" if success else "ROBOT_002",
             }
 
         async def handle_video_stream_start(data, peer):
@@ -465,7 +539,7 @@ class MainServiceApp:
             return {
                 "type": "video_stream_start_response",
                 "result": success,
-                "error_code": None if success else "SYS_001",
+                "error_code": "" if success else "SYS_001",
                 "data": {},
                 "message": res.message if success else "Failed to start stream",
             }
@@ -506,7 +580,7 @@ class MainServiceApp:
             return {
                 "type": "video_stream_stop_response",
                 "result": success,
-                "error_code": None if success else "SYS_001",
+                "error_code": "" if success else "SYS_001",
                 "data": {},
                 "message": message,
             }
@@ -519,7 +593,7 @@ class MainServiceApp:
                 return {
                     "type": "inventory_search_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {"products": products, "total_count": total_count},
                     "message": "Search completed",
                 }
@@ -541,7 +615,7 @@ class MainServiceApp:
                 return {
                     "type": "inventory_create_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {},
                     "message": "재고 정보를 추가하였습니다.",
                 }
@@ -579,7 +653,7 @@ class MainServiceApp:
                 return {
                     "type": "inventory_update_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {},
                     "message": "재고 정보를 수정하였습니다.",
                 }
@@ -625,7 +699,7 @@ class MainServiceApp:
                 return {
                     "type": "inventory_delete_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {},
                     "message": "재고 정보를 삭제하였습니다.",
                 }
@@ -647,7 +721,7 @@ class MainServiceApp:
                 return {
                     "type": "robot_history_search_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {"histories": histories, "total_count": total_count},
                     "message": "Search completed",
                 }
@@ -691,7 +765,7 @@ class MainServiceApp:
                 return {
                     "type": "robot_status_response",
                     "result": True,
-                    "error_code": None,
+                    "error_code": "",
                     "data": {
                         "robots": robots_data,
                         "total_count": len(robots_data),
@@ -729,7 +803,7 @@ class MainServiceApp:
                     return {
                         "type": "robot_maintenance_mode_response",
                         "result": True,
-                        "error_code": None,
+                        "error_code": "",
                         "data": {
                             "robot_id": robot_id,
                             "maintenance_mode": enabled,
@@ -754,11 +828,68 @@ class MainServiceApp:
                     "message": "Failed to set maintenance mode",
                 }
 
+        async def handle_health_check(data, peer=None):
+            """
+            헬스체크 엔드포인트
+
+            서비스의 각 컴포넌트 상태를 확인합니다.
+            - Database 연결
+            - ROS2 노드
+            - 로봇 상태 스토어
+            """
+            from sqlalchemy import text
+
+            checks = {}
+
+            # 1. 데이터베이스 연결 확인
+            try:
+                with self._db.session_scope() as session:
+                    session.execute(text('SELECT 1'))
+                checks['database'] = True
+            except Exception as e:
+                logger.error(f"Database health check failed: {type(e).__name__}: {e}")
+                checks['database'] = False
+
+            # 2. ROS2 노드 확인
+            try:
+                checks['ros2'] = self._robot.get_clock() is not None
+            except Exception as e:
+                logger.error(f"ROS2 health check failed: {type(e).__name__}: {e}")
+                checks['ros2'] = False
+
+            # 3. 로봇 상태 스토어 확인
+            try:
+                robot_states = await self._robot_state_store.list_states()
+                checks['robot_count'] = len(robot_states)
+            except Exception as e:
+                logger.error(f"Robot state store health check failed: {type(e).__name__}: {e}")
+                checks['robot_count'] = 0
+
+            # 모두 정상이면 healthy
+            all_healthy = (
+                checks['database']
+                and checks['ros2']
+                and checks['robot_count'] >= 0
+            )
+
+            return {
+                'type': 'health_check_response',
+                'result': all_healthy,
+                'data': {
+                    'status': 'healthy' if all_healthy else 'degraded',
+                    'checks': checks
+                },
+                'message': 'Service is healthy' if all_healthy else 'Service degraded',
+                'error_code': '' if all_healthy else 'SYS_001',
+            }
+
         # 핸들러 등록: 메시지 타입 → 처리 함수 매핑
         self._handlers.update(
             {
                 "user_login": handle_user_login,
+                "user_edit": handle_user_edit,
                 "product_search": handle_product_search,
+                "total_product": handle_total_product,
                 "order_create": handle_order_create,
                 "product_selection": handle_product_selection,
                 "product_selection_by_text": handle_product_selection_by_text,
@@ -772,6 +903,7 @@ class MainServiceApp:
                 "robot_history_search": handle_robot_history_search,
                 "robot_status_request": handle_robot_status_request,
                 "robot_maintenance_mode": handle_robot_maintenance_mode,
+                "health_check": handle_health_check,
             }
         )
 
@@ -876,20 +1008,23 @@ def main() -> None:
 
         # asyncio 초기화 대기 (최대 5초)
         import time
+        from .constants import ROS_SPIN_INTERVAL
+
         for _ in range(50):
             if service_app._dashboard_controller:
                 break
-            time.sleep(0.1)
+            time.sleep(ROS_SPIN_INTERVAL)
 
         # GUI가 활성화된 경우 GUI 윈도우 생성
         window = None
         if settings.GUI_ENABLED and service_app._dashboard_controller:
             from .dashboard import DashboardWindow
             window = DashboardWindow(
-                service_app._dashboard_controller.bridge,
-                service_app._robot,
-                service_app._db,
-                service_app._streaming_service
+                bridge=service_app._dashboard_controller.bridge,
+                ros_node=service_app._robot,
+                db_manager=service_app._db,
+                streaming_service=service_app._streaming_service,
+                loop=service_app._dashboard_controller._loop
             )
             window.show()
             logger.info("Dashboard GUI window created")

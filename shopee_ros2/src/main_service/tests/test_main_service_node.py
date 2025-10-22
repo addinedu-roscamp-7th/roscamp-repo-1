@@ -63,7 +63,12 @@ class TestVideoStreamHandlers:
         response = await handler(request_data, peer_address)
 
         # 검증 단계
-        app._streaming_service.start_relay.assert_called_once_with(peer_address[0], APP_UDP_PORT)
+        app._streaming_service.start_relay.assert_called_once_with(
+            robot_id=request_data['robot_id'], 
+            user_id=request_data['user_id'], 
+            app_ip=peer_address[0], 
+            app_port=APP_UDP_PORT
+        )
         app._robot.dispatch_video_stream_start.assert_awaited_once()
         assert response['result'] is True
 
@@ -135,6 +140,8 @@ class TestRobotHistoryHandlers:
         
         # 목 객체 반환값 구성
         app._robot.dispatch_video_stream_stop.return_value = MagicMock(success=True, message='Stream stopped')
+        # 마지막 시청자 조건을 시뮬레이션
+        app._streaming_service._sessions.get.return_value = []
 
         request_data = {'robot_id': 1, 'user_id': 'admin', 'user_type': 'admin'}
 

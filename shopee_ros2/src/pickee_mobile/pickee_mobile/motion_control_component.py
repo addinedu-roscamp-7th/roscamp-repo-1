@@ -13,6 +13,12 @@ class MotionControlComponent:
 
     def __init__(self, node: Node):
         self.node = node
+        self.cmd_vel_subscriber = self.node.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.speed_publisher_callback,
+            10
+        )
         self.cmd_vel_publisher = self.node.create_publisher(
             Twist,
             '/cmd_vel',
@@ -33,16 +39,55 @@ class MotionControlComponent:
         self.node.get_logger().info('Motion Control Component 초기화 완료.')
 
         self.current_speed_mode = 'normal' # normal, decelerate, stop
-        self.target_speed = 0.0
+        self.target_speed = 1.0
         self.current_move_status = None
+    
 
     def speed_control_callback(self, msg: PickeeMobileSpeedControl):
         '''
         Pickee Main Controller로부터 속도 제어 명령을 수신합니다.
         '''
         self.current_speed_mode = msg.speed_mode
-        self.target_speed = msg.target_speed
+        
         self.node.get_logger().info(f'속도 제어 명령 수신: mode={self.current_speed_mode}, target_speed={self.target_speed}')
+
+        if self.current_speed_mode == 'stop':
+            self.node.get_logger().info('로봇 정지 모드로 전환됨.')
+            self.target_speed = 0.0
+            self.current_move_status = 'stop'
+
+        elif self.current_speed_mode == 'normal':
+            self.node.get_logger().info('로봇 정상 주행 모드로 전환됨.')
+            self.target_speed = 1.0
+            self.current_move_status = 'moving'
+
+        elif self.current_speed_mode == 'decelerate':
+            self.node.get_logger().info('로봇 감속 모드로 전환됨.')
+            self.target_speed = msg.target_speed
+            self.current_move_status = 'decelerate moving'
+
+        else:
+            self.node.get_logger().warn(f'알 수 없는 속도 모드 수신: {self.current_speed_mode}')
+            self.target_speed = msg.target_speed
+            self.current_move_status = 'unknown mode received'
+
+    def speed_publisher_callback(self, msg: Twist):
+        '''
+        /cmd_vel 토픽을 수신하여 /cmd_vel로 발행합니다.
+        '''
+        modified_twist = Twist()
+        scale = self.target_speed
+
+        modified_twist.linear.x = msg.linear.x * scale
+        modified_twist.linear.y = msg.linear.y * scale
+        modified_twist.linear.z = msg.linear.z * scale
+
+        modified_twist.angular.x = msg.angular.x * scale
+        modified_twist.angular.y = msg.angular.y * scale
+        modified_twist.angular.z = msg.angular.z * scale
+
+        self.cmd_vel_publisher.publish(modified_twist)
+        # self.node.get_logger().info(f'Cmd_vel Modified 발행: linear.x={modified_twist.linear.x:.2f}, angular.z={modified_twist.angular.z:.2f}')
 
     def local_path_callback(self, msg: PickeeMoveStatus):
         '''

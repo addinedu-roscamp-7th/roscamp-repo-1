@@ -8,6 +8,8 @@ Pickee Mobile은 Shopee 로봇 쇼핑 시스템의 핵심 구성 요소 중 하�
 - Pickee Main Controller로부터 이동 명령 수신 및 수행
 - 로봇의 현재 위치, 속도, 배터리 잔량 및 상태를 Pickee Main Controller에 주기적으로 보고
 - 지정된 목적지에 정확하고 안전하게 도착
+- 모든 주행 알고리즘 집중 처리: Global Path 계획/수정, Local Path Planning, 장애물 회피
+- Vision에서 제공하는 장애물 정보 기반 경로 계획 및 동적 수정
 - 실시간 센서 데이터를 활용하여 자율 주행 및 장애물 회피
 - 배터리 잔량 모니터링 및 보고
 
@@ -20,7 +22,7 @@ Pickee Mobile은 Shopee 로봇 쇼핑 시스템의 핵심 구성 요소 중 하�
 Pickee Mobile은 ROS2 기반으로 개발되며, 다음과 같은 주요 노드 및 컴포넌트로 구성된다.
 
 *   **Localization Node:** 센서 데이터를 활용하여 로봇의 현재 위치를 정확하게 추정한다.
-*   **Path Planning Node:** Pickee Main Controller로부터 받은 전역 경로를 기반으로 지역 경로를 계획하고, 실시간 장애물 정보를 반영하여 안전하고 효율적인 경로를 생성한다.
+*   **Path Planning Node:** 목적지 정보를 기반으로 Global Path를 생성하고, Vision에서 제공되는 장애물 정보를 반영하여 Global Path를 동적으로 수정한다. 또한 실시간 센서 데이터를 활용해 Local Path를 계획하여 안전하고 효율적인 경로를 생성한다.
 *   **Motion Control Node:** Path Planning Node에서 생성된 경로를 추종하며 로봇의 모터 및 조향을 제어한다.
 *   **State Management Node:** Pickee Mobile의 현재 상태(이동 중, 정지, 대기, 오류 등)를 관리하고, 각 상태에 따른 동작을 제어한다.
 *   **Communication Node:** Pickee Main Controller와의 ROS2 통신 인터페이스를 담당한다.
@@ -71,14 +73,20 @@ Pickee Mobile의 주요 상태는 다음과 같이 정의되며, 각 상태는 �
 *   **보고:** 추정된 위치 정보와 함께 현재 선속도, 각속도, 배터리 잔량, 로봇 상태를 `/pickee/mobile/pose` 토픽을 통해 Pickee Main Controller에 주기적으로 발행한다. 발행 주기는 100ms로 설정하여 실시간성을 확보한다.
 
 ### 5.2. 경로 계획 및 추종 (Path Planning & Following)
-*   **전역 경로 수신:** `/pickee/mobile/move_to_location` 서비스 요청 시 Pickee Main Controller로부터 전역 경로(`global_path`)를 수신한다. 이 경로는 로봇이 따라야 할 고수준의 경로이다.
-*   **지역 경로 계획:** 수신된 전역 경로와 실시간 센서 데이터(LiDAR 등)를 기반으로 동적 장애물을 회피하며 로봇이 따라갈 지역 경로를 계획한다. DWA(Dynamic Window Approach) 또는 TEB(Timed-Elastic Band)와 같은 지역 경로 계획 알고리즘을 활용하여 안전하고 효율적인 경로를 생성한다.
+*   **전역 경로 수신:** `/pickee/mobile/move_to_location` 서비스 요청 시 Pickee Main Controller로부터 목적지 정보를 수신한다. Global Path가 제공될 경우 이를 기본 경로로 활용하되, 제공되지 않을 경우 A* 알고리즘 등을 통해 자체적으로 Global Path를 생성한다.
+*   **장애물 기반 경로 수정:** `/pickee/mobile/speed_control` 토픽을 통해 Pickee Main Controller로부터 Vision이 감지한 장애물 정보를 수신하면, 장애물의 크기와 위치를 분석하여 처리 방식을 결정한다:
+    - **큰 장애물 또는 정적 장애물**: Global Path 일부 구간을 우회하도록 수정
+    - **작은 장애물 또는 동적 장애물**: Local Path Planning으로만 회피 처리
+*   **지역 경로 계획:** 수정된 전역 경로와 실시간 센서 데이터(LiDAR 등)를 기반으로 동적 장애물을 회피하며 로봇이 따라갈 지역 경로를 계획한다. DWA(Dynamic Window Approach) 또는 TEB(Timed-Elastic Band)와 같은 지역 경로 계획 알고리즘을 활용하여 안전하고 효율적인 경로를 생성한다.
 *   **경로 추종:** 계획된 지역 경로를 따라 로봇을 정밀하게 제어하여 목표 포즈에 도달하도록 한다. PID 제어기 또는 Model Predictive Control(MPC)과 같은 제어 기법을 적용하여 경로 추종 성능을 최적화한다.
 *   **경로 업데이트:** `/pickee/mobile/update_global_path` 서비스 요청 시 새로운 전역 경로로 업데이트하여 Pickee Main Controller의 지시에 따라 유연한 경로 변경을 지원한다.
 
-### 5.3. 속도 제어 (Speed Control)
-*   **명령 수신:** `/pickee/mobile/speed_control` 토픽을 통해 Pickee Main Controller로부터 `speed_mode` (normal, decelerate, stop) 및 `target_speed` 명령을 수신한다.
-*   **안전 제어:** 수신된 명령과 로봇 주변의 장애물 정보(`obstacles`)를 종합하여 로봇의 속도를 안전하게 조절한다. 특히 `stop` 명령이나 충돌 위험 감지 시 즉시 정지하고, 장애물과의 거리에 따라 `decelerate` 모드로 전환하여 속도를 줄인다.
+### 5.3. 속도 제어 및 장애물 처리 (Speed Control & Obstacle Handling)
+*   **명령 수신:** `/pickee/mobile/speed_control` 토픽을 통해 Pickee Main Controller로부터 `speed_mode` (normal, decelerate, stop), `target_speed`, 그리고 Vision이 감지한 `obstacles` 정보를 수신한다.
+*   **장애물 분석:** 수신한 장애물 정보를 분석하여 각 장애물의 위험도와 처리 방식을 결정한다:
+    - **위험도 평가**: 장애물과의 거리, 크기, 이동 속도, 현재 로봇의 경로와의 교차 여부 등을 종합적으로 고려
+    - **처리 방식 결정**: 장애물 회피를 위한 Global Path 수정 필요성 또는 Local Path만으로 회피 가능 여부 판단
+*   **안전 제어:** 분석 결과에 따라 로봇의 속도를 안전하게 조절한다. 특히 `stop` 명령이나 충돌 위험 감지 시 즉시 정지하고, 장애물과의 거리에 따라 `decelerate` 모드로 전환하여 속도를 줄인다.
 
 ### 5.4. 도착 감지 (Arrival Detection)
 *   **판단 기준:** 로봇의 현재 위치가 `target_pose`로부터 일정 거리 및 각도 오차 범위 내에 들어오면 목적지에 도착한 것으로 판단한다. 이 오차 범위는 로봇의 정밀도 요구사항에 따라 설정한다.

@@ -1,6 +1,6 @@
 from .state import State
 from shopee_interfaces.srv import (
-    PickeeArmMoveToPose,
+    ArmMoveToPose,
     PickeeVisionSetMode,
     PickeeVisionDetectProducts
 )
@@ -15,7 +15,7 @@ class DetectingProductState(State):
 
         # 0단계: Arm을 shelf_view 자세로 변경 시작
         self._node.get_logger().info('0단계: Arm을 shelf_view 자세로 변경 시작')
-        request = PickeeArmMoveToPose.Request()
+        request = ArmMoveToPose.Request()
         request.robot_id = self._node.robot_id
         request.order_id = self._node.current_order_id
         request.pose_type = 'shelf_view'
@@ -28,8 +28,7 @@ class DetectingProductState(State):
                 self._node.get_logger().error(f'{self.phase}단계 실패. 더 이상 진행하지 않음.')
                 # 실패 시 CHARGING_AVAILABLE 상태로 복귀
                 from .charging_available import ChargingAvailableState
-                new_state = ChargingAvailableState(self._node)
-                self.transition_to(new_state)
+                return ChargingAvailableState(self._node)
                 self.future = None
                 return
 
@@ -75,13 +74,11 @@ class DetectingProductState(State):
                     self._node.selected_product = best_product
                     
                     from .picking_product import PickingProductState
-                    new_state = PickingProductState(self._node)
-                    self._node.state_machine.transition_to(new_state)
+                    return PickingProductState(self._node)
                 else:
                     # 수동 선택 대기
                     from .waiting_selection import WaitingSelectionState
-                    new_state = WaitingSelectionState(self._node)
-                    self._node.state_machine.transition_to(new_state)
+                    return WaitingSelectionState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('DETECTING_PRODUCT 상태 탈출')

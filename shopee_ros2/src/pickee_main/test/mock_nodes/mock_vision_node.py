@@ -14,7 +14,7 @@ from shopee_interfaces.srv import (
     PickeeVisionSetMode,
     PickeeVisionTrackStaff,
     PickeeVisionCheckProductInCart,
-    PickeeVisionCheckCartPresence,
+    VisionCheckCartPresence,
     PickeeVisionVideoStreamStart,
     PickeeVisionVideoStreamStop,
     PickeeVisionRegisterStaff,
@@ -52,7 +52,7 @@ class MockVisionNode(Node):
         )
         
         self.check_cart_presence_service = self.create_service(
-            PickeeVisionCheckCartPresence,
+            VisionCheckCartPresence,
             '/pickee/vision/check_cart_presence',
             self.check_cart_presence_callback
         )
@@ -113,7 +113,7 @@ class MockVisionNode(Node):
         )
         
         # 주기적으로 장애물 정보 발행
-        self.obstacles_timer = self.create_timer(30.0, self.publish_obstacles)
+        self.obstacles_timer = self.create_timer(100.0, self.publish_obstacles)
         
         # 5초마다 TTS 요청 테스트 (선택적)
         # self.tts_timer = self.create_timer(5.0, lambda: self.test_tts_request())

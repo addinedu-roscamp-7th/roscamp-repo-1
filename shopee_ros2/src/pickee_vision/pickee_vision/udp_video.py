@@ -1,121 +1,148 @@
 import asyncio
 import json
 import time
-import os
 import math
 import logging
+import threading
+import queue
 from typing import Optional
+import cv2
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(threadName)s - %(levelname)s - %(message)s')
 
 # 명세서 기반 설정
-HOST = '0.0.0.0'
-PORT = 6000
-HEADER_SIZE = 72
+HEADER_SIZE = 200
 CHUNK_DATA_SIZE = 1400
+JPEG_QUALITY = 90
 
-# 테스트용 이미지 파일 경로
-IMAGE_PATH = os.path.join(os.path.dirname(__file__), 'test_image.jpg')
-
-class VisionStreamingClient:
+class UdpStreamer:
     """
-    UDP를 통해 비동기적으로 영상 프레임을 스트리밍하는 클라이언트입니다.
-    streaming_service.py의 구조를 참고하여 송신자 역할을 수행합니다.
+    별도 스레드에서 동작하며, Queue를 통해 받은 이미지 프레임을
+    UDP로 비동기적으로 스트리밍하는 클래스.
     """
-    def __init__(self, host: str, port: int, image_path: str):
+    def __init__(self, host: str, port: int, robot_id: int = 1):
         self._host = host
         self._port = port
-        self._image_path = image_path
-        self._transport: Optional[asyncio.DatagramTransport] = None
-        self._image_data: bytes = b''
-        self._total_chunks: int = 0
-
-    def _load_image_data(self):
-        """테스트용 이미지 데이터를 로드하거나, 없을 경우 가짜 데이터를 생성합니다."""
-        try:
-            with open(self._image_path, 'rb') as f:
-                self._image_data = f.read()
-            logging.info(f"테스트 이미지 로드 완료: {self._image_path} ({len(self._image_data)} bytes)")
-        except FileNotFoundError:
-            logging.warning(f"테스트 이미지 파일을 찾을 수 없어, 가짜 데이터를 생성합니다. ({self._image_path})")
-            self._image_data = b'\xAA' * (100 * 1024) # 100KB 더미 데이터
+        self._robot_id = robot_id
         
-        image_size = len(self._image_data)
-        self._total_chunks = math.ceil(image_size / CHUNK_DATA_SIZE)
-        logging.info(f"이미지 크기: {image_size} bytes, 총 청크 수: {self._total_chunks}")
+        self.frame_queue = queue.Queue(maxsize=5) # 프레임 보관함
+        self.is_running = False
+        self.thread: Optional[threading.Thread] = None
+        self.transport: Optional[asyncio.DatagramTransport] = None
 
-    async def start(self):
-        """UDP 클라이언트(Endpoint)를 시작하고 전송을 준비합니다."""
-        self._load_image_data()
-        loop = asyncio.get_running_loop()
-        
-        # DatagramEndpoint를 생성합니다. 송신자는 별도의 프로토콜 클래스가 필요 없는 경우가 많습니다.
-        self._transport, _ = await loop.create_datagram_endpoint(
-            lambda: asyncio.DatagramProtocol(), # 기본 프로토콜 사용
-            remote_addr=(self._host, self._port)
-        )
-        logging.info(f"UDP 클라이언트 시작. 서버 주소: {self._host}:{self._port}")
-
-    async def stream_frames(self):
-        """이미지 프레임을 무한 루프로 스트리밍합니다."""
-        if not self._transport:
-            logging.error("클라이언트가 시작되지 않았습니다. start()를 먼저 호출하세요.")
+    def start(self):
+        """스트리밍 스레드를 시작합니다."""
+        if self.is_running:
+            logging.warning("UdpStreamer is already running.")
             return
-
-        frame_id = 0
-        while True:
-            logging.info(f"--- Frame ID: {frame_id} 전송 시작 ---")
-            for i in range(self._total_chunks):
-                start = i * CHUNK_DATA_SIZE
-                end = start + CHUNK_DATA_SIZE
-                chunk_data = self._image_data[start:end]
-                
-                header = {
-                    "type": "video_frame",
-                    "frame_id": frame_id,
-                    "chunk_idx": i,
-                    "total_chunks": self._total_chunks,
-                    "data_size": len(chunk_data),
-                    "timestamp": int(time.time() * 1000),
-                    "width": 640,
-                    "height": 480,
-                    "format": "jpeg"
-                }
-                
-                header_bytes = json.dumps(header).encode('utf-8')
-                padded_header = header_bytes.ljust(HEADER_SIZE)
-                packet = padded_header + chunk_data
-                
-                self._transport.sendto(packet)
-                # 비동기 환경에서는 아주 짧은 sleep이라도 이벤트 루프에 제어권을 넘겨주는 것이 좋습니다.
-                await asyncio.sleep(0.001)
-
-            logging.info(f"  - Frame ID: {frame_id}의 모든 청크 ({self._total_chunks}개) 전송 완료.")
-            frame_id += 1
-            await asyncio.sleep(1) # 1초에 한 프레임
+        
+        self.is_running = True
+        self.thread = threading.Thread(target=self._run_async_loop, name="UdpStreamerThread")
+        self.thread.start()
+        logging.info("UdpStreamer thread started.")
 
     def stop(self):
-        """UDP 클라이언트를 종료합니다."""
-        if self._transport:
-            self._transport.close()
-            logging.info("UDP 클라이언트 종료.")
+        """스트리밍 스레드를 종료합니다."""
+        if not self.is_running:
+            return
+        
+        self.is_running = False
+        # 큐에 None을 넣어 블로킹된 get()을 해제하고 루프를 종료시킴
+        try:
+            self.frame_queue.put_nowait(None)
+        except queue.Full:
+            pass # 큐가 꽉 찼으면 어차피 소비자 스레드가 바쁘다는 의미
 
-    async def start_and_stream(self):
-        """start()와 stream_frames()를 순차적으로 실행하는 헬퍼 메서드"""
-        await self.start()
-        await self.stream_frames()
+        if self.thread and self.thread.is_alive():
+            self.thread.join()
+        logging.info("UdpStreamer thread stopped.")
 
-async def main():
-    """메인 실행 함수"""
-    client = VisionStreamingClient(HOST, PORT, IMAGE_PATH)
-    try:
-        await client.start()
-        await client.stream_frames()
-    except KeyboardInterrupt:
-        logging.info("사용자에 의해 중단됨.")
-    finally:
-        client.stop()
+    def queue_frame(self, frame):
+        """메인 스레드에서 스트리밍할 프레임을 큐에 추가합니다."""
+        if not self.is_running:
+            return
+        try:
+            # 큐가 꽉 찼으면 오래된 프레임은 버리고 새 프레임을 넣기 위해 non-blocking 사용
+            self.frame_queue.put_nowait(frame)
+        except queue.Full:
+            logging.warning("Frame queue is full, dropping a frame.")
 
-if __name__ == '__main__':
-    asyncio.run(main())
+    def _run_async_loop(self):
+        """새로운 스레드의 진입점으로, asyncio 이벤트 루프를 설정하고 실행합니다."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self._async_worker())
+        finally:
+            loop.close()
+
+    async def _async_worker(self):
+        """실제 UDP 통신을 담당하는 비동기 워커"""
+        loop = asyncio.get_running_loop()
+        try:
+            self.transport, _ = await loop.create_datagram_endpoint(
+                lambda: asyncio.DatagramProtocol(),
+                remote_addr=(self._host, self._port)
+            )
+        except Exception as e:
+            logging.error(f"Failed to create UDP endpoint: {e}")
+            self.is_running = False
+            return
+
+        logging.info(f"UDP endpoint created for {self._host}:{self._port}")
+
+        while self.is_running:
+            try:
+                # run_in_executor를 사용해 블로킹 I/O인 queue.get()을 비동기적으로 실행
+                frame = await loop.run_in_executor(None, self.frame_queue.get)
+                
+                if frame is None: # 종료 신호
+                    break
+
+                await self._send_frame(frame)
+
+            except Exception as e:
+                logging.error(f"Error during frame sending: {e}")
+
+        if self.transport:
+            self.transport.close()
+
+    async def _send_frame(self, frame):
+        """하나의 프레임을 인코딩하고 청크로 나누어 전송합니다."""
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
+        result, encimg = cv2.imencode('.jpg', frame, encode_param)
+        if not result:
+            logging.warning("Failed to encode frame to JPEG.")
+            return
+
+        image_data = encimg.tobytes()
+        image_size = len(image_data)
+        total_chunks = math.ceil(image_size / CHUNK_DATA_SIZE)
+        
+        frame_id = int(time.time() * 1000) # 간단한 프레임 ID
+
+        for i in range(total_chunks):
+            start = i * CHUNK_DATA_SIZE
+            end = start + CHUNK_DATA_SIZE
+            chunk_data = image_data[start:end]
+            
+            header = {
+                "type": "video_frame",
+                "robot_id": self._robot_id,
+                "frame_id": frame_id,
+                "chunk_idx": i,
+                "total_chunks": total_chunks,
+                "data_size": len(chunk_data),
+                "timestamp": int(time.time() * 1000),
+                "width": frame.shape[1],
+                "height": frame.shape[0],
+                "format": "jpeg"
+            }
+            
+            header_bytes = json.dumps(header).encode('utf-8')
+            padded_header = header_bytes.ljust(HEADER_SIZE)
+            packet = padded_header + chunk_data
+            
+            if self.transport:
+                self.transport.sendto(packet)

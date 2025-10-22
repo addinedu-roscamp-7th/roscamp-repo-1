@@ -3,14 +3,14 @@
 #include "shopee_interfaces/msg/packee_robot_status.hpp"
 #include "shopee_interfaces/msg/packee_availability.hpp"
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
-#include "shopee_interfaces/msg/packee_arm_task_status.hpp"
+#include "shopee_interfaces/msg/arm_task_status.hpp"
 
 using namespace std::placeholders;
 using PackingComplete = shopee_interfaces::msg::PackeePackingComplete;
 using RobotStatus = shopee_interfaces::msg::PackeeRobotStatus;
 using Availability = shopee_interfaces::msg::PackeeAvailability;
 using PoseStatus = shopee_interfaces::msg::ArmPoseStatus;
-using ArmTaskStatus = shopee_interfaces::msg::PackeeArmTaskStatus;
+using ArmTaskStatus = shopee_interfaces::msg::ArmTaskStatus;
 
 class PackingTopicServer : public rclcpp::Node
 {

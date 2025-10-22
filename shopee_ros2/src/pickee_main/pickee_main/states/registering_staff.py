@@ -41,14 +41,12 @@ class RegisteringStaffState(State):
         if hasattr(self._node, 'staff_registration_completed') and self._node.staff_registration_completed:
             self._node.get_logger().info('직원 등록이 완료되었습니다. FOLLOWING_STAFF 상태로 전환합니다.')
             from .following_staff import FollowingStaffState
-            new_state = FollowingStaffState(self._node)
-            self.transition_to(new_state)
+            return FollowingStaffState(self._node)
             
         elif hasattr(self._node, 'staff_registration_failed') and self._node.staff_registration_failed:
             self._node.get_logger().error('직원 등록에 실패했습니다. CHARGING_AVAILABLE 상태로 복귀합니다.')
             from .charging_available import ChargingAvailableState
-            new_state = ChargingAvailableState(self._node)
-            self.transition_to(new_state)
+            return ChargingAvailableState(self._node)
     
     def on_exit(self):
         self._node.get_logger().info('REGISTERING_STAFF 상태 탈출')

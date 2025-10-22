@@ -38,8 +38,10 @@ class DummyClient:
 
 @pytest.mark.asyncio
 async def test_call_service_with_retry_succeeds_after_failures() -> None:
+    from unittest.mock import MagicMock
     client = DummyClient(failures=2)
     response = await _call_service_with_retry(
+        MagicMock(), # coordinator
         client,
         request={'value': 1},
         timeout_sec=0.2,
@@ -52,9 +54,11 @@ async def test_call_service_with_retry_succeeds_after_failures() -> None:
 
 @pytest.mark.asyncio
 async def test_call_service_with_retry_raises_after_exhausting_attempts() -> None:
+    from unittest.mock import MagicMock
     client = DummyClient(failures=3)
     with pytest.raises(RuntimeError):
         await _call_service_with_retry(
+            MagicMock(), # coordinator
             client,
             request={},
             timeout_sec=0.1,

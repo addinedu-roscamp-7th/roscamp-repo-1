@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .config import settings
-from .constants import RobotType, RobotStatus
+from .constants import EventTopic, RobotType, RobotStatus
 from .database_models import Order, OrderItem
 from .robot_selector import AllocationContext
 
@@ -59,7 +59,7 @@ class RobotFailureHandler:
         self._product_builder = product_builder
 
         if settings.ROBOT_AUTO_RECOVERY_ENABLED:
-            self._event_bus.subscribe('robot_failure', self.handle_robot_failure)
+            self._event_bus.subscribe(EventTopic.ROBOT_FAILURE.value, self.handle_robot_failure)
 
     async def handle_robot_failure(self, event_data: Dict[str, Any]) -> None:
         """
@@ -213,7 +213,7 @@ class RobotFailureHandler:
             {
                 'type': 'robot_reassignment_notification',
                 'result': True,
-                'error_code': None,
+                'error_code': '',
                 'data': {
                     'order_id': order_id,
                     'old_robot_id': old_robot_id,
@@ -319,7 +319,7 @@ class RobotFailureHandler:
                 else:
                     self._assignment_manager.release_packee(order_id)
 
-                await self._event_bus.publish('reservation_timeout', {
+                await self._event_bus.publish(EventTopic.RESERVATION_TIMEOUT.value, {
                     'robot_id': robot_id, 'order_id': order_id, 'robot_type': robot_type.value, 'timeout': timeout
                 })
                 await self.fail_order(order_id, f'Robot {robot_id} timeout after {timeout}s')

@@ -543,7 +543,7 @@ class RobotCoordinator(Node):
             "status": status,
             "active_order_id": active_order_id,
         }
-        self._submit_coroutine(self._event_bus.publish, "robot_failure", event_data)
+        self._submit_coroutine(self._event_bus.publish, EventTopic.ROBOT_FAILURE.value, event_data)
 
     # === 서비스 콜백 함수들 ===
 
@@ -553,12 +553,14 @@ class RobotCoordinator(Node):
         timeout: float | None = None,
     ):
         """Async helper executed from synchronous ROS service callbacks."""
+        from .constants import ROS_SERVICE_FALLBACK_TIMEOUT
+
         if not self._asyncio_loop:
             raise RuntimeError("Asyncio loop is not set for RobotCoordinator.")
         if timeout is None or timeout <= 0:
             timeout = settings.ROS_SERVICE_TIMEOUT
             if timeout <= 0:
-                timeout = 5.0
+                timeout = ROS_SERVICE_FALLBACK_TIMEOUT
         future = asyncio.run_coroutine_threadsafe(coro, self._asyncio_loop)
         return future.result(timeout=timeout)
 
@@ -697,7 +699,7 @@ class RobotCoordinator(Node):
             'timestamp': self.get_clock().now().nanoseconds / 1e9,
             'msg': msg_dict
         }
-        self._submit_coroutine(self._event_bus.publish, EventTopic.ROS_TOPIC_RECEIVED, event_data)
+        self._submit_coroutine(self._event_bus.publish, EventTopic.ROS_TOPIC_RECEIVED.value, event_data)
 
     def _publish_service_event(self, event_topic: EventTopic, call_id: str, service_name: str, msg: object, duration: float = 0.0, success: bool = True):
         """서비스 호출 관련 이벤트를 EventBus에 발행한다."""
@@ -722,7 +724,7 @@ class RobotCoordinator(Node):
             'success': success,
             'msg': msg_dict,
         }
-        self._submit_coroutine(self._event_bus.publish, event_topic, event_data)
+        self._submit_coroutine(self._event_bus.publish, event_topic.value, event_data)
 
 
     def _check_robot_health(self) -> None:

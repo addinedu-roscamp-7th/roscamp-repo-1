@@ -33,14 +33,14 @@
 
 | 모듈 | 파일 | 역할 |
 | --- | --- | --- |
-| RobotStateStore | `shopee_main_service/robot_state_store.py` | RobotState CRUD, 예약/해제, 상태 조회 API |
-| RobotStateBackend | `shopee_main_service/robot_state_backend.py` | 상태 모델 정의와 인메모리 구현 |
-| RobotAllocator | `shopee_main_service/robot_allocator.py` | 전략 기반 로봇 선택 및 예약 시도 |
-| RobotCoordinator | `shopee_main_service/robot_coordinator.py` | ROS2 토픽/서비스 브릿지, 상태 캐시 갱신, 장애 이벤트 |
-| OrderService | `shopee_main_service/order_service.py` | 주문/포장 워크플로, 예약 호출 및 롤백 |
-| Mock Robot Node | `shopee_main_service/mock_robot_node.py` | 테스트 환경용 Pickee/Packee 시뮬레이터 |
-| Mock Pickee Node | `shopee_main_service/mock_pickee_node.py` | Pickee 전용 Mock 노드 |
-| Mock Packee Node | `shopee_main_service/mock_packee_node.py` | Packee 전용 Mock 노드 |
+| RobotStateStore | `main_service/main_service/robot_state_store.py` | RobotState CRUD, 예약/해제, 상태 조회 API |
+| RobotStateBackend | `main_service/main_service/robot_state_backend.py` | 상태 모델 정의와 인메모리 구현 |
+| RobotAllocator | `main_service/main_service/robot_selector.py` | 전략 기반 로봇 선택 및 예약 시도 |
+| RobotCoordinator | `main_service/main_service/robot_coordinator.py` | ROS2 토픽/서비스 브릿지, 상태 캐시 갱신, 장애 이벤트 |
+| OrderService | `main_service/main_service/order_service.py` | 주문/포장 워크플로, 예약 호출 및 롤백 |
+| Mock Robot Node | `main_service/tests/mocks/mock_robot_node.py` | 테스트 환경용 Pickee/Packee 시뮬레이터 |
+| Mock Pickee Node | `main_service/tests/mocks/mock_pickee_node.py` | Pickee 전용 Mock 노드 |
+| Mock Packee Node | `main_service/tests/mocks/mock_packee_node.py` | Packee 전용 Mock 노드 |
 
 ## 상태 모델
 

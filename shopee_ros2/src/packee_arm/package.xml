@@ -1,20 +1,31 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>packee_arm</name>
-  <version>0.0.0</version>
-  <description>Packee arm controller node for Shopee robot system</description>
-  <maintainer email="park619412@gmail.com">park619412</maintainer>
-  <license>TODO: License declaration</license>
+  <version>0.1.0</version>
+  <description>Packee dual-arm coordination and mock communication package for Shopee robotics system.</description>
 
+  <!-- Maintainer & License -->
+  <maintainer email="addinedu@todo.todo">Park Daejun</maintainer>
+  <license>MIT</license>
+
+  <!-- Build system -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>rclcpp</build_depend>
-  <build_depend>shopee_interfaces</build_depend>
+  <!-- Core ROS 2 dependencies -->
+  <depend>rclcpp</depend>
+  <depend>rosidl_runtime_cpp</depend>
+  <depend>shopee_interfaces</depend>
 
-  <exec_depend>rclcpp</exec_depend>
-  <exec_depend>shopee_interfaces</exec_depend>
+  <!-- Message/Service utilities -->
+  <depend>trajectory_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
 
+  <!-- Optional utilities -->
+  <depend>geometry_msgs</depend>
+  <depend>builtin_interfaces</depend>
+
+  <!-- Build type -->
   <export>
     <build_type>ament_cmake</build_type>
   </export>

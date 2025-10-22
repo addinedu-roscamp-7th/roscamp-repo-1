@@ -165,6 +165,8 @@ class MessageType(Enum):
     USER_LOGIN_RESPONSE = "user_login_response"
     USER_LOGOUT = "user_logout"
     USER_LOGOUT_RESPONSE = "user_logout_response"
+    USER_EDIT = "user_edit"
+    USER_EDIT_RESPONSE = "user_edit_response"
     
     # === 상품 검색 ===
     PRODUCT_SEARCH = "product_search"
@@ -234,9 +236,15 @@ class EventTopic(Enum):
     ROBOT_ARRIVED = "robot_arrived"        # 로봇 도착
     ROBOT_TASK_COMPLETED = "robot_task_completed"  # 로봇 작업 완료
     ROBOT_ERROR = "robot_error"            # 로봇 오류
+    ROBOT_FAILURE = "robot_failure"        # 로봇 실패
+    RESERVATION_TIMEOUT = "reservation_timeout"  # 로봇 예약 타임아웃
     ROS_TOPIC_RECEIVED = "ros_topic_received"  # ROS 토픽 수신 (대시보드용)
     ROS_SERVICE_CALLED = "ros_service_called"    # ROS 서비스 호출 (대시보드용)
     ROS_SERVICE_RESPONDED = "ros_service_responded" # ROS 서비스 응답 (대시보드용)
+
+    # === TCP 통신 이벤트 (대시보드용) ===
+    TCP_MESSAGE_RECEIVED = "tcp_message_received"
+    TCP_MESSAGE_SENT = "tcp_message_sent"
 
 
 # === 기타 상수 ===
@@ -245,7 +253,9 @@ class EventTopic(Enum):
 DEFAULT_TIMEOUT = 30.0
 API_TIMEOUT = 5.0
 ROS_SERVICE_TIMEOUT = 1.0
+ROS_SERVICE_FALLBACK_TIMEOUT = 5.0  # ROS 서비스 타임아웃 폴백 값
 LLM_TIMEOUT = 1.5
+TCP_READ_TIMEOUT = 5.0  # TCP 연결 읽기 타임아웃
 
 # 재시도 횟수
 MAX_RETRIES = 3
@@ -258,4 +268,18 @@ MAX_PAGE_SIZE = 1000
 # 로봇 관련
 MAX_PICKEE_ROBOTS = 10
 MAX_PACKEE_ROBOTS = 5
+
+# 스트리밍 관련
+STREAMING_SESSION_TIMEOUT = 30.0  # 스트리밍 세션 만료 시간 (초)
+STREAMING_CLEANUP_INTERVAL = 10.0  # 세션 정리 주기 (초)
+STREAMING_FRAME_BUFFER_SIZE = 10  # 프레임 버퍼 최대 크기
+
+# 대시보드 관련
+DASHBOARD_UPDATE_INTERVAL = 1.0  # 대시보드 갱신 주기 (초)
+MAX_TOPIC_LOG_ENTRIES = 100  # 토픽 모니터 최대 로그 수
+GUI_QUEUE_TIMEOUT = 0.0  # GUI 큐 타임아웃 (0.0 = non-blocking)
+GUI_SHUTDOWN_TIMEOUT = 1.0  # GUI 종료 대기 시간 (초)
+
+# 이벤트 루프 관련
+ROS_SPIN_INTERVAL = 0.1  # ROS 스핀 주기 (초)
 

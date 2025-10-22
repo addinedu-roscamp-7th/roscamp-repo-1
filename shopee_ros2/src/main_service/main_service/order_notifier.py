@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
+from .constants import EventTopic
 from .database_models import Customer, Order, OrderItem, Product, RobotHistory
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ class OrderNotifier:
             user_id = self._get_order_user_id(order_id)
             if user_id:
                 message.setdefault("target_user_id", user_id)
-        await self._event_bus.publish("app_push", message)
+        await self._event_bus.publish(EventTopic.APP_PUSH.value, message)
 
     async def notify_robot_moving(self, msg: "PickeeMoveStatus") -> None:
         """Pickee 이동 상태를 알립니다."""
@@ -90,7 +91,7 @@ class OrderNotifier:
             {
                 "type": "robot_moving_notification",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": {
                     "order_id": msg.order_id,
                     "robot_id": msg.robot_id,
@@ -116,7 +117,7 @@ class OrderNotifier:
             {
                 "type": "robot_arrived_notification",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": {
                     "order_id": msg.order_id,
                     "robot_id": msg.robot_id,
@@ -134,7 +135,7 @@ class OrderNotifier:
             {
                 "type": "product_selection_start",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": {
                     "order_id": msg.order_id,
                     "robot_id": msg.robot_id,
@@ -152,7 +153,7 @@ class OrderNotifier:
             if msg.success
             else self._default_locale_messages["cart_add_fail"]
         )
-        error_code = None if msg.success else "ROBOT_002"
+        error_code = "" if msg.success else "ROBOT_002"
         await self._push_to_user(
             {
                 "type": "cart_update_notification",
@@ -171,13 +172,72 @@ class OrderNotifier:
             order_id=msg.order_id,
         )
 
+    async def notify_product_loaded(
+        self,
+        order_id: int,
+        robot_id: int,
+        product: Dict[str, Any],
+        total_items: int,
+        total_price: int,
+        success: bool,
+        message: str,
+    ) -> None:
+        """수동 적재 완료 이벤트를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "product_loaded_notification",
+                "result": success,
+                "error_code": "" if success else "ROBOT_002",
+                "data": {
+                    "order_id": order_id,
+                    "robot_id": robot_id,
+                    "product": product,
+                    "total_items": total_items,
+                    "total_price": total_price,
+                },
+                "message": message or ("상품 적재가 완료되었습니다." if success else "상품 적재에 실패했습니다."),
+            },
+            order_id=order_id,
+        )
+
+    async def notify_picking_complete(self, order_id: int, robot_id: int) -> None:
+        """모든 상품 피킹 완료를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "picking_complete_notification",
+                "result": True,
+                "error_code": "",
+                "data": {
+                    "order_id": order_id,
+                    "robot_id": robot_id,
+                },
+                "message": "모든 상품을 장바구니에 담았습니다. 포장 스테이션으로 이동합니다.",
+            },
+            order_id=order_id,
+        )
+
+    async def notify_manual_picking_complete(self, order_id: int) -> None:
+        """수동 피킹 단계 완료를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "manual_picking_complete",
+                "result": True,
+                "error_code": "",
+                "data": {
+                    "order_id": order_id,
+                },
+                "message": "수동 선택 상품을 모두 담았습니다. 이제부터 로봇이 나머지 상품을 자동으로 담습니다.",
+            },
+            order_id=order_id,
+        )
+
     async def notify_packing_info(self, order_id: int, payload: dict) -> None:
         """포장 정보를 알립니다."""
         await self._push_to_user(
             {
                 "type": "packing_info_notification",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": {**payload, "order_id": order_id},
                 "message": "포장 정보 업데이트",
             },
@@ -196,7 +256,7 @@ class OrderNotifier:
             {
                 "type": "packing_info_notification",
                 "result": msg.success,
-                "error_code": None if msg.success else "ROBOT_002",
+                "error_code": "" if msg.success else "ROBOT_002",
                 "data": {
                     "order_id": msg.order_id,
                     "order_status": order_status_text,
@@ -234,6 +294,23 @@ class OrderNotifier:
                     "robot_type": robot_type,
                 },
                 "message": f"로봇 {robot_id}이(가) 응답하지 않습니다. 다시 시도해주세요.",
+            },
+            order_id=order_id,
+        )
+
+    async def notify_packing_unavailable(self, order_id: int, robot_id: int, reason: str, detail_message: str) -> None:
+        """포장 로봇 가용성 문제를 알립니다."""
+        await self._push_to_user(
+            {
+                "type": "packing_unavailable_notification",
+                "result": False,
+                "error_code": "ROBOT_001",
+                "data": {
+                    "order_id": order_id,
+                    "robot_id": robot_id,
+                    "reason": reason,
+                },
+                "message": detail_message or reason,
             },
             order_id=order_id,
         )
@@ -284,7 +361,7 @@ class OrderNotifier:
             {
                 "type": "work_info_notification",
                 "result": True,
-                "error_code": None,
+                "error_code": "",
                 "data": data,
                 "message": "작업 정보 업데이트",
             },

@@ -131,6 +131,228 @@ Main = Shopee Main Service
 }
 ```
 
+### 사용자 정보 수정
+
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `user_edit`
+
+```json
+{
+  "type": "user_edit",
+  "data": {
+    "user_id": "string",
+    "name": "string",
+    "gender": "boolean",
+    "age": "int",
+    "address": "string",
+    "allergy_info": {
+      "nuts": "boolean",
+      "milk": "boolean",
+      "seafood": "boolean",
+      "soy": "boolean",
+      "peach": "boolean",
+      "gluten": "boolean",
+      "eggs": "boolean"
+    },
+    "is_vegan": "boolean"
+  }
+}
+```
+
+**예시**
+```json
+{
+  "type": "user_edit",
+  "data": {
+    "user_id": "customer001",
+    "name": "홍길동",
+    "age": 31,
+    "address": "서울시 강남구 테헤란로 123",
+    "allergy_info": {
+      "nuts": true,
+      "milk": false
+    },
+    "is_vegan": true
+  }
+}
+```
+
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `user_edit_response`
+
+```json
+{
+  "type": "user_edit_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "user_id": "string",
+    "name": "string",
+    "gender": "boolean",
+    "age": "int",
+    "address": "string",
+    "allergy_info": {
+      "nuts": "boolean",
+      "milk": "boolean",
+      "seafood": "boolean",
+      "soy": "boolean",
+      "peach": "boolean",
+      "gluten": "boolean",
+      "eggs": "boolean"
+    },
+    "is_vegan": "boolean"
+  },
+  "message": "string"
+}
+```
+
+**성공 예시**
+```json
+{
+  "type": "user_edit_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "user_id": "customer001",
+    "name": "홍길동",
+    "gender": true,
+    "age": 31,
+    "address": "서울시 강남구 테헤란로 123",
+    "allergy_info": {
+      "nuts": true,
+      "milk": false,
+      "seafood": false,
+      "soy": false,
+      "peach": false,
+      "gluten": false,
+      "eggs": false
+    },
+    "is_vegan": true
+  },
+  "message": "User information updated successfully"
+}
+```
+
+**실패 예시 (사용자 없음)**
+```json
+{
+  "type": "user_edit_response",
+  "result": false,
+  "error_code": "AUTH_002",
+  "data": {},
+  "message": "User not found"
+}
+```
+
+**실패 예시 (필수 필드 누락)**
+```json
+{
+  "type": "user_edit_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {},
+  "message": "user_id is required"
+}
+```
+
+### 전체 상품 요청
+
+**요청**
+- From: App
+- To: Main Service
+- Message Type: `total_product`
+
+```json
+{
+  "type": "total_product",
+  "data": {
+    "user_id": "string"
+  }
+}
+```
+
+**예시**
+```json
+{
+  "type": "total_product",
+  "data": {
+    "user_id": "홍길동"
+  }
+}
+```
+
+**응답**
+- From: Main Service
+- To: App
+- Message Type: `total_product_response`
+
+```json
+{
+  "type": "total_product_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "products": [
+      {
+        "product_id": "int",
+        "name": "string",
+        "price": "int",
+        "discount_rate": "int",
+        "category": "string",
+        "allergy_info": {
+          "nuts": "boolean",
+          "milk": "boolean",
+          "seafood": "boolean",
+          "soy": "boolean",
+          "peach": "boolean",
+          "gluten": "boolean",
+          "eggs": "boolean"
+        },
+        "is_vegan_friendly": "boolean"
+      }
+    ],
+    "total_count": "int"
+  },
+  "message": "string"
+}
+```
+
+**예시**
+```json
+{
+  "type": "total_product_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "products": [
+      {
+        "product_id": 1,
+        "name": "사과",
+        "price": 19000,
+        "discount_rate": 25,
+        "category": "fruit",
+        "allergy_info": {
+          "nuts": false,
+          "milk": true,
+          "seafood": false,
+          "soy": true,
+          "peach": false,
+          "gluten": true,
+          "eggs": false
+        },
+        "is_vegan_friendly": true
+      }
+    ],
+    "total_count": 5
+  },
+  "message": "get list successfully"
+}
+```
+
 ### 상품 검색
 
 **요청**
@@ -1179,6 +1401,38 @@ Main = Shopee Main Service
     "total_price": 8640
   },
   "message": "상품이 장바구니에 담겼습니다"
+}
+```
+
+### 피킹 완료 알림
+
+- From: Main Service
+- To: App
+- Message Type: `picking_complete_notification`
+
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "order_id": "int",
+    "robot_id": "int"
+  },
+  "message": "string"
+}
+```
+
+**예시**
+```json
+{
+  "type": "picking_complete_notification",
+  "result": true,
+  "data": {
+    "order_id": 23,
+    "robot_id": 1
+  },
+  "message": "모든 상품을 장바구니에 담았습니다."
 }
 ```
 

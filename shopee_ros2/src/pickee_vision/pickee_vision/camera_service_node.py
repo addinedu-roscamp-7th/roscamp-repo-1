@@ -25,7 +25,7 @@ class CameraServiceNode(Node):
 
         # UDP 스트리밍 클라이언트 인스턴스화
         # HOST는 실제 Main Service의 IP로 변경해야 합니다.
-        self.udp_client = VisionStreamingClient(host='127.0.0.1', port=6000, image_path='')
+        self.udp_client = VisionStreamingClient(host='0.0.0.0', port=6000, image_path='')
         self.streaming_task = None
         self.streaming_loop = None
 

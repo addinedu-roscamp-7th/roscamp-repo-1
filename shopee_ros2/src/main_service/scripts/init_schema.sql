@@ -115,6 +115,7 @@ CREATE TABLE product (
     category VARCHAR(10) NOT NULL,
     allergy_info_id INT NOT NULL,
     is_vegan_friendly BOOLEAN NOT NULL,
+    auto_select BOOLEAN NOT NULL DEFAULT TRUE,
     section_id INT NOT NULL,
     warehouse_id INT NOT NULL,
     length INT,
@@ -122,7 +123,6 @@ CREATE TABLE product (
     height INT,
     weight INT,
     fragile BOOLEAN,
-    img_path VARCHAR(50),
     FOREIGN KEY (allergy_info_id) REFERENCES allergy_info(allergy_info_id),
     FOREIGN KEY (section_id) REFERENCES section(section_id),
     FOREIGN KEY (warehouse_id) REFERENCES warehouse(warehouse_id)

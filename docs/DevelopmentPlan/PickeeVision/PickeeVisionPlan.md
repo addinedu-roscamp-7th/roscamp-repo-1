@@ -14,7 +14,12 @@
 - 직원 등록, 추종 및 위치 정보 제공
 - 원격 모니터링을 위한 실시간 영상 스트리밍
 
-## 3. 아키텍처 설계: 노드 분리
+## 3. 아키텍처 설계: 노드 분리 (/shopee_ros2/src/pickee_vision/pickee_vision)
+
+카메라 하드웨어 자원은 2개
+1: 카트에 달려있어 장애물 감지 및 직원 추종
+2: 로봇팔에 달려있어 매대 상품 및 장바구니 존재 유무 확인, 로봇팔 제어를 위한 6자유도 좌표계 출력
+
 
 유지보수성과 확장성을 고려하여, Pickee Vision의 기능은 다음과 같이 4개의 독립적인 ROS2 노드로 분리하여 설계합니다.
 
@@ -22,6 +27,10 @@
 - **`product_detector_node`**: 상품 및 장바구니 관련 인식 서비스 및 결과 발행 전담
 - **`staff_tracker_node`**: 직원 등록, 추종 등 상호작용 시나리오 전담
 - **`camera_service_node`**: 영상 스트리밍 제어 및 하드웨어 관련 서비스 전담
+
+추가로 원격 모니터링을 위한 Shopee Main Controller과 UDP 통신하는 Python 파일 1개를 설계합니다.
+
+- **`udp_video.py`**: 원격 모니터링을 위한 실시간 영상 UDP 통신
 
 ## 4. 세부 구현 계획: 노드별 인터페이스
 
@@ -58,6 +67,10 @@
 - **내부 기능**
     - UDP 영상 스트림 송출 (포트 `6000`)
 
+#### 5)/ `udp_video.py` 
+- **내부 기능**
+    - /docs/InterfaceSpecification/Main_vs_Pic_Vision_UDP.md 참고
+
 ## 5. 개발 단계 (초안)
 
 #### 1단계: 스켈레톤 구현 및 통신 테스트 (현재 완료)
@@ -66,7 +79,10 @@
 - Mock 데이터를 사용한 인터페이스 통신 검증
 
 #### 2단계: 핵심 로직 구현
-- 각 노드에 실제 AI 모델(YOLO 등) 연동
+- 각 노드에 실제 AI 모델(yolov8s-seg.pt 사용, 객체 인식을 segment로 인식하므로 좌표 추출을 Polygon으로 할것)
+- 로컬에서와 Shopee Main UDP통신으로는 이미지가 아닌 영상으로 객체 인식 화면을 확인 및 전송하면서, Pickee Main 과의 통신에서는 detect_products 서비스 요청이 오면 해당 프레임만 detection_result 토픽으로 발행
+- detection_result 토픽으로 발행하는 이미지에는 bbox_number와 bbox 테두리와 polygon 테두리만 그려서 발행하기
+- 해당 좌표에 따라 로봇팔을 제어할 6자유도 좌표를 추출하는 알고리즘 작성(IBVS기반 알고리즘 구성 예정)
 - 카메라 및 하드웨어 드라이버 연동
 - UDP 영상 스트리밍 클라이언트 상세 구현 및 `camera_service_node`와 통합
 
