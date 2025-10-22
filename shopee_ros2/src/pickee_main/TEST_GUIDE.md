@@ -467,6 +467,7 @@ ros2 topic pub --once /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileA
   message: 'complete'
 }"
 
+# status : 'idle', 'moving', 'stopped', 'charging', 'error'
 ros2 topic pub --once /pickee/mobile/pose shopee_interfaces/msg/PickeeMobilePose "{
   robot_id: 1,
   order_id: 1,
@@ -478,7 +479,7 @@ ros2 topic pub --once /pickee/mobile/pose shopee_interfaces/msg/PickeeMobilePose
   linear_velocity: 1.0,
   angular_velocity: 1.0,
   battery_level: 70.0,
-  status: 'moving'
+  status: 'moving'  
 }"
 
 ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeMobileSpeedControl "{

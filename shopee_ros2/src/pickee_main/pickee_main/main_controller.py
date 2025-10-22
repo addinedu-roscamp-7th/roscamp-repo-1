@@ -640,7 +640,7 @@ class PickeeMainController(Node):
         self.cart_check_result = msg
 
     # Service Client 래퍼 함수들
-    async def call_mobile_move_to_location(self, location_id, target_pose, global_path=None, navigation_mode='normal'):
+    async def call_mobile_move_to_location(self, location_id, target_pose):
         '''
         Mobile에 위치 이동 명령
         
@@ -654,8 +654,6 @@ class PickeeMainController(Node):
         request.order_id = self.current_order_id
         request.location_id = location_id
         request.target_pose = target_pose
-        request.global_path = global_path or []  # 빈 배열이면 Mobile에서 자동 생성
-        request.navigation_mode = navigation_mode
         
         # docs SC_06_4, SC_02_1 시퀀스 반영: 목적지만 전달
         self.get_logger().info(f'Mobile에 목적지 전달: location_id={location_id}, pose=({target_pose.x:.2f}, {target_pose.y:.2f}) → Mobile이 자체 경로 생성')

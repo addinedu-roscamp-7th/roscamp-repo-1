@@ -61,6 +61,8 @@ class MainWindow(QMainWindow):
             return 'color:blue; font-weight:bold;'
         elif node_name.startswith('pickee_mobile_controller'):
             return 'color:blue; font-weight:bold;'
+        elif node_name.startswith('pickee_mobile_wonho_node'):
+            return 'color:blue; font-weight:bold;'
         elif node_name.startswith('mock_arm_node'):
             return 'color:darkviolet; font-weight:bold;'
         elif node_name.startswith('pickee_arm_controller'):
