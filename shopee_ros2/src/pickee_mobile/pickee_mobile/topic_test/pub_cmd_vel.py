@@ -7,7 +7,7 @@ import termios
 import tty
 
 class TwistModifier(Node):
-    """Twist 메시지를 키보드 입력에 따라 수정하고 /cmd_vel_modified로 발행"""
+    """Twist 메시지를 키보드 입력에 따라 수정하고 /cmd_vel 발행"""
 
     def __init__(self):
         super().__init__('twist_modifier')
@@ -20,8 +20,8 @@ class TwistModifier(Node):
             10
         )
 
-        # 수정된 /cmd_vel_modified 토픽 발행
-        self.publisher_ = self.create_publisher(Twist, '/cmd_vel_modified', 10)
+        # 수정된 /cmd_vel 토픽 발행
+        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
 
     def twist_callback(self, msg: Twist):
         """Twist 메시지를 키보드 입력에 따라 수정 후 발행"""

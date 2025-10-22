@@ -38,7 +38,7 @@
 
 #         self.create_subscription(
 #             Twist,
-#             'cmd_vel_modified',
+#             'cmd_vel',
 #             self.modify_cmd_vel_callback,
 #             10
 #         )
@@ -178,7 +178,7 @@ class GetAmclPose(Node):
         theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
 
         self.get_logger().info(
-            f'📍 현재 위치 → x={x:.3f}, y={y:.3f}, θ={math.degrees(theta):.1f}°'
+            f'📍 현재 위치 → x={x:.6f}, y={y:.6f}, θ={math.degrees(theta):.1f}°'
         )
 
 

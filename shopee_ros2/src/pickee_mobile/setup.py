@@ -68,7 +68,7 @@ setup(
             'mock_move_to_location_client = pickee_mobile.mock_test.mock_move_to_location_client:main',
             'mock_update_global_path_client = pickee_mobile.mock_test.mock_update_global_path_client:main',
             'mock_pose_subscriber = pickee_mobile.mock_test.mock_pose_subscriber:main',
-            'mock_arrival_and_move_status_subscriber = pickee_mobile.mock_test.mock_arrival_subscriber:main',
+            'mock_arrival_subscriber = pickee_mobile.mock_test.mock_arrival_subscriber:main',
         ],
     }
 

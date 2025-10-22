@@ -8,7 +8,7 @@ import tty
 import os
 
 class TwistModifier(Node):
-    """Twist 메시지를 키보드 입력에 따라 수정하고 /cmd_vel_modified로 발행"""
+    """Twist 메시지를 키보드 입력에 따라 수정하고 /cmd_vel로 발행"""
 
     def __init__(self):
         super().__init__('twist_modifier')
@@ -18,8 +18,8 @@ class TwistModifier(Node):
             Twist, 'cmd_vel', self.modify_cmd_vel_callback, 10
         )
 
-        # 수정된 /cmd_vel_modified 발행
-        self.publisher_ = self.create_publisher(Twist, '/cmd_vel_modified', 10)
+        # 수정된 /cmd_vel 발행
+        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # 키 상태
         self.key_command = 'z'  # 기본값: 정상 속도
