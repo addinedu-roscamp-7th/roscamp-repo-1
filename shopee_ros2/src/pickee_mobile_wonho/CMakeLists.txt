@@ -172,22 +172,48 @@ if(BUILD_TESTING)
   
   ament_target_dependencies(test_state_machine ${dependencies})
   
-  # 컴포넌트 테스트
-  ament_add_gtest(test_components
+  # 개별 컴포넌트 테스트
+  ament_add_gtest(test_localization_component
     test/test_localization_component.cpp
-    test/test_path_planning_component.cpp
-    test/test_motion_control_component.cpp
   )
   
-  target_include_directories(test_components PUBLIC
+  target_include_directories(test_localization_component PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   )
   
-  target_link_libraries(test_components
+  target_link_libraries(test_localization_component
     ${PROJECT_NAME}_components
   )
   
-  ament_target_dependencies(test_components ${dependencies})
+  ament_target_dependencies(test_localization_component ${dependencies})
+  
+  ament_add_gtest(test_path_planning_component
+    test/test_path_planning_component.cpp
+  )
+  
+  target_include_directories(test_path_planning_component PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
+  
+  target_link_libraries(test_path_planning_component
+    ${PROJECT_NAME}_components
+  )
+  
+  ament_target_dependencies(test_path_planning_component ${dependencies})
+  
+  ament_add_gtest(test_motion_control_component
+    test/test_motion_control_component.cpp
+  )
+  
+  target_include_directories(test_motion_control_component PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
+  
+  target_link_libraries(test_motion_control_component
+    ${PROJECT_NAME}_components
+  )
+  
+  ament_target_dependencies(test_motion_control_component ${dependencies})
 endif()
 
 ament_export_include_directories(include)

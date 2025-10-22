@@ -1,4 +1,5 @@
 #include "pickee_mobile_wonho/states/error_state.hpp"
+#include <chrono>
 
 namespace pickee_mobile_wonho {
 
@@ -54,10 +55,14 @@ void ErrorState::Execute() {
     
     // 주기적으로 오류 상태 보고 (30초마다)
     if (elapsed.count() > 0 && elapsed.count() % 30 == 0) {
-        RCLCPP_ERROR_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 30000,
-            "[ErrorState] 오류 상태 지속 중... (경과시간: %ld초, 복구시도: %d/%d, 타입: %s)",
-            elapsed.count(), recovery_attempts_, MAX_RECOVERY_ATTEMPTS,
-            ErrorTypeToString(error_type_).c_str());
+        static auto last_error_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_error_time).count() > 30000) {
+            RCLCPP_ERROR(*logger_, "[ErrorState] 오류 상태 지속 중... (경과시간: %ld초, 복구시도: %d/%d, 타입: %s)",
+                elapsed.count(), recovery_attempts_, MAX_RECOVERY_ATTEMPTS,
+                ErrorTypeToString(error_type_).c_str());
+            last_error_time = now;
+        }
     }
     
     // 자동 복구 시도 (복구 가능한 경우)

@@ -1,4 +1,5 @@
 #include "pickee_mobile_wonho/components/motion_control_component.hpp"
+#include <chrono>
 
 namespace pickee_mobile_wonho {
 
@@ -18,8 +19,12 @@ geometry_msgs::msg::Twist MotionControlComponent::ComputeControlCommand() {
         // 비상 정지 상태
         cmd_vel.linear.x = 0.0;
         cmd_vel.angular.z = 0.0;
-        RCLCPP_WARN_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 1000,
-            "[MotionControlComponent] 비상 정지 활성화됨");
+        static auto last_warn_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_warn_time).count() > 1000) {
+            RCLCPP_WARN(*logger_, "[MotionControlComponent] 비상 정지 활성화됨");
+            last_warn_time = now;
+        }
     } else {
         // TODO: PID 제어 구현
         // 임시로 기본 속도 반환

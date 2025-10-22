@@ -1,4 +1,5 @@
 #include "pickee_mobile_wonho/states/stopped_state.hpp"
+#include <chrono>
 
 namespace pickee_mobile_wonho {
 
@@ -40,15 +41,23 @@ void StoppedState::Execute() {
         std::chrono::steady_clock::now() - stop_start_time_);
     
     if (elapsed.count() > 0 && elapsed.count() % 10 == 0) {
-        RCLCPP_WARN_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 10000,
-            "[StoppedState] 정지 상태 유지 중... (정지 시간: %ld초, 사유: %s)",
-            elapsed.count(), StopReasonToString(stop_reason_).c_str());
+        static auto last_warn_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_warn_time).count() > 10000) {
+            RCLCPP_WARN(*logger_, "[StoppedState] 정지 상태 유지 중... (정지 시간: %ld초, 사유: %s)",
+                elapsed.count(), StopReasonToString(stop_reason_).c_str());
+            last_warn_time = now;
+        }
     }
 
     // 비상 정지의 경우 추가 모니터링
     if (stop_reason_ == StopReason::EMERGENCY_STOP) {
-        RCLCPP_ERROR_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 5000,
-            "[StoppedState] 비상 정지 상태입니다. 수동 해제가 필요합니다.");
+        static auto last_error_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_error_time).count() > 5000) {
+            RCLCPP_ERROR(*logger_, "[StoppedState] 비상 정지 상태입니다. 수동 해제가 필요합니다.");
+            last_error_time = now;
+        }
     }
 }
 

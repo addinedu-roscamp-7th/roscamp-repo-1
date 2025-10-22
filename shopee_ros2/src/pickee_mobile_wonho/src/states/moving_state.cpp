@@ -25,8 +25,12 @@ void MovingState::OnEnter() {
 
 void MovingState::Execute() {
     if (!target_set_) {
-        RCLCPP_WARN_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 5000,
-            "[MovingState] 목표 위치가 설정되지 않아 이동할 수 없습니다.");
+        static auto last_warn_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_warn_time).count() > 5000) {
+            RCLCPP_WARN(*logger_, "[MovingState] 목표 위치가 설정되지 않아 이동할 수 없습니다.");
+            last_warn_time = now;
+        }
         return;
     }
 

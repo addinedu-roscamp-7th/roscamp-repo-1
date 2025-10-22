@@ -1,5 +1,6 @@
 #include "pickee_mobile_wonho/states/charging_state.hpp"
 #include <algorithm>
+#include <chrono>
 
 namespace pickee_mobile_wonho {
 
@@ -41,9 +42,13 @@ void ChargingState::Execute() {
     if (elapsed.count() > 0 && elapsed.count() % 30 == 0) {
         double charge_progress = (battery_level_ - initial_battery_level_) * 100.0;
         
-        RCLCPP_INFO_THROTTLE(*logger_, *rclcpp::Clock().get_clock_type_rcl_clock_t(), 30000,
-            "[ChargingState] 충전 중... 현재: %.1f%% (+%.1f%%, 경과시간: %.1f분)",
-            battery_level_ * 100.0, charge_progress, minutes_elapsed);
+        static auto last_info_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_info_time).count() > 30000) {
+            RCLCPP_INFO(*logger_, "[ChargingState] 충전 중... 현재: %.1f%% (+%.1f%%, 경과시간: %.1f분)",
+                battery_level_ * 100.0, charge_progress, minutes_elapsed);
+            last_info_time = now;
+        }
     }
     
     // 충전 완료 확인
