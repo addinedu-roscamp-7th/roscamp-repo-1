@@ -7,7 +7,6 @@ Main Service, Mock LLM, Mock Robot 노드를 한 번에 실행합니다.
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     SetEnvironmentVariable,
 )
 from launch.substitutions import LaunchConfiguration
@@ -60,9 +59,11 @@ def generate_launch_description() -> LaunchDescription:
         SetEnvironmentVariable('PYTHONUNBUFFERED', '1'),
     ]
 
-    # Mock LLM 프로세스 (필요 시 Pickee Main 런치에서 재활용 가능하도록 노출 유지)
-    mock_llm_process = ExecuteProcess(
-        cmd=['ros2', 'run', 'main_service', 'mock_llm_server'],
+    # Mock LLM 노드
+    mock_llm_node = Node(
+        package='main_service',
+        executable='mock_llm_server',
+        name='mock_llm_server',
         output='screen',
     )
     mock_robot_node = Node(
@@ -84,7 +85,7 @@ def generate_launch_description() -> LaunchDescription:
         launch_arguments
         + env_assignments
         + [
-            mock_llm_process,
+            mock_llm_node,
             mock_robot_node,
             main_service_node,
         ]

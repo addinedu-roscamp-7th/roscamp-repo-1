@@ -9,20 +9,7 @@ from launch.actions import (
     SetEnvironmentVariable,
 )
 from launch_ros.actions import Node
-from launch.actions import OpaqueFunction
 from launch.substitutions import LaunchConfiguration
-
-
-def _launch_mock_llm(context, *args, **kwargs):
-    """Mock LLM 서버를 실행한다."""
-    return [
-        Node(
-            package='main_service',
-            executable='mock_llm_server',
-            name='mock_llm_server',
-            output='screen',
-        )
-    ]
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -31,6 +18,7 @@ def generate_launch_description() -> LaunchDescription:
     api_port = LaunchConfiguration('api_port')
     llm_base_url = LaunchConfiguration('llm_base_url')
     db_url = LaunchConfiguration('db_url')
+    gui_enabled = LaunchConfiguration('gui_enabled')
 
     launch_arguments = [
         DeclareLaunchArgument(
@@ -65,10 +53,17 @@ def generate_launch_description() -> LaunchDescription:
         SetEnvironmentVariable('SHOPEE_API_PORT', api_port),
         SetEnvironmentVariable('SHOPEE_LLM_BASE_URL', llm_base_url),
         SetEnvironmentVariable('SHOPEE_DB_URL', db_url),
-        SetEnvironmentVariable('SHOPEE_GUI_ENABLED', 'true'),
+        SetEnvironmentVariable('SHOPEE_GUI_ENABLED', gui_enabled),
         SetEnvironmentVariable('SHOPEE_LOG_LEVEL', 'INFO'),
         SetEnvironmentVariable('PYTHONUNBUFFERED', '1'),
     ]
+
+    mock_llm_node = Node(
+        package='main_service',
+        executable='mock_llm_server',
+        name='mock_llm_server',
+        output='screen',
+    )
 
     main_service_node = Node(
         package='main_service',
@@ -81,7 +76,7 @@ def generate_launch_description() -> LaunchDescription:
         launch_arguments
         + env_assignments
         + [
-            OpaqueFunction(function=_launch_mock_llm),
+            mock_llm_node,
             main_service_node,
         ]
     )

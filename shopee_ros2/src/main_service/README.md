@@ -71,7 +71,12 @@ cd /home/jinhyuk2me/dev_ws/Shopee/shopee_ros2/src/main_service/scripts
 ## Mock 및 외부 서비스
 
 - **Mock LLM**: `ros2 run main_service mock_llm_server`
-- **Mock Robot**: `ros2 run main_service mock_robot_node` (또는 `--mode pickee`, `--mode packee`)
+  - LLM 서비스 Mock (상품 검색, bbox, intent detection API 제공)
+- **Mock Robot**: `ros2 run main_service mock_robot_node [--mode {all|pickee|packee}]`
+  - `--mode all` (기본값): Pickee 1대(robot_id=1) + Packee 1대(robot_id=3) 시뮬레이션
+  - `--mode pickee`: Pickee만 시뮬레이션
+  - `--mode packee`: Packee만 시뮬레이션
+  - DB에는 Pickee 2대, Packee 2대가 등록되어 있지만, Mock 노드는 각 타입당 1대씩만 동작
 - **대시보드**: `config.py`에서 `GUI_ENABLED=True`로 유지하면 PyQt6 GUI가 활성화됩니다.
 - **테스트 클라이언트**: `python3 scripts/test_client.py`로 App↔Main 시나리오를 검증합니다.
 
@@ -102,6 +107,12 @@ ros2 launch main_service pickee_main_support.launch.py \
   llm_base_url:=http://localhost:5001 \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
+
+**실행되는 노드:**
+- `main_service_node` (중앙 백엔드 서비스)
+- `mock_llm_server` (LLM 서비스 Mock)
+
+**참고:**
 - Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
 - GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
 - DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
@@ -118,9 +129,16 @@ ros2 launch main_service app_support.launch.py \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
 
+**실행되는 노드:**
+- `main_service_node` (중앙 백엔드 서비스)
+- `mock_llm_server` (LLM 서비스 Mock)
+- `mock_robot_node` (Pickee 1대 + Packee 1대 시뮬레이션, `--mode all`)
+
+**참고:**
 - Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
 - GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
 - DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
+- DB에는 Pickee 2대, Packee 2대가 등록되어 있지만, Mock 노드는 각각 1대씩만 시뮬레이션합니다.
 
 ### Packee Main 연동용 실행
 
@@ -133,6 +151,11 @@ ros2 launch main_service packee_main_support.launch.py \
   llm_base_url:=http://localhost:5001 \
   db_url:=mysql+pymysql://shopee:shopee@localhost:3306/shopee
 ```
+
+**실행되는 노드:**
+- `main_service_node` (중앙 백엔드 서비스)
+
+**참고:**
 - Main Service는 `config.py`와 동일한 환경 변수로 설정됩니다.
 - GUI는 기본적으로 활성화되어 있습니다. 필요 시 `gui_enabled:=false`로 끌 수 있습니다.
 - DB 초기화는 런치 실행 전에 수동으로 완료해야 합니다 (`scripts/setup_database.sh`).
