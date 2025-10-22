@@ -1,3 +1,5 @@
+import math
+import os
 from pathlib import Path
 from dataclasses import replace
 from typing import Any
@@ -26,7 +28,7 @@ from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
-
+from shopee_app.services.speech_to_text_worker import SpeechToTextWorker
 
 class UserWindow(QWidget):
 
@@ -101,11 +103,37 @@ class UserWindow(QWidget):
         if self.search_input is not None:
             # 엔터 키 입력 시 검색을 자동으로 수행하지 않으면 사용자의 검색 흐름이 끊어진다.
             self.search_input.returnPressed.connect(self.on_search_submitted)
+        self.mic_button = getattr(self.ui, 'btn_mic', None)
+        if self.mic_button is not None:
+            mic_icon_path = Path(__file__).resolve().parent / 'icons' / 'mic.svg'
+            if mic_icon_path.exists():
+                self.mic_button.setIcon(QIcon(str(mic_icon_path)))
+                self.mic_button.setIconSize(QtCore.QSize(24, 24))
+            self.mic_button.setText('')
+            self.mic_button.setToolTip('음성으로 검색')
+            self.mic_button.clicked.connect(self.on_microphone_clicked)
+        self.mic_info_label = getattr(self.ui, 'label_mic_info', None)
+        if self.mic_info_label is not None:
+            self.mic_info_label.setText('')
+            self.mic_info_label.setVisible(False)
+        self._stt_feedback_timer = QtCore.QTimer(self)
+        self._stt_feedback_timer.setInterval(1000)
+        self._stt_feedback_timer.timeout.connect(self._on_stt_feedback_tick)
+        self._stt_status_hide_timer = QtCore.QTimer(self)
+        self._stt_status_hide_timer.setSingleShot(True)
+        self._stt_status_hide_timer.timeout.connect(self._hide_mic_info)
+        self._stt_countdown_seconds = 0
+        self._stt_thread: QtCore.QThread | None = None
+        self._stt_worker: SpeechToTextWorker | None = None
+        self._stt_busy = False
+        self._setup_speech_recognition()
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
         self.user_info: dict[str, Any] = dict(user_info or {})
-        self.service_client = service_client if service_client is not None else MainServiceClient()
+        self.service_client = (
+            service_client if service_client is not None else MainServiceClient()
+        )
         self.current_user_id = str(self.user_info.get("user_id") or "")
         self.current_order_id: int | None = None
         self.current_robot_id: int | None = None
@@ -135,9 +163,38 @@ class UserWindow(QWidget):
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
 
+    def _setup_speech_recognition(self) -> None:
+        if self._stt_worker is not None:
+            return
+        self._stt_thread = QtCore.QThread(self)
+        stt_model_name = os.getenv('SHOPEE_STT_MODEL', 'base')
+        self._stt_worker = SpeechToTextWorker(model_name=stt_model_name)
+        self._stt_worker.moveToThread(self._stt_thread)
+        self._stt_worker.started.connect(self.on_stt_started)
+        self._stt_worker.result_ready.connect(self.on_stt_result_ready)
+        self._stt_worker.error_occurred.connect(self.on_stt_error)
+        self._stt_worker.finished.connect(self.on_stt_finished)
+        self._stt_thread.start()
+
+    def _shutdown_speech_recognition(self) -> None:
+        if self._stt_thread is None:
+            return
+        self._stt_thread.quit()
+        self._stt_thread.wait()
+        self._stt_thread = None
+        self._stt_worker = None
+        self._stt_busy = False
+        self._stt_feedback_timer.stop()
+        self._stt_status_hide_timer.stop()
+        if self.mic_button is not None:
+            self.mic_button.setEnabled(True)
+        self.unsetCursor()
+        self._hide_mic_info()
+
     def closeEvent(self, event):
         if self.notification_client is not None:
             self.notification_client.stop()
+        self._shutdown_speech_recognition()
         self.closed.emit()
         super().closeEvent(event)
 
@@ -153,6 +210,95 @@ class UserWindow(QWidget):
         query = self.search_input.text().strip()
         # 검색어로 서버 조회를 하지 않으면 사용자가 요청한 상품 목록을 받아올 수 없다.
         self.request_product_search(query)
+
+    def on_microphone_clicked(self) -> None:
+        if self._stt_worker is None:
+            QMessageBox.warning(
+                self, '음성 인식 오류', '음성 인식 모듈이 초기화되지 않았습니다.'
+            )
+            return
+        if self._stt_busy:
+            QMessageBox.information(
+                self, '음성 인식 진행 중', '이미 음성을 인식하고 있습니다.'
+            )
+            return
+        self._start_mic_feedback()
+        QtCore.QMetaObject.invokeMethod(
+            self._stt_worker,
+            'start_listening',
+            QtCore.Qt.ConnectionType.QueuedConnection,
+        )
+
+    def on_stt_started(self) -> None:
+        self._stt_busy = True
+        if self.mic_button is not None:
+            self.mic_button.setEnabled(False)
+        self.setCursor(QtCore.Qt.CursorShape.WaitCursor)
+
+    def on_stt_finished(self) -> None:
+        self._stt_busy = False
+        self._stt_feedback_timer.stop()
+        if self.mic_button is not None:
+            self.mic_button.setEnabled(True)
+        self.unsetCursor()
+        if not self._stt_status_hide_timer.isActive():
+            self._hide_mic_info()
+
+    def on_stt_result_ready(self, text: str) -> None:
+        recognized = text.strip()
+        if not recognized:
+            self._show_mic_info('음성을 인식하지 못했습니다.')
+            self._stt_status_hide_timer.start(2000)
+            QMessageBox.information(self, '음성 인식', '음성을 인식하지 못했습니다.')
+            return
+        if self.search_input is not None:
+            self.search_input.setText(recognized)
+        self.request_product_search(recognized)
+        self._show_mic_info(f'음성 인식 결과: {recognized}')
+        self._stt_status_hide_timer.start(2500)
+        QMessageBox.information(self, '음성 인식 결과', f'인식된 문장: {recognized}')
+
+    def on_stt_error(self, message: str) -> None:
+        QMessageBox.warning(self, '음성 인식 실패', message)
+        self._show_mic_info('음성 인식 실패')
+        self._stt_status_hide_timer.start(2500)
+
+    def _start_mic_feedback(self) -> None:
+        self._stt_status_hide_timer.stop()
+        try:
+            duration = float(os.getenv('SHOPEE_STT_FALLBACK_DURATION', '3.0'))
+        except ValueError:
+            duration = 3.0
+        self._stt_countdown_seconds = max(1, math.ceil(duration))
+        self._update_mic_info_label()
+        self._stt_feedback_timer.start()
+
+    def _on_stt_feedback_tick(self) -> None:
+        if self._stt_countdown_seconds > 0:
+            self._stt_countdown_seconds -= 1
+        if self._stt_countdown_seconds > 0:
+            self._update_mic_info_label()
+            return
+        self._stt_feedback_timer.stop()
+        self._show_mic_info('음성 인식 중...')
+
+    def _update_mic_info_label(self) -> None:
+        if self.mic_info_label is None:
+            return
+        self.mic_info_label.setText(f'음성 인식 중... {self._stt_countdown_seconds}')
+        self.mic_info_label.setVisible(True)
+
+    def _show_mic_info(self, text: str) -> None:
+        if self.mic_info_label is None:
+            return
+        self.mic_info_label.setText(text)
+        self.mic_info_label.setVisible(True)
+
+    def _hide_mic_info(self) -> None:
+        if self.mic_info_label is None:
+            return
+        self.mic_info_label.setText('')
+        self.mic_info_label.setVisible(False)
 
     def _trigger_initial_product_search(self) -> None:
         # 초기 검색어를 비워두면 전체 상품을 요청할 수 있어 첫 화면에 데이터를 채울 수 있다.
@@ -186,7 +332,9 @@ class UserWindow(QWidget):
             )
         except MainServiceClientError as exc:
             # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
-            QMessageBox.warning(self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}")
+            QMessageBox.warning(
+                self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}"
+            )
             # 실패 시 기본 상품을 채워 넣지 않으면 화면이 비어 보이게 된다.
             self.set_products(self.load_initial_products())
             # 상품 목록을 다시 그리지 않으면 기존 화면이 갱신되지 않는다.
@@ -218,7 +366,9 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            QMessageBox.information(self, "검색 결과 없음", "조건에 맞는 상품이 없습니다.")
+            QMessageBox.information(
+                self, "검색 결과 없음", "조건에 맞는 상품이 없습니다."
+            )
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -229,7 +379,11 @@ class UserWindow(QWidget):
 
     def _build_search_filter(self) -> tuple[dict[str, bool], bool | None]:
         # 사용자 정보가 비어 있으면 알레르기 필터를 구성할 수 없으므로 빈 딕셔너리를 준비한다.
-        raw_allergy = self.user_info.get("allergy_info") if isinstance(self.user_info, dict) else {}
+        raw_allergy = (
+            self.user_info.get("allergy_info")
+            if isinstance(self.user_info, dict)
+            else {}
+        )
         # 필터 값을 누적할 새로운 딕셔너리를 만들지 않으면 원본 데이터를 직접 수정하게 된다.
         normalized_allergy: dict[str, bool] = {}
         # 딕셔너리가 아닐 경우 순회가 불가능하므로 타입을 확인한다.
@@ -241,18 +395,23 @@ class UserWindow(QWidget):
                 # 값이 불리언이 아니면 명세와 어긋나므로 bool()로 강제한다.
                 normalized_allergy[normalized_key] = bool(value)
         # 사용자 정보에 비건 여부가 없다면 None을 반환해 서버 기본값을 사용하도록 한다.
-        vegan_value = self.user_info.get("is_vegan") if isinstance(self.user_info, dict) else None
+        vegan_value = (
+            self.user_info.get("is_vegan") if isinstance(self.user_info, dict) else None
+        )
         # 비건 값이 None이면 두 번째 항목으로 None을 넘겨 서버가 기본 동작을 따르도록 한다.
         if vegan_value is None:
             return normalized_allergy, None
         # bool()로 강제하지 않으면 0과 1 같은 값이 그대로 전달되어 혼란을 줄 수 있다.
         return normalized_allergy, bool(vegan_value)
 
-    def _convert_search_results(self, entries: list[dict[str, object]]) -> list[ProductData]:
+    def _convert_search_results(
+        self, entries: list[dict[str, object]]
+    ) -> list[ProductData]:
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
         # 이미지 경로를 미리 정해두지 않으면 각 상품마다 반복 계산해야 한다.
         fallback_image = ProductCard.FALLBACK_IMAGE
+
         # 안전한 정수 변환 함수를 정의하지 않으면 잘못된 값이 들어왔을 때 예외로 루프가 중단된다.
         def to_int(value: object, default: int = 0) -> int:
             # 변환을 시도하지 않으면 문자열이나 None 타입이 그대로 남아 계산에서 오류가 난다.
@@ -262,6 +421,7 @@ class UserWindow(QWidget):
             except (TypeError, ValueError):
                 # 변환 실패 시 기본값을 돌려주지 않으면 호출부에서 추가적인 방어 코드를 반복해야 한다.
                 return default
+
         # 각각의 상품을 순회하지 않으면 리스트 전체를 변환할 수 없다.
         for entry in entries:
             # 항목이 딕셔너리가 아니면 필요한 키를 읽을 수 없어 건너뛴다.
@@ -364,7 +524,9 @@ class UserWindow(QWidget):
             self.cart_body.hide()
 
         if self.cart_toggle_button is not None:
-            icon_path = Path(__file__).resolve().parent / "icons" / "chevron-up-circle.svg"
+            icon_path = (
+                Path(__file__).resolve().parent / "icons" / "chevron-up-circle.svg"
+            )
             if icon_path.exists():
                 base_pixmap = QPixmap(str(icon_path))
                 if not base_pixmap.isNull():
@@ -760,14 +922,22 @@ class UserWindow(QWidget):
                 widget.deleteLater()
         self.selection_buttons.clear()
 
-        parent = self.selection_container if self.selection_container is not None else self
+        parent = (
+            self.selection_container if self.selection_container is not None else self
+        )
         for index, product in enumerate(products):
             button = QPushButton(parent)
             button.setFixedSize(123, 36)
-            name = str(product.get('name') or product.get('product_id') or f"선택지 {index + 1}")
+            name = str(
+                product.get("name")
+                or product.get("product_id")
+                or f"선택지 {index + 1}"
+            )
             button.setText(name)
-            button.setProperty('product_data', product)
-            button.clicked.connect(lambda _, info=product: self.on_selection_button_clicked(info))
+            button.setProperty("product_data", product)
+            button.clicked.connect(
+                lambda _, info=product: self.on_selection_button_clicked(info)
+            )
             row, column = divmod(index, 5)
             self.selection_grid.addWidget(button, row, column)
             self.selection_buttons.append(button)
@@ -775,8 +945,10 @@ class UserWindow(QWidget):
             self.selection_grid.setColumnStretch(column, 1)
 
     def on_selection_button_clicked(self, product: dict[str, Any]) -> None:
-        product_name = product.get('name') or product.get('product_id')
-        QMessageBox.information(self, '상품 선택', f"{product_name} 선택지 버튼이 눌렸습니다.")
+        product_name = product.get("name") or product.get("product_id")
+        QMessageBox.information(
+            self, "상품 선택", f"{product_name} 선택지 버튼이 눌렸습니다."
+        )
 
     def categorize_cart_items(
         self,
@@ -863,10 +1035,12 @@ class UserWindow(QWidget):
         dialog.activateWindow()
 
     def _update_user_header(self) -> None:
-        name = str(self.user_info.get('name') or self.user_info.get('user_id') or '사용자')
-        label = getattr(self.ui, 'label_user_name', None)
+        name = str(
+            self.user_info.get("name") or self.user_info.get("user_id") or "사용자"
+        )
+        label = getattr(self.ui, "label_user_name", None)
         if label is not None:
-            label.setText(f'{name} 님')
+            label.setText(f"{name} 님")
 
     def set_mode(self, mode):
         if mode == self.current_mode:
@@ -910,7 +1084,11 @@ class UserWindow(QWidget):
             tooltip = "장바구니 접기" if self.cart_expanded else "장바구니 펼치기"
             self.cart_toggle_button.setToolTip(tooltip)
             if self.cart_icon_up is not None or self.cart_icon_down is not None:
-                icon = self.cart_icon_down if self.cart_expanded and self.cart_icon_down is not None else self.cart_icon_up
+                icon = (
+                    self.cart_icon_down
+                    if self.cart_expanded and self.cart_icon_down is not None
+                    else self.cart_icon_up
+                )
                 if icon is not None:
                     self.cart_toggle_button.setIcon(icon)
 

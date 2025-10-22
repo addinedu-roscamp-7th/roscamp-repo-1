@@ -98,7 +98,60 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLineEdit" name="lineEdit"/>
+       <widget class="QLineEdit" name="edit_search">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="placeholderText">
+         <string extracomment="ㅇㅇㅇ"/>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_8">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Preferred</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QToolButton" name="btn_mic">
+        <property name="text">
+         <string>mic</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_9">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Preferred</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_mic_info">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
       </item>
       <item>
        <spacer name="horizontalSpacer_2">
@@ -376,6 +429,19 @@
                  <item>
                   <widget class="QListWidget" name="widget_auto_select_list"/>
                  </item>
+                 <item>
+                  <spacer name="verticalSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
                 </layout>
                </widget>
               </widget>
@@ -461,8 +527,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>896</width>
-                  <height>563</height>
+                  <width>296</width>
+                  <height>123</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -614,8 +680,8 @@
                        <rect>
                         <x>0</x>
                         <y>0</y>
-                        <width>864</width>
-                        <height>68</height>
+                        <width>100</width>
+                        <height>30</height>
                        </rect>
                       </property>
                       <layout class="QVBoxLayout" name="cart_items_layout"/>
@@ -1192,6 +1258,25 @@
     </widget>
    </item>
   </layout>
+  <action name="icon_mic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset>
+     <activeon>../pages/icons/mic.svg</activeon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>mic</string>
+   </property>
+   <property name="toolTip">
+    <string>음성 검색</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>
