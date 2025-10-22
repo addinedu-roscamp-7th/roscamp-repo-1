@@ -3,16 +3,16 @@
 
 <launch>
     <arg name="use_sim_time" default="False"/>
-    <arg name="filter_yaml_path" default="$(find-pkg-share pickee_mobile)/config/laser_filter.yaml" />
+    <arg name="filter_yaml_path" default="$(find-pkg-share pickee_mobile_wonho)/config/laser_filter.yaml" />
 
-    <include file="$(find-pkg-share pickee_mobile)/launch/upload.launch.xml">
+    <include file="$(find-pkg-share pickee_mobile_wonho)/launch/upload.launch.xml">
         <arg name="use_sim_time" value="$(var use_sim_time)"/>
     </include>
 
     <include file="$(find-pkg-share sllidar_ros2)/launch/sllidar_c1_launch.py">
     </include>
 
-    <node pkg="pickee_mobile" exec="bringup">
+    <node pkg="pickee_mobile_wonho" exec="bringup">
     </node>
     
     <node pkg="laser_filters" exec="scan_to_scan_filter_chain">

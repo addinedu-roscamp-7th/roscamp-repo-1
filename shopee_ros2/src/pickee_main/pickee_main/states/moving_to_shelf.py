@@ -28,7 +28,7 @@ class MovingToShelfState(State):
                 response = self.pose_future.result()
                 if response and response.success:
                     target_pose = response.pose
-                    self._node.get_logger().info(f'좌표 수신 ({target_pose.x}, {target_pose.y}), 로봇 이동 명령 전달.')
+                    self._node.get_logger().info(f'좌표 수신 ({target_pose.x}, {target_pose.y}, {target_pose.theta}), 로봇 이동 명령 전달.')
                     
                     # 3. Mobile에 이동 명령 전달 (스레드에서 비동기 실행)
                     

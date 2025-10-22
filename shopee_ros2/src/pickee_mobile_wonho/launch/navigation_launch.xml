@@ -5,7 +5,7 @@
     <arg name="namespace" default=""/>
     <arg name="use_sim_time" default="false"/>
     <arg name="autostart" default="true"/>
-    <arg name="params_file" default="$(find-pkg-share pickee_mobile)/params/nav2_params.yaml"/>
+    <arg name="params_file" default="$(find-pkg-share pickee_mobile_wonho)/params/nav2_params.yaml"/>
     <arg name="use_composition" default="False"/>
     <arg name="container_name" default="nav2_container"/>
     <arg name="use_respawn" default="False"/>
