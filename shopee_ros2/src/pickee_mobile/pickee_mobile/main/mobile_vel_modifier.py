@@ -1,14 +1,9 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
-import sys
-import threading
-import termios
-import tty
-import os
-from shopee_interfaces.msg import PickeeMobileArrival, PickeeMobileSpeedControl, Pose2D
+from rclpy.executors import MultiThreadedExecutor
 
-from pickee_mobile.test.goal_test import get_pose
+from geometry_msgs.msg import Twist
+from shopee_interfaces.msg import PickeeMobileSpeedControl, Pose2D
 
 class VelModifier(Node):
     """키보드 입력에 따라 scale 값을 조정하며 /cmd_vel을 수정 발행"""
@@ -50,7 +45,7 @@ class VelModifier(Node):
 
 
     def modify_cmd_vel_callback(self, msg: Twist):
-        """Twist 메시지를 현재 scale에 맞춰 수정 후 발행"""
+        """cmd_vel_modified를 현재 scale에 맞춰 수정 후 발행"""
         modified_twist = Twist()
 
         modified_twist.linear.x = msg.linear.x * self.scale
@@ -60,19 +55,20 @@ class VelModifier(Node):
         modified_twist.angular.y = msg.angular.y * self.scale
         modified_twist.angular.z = msg.angular.z * self.scale
 
-        self.pickee_vel_publisher.publish(modified_twist)
+        self.vel_modified_publisher.publish(modified_twist)
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = VelModifier()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.stop_node()
-    finally:
-        node.restore_terminal()
 
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(node)
+
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        executor.stop_node()
 
 if __name__ == '__main__':
     main()

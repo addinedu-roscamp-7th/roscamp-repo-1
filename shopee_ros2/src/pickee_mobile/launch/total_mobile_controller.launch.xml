@@ -1,0 +1,16 @@
+<launch>
+  <!-- 1️⃣ mobile_bringup.launch.xml 즉시 실행 -->
+  <include file="$(find-pkg-share pickee_mobile)/launch/mobile_bringup.launch.xml"/>
+
+  <!-- 2️⃣ 5초 후 nav2_bringup_launch.xml 실행 -->
+  <timer period="5.0">
+    <include file="$(find-pkg-share pickee_mobile)/launch/nav2_bringup_launch.xml">
+      <arg name="map" value="map1021_modify.yaml"/>
+    </include>
+  </timer>
+
+  <!-- 3️⃣ 추가로 5초 후 (즉, 10초 시점) nav2_view.launch.xml 실행 -->
+  <timer period="10.0">
+    <include file="$(find-pkg-share pickee_mobile)/launch/nav2_view.launch.xml"/>
+  </timer>
+</launch>

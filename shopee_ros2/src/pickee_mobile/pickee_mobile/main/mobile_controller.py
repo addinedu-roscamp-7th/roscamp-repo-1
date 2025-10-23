@@ -44,6 +44,19 @@ class PickeeMobileController(Node):
         #초기 설정
         self.status = 'idle'
         self.working = 0 # 대기중
+
+        self.pose_timer = self.create_timer(0.2, self.pose_publisher_timer_callback)
+
+        self.robor_id = 0
+        self.order_id = 0
+        self.location_id = 0
+        self.currnet_x = 0.0
+        self.currnet_y = 0.0
+        self.current_theta = 0.0
+        self.linear_velocity = 0.0
+        self.angular_velocity = 0.0
+        self.current_battery_level = 100.0  # 예시 값, 실제 배터리 레벨로 교체 필요
+        self.status = 'idle'
         
 
 
@@ -127,10 +140,8 @@ class PickeeMobileController(Node):
         self.current_theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
 
     def get_result_callback(self, future):
-        working = 0  # 작업 완료 상태 설정
+        self.working = 0  # 작업 완료 상태 설정
         status = future.result().status
-        result = future.result().result
-
         
         if status == GoalStatus.STATUS_SUCCEEDED:
             # 도착 위치와 목표 위치 비교
@@ -173,15 +184,17 @@ class PickeeMobileController(Node):
 
 
         self.get_logger().info('status')
-    
+
     def pose_publisher_timer_callback(self):
         pose_msg = PickeeMobilePose()
         pose_msg.robot_id = self.robor_id
-        pose_msg.pose.x = self.currnet_x
-        pose_msg.pose.y = self.currnet_y
-        pose_msg.pose.theta = self.current_theta
+        pose_msg.current_pose.x = self.currnet_x
+        pose_msg.current_pose.y = self.currnet_y
+        pose_msg.current_pose.theta = self.current_theta
         pose_msg.linear_velocity = self.linear_velocity
         pose_msg.angular_velocity = self.angular_velocity
+        pose_msg.battery_level = self.current_battery_level  # 예시 값, 실제 배터리 레벨로 교체 필요
+        pose_msg.status = self.status
 
         self.pose_publisher.publish(pose_msg)
 

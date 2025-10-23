@@ -6,10 +6,7 @@
 
 이 패키지는 Pickee Mobile 로봇의 핵심 제어 로직을 포함하며, 다음과 같은 주요 컴포넌트들로 구성됩니다.
 
-*   **`mobile_controller.py`**: Pickee Mobile 로봇의 메인 컨트롤러 노드입니다. 로봇의 전반적인 동작을 관리하며, 상태 기계와 여러 컴포넌트(위치 추정, 경로 계획, 모션 제어)를 통합하고 조정합니다.
-*   **`localization_component.py`**: 로봇의 위치를 추정하고, 추정된 위치 정보와 배터리 잔량, 현재 로봇 상태를 `/pickee/mobile/pose` 토픽으로 발행합니다.
-*   **`path_planning_component.py`**: 로봇의 경로를 계획하는 컴포넌트입니다. Pickee Main Controller로부터 이동 명령 및 전역 경로를 수신하고, 이를 기반으로 지역 경로 정보를 계산하여 발행합니다.
-*   **`motion_control_component.py`**: 로봇의 실제 움직임을 제어하는 컴포넌트입니다. 경로 계획 컴포넌트로부터 지역 경로 정보를 수신하고, 속도 제어 명령을 처리하여 로봇의 선속도 및 각속도를 계산하여 `/cmd_vel` 토픽으로 발행합니다.
+*   **`mobile_controller.py`**: Pickee Mobile 로봇의 메인 컨트롤러 노드입니다. 로봇의 자율 이동, 위치 추정, 경로 계획 및 모션 제어를 담당하며, `PickeeMobileMoveToLocation` 서비스를 통해 이동 명령을 수신하고, `NavigateToPose` 액션을 사용하여 로봇의 자율 이동을 제어합니다. 또한, `cmd_vel_modified` 토픽을 구독하여 로봇의 속도를 계산하고, `PickeeMobileArrival` 및 `PickeeMobilePose` 토픽을 발행하여 로봇의 도착 정보와 현재 위치 및 상태를 보고합니다.
 *   **`state_machine.py`**: 로봇의 상태를 관리하고 상태 간의 전환을 처리하는 일반적인 상태 기계 프레임워크를 제공합니다.
 *   **`states/` 디렉토리**: `State` 추상 클래스를 상속받아 Pickee Mobile 로봇의 각 구체적인 상태(IDLE, MOVING, STOPPED, CHARGING, ERROR)를 정의합니다.
 *   **`launch/` 디렉토리**: ROS2 노드들을 실행하기 위한 launch 파일들을 포함합니다. 시뮬레이션 환경 설정, 로봇 모델 로드, 내비게이션 스택 실행 등 다양한 시나리오를 위한 launch 파일들이 있습니다.
@@ -29,16 +26,20 @@
 | :------------------------------ | :---------------------------------------- | :---------------------------------------------------------------- | :-------- |
 | `/pickee/mobile/pose`           | `shopee_interfaces/msg/PickeeMobilePose`  | 로봇의 현재 위치, 속도, 배터리 잔량 및 상태를 보고                | Publish   |
 | `/pickee/mobile/arrival`        | `shopee_interfaces/msg/PickeeMobileArrival` | 로봇이 목적지에 도착했음을 알림                                   | Publish   |
-| `/pickee/mobile/speed_control`  | `shopee_interfaces/msg/PickeeMobileSpeedControl` | Pickee Main Controller로부터 속도 제어 명령 수신                  | Subscribe |
-| `/pickee/mobile/local_path`     | `shopee_interfaces/msg/PickeeMoveStatus`  | 경로 계획 컴포넌트에서 계산된 지역 경로 정보 (내부 통신)          | Publish   |
-| `/cmd_vel`                      | `geometry_msgs/msg/Twist`                 | 로봇의 선속도 및 각속도 제어 명령 (하위 레벨 모션 제어)           | Publish   |
+| `/cmd_vel_modified`             | `geometry_msgs/msg/Twist`                 | 로봇의 선속도 및 각속도 제어 명령 (하위 레벨 모션 제어)           | Subscribe |
 
 ### 2.2. 서비스 (Services)
 
 | 서비스 이름                       | 서비스 타입                                       | 설명                                                              | Server/Client |
 | :-------------------------------- | :------------------------------------------------ | :---------------------------------------------------------------- | :------------ |
 | `/pickee/mobile/move_to_location` | `shopee_interfaces/srv/PickeeMobileMoveToLocation` | Pickee Main Controller로부터 특정 목적지로 이동 명령 수신         | Server        |
-| `/pickee/mobile/update_global_path` | `shopee_interfaces/srv/PickeeMobileUpdateGlobalPath` | Pickee Main Controller로부터 전역 경로 업데이트 명령 수신         | Server        |
+
+### 2.3. 액션 (Actions)
+
+| 액션 이름                       | 액션 타입                                       | 설명                                                              | Client/Server |
+| :------------------------------ | :------------------------------------------------ | :---------------------------------------------------------------- | :------------ |
+| `/navigate_to_pose`             | `nav2_msgs/action/NavigateToPose`                 | Nav2 스택의 목적지 내비게이션 액션 (PickeeMobileController가 클라이언트로 사용) | Client        |
+
 
 ## 3. Mock 노드 (테스트 및 시뮬레이션용)
 
@@ -81,7 +82,7 @@ source install/setup.bash
 ros2 launch pickee_mobile gazebo_bringup.launch.xml 
 ros2 launch pickee_mobile nav2_bringup_launch.xml use_sim_time:=True
 ros2 launch pickee_mobile nav2_view.launch.xml
-# 속도 토픽 발행
+# 속도 제어 토픽 발행 (pub_cmd_vel 노드는 /cmd_vel_modified 토픽을 발행)
 ros2 run pickee_mobile pub_cmd_vel 
 ```
 
@@ -89,8 +90,7 @@ ros2 run pickee_mobile pub_cmd_vel
 #실제 로봇
 ros2 launch pickee_mobile mobile_bringup.launch.xml #로봇
 ros2 launch pickee_mobile nav2_bringup_launch.xml #로봇
-ros2 launch pickee_mobile nav2_view.launch.xml #pc
-ros2 run pickee_mobile pub_cmd_vel
+ros2 run pickee_mobile pub_cmd_vel # 속도 제어 토픽 발행
 ```
 
 기존에는 /cmd_vel 토픽을 발행해서 pickee의 속도를 제어 했는데 이제는 속도 제어를 위해 /cmd_vel_modified 토픽을 받아서 pickee의 속도를 제어 한다. 따라서 위의 3개의 launch 파일만 실행하면 로봇이 움직이지 않기 때문에 4번째 노드를 실행해야 한다.
@@ -122,6 +122,6 @@ ros2 run pickee_mobile mock_arrival_and_move_status_subscriber
 
 *   **`control_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 속도 설정에 맞게 값을 변경한 후 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드, 현재 속도 변경과 일시정지는 작동하지 않는다.
 
-*   **`pub_cmd_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 그대로 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드. 
+*   **`pub_cmd_vel.py`**: `/cmd_vel` 토픽을 **Subscribe**하여 `/cmd_vel_modified` 토픽으로 **Publish**하는 노드. (주로 테스트 및 디버깅용)
 
 *   **`pub_pose.py`**: 로봇의 `/cmd_vel`, `/amcl_pose` 등의 정보 토픽들을 **Subscribe** 해서 인터페이스 명세서에 맞게 **Publish**해주는 노드. 로봇이 이동중인지 도착(정지)중인지 추가해야 한다.
