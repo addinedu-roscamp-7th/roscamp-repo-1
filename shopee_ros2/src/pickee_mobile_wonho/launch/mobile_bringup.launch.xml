@@ -12,10 +12,12 @@
     <include file="$(find-pkg-share sllidar_ros2)/launch/sllidar_c1_launch.py">
     </include>
 
-    <node pkg="pickee_mobile_wonho" exec="bringup">
+    <node pkg="pickee_mobile_wonho" exec="pickee_mobile_wonho_node">
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
     
     <node pkg="laser_filters" exec="scan_to_scan_filter_chain">
         <param from="$(var filter_yaml_path)" />
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 </launch>

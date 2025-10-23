@@ -1,5 +1,38 @@
 # Pickee Mobile Wonho - 테스트 가이드
 
+
+## 실행 명령어
+``` bash
+# 통신 테스트
+## pickee_mobile_wonho 
+ros2 run pickee_mobile_wonho pickee_mobile_wonho_node  
+
+## pick main 대쉬보드 : 통신 로그 시간순 모니터링
+## pickee_main 노드와 mock_shopee_main 노드 실행 : shopee_main <-> pickee_main <-> pickee_mobile_wonho 간 통신을 위함
+ros2 run pickee_main dashboard 
+ros2 run pickee_main main_controller 
+ros2 run pickee_main mock_shopee_main 
+
+## 간단 실행 명령어 (SC_02_1 매대 이동 테스트용)
+ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeWorkflowMoveToSection "{
+  robot_id: 1,
+  order_id: 123,
+  location_id: 1,
+  section_id: 1
+}"
+
+## 여기까지 실행하면 통신 테스트 됩니다. 주행 시뮬레이션이 없다면 마지막에 에러가 뜰 것입니다.
+
+# 주행 시뮬레이션
+## Gazebo 실행 / bringup 실행 / rviz 실행
+ros2 launch pickee_mobile_wonho gazebo_bringup.launch.xml 
+ros2 launch pickee_mobile_wonho nav2_bringup_launch.xml use_sim_time:=True
+ros2 launch pickee_mobile_wonho nav2_view.launch.xml 
+
+## 간단 실행 명령어를 주행 시뮬레이션을 띄워놓은 상태에서 실행해봐도 됩니다. (물론 노드들 다 실행시켜 놓아야 됩니다.)
+
+```
+
 ## Service & Topic List
 
 ### 서비스 리스트 : ros2 service list -t
