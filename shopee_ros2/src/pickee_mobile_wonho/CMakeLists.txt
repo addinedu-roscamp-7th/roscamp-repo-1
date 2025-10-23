@@ -47,7 +47,7 @@ include_directories(
   include
 )
 
-# Create executable for pickee mobile node (간단한 버전)
+# Create executable for pickee mobile node (Shopee Interface 통신)
 add_executable(pickee_mobile_wonho_node
   src/pickee_mobile_wonho_node.cpp
 )
@@ -67,9 +67,27 @@ ament_target_dependencies(pickee_mobile_wonho_node
   shopee_interfaces
 )
 
-# Install executable
+# Create executable for hardware bringup (하드웨어 제어)
+add_executable(pickee_mobile_bringup
+  src/bringup.cpp
+  src/zlac_driver.cpp
+)
+
+# Dependencies for pickee_mobile_bringup (하드웨어 제어용)
+ament_target_dependencies(pickee_mobile_bringup
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  sensor_msgs
+  tf2
+  tf2_ros
+  std_msgs
+)
+
+# Install executables
 install(TARGETS
   pickee_mobile_wonho_node
+  pickee_mobile_bringup
   DESTINATION lib/${PROJECT_NAME}
 )
 
