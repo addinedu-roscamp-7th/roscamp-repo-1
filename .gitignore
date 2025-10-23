@@ -147,5 +147,7 @@ colcon_install/
 gha-creds-*.json
 
 *.jpg
+*.png
+*.pt
 *.csv
 *.txt
