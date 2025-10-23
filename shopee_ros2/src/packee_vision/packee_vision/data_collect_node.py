@@ -2,7 +2,7 @@ import time
 import random
 import rclpy
 from rclpy.node import Node
-from jetcobot_package_msgs.msg import PoseVel, Pose
+from shopee_interfaces.msg import Pose6D
 
 import socket
 import cv2
@@ -16,7 +16,7 @@ import pickle
 PORT = 6000
 MAX_PACKET_SIZE = 65536
 
-with open("/home/addinedu/dev_ws/shopee/src/DataCollector/DataCollector/calibration_img/calibration_data.pickle", "rb") as f:
+with open("/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/camera_calibration/calibration_data.pickle", "rb") as f:
     calib_data = pickle.load(f)
 
 camera_matrix = calib_data["camera_matrix"]
@@ -74,20 +74,11 @@ class DataCollector(Node):
     def __init__(self, video_receiver):
         super().__init__("data_collect_node")
         self.receiver = video_receiver
+        self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_name = "buldak_can"
-        self.target_pose = [10.19, -29.61, -47.02, -3.25, 1.93, 8.17]
-        self.save_dir = f"./datasets/{self.object_name}"
-        self.offsets = [
-                            (20, 0, 0, 0),   # right
-                            (-20, 0, 0, 0),  # left
-                            (0, 20, 0, 0),   # forward
-                            (0, -20, 0, 0),  # backward
-                            (0, 0, 20, 0),   # up
-                            (0, 0, -20, 0),  # down
-                            (0, 0, 0, 10),   # rotate cw
-                            (0, 0, 0, -10)   # rotate ccw
-                        ]
+        self.object_id = 12
+        self.target_pose = [38.4, -7.99, -56.51, -1.75, -4.3, 34.45]
+        self.save_dir = "./datasets"
 
         # 현재 관절 상태
         self.joint_1 = 0
@@ -98,22 +89,23 @@ class DataCollector(Node):
         self.joint_6 = 0
 
         # 데이터 저장
-        self.datasets = {"images":[], "class": [], "pose":[]}
+        self.datasets = {"image_current":[], "image_target": [], "pose":[]}
         self.count = 0
         self.current_pose_index = 0
 
         # ROS2 통신
-        self.publisher = self.create_publisher(PoseVel, '/packee1/move', 10)
+        self.publisher = self.create_publisher(Pose6D, '/packee1/move', 10)
         self.subscriber = self.create_subscription(
-            Pose,
+            Pose6D,
             '/packee1/pose',
             self.AngleCallback,
             10
         )
 
-        os.makedirs(self.save_dir + "/images", exist_ok=True)
+        os.makedirs(self.save_dir + f"/{self.object_dict[self.object_id]}", exist_ok=True)
 
         self.MoveJetcobot(self.target_pose)
+        time.sleep(3.0)
 
         # 주기적 데이터 수집 (0.5초)
         self.timer = self.create_timer(0.1, self.CollectCallback)
@@ -122,25 +114,23 @@ class DataCollector(Node):
 
     def MoveJetcobot(self, pose):
         self.joint_1, self.joint_2, self.joint_3, self.joint_4, self.joint_5, self.joint_6 = pose
-        msg = PoseVel()
-        msg.pose_1 = self.joint_1
-        msg.pose_2 = self.joint_2
-        msg.pose_3 = self.joint_3
-        msg.pose_4 = self.joint_4
-        msg.pose_5 = self.joint_5
-        msg.pose_6 = self.joint_6
-        msg.speed = 30
+        msg = Pose6D()
+        msg.joint_1 = self.joint_1
+        msg.joint_2 = self.joint_2
+        msg.joint_3 = self.joint_3
+        msg.joint_4 = self.joint_4
+        msg.joint_5 = self.joint_5
+        msg.joint_6 = self.joint_6
         self.publisher.publish(msg)
 
     def AngleCallback(self, msg):
-        if len(msg.angles) >= 6:
-            self.joint_1 = msg.angles[0]
-            self.joint_2 = msg.angles[1]
-            self.joint_3 = msg.angles[2]
-            self.joint_4 = msg.angles[3]
-            self.joint_5 = msg.angles[4]
-            self.joint_6 = msg.angles[5]
-            self.get_logger().info(f"Current angles: {msg.angles}")
+        self.joint_1 = msg.joint_1
+        self.joint_2 = msg.joint_2
+        self.joint_3 = msg.joint_3
+        self.joint_4 = msg.joint_4
+        self.joint_5 = msg.joint_5
+        self.joint_6 = msg.joint_6
+        self.get_logger().info(f"Current angles: {msg.joint_1}, {msg.joint_2}, {msg.joint_3}, {msg.joint_4}, {msg.joint_5}, {msg.joint_6}")
 
     def CollectCallback(self):
         frame = self.receiver.get_frame()
@@ -154,7 +144,7 @@ class DataCollector(Node):
         undistorted = undistorted[y:y+h, x:x+w]
 
         if self.count >= 400:
-            self.get_logger().info(f"{self.object_name} 데이터 수집 완료")
+            self.get_logger().info(f"{self.object_id} 데이터 수집 완료")
             df = pd.DataFrame(self.datasets)
             df.to_csv(f"{self.save_dir}/datasets.csv", index=False)
             return
@@ -177,11 +167,12 @@ class DataCollector(Node):
         self.MoveJetcobot(pose)
         time.sleep(1.0)
 
-        file_name = f"{self.save_dir}/images/{self.object_name}_{self.count:04d}.jpg"
-        cv2.imwrite(file_name, undistorted)
-        self.datasets['images'].append(file_name)
-        self.datasets['pose'].append(pose)
-        self.datasets['class'].append(self.object_name)
+        current_file_name = f"{self.save_dir}/{self.object_dict[self.object_id]}/image_{self.count:04d}.jpg"
+        target_file_name = f"{self.save_dir}/targets/{self.object_dict[self.object_id]}_target.jpg"
+        cv2.imwrite(current_file_name, undistorted)
+        self.datasets['image_current'].append(current_file_name)
+        self.datasets['image_target'].append(target_file_name)
+        self.datasets['pose'].append([float(self.target_pose[0] - pose[0]), float(self.target_pose[1] - pose[1]), float(self.target_pose[2] - pose[2]), float(self.target_pose[3] - pose[3]), float(self.target_pose[4] - pose[4]), float(self.target_pose[5] - pose[5])])
         self.count += 1
 
 def main():
