@@ -38,12 +38,17 @@ class MainServiceConfig:
     host: str = field(default_factory=lambda: os.getenv("SHOPEE_MAIN_HOST", "192.168.0.25"))
     port: int = field(default_factory=lambda: _int_from_env("SHOPEE_MAIN_PORT", 5000))
     timeout: float = field(default_factory=lambda: _float_from_env("SHOPEE_MAIN_TIMEOUT", 3.0))
+    long_timeout: float = field(default_factory=lambda: _float_from_env("SHOPEE_MAIN_LONG_TIMEOUT", 8.0))
 
 
 class MainServiceClient:
     def __init__(self, config: MainServiceConfig | None = None):
         self.config = config if config is not None else MainServiceConfig()
-        print(f'[MainServiceClient] host={self.config.host} port={self.config.port}')
+        print(
+            '[MainServiceClient] host='
+            f'{self.config.host} port={self.config.port} timeout={self.config.timeout}s '
+            f'long_timeout={self.config.long_timeout}s'
+        )
 
     def login(self, user_id: str, password: str) -> dict:
         payload = {
@@ -100,7 +105,7 @@ class MainServiceClient:
                 "user_id": user_id,
             },
         }
-        return self.send(payload)
+        return self.send(payload, log_response=False)
 
     def search_products(
         self,
@@ -148,21 +153,46 @@ class MainServiceClient:
                 'filter': filter_payload,
             },
         }
+        # 검색 요청과 응답을 기록하지 않으면 네트워크 왕복 데이터 추적이 어렵다.
+        print('[MainServiceClient] product_search 요청:', json.dumps(payload, ensure_ascii=False))
         # 소켓 전송을 수행하지 않으면 페이로드가 서버로 전달되지 않아 검색 결과를 받을 수 없다.
-        return self.send(payload)
+        response = self.send(payload, timeout=self.config.long_timeout)
+        if isinstance(response, dict):
+            response_payload = response.get('data')
+            try:
+                formatted_full_response = json.dumps(response, ensure_ascii=False)
+            except (TypeError, ValueError):
+                formatted_full_response = str(response)
+        else:
+            response_payload = response
+            formatted_full_response = str(response)
+        print('[MainServiceClient] product_search 응답 전체:', formatted_full_response)
+        try:
+            formatted_response = json.dumps(response_payload, ensure_ascii=False)
+        except (TypeError, ValueError):
+            formatted_response = str(response_payload)
+        print('[MainServiceClient] product_search 응답 데이터:', formatted_response)
+        return response
 
-    def send(self, payload: dict) -> dict:
+    def send(
+        self,
+        payload: dict,
+        *,
+        log_response: bool = True,
+        timeout: float | None = None,
+    ) -> dict:
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n"
+        effective_timeout = self.config.timeout if timeout is None else timeout
 
         try:
             with socket.create_connection(
                 (self.config.host, self.config.port),
-                timeout=self.config.timeout,
+                timeout=effective_timeout,
             ) as conn:
-                conn.settimeout(self.config.timeout)
+                conn.settimeout(effective_timeout)
                 conn.sendall(encoded)
                 conn.shutdown(socket.SHUT_WR)
-                response = self.recv_all(conn)
+                response = self.recv_all(conn, timeout=effective_timeout)
         except OSError as exc:
             raise MainServiceClientError(str(exc)) from exc
 
@@ -171,17 +201,21 @@ class MainServiceClient:
 
         try:
             decoded = response.decode('utf-8')
-            print('[MainServiceClient] raw response:', decoded)
+            if log_response:
+                print('[MainServiceClient] raw response:', decoded)
             return json.loads(decoded)
         except json.JSONDecodeError as exc:
             raise MainServiceClientError("JSON 응답을 해석할 수 없습니다.") from exc
 
-    def recv_all(self, conn: socket.socket) -> bytes:
+    def recv_all(self, conn: socket.socket, *, timeout: float) -> bytes:
         chunks: list[bytes] = []
         while True:
             try:
                 data = conn.recv(4096)
             except socket.timeout as exc:
+                if chunks:
+                    # 일부 데이터라도 확보했다면 추가 수신 없이 처리한다.
+                    break
                 raise MainServiceClientError("서버 응답이 없습니다.") from exc
 
             if not data:
