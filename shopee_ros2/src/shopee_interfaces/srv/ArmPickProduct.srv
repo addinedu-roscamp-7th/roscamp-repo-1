@@ -2,8 +2,8 @@
 
 int32 robot_id
 int32 order_id
+string arm_side            # Packee: left/right, Pickee: ''
 shopee_interfaces/DetectedProduct target_product
-string arm_side            # Packee만 사용 (left/right), Pickee는 빈 문자열 ""
 ---
 bool success
 string message
