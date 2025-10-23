@@ -510,7 +510,16 @@ Main = Shopee Main Service
   "error_code": "string",
   "data": {
     "order_id": "int",
-    "robot_id": "int"
+    "robot_id": "int",
+    "products": [
+      {
+        "product_id": "int",
+        "name": "string",
+        "quantity": "int",
+        "auto_select": "boolean"
+      },
+    ],
+    "total_count": "int"
   },
   "message": "string"
 }
