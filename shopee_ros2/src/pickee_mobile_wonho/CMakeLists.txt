@@ -54,8 +54,10 @@ add_executable(pickee_mobile_wonho_node
 # Dependencies for pickee_mobile_wonho_node (Shopee Interface 포함)
 ament_target_dependencies(pickee_mobile_wonho_node
   rclcpp
+  rclcpp_action
   geometry_msgs
   nav_msgs
+  nav2_msgs
   sensor_msgs
   tf2
   tf2_ros
