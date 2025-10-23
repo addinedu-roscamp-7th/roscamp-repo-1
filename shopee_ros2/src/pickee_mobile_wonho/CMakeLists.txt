@@ -17,6 +17,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 
 # Navigation2 packages
+find_package(nav2_mppi_controller REQUIRED)
 find_package(nav2_common REQUIRED)
 find_package(nav2_core REQUIRED)
 find_package(nav2_util REQUIRED)
