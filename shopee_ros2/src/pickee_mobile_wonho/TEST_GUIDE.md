@@ -25,7 +25,7 @@ ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeW
 
 # 주행 시뮬레이션
 ## Gazebo 실행 / bringup 실행 / rviz 실행
-ros2 launch pickee_mobile_wonho gazebo_bringup.launch.xml 
+ros2 launch pickee_mobile_wonho_robot gazebo_bringup.launch.xml 
 ros2 launch pickee_mobile_wonho nav2_bringup_launch.xml use_sim_time:=True
 ros2 launch pickee_mobile_wonho nav2_view.launch.xml 
 

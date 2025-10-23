@@ -4,7 +4,7 @@
     <arg name="use_sim_time" default="False"/>
     <arg name="filter_yaml_path" default="$(find-pkg-share pickee_mobile_wonho_robot)/config/laser_filter.yaml" />
 
-    <include file="$(find-pkg-share pickee_mobile_wonho_robot)/launch/upload.launch.xml">
+    <include file="$(find-pkg-share pickee_mobile_wonho)/launch/upload.launch.xml">
         <arg name="use_sim_time" value="$(var use_sim_time)"/>
     </include>
 
