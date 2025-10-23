@@ -2,7 +2,7 @@
 
 <launch>
     <arg name="namespace" default=""/>
-    <arg name="robot_name" default="$(var namespace)/pinky"/>
+    <arg name="robot_name" default="$(var namespace)/pickee_mobile_wonho"/>
     <arg name="x" default="0.0"/>
     <arg name="y" default="0.0"/>
     <arg name="z" default="0.1"/>
