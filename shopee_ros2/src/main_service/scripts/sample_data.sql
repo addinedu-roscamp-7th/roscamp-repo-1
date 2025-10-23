@@ -110,7 +110,7 @@ INSERT INTO section (shelf_id, location_id, section_name) VALUES
 -- ========================================
 -- 8. Product (테스트용 상품)
 -- ========================================
-INSERT INTO product (barcode, name, quantity, price, discount_rate, category, allergy_info_id, is_vegan_friendly, auto_select, section_id, warehouse_idz) VALUES
+INSERT INTO product (barcode, name, quantity, price, discount_rate, category, allergy_info_id, is_vegan_friendly, auto_select, section_id, warehouse_id) VALUES
 -- Shelf A (기성품)
 ('7701234567001', '고추냉이', 2, 4500, 0, '기성품', 1,FALSE, TRUE, 1, 1),
 ('7701234567002', '통조림', 3, 3000, 5, '기성품', 1,FALSE, TRUE, 1, 1),
