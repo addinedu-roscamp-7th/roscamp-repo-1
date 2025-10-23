@@ -174,6 +174,26 @@ class MainServiceClient:
         print('[MainServiceClient] product_search 응답 데이터:', formatted_response)
         return response
 
+    def select_product(
+        self,
+        *,
+        order_id: int,
+        robot_id: int,
+        bbox_number: int,
+        product_id: int,
+    ) -> dict:
+        payload = {
+            "type": "product_selection",
+            "data": {
+                "order_id": int(order_id),
+                "robot_id": int(robot_id),
+                "bbox_number": int(bbox_number),
+                "product_id": int(product_id),
+            },
+        }
+        print('[MainServiceClient] product_selection 요청:', json.dumps(payload, ensure_ascii=False))
+        return self.send(payload)
+
     def send(
         self,
         payload: dict,

@@ -95,6 +95,22 @@ class UserWindow(QWidget):
         self.selection_container = getattr(self.ui, "widget_selection_container", None)
         self.selection_grid = getattr(self.ui, "grid_selection_buttons_2", None)
         self.selection_buttons: list[QPushButton] = []
+        self.selection_button_group = QButtonGroup(self)
+        self.selection_button_group.setExclusive(True)
+        self.selection_button_group.buttonToggled.connect(self.on_selection_button_toggled)
+        self.selection_options: list[dict[str, Any]] = []
+        self.selection_selected_index: int | None = None
+        self.order_select_stack = getattr(self.ui, "stackedWidget", None)
+        self.page_select_product = getattr(self.ui, "page_select_product", None)
+        self.page_moving_view = getattr(self.ui, "page_moving", None)
+        self.select_title_label = getattr(self.ui, "label_7", None)
+        self.select_done_button = getattr(self.ui, "toolButton", None)
+        if self.select_done_button is not None:
+            self.select_done_button.clicked.connect(self.on_select_done_clicked)
+        self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
+        if self.select_cancel_button is not None:
+            self.select_cancel_button.setText('선택 취소')
+            self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
         self.setup_cart_section()
         self.setup_navigation()
         self.ui.btn_to_login_page.clicked.connect(self.close)
@@ -147,6 +163,7 @@ class UserWindow(QWidget):
         self.current_robot_id: int | None = None
         self.remote_selection_items: list[CartItemData] = []
         self.auto_selection_items: list[CartItemData] = []
+        self.selection_item_states: dict[int, dict[str, object]] = {}
 
         self.profile_dialog = ProfileDialog(self)
         self.profile_dialog.set_user_info(self.user_info)
@@ -757,6 +774,7 @@ class UserWindow(QWidget):
         remote_items, auto_items = self.categorize_cart_items(ordered_items)
         self.remote_selection_items = remote_items
         self.auto_selection_items = auto_items
+        self.selection_item_states.clear()
 
         remote_widget = getattr(self.ui, "widget_remote_select_list", None)
         auto_widget = getattr(self.ui, "widget_auto_select_list", None)
@@ -893,19 +911,55 @@ class UserWindow(QWidget):
         """상품 선택 시작 알림을 처리한다."""
         if not payload.get("result"):
             return
-        if self.current_order_id is None:
-            return
         data = payload.get("data") or {}
         order_id = data.get("order_id")
-        if self.current_order_id >= 0 and order_id not in (None, self.current_order_id):
+        order_id_value: int | None = None
+        if order_id is not None:
+            try:
+                order_id_value = int(order_id)
+            except (TypeError, ValueError):
+                order_id_value = None
+            if (
+                order_id_value is not None
+                and self.current_order_id is not None
+                and self.current_order_id >= 0
+                and self.current_order_id not in (order_id_value,)
+            ):
+                return
+            if order_id_value is not None:
+                self.current_order_id = order_id_value
+        if self.current_order_id is None:
             return
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
 
-        products = data.get("products") or []
+        raw_products = data.get("products") or []
+        self.selection_options = []
+        for product in raw_products:
+            if not isinstance(product, dict):
+                continue
+            product_id = product.get("product_id")
+            bbox_number = product.get("bbox_number")
+            try:
+                product_id_value = int(product_id)
+                bbox_value = int(bbox_number)
+            except (TypeError, ValueError):
+                continue
+            name = str(product.get("name") or f"상품 {product_id_value}")
+            self.selection_options.append(
+                {
+                    "product_id": product_id_value,
+                    "bbox_number": bbox_value,
+                    "name": name,
+                }
+            )
+        self.selection_selected_index = None
+        if self.select_title_label is not None:
+            self.select_title_label.setText("원하는 상품을 선택해주세요.")
+
         product_names: list[str] = []
-        for product in products:
+        for product in self.selection_options:
             name = product.get("name")
             if name:
                 product_names.append(str(name))
@@ -928,7 +982,15 @@ class UserWindow(QWidget):
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
-        self.populate_selection_buttons(products)
+        self.populate_selection_buttons(self.selection_options)
+        if self.order_select_stack is not None:
+            target_page = (
+                self.page_select_product
+                if self.selection_options and self.page_select_product is not None
+                else self.page_moving_view
+            )
+            if target_page is not None:
+                self.order_select_stack.setCurrentWidget(target_page)
         print(f"[알림] {formatted}")
 
     def handle_cart_update_notification(self, payload: dict) -> None:
@@ -949,11 +1011,24 @@ class UserWindow(QWidget):
         product = data.get("product") or {}
         product_name = product.get("name")
         quantity = product.get("quantity")
+        product_id = product.get("product_id")
+        try:
+            quantity_value = int(quantity)
+        except (TypeError, ValueError):
+            quantity_value = 0
+        try:
+            product_id_value = int(product_id)
+        except (TypeError, ValueError):
+            product_id_value = None
 
         if action == "add":
             default_message = "상품이 장바구니에 담겼습니다"
+            if product_id_value is not None and quantity_value:
+                self._update_selection_progress(product_id_value, quantity_value)
         elif action == "remove":
             default_message = "상품이 장바구니에서 제거되었습니다"
+            if product_id_value is not None and quantity_value:
+                self._update_selection_progress(product_id_value, -quantity_value)
         else:
             default_message = "장바구니가 갱신되었습니다"
         message_text = payload.get("message") or default_message
@@ -978,12 +1053,23 @@ class UserWindow(QWidget):
 
     def _ensure_notification_listener(self) -> None:
         """주문 생성 시 알림 리스너를 시작한다."""
+        user_id = self._ensure_user_identity()
+        # 로그인 시 기억해 둔 비밀번호를 꺼내 알림 채널 인증에 재사용한다.
+        password = ''
+        if isinstance(self.user_info, dict):
+            raw_password = self.user_info.get('password')
+            if raw_password:
+                password = str(raw_password)
         if self.notification_client is not None:
+            # 이미 생성된 수신 스레드에는 최신 자격 증명을 갱신해 준다.
+            self.notification_client.update_credentials(user_id, password)
             if not self.notification_client.isRunning():
                 self.notification_client.start()
             return
         self.notification_client = AppNotificationClient(
-            config=self.service_client.config
+            config=self.service_client.config,
+            user_id=user_id,
+            password=password,
         )
         self.notification_client.notification_received.connect(
             self.on_notification_received
@@ -1009,6 +1095,8 @@ class UserWindow(QWidget):
             item = self.selection_grid.takeAt(0)
             widget = item.widget()
             if widget is not None:
+                if isinstance(widget, QPushButton):
+                    self.selection_button_group.removeButton(widget)
                 widget.deleteLater()
         self.selection_buttons.clear()
 
@@ -1017,28 +1105,108 @@ class UserWindow(QWidget):
         )
         for index, product in enumerate(products):
             button = QPushButton(parent)
+            button.setCheckable(True)
             button.setFixedSize(123, 36)
+            button.setText(f"선택지{index + 1}")
             name = str(
                 product.get("name")
                 or product.get("product_id")
-                or f"선택지 {index + 1}"
+                or f"선택지{index + 1}"
             )
-            button.setText(name)
-            button.setProperty("product_data", product)
-            button.clicked.connect(
-                lambda _, info=product: self.on_selection_button_clicked(info)
-            )
+            if name:
+                button.setToolTip(name)
+            button.setProperty("option_index", index)
+            self.selection_button_group.addButton(button)
             row, column = divmod(index, 5)
             self.selection_grid.addWidget(button, row, column)
             self.selection_buttons.append(button)
         for column in range(5):
             self.selection_grid.setColumnStretch(column, 1)
+        if self.select_done_button is not None:
+            self.select_done_button.setEnabled(bool(products))
+        if self.selection_buttons:
+            self.selection_buttons[0].setChecked(True)
+            self.selection_selected_index = 0
+        else:
+            self.selection_selected_index = None
 
-    def on_selection_button_clicked(self, product: dict[str, Any]) -> None:
-        product_name = product.get("name") or product.get("product_id")
-        QMessageBox.information(
-            self, "상품 선택", f"{product_name} 선택지 버튼이 눌렸습니다."
-        )
+    def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
+        """선택지 토글 상태를 관리한다."""
+        if not checked:
+            return
+        option_index = button.property("option_index")
+        try:
+            self.selection_selected_index = int(option_index)
+        except (TypeError, ValueError):
+            self.selection_selected_index = None
+
+    def on_select_done_clicked(self) -> None:
+        """선택된 상품을 Main Service에 전달한다."""
+        if not self.selection_options:
+            QMessageBox.information(self, "상품 선택", "선택 가능한 상품이 없습니다.")
+            return
+        if self.selection_selected_index is None or not (
+            0 <= self.selection_selected_index < len(self.selection_options)
+        ):
+            QMessageBox.warning(self, "상품 선택", "먼저 선택지를 선택해주세요.")
+            return
+        if self.current_order_id is None or self.current_robot_id is None:
+            QMessageBox.warning(self, "상품 선택", "주문 정보가 확인되지 않습니다.")
+            return
+        selected = self.selection_options[self.selection_selected_index]
+        bbox_number = selected.get("bbox_number")
+        product_id = selected.get("product_id")
+        try:
+            order_id_value = int(self.current_order_id)
+            robot_id_value = int(self.current_robot_id)
+            bbox_value = int(bbox_number)
+            product_id_value = int(product_id)
+        except (TypeError, ValueError):
+            QMessageBox.warning(self, "상품 선택", "선택한 상품 정보를 확인할 수 없습니다.")
+            return
+
+        trigger_button = self.select_done_button
+        if trigger_button is not None:
+            trigger_button.setEnabled(False)
+
+        try:
+            response = self.service_client.select_product(
+                order_id=order_id_value,
+                robot_id=robot_id_value,
+                bbox_number=bbox_value,
+                product_id=product_id_value,
+            )
+        except MainServiceClientError as exc:
+            if trigger_button is not None:
+                trigger_button.setEnabled(True)
+            QMessageBox.warning(self, "상품 선택", f"상품을 선택하지 못했습니다.\n{exc}")
+            return
+
+        if trigger_button is not None:
+            trigger_button.setEnabled(True)
+
+        if not response or not response.get("result"):
+            message = response.get("message") or "상품 선택을 처리하지 못했습니다."
+            QMessageBox.warning(self, "상품 선택", message)
+            return
+
+        QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
+        self.selection_options = []
+        self.selection_selected_index = None
+        self.populate_selection_buttons([])
+        if (
+            self.order_select_stack is not None
+            and self.page_moving_view is not None
+        ):
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def on_select_cancel_clicked(self) -> None:
+        """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
+        if (
+            self.order_select_stack is not None
+            and self.page_moving_view is not None
+        ):
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
     def categorize_cart_items(
         self,
@@ -1069,17 +1237,52 @@ class UserWindow(QWidget):
 
         for index, item in enumerate(items, start=1):
             widget = CartSelectItemWidget()
+            existing_state = self.selection_item_states.get(item.product_id)
+            picked_count = int(existing_state.get("picked", 0)) if existing_state else 0
+            base_status = (
+                str(existing_state.get("base_status"))
+                if existing_state and existing_state.get("base_status")
+                else status_text
+            )
+            display_status = "완료" if picked_count >= item.quantity else base_status
             widget.apply_item(
                 index=index,
                 name=item.name,
                 quantity=item.quantity,
-                status_text=status_text,
+                status_text=display_status,
+                picked=picked_count,
                 image_path=item.image_path,
             )
             list_item = QListWidgetItem()
             list_item.setSizeHint(widget.sizeHint())
             list_widget.addItem(list_item)
             list_widget.setItemWidget(list_item, widget)
+            self.selection_item_states[item.product_id] = {
+                "widget": widget,
+                "total": item.quantity,
+                "picked": picked_count,
+                "base_status": base_status,
+            }
+
+    def _update_selection_progress(self, product_id: int, picked_delta: int) -> None:
+        """선택 리스트에 표시된 상품 진행률을 갱신한다."""
+        state = self.selection_item_states.get(product_id)
+        if state is None:
+            return
+        total = int(state.get("total", 0))
+        picked = int(state.get("picked", 0)) + picked_delta
+        if total <= 0:
+            return
+        picked = max(0, min(total, picked))
+        state["picked"] = picked
+        widget = state.get("widget")
+        if isinstance(widget, CartSelectItemWidget):
+            widget.label_progress.setText(f"({picked}/{total})")
+            if picked >= total:
+                widget.label_status.setText("완료")
+            else:
+                base_status = str(state.get("base_status") or "대기")
+                widget.label_status.setText(base_status)
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)

@@ -75,6 +75,8 @@ class MainWindow(QMainWindow):
 
         user_info = response.get('data') or {}
         user_info.setdefault('user_id', user_id)
+        # 알림 전용 연결에서도 재인증할 수 있도록 비밀번호를 보관한다.
+        user_info.setdefault('password', password)
         self._user_info = user_info
         self.ui.et_password.clear()
 
