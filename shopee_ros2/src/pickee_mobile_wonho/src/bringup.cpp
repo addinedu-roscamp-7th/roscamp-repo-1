@@ -102,6 +102,9 @@ void BringupNode::InitializeParameters() {
     declare_parameter("serial_baudrate", 115200);
     declare_parameter("serial_timeout", 100);
 
+    // 시뮬레이션 모드 (실제 하드웨어 없이 테스트)
+    declare_parameter("simulation_mode", false);
+
     // 로그 주파수
     declare_parameter("log_frequency", 1.0);              // 1Hz
 
@@ -122,6 +125,8 @@ void BringupNode::InitializeParameters() {
     serial_device_ = get_parameter("serial_device").as_string();
     serial_baudrate_ = get_parameter("serial_baudrate").as_int();
     serial_timeout_ = get_parameter("serial_timeout").as_int();
+    
+    simulation_mode_ = get_parameter("simulation_mode").as_bool();
 
     log_frequency_ = get_parameter("log_frequency").as_double();
 
@@ -139,12 +144,30 @@ void BringupNode::InitializeParameters() {
 }
 
 bool BringupNode::InitializeHardware() {
+    if (simulation_mode_) {
+        RCLCPP_WARN(get_logger(), "시뮬레이션 모드로 실행 중 - 실제 하드웨어 제어 없음");
+        hardware_initialized_ = true;
+        motors_enabled_ = true;
+        emergency_stop_active_ = false;
+        
+        // 시뮬레이션용 초기 위치 설정
+        motor_state_.left_position = 0;
+        motor_state_.right_position = 0;
+        motor_state_.prev_left_position = 0;
+        motor_state_.prev_right_position = 0;
+        
+        RCLCPP_INFO(get_logger(), "시뮬레이션 모드 초기화 완료");
+        return true;
+    }
+    
     // ZLAC 모터 드라이버 생성 및 초기화
     motor_driver_ = std::make_unique<ZlacDriver>(serial_device_, serial_baudrate_, serial_timeout_);
     
     if (!motor_driver_->Initialize()) {
         RCLCPP_ERROR(get_logger(), "ZLAC 드라이버 초기화 실패");
-        return false;
+        RCLCPP_WARN(get_logger(), "시뮬레이션 모드로 전환합니다.");
+        simulation_mode_ = true;
+        return InitializeHardware(); // 재귀 호출로 시뮬레이션 모드 실행
     }
 
     // 안전을 위해 먼저 모든 모터 정지
@@ -214,8 +237,14 @@ void BringupNode::ControlTimerCallback() {
 
     // 모터에 속도 명령 전송
     if (motors_enabled_ && !emergency_stop_active_) {
-        motor_driver_->SetVelocity(1, left_rpm);   // 좌측 모터
-        motor_driver_->SetVelocity(2, right_rpm);  // 우측 모터
+        if (simulation_mode_) {
+            // 시뮬레이션 모드: 가상 모터 상태 업데이트
+            motor_state_.left_velocity = left_rpm;
+            motor_state_.right_velocity = right_rpm;
+        } else {
+            motor_driver_->SetVelocity(1, left_rpm);   // 좌측 모터
+            motor_driver_->SetVelocity(2, right_rpm);  // 우측 모터
+        }
     }
 
     // 모터 상태 업데이트 및 오도메트리 계산
@@ -410,6 +439,27 @@ void BringupNode::PublishJointState() {
 }
 
 bool BringupNode::UpdateMotorState() {
+    if (simulation_mode_) {
+        // 시뮬레이션 모드: 속도를 적분하여 위치 계산
+        auto current_time = this->now();
+        double dt = (current_time - odom_state_.last_update).seconds();
+        
+        if (dt > 0.0) {
+            // RPM을 rad/s로 변환 후 위치 증분 계산
+            double left_angular_vel = RPMToRadPerSec(motor_state_.left_velocity);
+            double right_angular_vel = RPMToRadPerSec(motor_state_.right_velocity);
+            
+            // 위치 증분 (라디안을 펄스로 변환)
+            int32_t left_delta = RadianToPulse(left_angular_vel * dt);
+            int32_t right_delta = RadianToPulse(right_angular_vel * dt);
+            
+            motor_state_.left_position += left_delta;
+            motor_state_.right_position += right_delta;
+        }
+        
+        return true;
+    }
+    
     if (!motor_driver_) {
         return false;
     }
@@ -440,7 +490,16 @@ void BringupNode::EmergencyStop() {
 }
 
 bool BringupNode::SafetyCheck() {
-    if (!motor_driver_ || !hardware_initialized_) {
+    if (!hardware_initialized_) {
+        return false;
+    }
+    
+    if (simulation_mode_) {
+        // 시뮬레이션 모드에서는 항상 안전
+        return true;
+    }
+    
+    if (!motor_driver_) {
         return false;
     }
 
