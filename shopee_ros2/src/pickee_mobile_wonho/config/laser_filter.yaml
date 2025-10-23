@@ -1,0 +1,23 @@
+scan_to_scan_filter_chain:
+  ros__parameters:
+    filter_chain_config:
+      - name: range_filter
+        type: laser_filters/LaserScanRangeFilter
+        params:
+          lower_threshold: 0.15     # 최소 거리 (m)
+          upper_threshold: 15.0     # 최대 거리 (m)
+          lower_replacement_value: -.inf
+          upper_replacement_value: .inf
+      
+      - name: angular_bounds_filter  
+        type: laser_filters/LaserScanAngularBoundsFilter
+        params:
+          lower_angle: -3.14159     # -180도
+          upper_angle: 3.14159      # +180도
+      
+      - name: intensity_filter
+        type: laser_filters/LaserScanIntensityFilter  
+        params:
+          lower_threshold: 0
+          upper_threshold: 100000
+          disp_histogram: false

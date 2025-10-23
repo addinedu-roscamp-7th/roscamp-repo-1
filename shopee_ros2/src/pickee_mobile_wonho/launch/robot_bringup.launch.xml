@@ -4,13 +4,25 @@
 <launch>
     <arg name="use_sim_time" default="False"/>
 
+    <arg name="filter_yaml_path" default="$(find-pkg-share pickee_mobile_wonho)/config/laser_filter.yaml" />
+
     <!-- LIDAR 실행 -->
     <include file="$(find-pkg-share sllidar_ros2)/launch/sllidar_c1_launch.py">
     </include>
 
+    <!-- 레이저 필터 -->
+    <node pkg="laser_filters" exec="scan_to_scan_filter_chain">
+        <param from="$(var filter_yaml_path)" />
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+
+    <arg name="simulation_mode" default="false"/>
+
     <!-- 하드웨어 제어 노드 (ZLAC 모터 드라이버) -->
     <node pkg="pickee_mobile_wonho" exec="pickee_mobile_bringup">
         <param name="use_sim_time" value="$(var use_sim_time)"/>
+        <!-- 시뮬레이션 모드 -->
+        <param name="simulation_mode" value="$(var simulation_mode)"/>
         <!-- 시리얼 포트 설정 -->
         <param name="serial_device" value="/dev/ttyUSB0"/>
         <param name="serial_baudrate" value="115200"/>

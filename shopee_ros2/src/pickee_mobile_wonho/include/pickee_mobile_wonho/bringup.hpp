@@ -148,6 +148,9 @@ private:
     int serial_baudrate_;
     int serial_timeout_;
 
+    // 시뮬레이션 모드
+    bool simulation_mode_;
+
     // 상태 플래그
     bool hardware_initialized_;
     bool motors_enabled_;

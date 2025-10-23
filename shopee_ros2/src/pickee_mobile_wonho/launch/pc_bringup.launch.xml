@@ -15,10 +15,6 @@
         <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 
-    <!-- 레이저 필터 (로봇에서 실행되는 경우 제거 가능) -->
-    <node pkg="laser_filters" exec="scan_to_scan_filter_chain">
-        <param from="$(var filter_yaml_path)" />
-        <param name="use_sim_time" value="$(var use_sim_time)"/>
-    </node>
+    <!-- 레이저 필터는 로봇에서 실행하므로 PC에서는 제거 -->
 
 </launch>
