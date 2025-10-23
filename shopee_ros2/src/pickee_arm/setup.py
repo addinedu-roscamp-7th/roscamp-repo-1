@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'pickee_arm_controller = pickee_arm.pickee_arm_controller:main'
+            'pickee_arm_controller = pickee_arm.pickee_arm_controller:main',
         ],
     },
 )

@@ -113,40 +113,10 @@ class SpeechToTextWorker(QtCore.QObject):
         self._ensure_resources()
         if self._device_index is None or self._sample_rate is None or self._model is None:
             raise RuntimeError('음성 인식 자원이 준비되지 않았습니다.')
-        primary_text = self._stt_util.stt_response(
+        text = self._stt_util.stt_response(
             self._device_index,
             self._model,
             self._sample_rate,
             self._fp16,
         )
-        if primary_text:
-            return primary_text
-        return self._run_fallback_capture()
-
-    def _run_fallback_capture(self) -> str:
-        # 에너지 기반 감지가 실패했을 때 고정 길이 샘플을 녹음하지 않으면 음성을 확보할 수 없다.
-        if self._device_index is None or self._sample_rate is None or self._model is None:
-            raise RuntimeError('음성 인식 자원이 준비되지 않았습니다.')
-        duration_sec = float(os.getenv('SHOPEE_STT_FALLBACK_DURATION', '3.0'))
-        try:
-            recording = sd.rec(
-                int(duration_sec * self._sample_rate),
-                samplerate=self._sample_rate,
-                channels=1,
-                dtype='float32',
-                device=self._device_index,
-            )
-            sd.wait()
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError('마이크 입력을 읽어오지 못했습니다.') from exc
-        flattened = recording.reshape(-1)
-        if flattened.size == 0:
-            return ''
-        # Whisper는 16kHz 오디오를 기대하므로 리샘플을 하지 않으면 결과 품질이 크게 떨어진다.
-        audio_16k = self._stt_util.resample_linear(flattened, self._sample_rate, 16000)
-        result = self._model.transcribe(
-            audio_16k,
-            language=self._stt_util.language,
-            fp16=self._fp16,
-        )
-        return (result.get('text') or '').strip()
+        return text or ''

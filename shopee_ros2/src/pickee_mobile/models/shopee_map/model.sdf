@@ -7,7 +7,8 @@
       <visual name="shopee_visual">
         <geometry>
           <mesh>
-            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+            <uri>model://shopee_map/meshes/shopee.obj</uri>
+            <!-- <uri>model://shopee_map/meshes/shopee_map2.obj</uri> -->
           </mesh>
         </geometry>
         <material>
@@ -18,7 +19,8 @@
       <collision name="shopee_collision">
         <geometry>
           <mesh>
-            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+            <uri>model://shopee_map/meshes/shopee.obj</uri>
+            <!-- <uri>model://shopee_map/meshes/shopee_map2.obj</uri> -->
           </mesh>
         </geometry>
       </collision>

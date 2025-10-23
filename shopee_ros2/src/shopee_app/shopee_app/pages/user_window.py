@@ -1,4 +1,3 @@
-import math
 import os
 from pathlib import Path
 from dataclasses import replace
@@ -131,7 +130,6 @@ class UserWindow(QWidget):
         self._stt_status_hide_timer = QtCore.QTimer(self)
         self._stt_status_hide_timer.setSingleShot(True)
         self._stt_status_hide_timer.timeout.connect(self._hide_mic_info)
-        self._stt_countdown_seconds = 0
         self._stt_thread: QtCore.QThread | None = None
         self._stt_worker: SpeechToTextWorker | None = None
         self._stt_busy = False
@@ -294,28 +292,12 @@ class UserWindow(QWidget):
 
     def _start_mic_feedback(self) -> None:
         self._stt_status_hide_timer.stop()
-        try:
-            duration = float(os.getenv('SHOPEE_STT_FALLBACK_DURATION', '3.0'))
-        except ValueError:
-            duration = 3.0
-        self._stt_countdown_seconds = max(1, math.ceil(duration))
-        self._update_mic_info_label()
-        self._stt_feedback_timer.start()
-
-    def _on_stt_feedback_tick(self) -> None:
-        if self._stt_countdown_seconds > 0:
-            self._stt_countdown_seconds -= 1
-        if self._stt_countdown_seconds > 0:
-            self._update_mic_info_label()
-            return
         self._stt_feedback_timer.stop()
         self._show_mic_info('음성 인식 중...')
 
-    def _update_mic_info_label(self) -> None:
-        if self.mic_info_label is None:
-            return
-        self.mic_info_label.setText(f'음성 인식 중... {self._stt_countdown_seconds}')
-        self.mic_info_label.setVisible(True)
+    def _on_stt_feedback_tick(self) -> None:
+        self._stt_feedback_timer.stop()
+        self._show_mic_info('음성 인식 중...')
 
     def _show_mic_info(self, text: str) -> None:
         if self.mic_info_label is None:
@@ -381,10 +363,15 @@ class UserWindow(QWidget):
         allergy_filter, vegan_flag = self._build_search_filter()
         # 검색 입력 위젯 참조를 보관하지 않으면 이후에 상태를 복원할 수 없다.
         search_widget = self.search_input
+        # 검색 버튼 상태를 추적하지 않으면 비활성화 후 복구할 수 없다.
+        search_button = getattr(self, 'search_button', None)
         # 위젯 존재 여부를 확인하지 않으면 None에 접근하면서 예외가 발생한다.
         if search_widget is not None:
             # 요청 동안 입력을 막지 않으면 사용자가 연타하여 중복 요청을 발생시킬 수 있다.
             search_widget.setEnabled(False)
+        if search_button is not None:
+            # 응답을 기다리는 동안 버튼을 비활성화하지 않으면 반복 클릭으로 중복 요청이 발생한다.
+            search_button.setEnabled(False)
         # 네트워크 예외를 처리하지 않으면 오류가 발생할 때 애플리케이션이 그대로 종료된다.
         try:
             # 명세에 맞춘 검색 요청을 호출하지 않으면 서버로부터 상품 목록을 받을 수 없다.
@@ -408,6 +395,9 @@ class UserWindow(QWidget):
             # 요청이 끝난 뒤 입력을 다시 활성화하지 않으면 사용자가 이후 검색을 할 수 없다.
             if search_widget is not None:
                 search_widget.setEnabled(True)
+            if search_button is not None:
+                # 버튼을 다시 활성화하지 않으면 사용자가 추가 검색을 수행할 수 없다.
+                search_button.setEnabled(True)
         # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
         if not response:
             QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")

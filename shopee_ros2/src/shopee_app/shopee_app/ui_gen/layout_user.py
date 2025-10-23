@@ -220,7 +220,7 @@ class Ui_Form_user(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scroll_main_content = QtWidgets.QWidget()
-        self.scroll_main_content.setGeometry(QtCore.QRect(0, 0, 296, 123))
+        self.scroll_main_content.setGeometry(QtCore.QRect(0, 0, 896, 563))
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -285,7 +285,7 @@ class Ui_Form_user(object):
         self.cart_item_scroll.setWidgetResizable(True)
         self.cart_item_scroll.setObjectName("cart_item_scroll")
         self.cart_items_container = QtWidgets.QWidget()
-        self.cart_items_container.setGeometry(QtCore.QRect(0, 0, 100, 30))
+        self.cart_items_container.setGeometry(QtCore.QRect(0, 0, 864, 68))
         self.cart_items_container.setObjectName("cart_items_container")
         self.cart_items_layout = QtWidgets.QVBoxLayout(self.cart_items_container)
         self.cart_items_layout.setObjectName("cart_items_layout")
@@ -551,7 +551,7 @@ class Ui_Form_user(object):
 
         self.retranslateUi(Form_user)
         self.stack_side_bar.setCurrentIndex(1)
-        self.stacked_content.setCurrentIndex(1)
+        self.stacked_content.setCurrentIndex(0)
         self.stackedWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(Form_user)
 
