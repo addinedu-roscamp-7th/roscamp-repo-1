@@ -9,7 +9,7 @@ class CnnClassifier:
     #
     # CNN 이미지 분류 모델을 로드하고 추론을 수행하는 클래스.
     #
-    def __init__(self, model_path, num_classes=2):
+    def __init__(self, model_path, num_classes=3):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at {model_path}")
 
