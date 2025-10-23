@@ -2,7 +2,7 @@
 
 int32 robot_id
 int32 order_id
-string pose_type           # ready, home, picking, placing 등
+string pose_type           # cart_view, standby 등
 ---
 bool success
 string message

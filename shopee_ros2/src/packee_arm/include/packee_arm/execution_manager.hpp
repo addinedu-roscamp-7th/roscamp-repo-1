@@ -2,6 +2,7 @@
 #define PACKEE_ARM_EXECUTION_MANAGER_HPP_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <mutex>

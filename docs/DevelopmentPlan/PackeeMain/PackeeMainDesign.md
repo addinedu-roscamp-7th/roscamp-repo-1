@@ -46,9 +46,9 @@
 
 #### Service Clients.
 - **vs. Arm**
-  - `/packee/arm/move_to_pose` (`PackeeArmMoveToPose.srv`): 'checking_cart', 'standby' 등 특정 자세로 변경을 명령.
-  - `/packee/arm/pick_product` (`PackeeArmPickProduct.srv`): '좌측 팔' 또는 '우측 팔'에 특정 위치의 상품을 피킹하도록 명령.
-  - `/packee/arm/place_product` (`PackeeArmPlaceProduct.srv`): 좌측 팔' 또는 '우측 팔'에피킹한 상품을 장바구니에 담도록 명령.
+  - `/packee/arm/move_to_pose` (`ArmMoveToPose.srv`): 'checking_cart', 'standby' 등 특정 자세로 변경을 명령.
+  - `/packee/arm/pick_product` (`ArmPickProduct.srv`): '좌측 팔' 또는 '우측 팔'에 특정 위치의 상품을 피킹하도록 명령.
+  - `/packee/arm/place_product` (`ArmPlaceProduct.srv`): '좌측 팔' 또는 '우측 팔'에 피킹한 상품을 장바구니에 담도록 명령.
 - **vs. Vision**
   - `/packee/vision/check_cart_presence` (`PackeeVisionCheckCartPresence.srv`): 장바구니 유무를 확인.
   - `/packee/vision/detect_products_in_cart` (`PackeeVisionDetectProductsInCart.srv`): 장바구니 내 상품의 위치를 확인.
@@ -57,8 +57,8 @@
 #### Subscribers
 - **from Arm**
   - `/packee/arm/pose_status` (`ArmPoseStatus.msg`): 'in_progress', 'completed', 'failed' 자세 변경 상태 확인
-  - `/packee/arm/pick_status` (`PackeeArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
-  - `/packee/arm/place_status` (`PackeeArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', , 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done'  담기 상태를 확인.
+  - `/packee/arm/pick_status` (`ArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', 'failed', 'planning', 'approaching', 'grasping', 'lifting', 'done' 픽업 상태를 확인
+  - `/packee/arm/place_status` (`ArmTaskStatus.msg`): 좌측 팔 또는 우측 팔에 'in_progress', 'completed', 'failed', 'planning', 'approaching', 'moving', 'done' 담기 상태를 확인.
 
 ## 5. 주요 기능 로직 (Key Logic)
 

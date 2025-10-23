@@ -3,6 +3,7 @@
 #include <future>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -12,13 +13,93 @@
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
 #include "shopee_interfaces/msg/b_box.hpp"
 #include "shopee_interfaces/msg/arm_task_status.hpp"
-#include "shopee_interfaces/msg/point3_d.hpp"
+#include "shopee_interfaces/msg/pose6_d.hpp"
 #include "shopee_interfaces/msg/detected_product.hpp"
 #include "shopee_interfaces/srv/arm_move_to_pose.hpp"
 #include "shopee_interfaces/srv/arm_pick_product.hpp"
 #include "shopee_interfaces/srv/arm_place_product.hpp"
 
 using namespace std::chrono_literals;
+
+namespace detail {
+
+template<typename T, typename = void>
+struct HasPoseMember : std::false_type {};
+
+template<typename T>
+struct HasPoseMember<
+  T,
+  std::void_t<
+    decltype(std::declval<T>().pose.joint_1),
+    decltype(std::declval<T>().pose.joint_2),
+    decltype(std::declval<T>().pose.joint_3),
+    decltype(std::declval<T>().pose.joint_4)>> : std::true_type {};
+
+template<typename T, typename = void>
+struct HasPositionMember : std::false_type {};
+
+template<typename T>
+struct HasPositionMember<
+  T,
+  std::void_t<
+    decltype(std::declval<T>().position.x),
+    decltype(std::declval<T>().position.y),
+    decltype(std::declval<T>().position.z)>> : std::true_type {};
+
+template<typename T, typename = void>
+struct HasBoxPositionMember : std::false_type {};
+
+template<typename T>
+struct HasBoxPositionMember<
+  T,
+  std::void_t<
+    decltype(std::declval<T>().box_position.x),
+    decltype(std::declval<T>().box_position.y),
+    decltype(std::declval<T>().box_position.z)>> : std::true_type {};
+
+}  // namespace detail
+
+template<typename DetectedProductT>
+void AssignDetectedProductPose(
+  DetectedProductT * product,
+  float x,
+  float y,
+  float z,
+  float yaw_deg) {
+  if constexpr (detail::HasPoseMember<DetectedProductT>::value) {
+    product->pose.joint_1 = x;
+    product->pose.joint_2 = y;
+    product->pose.joint_3 = z;
+    product->pose.joint_4 = yaw_deg;
+    product->pose.joint_5 = 0.0F;
+    product->pose.joint_6 = 0.0F;
+  } else if constexpr (detail::HasPositionMember<DetectedProductT>::value) {
+    product->position.x = x;
+    product->position.y = y;
+    product->position.z = z;
+  }
+}
+
+template<typename RequestT>
+void AssignPlacePose(
+  RequestT * request,
+  float x,
+  float y,
+  float z,
+  float yaw_deg) {
+  if constexpr (detail::HasPoseMember<RequestT>::value) {
+    request->pose.joint_1 = x;
+    request->pose.joint_2 = y;
+    request->pose.joint_3 = z;
+    request->pose.joint_4 = yaw_deg;
+    request->pose.joint_5 = 0.0F;
+    request->pose.joint_6 = 0.0F;
+  } else if constexpr (detail::HasBoxPositionMember<RequestT>::value) {
+    request->box_position.x = x;
+    request->box_position.y = y;
+    request->box_position.z = z;
+  }
+}
 
 class MockPackeeMain : public rclcpp::Node {
 public:
@@ -210,7 +291,7 @@ private:
     req->order_id = order_id_;
     req->arm_side = CurrentArmSide();
     req->target_product.product_id = CurrentProductId();
-    req->target_product.position = CreatePoint3D(0.25F, 0.0F, 0.12F);
+    AssignDetectedProductPose(&req->target_product, 0.25F, 0.0F, 0.12F, 0.0F);
     req->target_product.bbox = CreateBBox(120, 180, 250, 320);
     current_future_ = pick_client_->async_send_request(req);
   }
@@ -221,7 +302,7 @@ private:
     req->order_id = order_id_;
     req->product_id = CurrentProductId();
     req->arm_side = CurrentArmSide();
-    req->box_position = CreatePoint3D(0.35F, 0.1F, 0.15F);
+    AssignPlacePose(req.get(), 0.35F, 0.1F, 0.15F, 0.0F);
     current_future_ = place_client_->async_send_request(req);
   }
 
@@ -232,12 +313,6 @@ private:
 
   int32_t CurrentProductId() const {
     return base_product_id_ + static_cast<int32_t>(current_arm_index_);
-  }
-
-  shopee_interfaces::msg::Point3D CreatePoint3D(float x, float y, float z) const {
-    shopee_interfaces::msg::Point3D p;
-    p.x = x; p.y = y; p.z = z;
-    return p;
   }
 
   shopee_interfaces::msg::BBox CreateBBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) const {

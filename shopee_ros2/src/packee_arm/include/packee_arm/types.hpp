@@ -39,6 +39,7 @@ struct PickCommand {
   double target_x;
   double target_y;
   double target_z;
+  double target_yaw_deg;
   int32_t bbox_x1;
   int32_t bbox_y1;
   int32_t bbox_x2;
@@ -54,6 +55,7 @@ struct PlaceCommand {
   double box_x;
   double box_y;
   double box_z;
+  double box_yaw_deg;
 };
 
 }  // namespace packee_arm

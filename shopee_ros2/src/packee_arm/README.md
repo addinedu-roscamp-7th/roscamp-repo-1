@@ -30,15 +30,15 @@ Packee Main Controller와 `docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`�
 ## ROS 인터페이스 요약
 - `/packee/arm/pose_status` (`shopee_interfaces/msg/ArmPoseStatus`)  
   자세 이동 진행률과 메시지를 발행합니다.
-- `/packee/arm/pick_status` (`shopee_interfaces/msg/PackeeArmTaskStatus`)  
+- `/packee/arm/pick_status` (`shopee_interfaces/msg/ArmTaskStatus`)  
   픽업 단계별 상태(`planning`, `approaching`, `grasping`, `lifting`, `done`)를 전송합니다.
-- `/packee/arm/place_status` (`shopee_interfaces/msg/PackeeArmTaskStatus`)  
+- `/packee/arm/place_status` (`shopee_interfaces/msg/ArmTaskStatus`)  
   담기 단계별 상태(`planning`, `approaching`, `moving`, `done`)를 전송합니다.
-- `/packee/arm/move_to_pose` (`shopee_interfaces/srv/PackeeArmMoveToPose`)  
+- `/packee/arm/move_to_pose` (`shopee_interfaces/srv/ArmMoveToPose`)  
   `pose_type` 검증 후 자세 전환 명령을 큐에 등록합니다.
-- `/packee/arm/pick_product` (`shopee_interfaces/srv/PackeeArmPickProduct`)  
+- `/packee/arm/pick_product` (`shopee_interfaces/srv/ArmPickProduct`)  
   Bounding Box/타깃 좌표 검증, CNN 신뢰도 확인 후 시각 서보·그리퍼 제어를 수행합니다.
-- `/packee/arm/place_product` (`shopee_interfaces/srv/PackeeArmPlaceProduct`)  
+- `/packee/arm/place_product` (`shopee_interfaces/srv/ArmPlaceProduct`)  
   상품을 보유한 팔에 대해 포장 위치로 이동·해제 작업을 진행합니다.
 
 ## myCobot 280 연동 가이드
