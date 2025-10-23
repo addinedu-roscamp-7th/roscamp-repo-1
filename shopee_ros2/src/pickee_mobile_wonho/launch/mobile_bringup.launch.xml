@@ -20,4 +20,9 @@
         <param from="$(var filter_yaml_path)" />
         <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
+
+    <node pkg="tf2_ros" exec="static_transform_publisher" 
+          args="0 0 0 0 0 0 odom base_footprint"
+          name="odom_base_footprint_broadcaster"/>
+
 </launch>
