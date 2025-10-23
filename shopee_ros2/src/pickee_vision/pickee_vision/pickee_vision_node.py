@@ -17,13 +17,33 @@ from .udp_video import UdpStreamer
 from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckProductInCart, VisionCheckCartPresence, PickeeVisionVideoStreamStart, PickeeVisionVideoStreamStop
 from shopee_interfaces.msg import PickeeVisionDetection, DetectedProduct, DetectionInfo, BBox, Point2D, Pose6D, PickeeVisionCartCheck
 
-class ProductDetectorNode(Node):
+product_dic = {
+    1 : "", 
+    2 : "", 
+    3 : "", 
+    4 : "", 
+    5 : "", 
+    6 : "", 
+    7 : "", 
+    8 : "", 
+    9 : "", 
+    10 : "", 
+    11 : "", 
+    12 : "", 
+    13 : "", 
+    14 : "", 
+    15 : "", 
+    16 : "", 
+    17 : ""
+}
+
+class PickeeVisionNode(Node):
     #
     # 모든 장보기 관련 작업을 지휘하는 메인 노드.
     # 실시간 로컬 영상 디스플레이, 서비스 요청 시 인식, 인식 이미지 로컬 및 UDP 스트리밍 기능을 모두 포함합니다.
     #
     def __init__(self):
-        super().__init__('product_detector_node')
+        super().__init__('pickee_vision_node')
 
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
         package_share_directory = get_package_share_directory('pickee_vision')
@@ -115,7 +135,7 @@ class ProductDetectorNode(Node):
             cv2.rectangle(frame, (bbox_data[0], bbox_data[1]), (bbox_data[2], bbox_data[3]), (0, 255, 0), 2)
             # polygon_pts = np.array(det['polygon'], np.int32)
             # cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
-            cv2.putText(frame, f"# {i + 1}: {det['class_name']}", (bbox_data[0], bbox_data[1] - 15), 
+            cv2.putText(frame, f"# {i + 1}: {product_dic[det['class_id']]}", (bbox_data[0], bbox_data[1] - 15), 
                         cv2.FONT_HERSHEY_PLAIN, 0.8, (0, 255, 0), 2)
         return frame
     
@@ -211,11 +231,11 @@ class ProductDetectorNode(Node):
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Check product in cart request received for product_id: {request.product_id}')
         
-        # 1. Capture frame
+        # 1. 프레임 캡처
         ret, frame = self.cap.read()
         if not ret:
             self.get_logger().error('Failed to capture frame for product in cart check.')
-            # Publish failure message
+            # 실패 메시지 발행
             result_msg = PickeeVisionCartCheck(
                 robot_id=request.robot_id,
                 order_id=request.order_id,
@@ -227,45 +247,45 @@ class ProductDetectorNode(Node):
             )
             self.cart_check_result_pub.publish(result_msg)
             
-            # Respond to service
+            # 서비스 응답
             response.success = False
             response.message = 'Failed to capture frame'
             return response
 
-        # 2. Detect products in the frame
-        detections = self.product_detector.detect(frame)
+        # 2. 프레임에서 상품 감지
+        self.last_detections = self.product_detector.detect(frame)
         
-        # 3. Count the requested product
+        # 3. 요청된 상품 개수 세기
         requested_product_id = request.product_id
         quantity = 0
-        for det in detections:
+        for det in self.last_detections:
             if det['class_id'] == requested_product_id:
                 quantity += 1
         
         found = quantity > 0
         self.get_logger().info(f'Found {quantity} instances of product_id {requested_product_id}.')
 
-        # 4. Publish result to topic
+        # 4. 토픽으로 결과 발행
         result_msg = PickeeVisionCartCheck(
             robot_id=request.robot_id,
             order_id=request.order_id,
-            success=True, # Detection process was successful
+            success=True, # 감지 프로세스는 성공
             product_id=requested_product_id,
             found=found,
             quantity=quantity,
             message=f'Found {quantity} of product {requested_product_id}'
         )
         self.cart_check_result_pub.publish(result_msg)
-        self.get_logger().info('Published cart check result.')
+        # self.get_logger().info('Published cart check result.')
 
-        # 5. Respond to service
+        # 5. 서비스로 응답
         response.success = found
-        response.message = f'Detection complete. Found: {found}, Quantity: {quantity}'
+        response.message = f'Detection complete. product_id: {requested_product_id}, Quantity: {quantity}'
         
         return response
     
     def check_cart_presence_callback(self, request, response):
-        """서비스 요청 시 장바구니 존재 여부를 클래시피케이션 모델로 확인"""
+        # 서비스 요청 시 장바구니 존재 여부를 클래시피케이션 모델로 확인
         self.get_logger().info('Check cart presence request received.')
         ret, frame = self.cap.read()
         if not ret:
@@ -278,7 +298,7 @@ class ProductDetectorNode(Node):
         class_id, confidence, class_name = self.cart_classifier.classify(frame)
 
         # 'empty_cart'는 장바구니 존재, 'full_cart'는 장바구니 없음(사용 불가)으로 판단
-        if class_name == 'empty_cart':
+        if class_name == 'empty_cart' and confidence >= 90:
             self.get_logger().info(f'Empty cart detected with confidence: {confidence:.2f}')
             response.is_present = True
             response.message = f'Empty cart is present (confidence: {confidence:.2f})'
@@ -286,12 +306,16 @@ class ProductDetectorNode(Node):
             self.get_logger().info(f'Full cart detected with confidence: {confidence:.2f}. Considering as not present for pickup.')
             response.is_present = False
             response.message = f'Cart is full, not available for use (confidence: {confidence:.2f})'
+        elif class_name == 'no_cart':
+            self.get_logger().info(f'NO cart detected with confidence: {confidence:.2f}. Considering as not present for pickup.')
+            response.is_present = False
+            response.message = f'Cart isn\'t here, not available for use (confidence: {confidence:.2f})'
         elif class_name == 'error':
             self.get_logger().error('An error occurred during cart classification.')
             response.is_present = False
             response.message = 'An error occurred during classification.'
         else:
-            # 이 경우는 모델이 'empty_cart'나 'full_cart'가 아닌 다른 것을 예측한 경우
+            # 이 경우는 모델이 'empty_cart'나 'full_cart'나 'no_cart'가 아닌 다른 것을 예측한 경우
             self.get_logger().info(f'Cart not detected. Classified as: {class_name}')
             response.is_present = False
             response.message = f'Cart is not present. (classified as: {class_name})'
@@ -309,7 +333,7 @@ def main(args=None):
     rclpy.init(args=args)
     node = None
     try:
-        node = ProductDetectorNode()
+        node = PickeeVisionNode()
         rclpy.spin(node)
     except (IOError, FileNotFoundError) as e:
         print(f"Error starting node: {e}")

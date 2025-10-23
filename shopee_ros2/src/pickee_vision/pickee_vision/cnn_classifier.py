@@ -6,9 +6,9 @@ import cv2
 import numpy as np
 
 class CnnClassifier:
-    """
-    CNN 이미지 분류 모델을 로드하고 추론을 수행하는 클래스.
-    """
+    #
+    # CNN 이미지 분류 모델을 로드하고 추론을 수행하는 클래스.
+    #
     def __init__(self, model_path, num_classes=2):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -35,17 +35,17 @@ class CnnClassifier:
         ])
 
         # 클래스 이름
-        self.class_names = ['empty_cart', 'full_cart']
+        self.class_names = ['empty_cart', 'full_cart', 'no_cart']
         print(f"CNN classification model loaded from {model_path}")
 
     def classify(self, frame: np.ndarray) -> tuple[int, float, str]:
-        """
-        주어진 이미지 프레임의 클래스를 예측하고 결과를 반환합니다.
+        #
+        # 주어진 이미지 프레임의 클래스를 예측하고 결과를 반환합니다.
+        #
+        # :param frame: OpenCV 이미지 프레임 (numpy.ndarray)
+        # :return: (가장 확률이 높은 클래스 ID, 해당 확률, 클래스 이름) 튜플.
+        #         예: (0, 0.95, 'empty_cart')
 
-        :param frame: OpenCV 이미지 프레임 (numpy.ndarray)
-        :return: (가장 확률이 높은 클래스 ID, 해당 확률, 클래스 이름) 튜플.
-                 예: (0, 0.95, 'empty_cart')
-        """
         try:
             # OpenCV는 BGR이므로 RGB로 변환
             img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
