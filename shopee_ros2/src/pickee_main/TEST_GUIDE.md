@@ -233,6 +233,7 @@ ros2 service call /pickee/workflow/start_task shopee_interfaces/srv/PickeeWorkfl
 ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeWorkflowMoveToSection "{
   robot_id: 1,
   order_id: 123,
+  location_id: 1,
   section_id: 1
 }"
 
