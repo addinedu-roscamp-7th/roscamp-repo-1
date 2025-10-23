@@ -99,7 +99,7 @@ class MockShopeeMain(Node):
     def get_location_pose_callback(self, request, response):
         self.get_logger().info(f'Received get location pose request: {request}')
         response.success = True
-        response.pose = Pose2D(x=1.0, y=1.0, theta=0.0)
+        response.pose = Pose2D(x=1.1, y=0.0, theta=0.0)
         return response
 
     def get_warehouse_pose_callback(self, request, response):

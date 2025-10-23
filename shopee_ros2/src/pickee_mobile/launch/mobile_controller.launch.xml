@@ -1,0 +1,8 @@
+<launch>
+  <!-- 첫 번째 노드: mobile_controller -->
+  <node pkg="pickee_mobile" exec="mobile_controller" name="mobile_controller" output="screen"/>
+
+  <!-- 두 번째 노드: mobile_vel_modifier 로봇 속도 제어-->
+  <node pkg="pickee_mobile" exec="mobile_vel_modifier" name="mobile_vel_modifier" output="screen"/>
+
+</launch>
