@@ -23,21 +23,17 @@ class MockMoveToLocationClient(Node):
 
         self.get_logger().info('service available')
 
-        self.timer = self.create_timer(5.0, self.timer_callback) # 10초마다 실행
+        self.send_move_to_location_request()
 
         self.current_x = 0.0
         self.current_y = 0.0
         self.current_theta = 0.0
 
-    def timer_callback(self):
-        print('timer')
-        self.send_move_to_location_request()
-
     def send_move_to_location_request(self):
         print('send request')
         request = PickeeMobileMoveToLocation.Request()
         request.robot_id = 1
-        request.order_id = 123
+        request.order_id = 1
         request.location_id = 456
         request.target_pose = Pose2D(x=0.45, y=-0.27, theta=0.0)
     #     x: 0.4130041301250458

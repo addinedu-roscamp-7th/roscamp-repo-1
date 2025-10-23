@@ -211,6 +211,9 @@ class PickeeMobileController(Node):
         elif abs(self.linear_velocity) == 0 and abs(self.angular_velocity) == 0 and self.working == 1:
             self.status = 'stopped'
         
+        else:
+            self.status = 'error'
+        
 def main(args=None):
     rclpy.init(args=args)
     node = PickeeMobileController()
