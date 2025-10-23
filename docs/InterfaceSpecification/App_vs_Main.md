@@ -702,7 +702,8 @@ Main = Shopee Main Service
   "data": {
     "user_type": "string",
     "user_id": "string",
-    "robot_id": "int"
+    "robot_id": "int", 
+    "camera_type": "string"
   }
 }
 ```
@@ -714,7 +715,8 @@ Main = Shopee Main Service
   "data": {
     "user_type": "admin",
     "user_id": "admin01",
-    "robot_id": 1
+    "robot_id": 1, 
+    "camera_type": "front"
   }
 }
 ```
