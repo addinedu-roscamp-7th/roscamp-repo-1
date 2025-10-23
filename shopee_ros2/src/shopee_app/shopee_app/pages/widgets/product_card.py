@@ -20,7 +20,8 @@ class ProductCard(QWidget):
         self.ui.setupUi(self)
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setMinimumSize(self.DEFAULT_SIZE)
-        size_policy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        self.setMaximumSize(self.DEFAULT_SIZE)
+        size_policy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setSizePolicy(size_policy)
         self.ui.label_prod_image.setScaledContents(False)
         self.source_pixmap: QtGui.QPixmap | None = None

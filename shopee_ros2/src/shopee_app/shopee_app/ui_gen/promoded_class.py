@@ -12,7 +12,14 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_product_form(object):
     def setupUi(self, product_form):
         product_form.setObjectName("product_form")
-        product_form.resize(469, 609)
+        product_form.resize(230, 367)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(product_form.sizePolicy().hasHeightForWidth())
+        product_form.setSizePolicy(sizePolicy)
+        product_form.setMinimumSize(QtCore.QSize(230, 315))
+        product_form.setMaximumSize(QtCore.QSize(230, 367))
         product_form.setStyleSheet("#product_form { border: 1px solid #b0b0b0; }")
         self.verticalLayout = QtWidgets.QVBoxLayout(product_form)
         self.verticalLayout.setObjectName("verticalLayout")
