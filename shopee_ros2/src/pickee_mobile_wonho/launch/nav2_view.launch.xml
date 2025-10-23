@@ -2,12 +2,8 @@
 <!-- Rviz에 시각화 -->
 
 <launch>
-    <arg name="namespace" default=""/>
-    <arg name="use_sim_time" default="false"/>
-
     <arg name="rviz_config_file" default="$(find-pkg-share pickee_mobile_wonho)/rviz/nav2_view.rviz"/>
 
-    <node pkg="rviz2" exec="rviz2" output="screen" args="-d $(var rviz_config_file)" namespace="$(var namespace)">
-        <param name="use_sim_time" value="$(var use_sim_time)"/>
+    <node pkg="rviz2" exec="rviz2" output="screen" args="-d $(var rviz_config_file)">
     </node>
 </launch>    

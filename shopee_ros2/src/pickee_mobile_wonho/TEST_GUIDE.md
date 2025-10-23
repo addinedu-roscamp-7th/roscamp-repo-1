@@ -23,11 +23,15 @@ ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeW
 
 ## 여기까지 실행하면 통신 테스트 됩니다. 주행 시뮬레이션이 없다면 마지막에 에러가 뜰 것입니다.
 
-# 주행 시뮬레이션
+# 주행 시뮬레이션 or 실제 주행
 ## Gazebo 실행 / bringup 실행 / rviz 실행
 ros2 launch pickee_mobile_wonho_robot gazebo_bringup.launch.xml 
 ros2 launch pickee_mobile_wonho nav2_bringup_launch.xml use_sim_time:=True
 ros2 launch pickee_mobile_wonho nav2_view.launch.xml 
+## 로봇 bringup 실행 / 네비 bringup 실행 / rviz 실행
+ros2 launch pickee_mobile_wonho_robot bringup.launch.xml 
+ros2 launch pickee_mobile_wonho nav2_bringup_launch.xml
+ros2 launch pickee_mobile_wonho nav2_view.launch.xml
 
 ## 간단 실행 명령어를 주행 시뮬레이션을 띄워놓은 상태에서 실행해봐도 됩니다. (물론 노드들 다 실행시켜 놓아야 됩니다.)
 
