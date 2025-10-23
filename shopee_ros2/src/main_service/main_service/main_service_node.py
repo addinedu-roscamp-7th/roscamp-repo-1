@@ -20,6 +20,7 @@ from shopee_interfaces.srv import PickeeMainVideoStreamStart, PickeeMainVideoStr
 from .api_controller import APIController
 from .config import settings
 from .database_manager import DatabaseManager
+from .database_models import Product
 from .event_bus import EventBus
 from .llm_client import LLMClient
 from .streaming_service import StreamingService
@@ -381,34 +382,94 @@ class MainServiceApp:
 
         async def handle_order_create(data, peer=None):
             """주문 생성 처리"""
-            user_id = data.get("user_id")
-            cart_items = data.get("cart_items")
+            user_id = data.get('user_id')
+            cart_items = data.get('cart_items')
 
             if not user_id or not cart_items:
                 return {
-                    "type": "order_create_response",
-                    "result": False,
-                    "message": "user_id and cart_items are required.",
-                    "error_code": "SYS_001",
+                    'type': 'order_create_response',
+                    'result': False,
+                    'message': 'user_id and cart_items are required.',
+                    'error_code': 'SYS_001',
                 }
 
             result = await self._order_service.create_order(user_id, cart_items)
 
             if result:
                 order_id, robot_id = result
+
+                # 주문 응답에 상품 정보를 포함하기 위해 상품 메타데이터를 조회
+                product_ids: List[int] = []
+                for item in cart_items:
+                    pid_raw = item.get('product_id')
+                    try:
+                        pid = int(pid_raw)
+                    except (TypeError, ValueError):
+                        logger.warning('유효하지 않은 product_id 항목을 응답에서 제외합니다: %s', pid_raw)
+                        continue
+                    product_ids.append(pid)
+
+                product_map: Dict[int, Product] = {}
+                if product_ids:
+                    with self._db.session_scope() as session:
+                        products = (
+                            session.query(Product)
+                            .filter(Product.product_id.in_(product_ids))
+                            .all()
+                        )
+                        product_map = {product.product_id: product for product in products}
+
+                products_payload: List[Dict[str, Any]] = []
+                for item in cart_items:
+                    pid_raw = item.get('product_id')
+                    qty_raw = item.get('quantity', 0)
+
+                    try:
+                        pid = int(pid_raw)
+                    except (TypeError, ValueError):
+                        continue
+
+                    try:
+                        quantity = int(qty_raw)
+                    except (TypeError, ValueError):
+                        quantity = 0
+
+                    product_obj = product_map.get(pid)
+                    if not product_obj:
+                        logger.warning('상품 ID %d에 대한 메타데이터를 찾을 수 없어 기본값으로 응답합니다.', pid)
+                        product_name = ''
+                        auto_select = False
+                    else:
+                        product_name = product_obj.name or ''
+                        auto_select = bool(product_obj.auto_select)
+
+                    products_payload.append(
+                        {
+                            'product_id': pid,
+                            'name': product_name,
+                            'quantity': quantity,
+                            'auto_select': auto_select,
+                        }
+                    )
+
                 return {
-                    "type": "order_create_response",
-                    "result": True,
-                    "error_code": "",
-                    "data": {"order_id": order_id, "robot_id": robot_id},
-                    "message": "Order successfully created",
+                    'type': 'order_create_response',
+                    'result': True,
+                    'error_code': '',
+                    'data': {
+                        'order_id': order_id,
+                        'robot_id': robot_id,
+                        'products': products_payload,
+                        'total_count': len(products_payload),
+                    },
+                    'message': 'Order successfully created',
                 }
             else:
                 return {
-                    "type": "order_create_response",
-                    "result": False,
-                    "message": "Failed to create order.",
-                    "error_code": "ORDER_001",
+                    'type': 'order_create_response',
+                    'result': False,
+                    'message': 'Failed to create order.',
+                    'error_code': 'ORDER_001',
                 }
 
         async def handle_product_selection(data, peer=None):
