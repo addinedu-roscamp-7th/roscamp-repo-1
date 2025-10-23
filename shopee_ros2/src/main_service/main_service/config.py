@@ -60,7 +60,7 @@ class MainServiceConfig(BaseSettings):
     
     # === LLM 서비스 설정 ===
     LLM_BASE_URL: str = "http://localhost:5001"
-    LLM_TIMEOUT: float = 1.5
+    LLM_TIMEOUT: float = 20
     LLM_MAX_RETRIES: int = 2
     LLM_RETRY_BACKOFF: float = 0.5
     
