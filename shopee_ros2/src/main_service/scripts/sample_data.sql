@@ -28,7 +28,7 @@ INSERT INTO customer (id, password, name, gender, age, address, allergy_info_id,
 ('user3', 'pass123', '박해산', TRUE, 35, '서울시 중구', 1, FALSE),
 ('user4', 'pass123', '최복합', FALSE, 42, '서울시 영등포구', 1, FALSE),
 ('user5', 'pass123', '정콩글', TRUE, 38, '서울시 동작구', 4, FALSE),
-('vegan_user', 'pass123', '박비건', FALSE, 28, '서울시 송파구', 1, TRUE);
+('vegan_user', 'pass123', '김비건', FALSE, 28, '서울시 송파구', 1, TRUE);
 
 -- ========================================
 -- 4. Location
