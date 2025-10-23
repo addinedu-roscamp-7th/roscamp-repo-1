@@ -478,7 +478,7 @@
          <enum>QFrame::StyledPanel</enum>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="page_content_user">
          <property name="sizePolicy">
@@ -546,8 +546,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>296</width>
-                  <height>123</height>
+                  <width>896</width>
+                  <height>563</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -699,8 +699,8 @@
                        <rect>
                         <x>0</x>
                         <y>0</y>
-                        <width>100</width>
-                        <height>30</height>
+                        <width>864</width>
+                        <height>68</height>
                        </rect>
                       </property>
                       <layout class="QVBoxLayout" name="cart_items_layout"/>
