@@ -76,8 +76,9 @@ class DataCollector(Node):
         self.receiver = video_receiver
         self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_id = 12
-        self.target_pose = [38.4, -7.99, -56.51, -1.75, -4.3, 34.45]
+        self.object_id = 1
+        self.stanby_pose = [38.4, -7.99, -56.51, -1.75, -4.3, 34.45]
+        self.target_pose = [39.99, -49.13, -62.49, 27.94, -2.19, 39.63]
         self.save_dir = "./datasets"
 
         # 현재 관절 상태
@@ -89,7 +90,7 @@ class DataCollector(Node):
         self.joint_6 = 0
 
         # 데이터 저장
-        self.datasets = {"image_current":[], "image_target": [], "pose":[]}
+        self.datasets = {"image_current":[], "image_target": [], "class": [], "pose":[]}
         self.count = 0
         self.current_pose_index = 0
 
@@ -104,7 +105,7 @@ class DataCollector(Node):
 
         os.makedirs(self.save_dir + f"/{self.object_dict[self.object_id]}", exist_ok=True)
 
-        self.MoveJetcobot(self.target_pose)
+        self.MoveJetcobot(self.stanby_pose)
         time.sleep(3.0)
 
         # 주기적 데이터 수집 (0.5초)
@@ -146,7 +147,7 @@ class DataCollector(Node):
         if self.count >= 400:
             self.get_logger().info(f"{self.object_id} 데이터 수집 완료")
             df = pd.DataFrame(self.datasets)
-            df.to_csv(f"{self.save_dir}/datasets.csv", index=False)
+            df.to_csv(f"{self.save_dir}/{self.object_dict[self.object_id]}/datasets.csv", index=False)
             return
 
         # target_pose 주변에서 랜덤 오프셋 생성
@@ -156,12 +157,12 @@ class DataCollector(Node):
         drz = random.uniform(-5, 5)
 
         pose = [
-            self.target_pose[0] + dx,
-            self.target_pose[1] + dy,
-            self.target_pose[2] + dz,
-            self.target_pose[3],
-            self.target_pose[4],
-            self.target_pose[5] + drz
+            self.stanby_pose[0] + dx,
+            self.stanby_pose[1] + dy,
+            self.stanby_pose[2] + dz,
+            self.stanby_pose[3],
+            self.stanby_pose[4],
+            self.stanby_pose[5] + drz
         ]
 
         self.MoveJetcobot(pose)
@@ -172,6 +173,7 @@ class DataCollector(Node):
         cv2.imwrite(current_file_name, undistorted)
         self.datasets['image_current'].append(current_file_name)
         self.datasets['image_target'].append(target_file_name)
+        self.datasets['class'].append(self.object_id)
         self.datasets['pose'].append([float(self.target_pose[0] - pose[0]), float(self.target_pose[1] - pose[1]), float(self.target_pose[2] - pose[2]), float(self.target_pose[3] - pose[3]), float(self.target_pose[4] - pose[4]), float(self.target_pose[5] - pose[5])])
         self.count += 1
 
