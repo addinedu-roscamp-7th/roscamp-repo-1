@@ -79,8 +79,8 @@ class MainServiceConfig(BaseSettings):
     ROS_STATUS_HEALTH_TIMEOUT: float = 10.0
     ROS_EVENT_TOPIC_TIMEOUT: float = 300.0
     
-    PICKEE_PACKING_LOCATION_ID: int = 2
-    PICKEE_HOME_LOCATION_ID: int = 0
+    PICKEE_PACKING_LOCATION_ID: int = 20  # 기본 포장 구역 위치 (PACKING_ZONE: location_id 20)
+    PICKEE_HOME_LOCATION_ID: int = 19  # 기본 대기/충전 위치 (ROBOT_HOME: location_id 19)
     DESTINATION_PACKING_NAME: str = "PACKING_AREA_A"
     DESTINATION_DELIVERY_NAME: str = "DELIVERY"
     DESTINATION_RETURN_NAME: str = "RETURN"

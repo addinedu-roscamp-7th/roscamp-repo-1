@@ -489,10 +489,9 @@ class TestOrderServiceEndShopping:
     async def test_handle_product_detected_triggers_auto_pick(
         self,
         order_service: OrderService,
-        mock_db_manager: MagicMock,
     ):
         """
-        handle_product_detected가 자동 피킹 대상 상품에 대해 select_product를 호출하는지 테스트.
+        handle_product_detected가 감지된 모든 상품에 대해 select_product를 호출하는지 테스트.
         """
         # Arrange
         from shopee_interfaces.msg import PickeeProductDetection
@@ -503,19 +502,12 @@ class TestOrderServiceEndShopping:
             'shelf_id': 1,
             'location_id': 10,
             'section_id': 2,
+            'is_manual': False,
         }
         
         # Mock the select_product method to spy on it
         order_service.select_product = AsyncMock()
         
-        # Mock the notifier to ensure it's NOT called
-        order_service._notifier.notify_product_selection_start = AsyncMock()
-
-        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
-        mock_session.query.return_value.filter.return_value.all.return_value = [
-            Product(product_id=2, name="Auto Pick", auto_select=True)
-        ]
-
         # Create the incoming message
         detected_product = MagicMock()
         detected_product.product_id = 2
@@ -532,17 +524,15 @@ class TestOrderServiceEndShopping:
             product_id=2,
             bbox_number=1
         )
-        order_service._notifier.notify_product_selection_start.assert_not_awaited()
 
-    async def test_handle_product_detected_notifies_user_for_manual_pick(
+    async def test_handle_product_detected_prompts_manual_pick(
         self,
         order_service: OrderService,
         mock_db_manager: MagicMock,
     ):
         """
-        handle_product_detected가 수동 피킹 대상 상품에 대해 사용자 알림을 보내는지 테스트.
+        handle_product_detected가 수동 섹션에서 사용자 알림을 보내고 select_product를 호출하지 않는지 테스트.
         """
-        # Arrange
         from shopee_interfaces.msg import PickeeProductDetection
         order_id = 102
         robot_id = 6
@@ -551,30 +541,24 @@ class TestOrderServiceEndShopping:
             'shelf_id': 2,
             'location_id': 30,
             'section_id': 1,
+            'is_manual': True,
         }
-        
-        # Mock the select_product method to ensure it's NOT called
+
         order_service.select_product = AsyncMock()
-        
-        # Mock the notifier to spy on it
         order_service._notifier.notify_product_selection_start = AsyncMock()
 
-        # Mock DB for loading product name
         mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
         mock_session.query.return_value.filter.return_value.all.return_value = [
-            Product(product_id=1, name="Manual Pick", auto_select=False)
+            Product(product_id=5, name="Manual Item", auto_select=False)
         ]
 
-        # Create the incoming message
         detected_product = MagicMock()
-        detected_product.product_id = 1
-        detected_product.bbox_number = 2
+        detected_product.product_id = 5
+        detected_product.bbox_number = 3
         msg = PickeeProductDetection(order_id=order_id, robot_id=robot_id, products=[detected_product])
 
-        # Act
         await order_service.handle_product_detected(msg)
 
-        # Assert
         order_service._notifier.notify_product_selection_start.assert_awaited_once()
         order_service.select_product.assert_not_awaited()
 
@@ -594,11 +578,12 @@ class TestOrderServiceEndShopping:
             'shelf_id': 1,
             'location_id': 10,
             'section_id': 1,
+            'is_manual': False,
         }
 
         order_service._order_section_queue[order_id] = [
-            {'shelf_id': 1, 'location_id': 10, 'section_id': 1},
-            {'shelf_id': 2, 'location_id': 20, 'section_id': 3},
+            {'shelf_id': 1, 'location_id': 10, 'section_id': 1, 'is_manual': False},
+            {'shelf_id': 2, 'location_id': 20, 'section_id': 3, 'is_manual': True},
         ]
 
         order_service._pending_detection_sections[order_id] = {1}
@@ -687,6 +672,9 @@ class TestOrderServicePickingPlan:
         assert queue is not None
         assert [entry["shelf_id"] for entry in queue] == [1, 2, 2]
         assert [entry["section_id"] for entry in queue] == [1, 3, 4]
+        assert queue[0]["is_manual"] is False
+        assert queue[1]["is_manual"] is True
+        assert queue[2]["is_manual"] is True
 
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
         called_request = mock_robot_coordinator.dispatch_move_to_section.await_args[0][0]

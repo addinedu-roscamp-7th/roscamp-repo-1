@@ -92,9 +92,9 @@ class OrderService:
         
         # Local state
         self._detected_product_bbox: Dict[int, Dict[int, int]] = {}
-        self._order_section_queue: Dict[int, List[Dict[str, Any]]] = {} # 주문별 방문 구간 목록 {order_id: [{shelf_id, location_id, section_id}, ...]}
+        self._order_section_queue: Dict[int, List[Dict[str, Any]]] = {} # 주문별 방문 구간 목록 {order_id: [{shelf_id, location_id, section_id, is_manual}, ...]}
         self._section_item_count: Dict[int, int] = {} # 주문별 현재 섹션에서 피킹할 상품 종류 수
-        self._current_section_info: Dict[int, Dict[str, Any]] = {} # 주문별 현재 작업중인 구간 {order_id: {shelf_id, location_id, section_id}}
+        self._current_section_info: Dict[int, Dict[str, Any]] = {} # 주문별 현재 작업중인 구간 {order_id: {shelf_id, location_id, section_id, is_manual}}
         self._pending_detection_sections: Dict[int, set[int]] = {} # 주문별 감지 요청 진행 중인 섹션
         self._processed_cart_handover: set[int] = set() # 중복 handover 처리 방지
         self._last_move_location: Dict[int, int] = {}
@@ -156,16 +156,26 @@ class OrderService:
         )
         return total_items, total_price
 
-    def _load_products(self, session, product_ids: List[int]) -> Dict[int, Product]:
-        """상품 ID 목록을 받아 Product 정보를 매핑으로 반환"""
+    def _load_products(self, session, product_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """상품 ID 목록을 받아 필요한 메타데이터를 매핑으로 반환"""
         if not product_ids:
             return {}
         products = (
-            session.query(Product)
+            session.query(
+                Product.product_id,
+                Product.name,
+                Product.auto_select,
+            )
             .filter(Product.product_id.in_(product_ids))
             .all()
         )
-        return {product.product_id: product for product in products}
+        product_map: Dict[int, Dict[str, Any]] = {}
+        for product in products:
+            product_map[product.product_id] = {
+                "name": product.name,
+                "auto_select": bool(product.auto_select),
+            }
+        return product_map
 
 
     async def create_order(self, user_id: str, items: List[Dict[str, Any]]) -> Optional[Tuple[int, int]]:
@@ -220,6 +230,16 @@ class OrderService:
                 session.flush()
 
                 product_locations = self._product_builder.build_product_locations(session, order_id)
+                product_ids_for_auto = [pl.product_id for pl in product_locations]
+                auto_select_map: Dict[int, bool] = {}
+                if product_ids_for_auto:
+                    products = (
+                        session.query(Product)
+                        .filter(Product.product_id.in_(product_ids_for_auto))
+                        .all()
+                    )
+                    auto_select_map = {prod.product_id: bool(prod.auto_select) for prod in products}
+
                 request = PickeeWorkflowStartTask.Request(robot_id=robot_id, order_id=new_order.order_id, user_id=user_id, product_list=product_locations)
                 response = await self._robot.dispatch_pick_task(request)
                 if not response.success:
@@ -227,6 +247,15 @@ class OrderService:
 
                 section_plan = self._product_builder.build_section_plan(session, order_id)
                 if section_plan:
+                    section_manual_map: Dict[Tuple[int, int], bool] = {}
+                    for location in product_locations:
+                        key = (location.location_id, location.section_id)
+                        is_manual_item = not auto_select_map.get(location.product_id, True)
+                        if is_manual_item:
+                            section_manual_map[key] = True
+                        elif key not in section_manual_map:
+                            section_manual_map[key] = False
+
                     sorted_plan = sorted(
                         section_plan,
                         key=lambda entry: (entry["shelf_id"], entry["section_id"]),
@@ -236,6 +265,7 @@ class OrderService:
                             "shelf_id": entry["shelf_id"],
                             "location_id": entry["location_id"],
                             "section_id": entry["section_id"],
+                            "is_manual": section_manual_map.get((entry["location_id"], entry["section_id"]), False),
                         }
                         for entry in sorted_plan
                     ]
@@ -287,6 +317,13 @@ class OrderService:
         try:
             request = PickeeProductProcessSelection.Request(robot_id=robot_id, order_id=order_id, product_id=product_id, bbox_number=bbox_number)
             response = await self._robot.dispatch_pick_process(request)
+            logger.info(
+                "Product selection response received: order=%d product=%d success=%s message=%s",
+                order_id,
+                product_id,
+                getattr(response, "success", None),
+                getattr(response, "message", ""),
+            )
             return response.success
         except Exception as e:
             logger.exception("Failed to dispatch product selection: %s", e)
@@ -408,6 +445,11 @@ class OrderService:
                 logger.debug("Detection already pending for order %d section %d. Skipping duplicate arrival.", msg.order_id, msg.section_id)
                 return
             pending_sections.add(msg.section_id)
+            logger.info(
+                "Order %d pending detection sections: %s",
+                msg.order_id,
+                pending_sections,
+            )
 
             req = PickeeProductDetect.Request(robot_id=msg.robot_id, order_id=msg.order_id, product_ids=product_ids)
             await self._robot.dispatch_product_detect(req)
@@ -430,23 +472,48 @@ class OrderService:
 
         # 공통: 인식된 상품 BBox 정보 저장
         self._detected_product_bbox[msg.order_id] = {p.product_id: p.bbox_number for p in msg.products}
+        logger.info(
+            "Order %d detected product BBox map: %s",
+            msg.order_id,
+            self._detected_product_bbox[msg.order_id],
+        )
 
-        # 신규 감지 결과로 수동 선택 후보를 초기화한다.
+        if msg.order_id in self._manual_selection_candidates:
+            logger.info("Order %d clearing stale manual candidates before update.", msg.order_id)
         self._manual_selection_candidates.pop(msg.order_id, None)
 
         product_ids = [p.product_id for p in msg.products]
-        product_map: Dict[int, Product] = {}
+        product_map: Dict[int, Dict[str, Any]] = {}
         if product_ids:
             with self._db.session_scope() as session:
+                logger.info(
+                    "Order %d loading product metadata for detected ids: %s",
+                    msg.order_id,
+                    product_ids,
+                )
                 product_map = self._load_products(session, product_ids)
+                logger.info(
+                    "Order %d loaded product metadata keys: %s",
+                    msg.order_id,
+                    list(product_map.keys()),
+                )
+        else:
+            logger.warning("Order %d product detection returned empty id list.", msg.order_id)
 
         manual_candidates: List[Dict[str, Any]] = []
         auto_targets: List[Any] = []
         for detected in msg.products:
-            product = product_map.get(detected.product_id)
-            product_name = product.name if product else ""
-            auto_select = True if product is None else bool(product.auto_select)
-            if auto_select:
+            product_meta = product_map.get(detected.product_id, {})
+            product_name = product_meta.get("name", "")
+            auto_select_flag = bool(product_meta.get("auto_select", True))
+            logger.info(
+                "Order %d detection item evaluated: product_id=%s auto_select=%s manual_section_hint=%s",
+                msg.order_id,
+                detected.product_id,
+                auto_select_flag,
+                product_name,
+            )
+            if auto_select_flag:
                 auto_targets.append(detected)
             else:
                 manual_candidates.append(
@@ -457,18 +524,48 @@ class OrderService:
                     }
                 )
 
-        if manual_candidates:
+        logger.info(
+            "Order %d detection classification: auto=%d, manual=%d, shelf=%s, section=%s",
+            msg.order_id,
+            len(auto_targets),
+            len(manual_candidates),
+            current_section.get("shelf_id"),
+            current_section.get("section_id"),
+        )
+
+        is_manual_section = current_section.get("is_manual", False)
+        if is_manual_section or manual_candidates:
             logger.info(
-                "Order %d requires manual confirmation for %d products in shelf %s section %s.",
+                "Order %d manual picking required. manual_section=%s candidate_count=%d",
                 msg.order_id,
+                is_manual_section,
                 len(manual_candidates),
-                current_section.get("shelf_id"),
-                current_section.get("section_id"),
             )
+            if not manual_candidates:
+                manual_candidates = []
+                for detected in msg.products:
+                    product_meta = product_map.get(detected.product_id, {})
+                    manual_candidates.append(
+                        {
+                            "product_id": detected.product_id,
+                            "name": product_meta.get("name", ""),
+                            "bbox_number": detected.bbox_number,
+                        }
+                    )
             self._manual_selection_candidates[msg.order_id] = list(manual_candidates)
+            logger.info(
+                "Order %d manual candidate list prepared: %s",
+                msg.order_id,
+                [
+                    {
+                        "product_id": candidate.get("product_id"),
+                        "bbox_number": candidate.get("bbox_number"),
+                    }
+                    for candidate in manual_candidates
+                ],
+            )
             await self._notifier.notify_product_selection_start(msg, manual_candidates)
-        else:
-            self._manual_selection_candidates.pop(msg.order_id, None)
+            return
 
         if auto_targets:
             logger.info(
@@ -487,14 +584,38 @@ class OrderService:
                 )
                 for detected in auto_targets
             ]
-            await asyncio.gather(*selection_tasks)
-        elif not manual_candidates:
-            # 감지된 상품이 없으면 방어적으로 다음 구간으로 이동한다.
-            logger.warning(
-                "No products detected for order %d in shelf %s section %s. Moving to next.",
+            logger.info(
+                "Order %d auto selection tasks prepared: %s",
                 msg.order_id,
-                current_section.get("shelf_id"),
-                current_section.get("section_id"),
+                [
+                    {
+                        "product_id": detected.product_id,
+                        "bbox_number": detected.bbox_number,
+                    }
+                    for detected in auto_targets
+                ],
+            )
+            try:
+                selection_results = await asyncio.gather(*selection_tasks)
+            except Exception as exc:
+                logger.exception(
+                    "Order %d auto selection tasks raised an exception: %s",
+                    msg.order_id,
+                    exc,
+                )
+                raise
+            success_count = sum(1 for result in selection_results if result)
+            failure_count = len(selection_results) - success_count
+            logger.info(
+                "Order %d auto selection completed. success=%d failure=%d",
+                msg.order_id,
+                success_count,
+                failure_count,
+            )
+        else:
+            logger.warning(
+                "Auto section for order %d but no products to select. Moving to next.",
+                msg.order_id,
             )
             await self._move_to_next_or_end(msg.order_id, msg.robot_id)
 
@@ -503,9 +624,19 @@ class OrderService:
         
         # 현재 섹션 정보 가져오기
         completed_section = self._current_section_info.get(order_id)
+        logger.info(
+            "Order %d move_to_next_or_end invoked. completed_section=%s",
+            order_id,
+            completed_section,
+        )
         
         # 다음 방문할 섹션 확인 (큐는 전체 계획이므로 이미 방문한 섹션을 제거)
         queue = self._order_section_queue.get(order_id)
+        logger.info(
+            "Order %d current section queue snapshot (before pop): %s",
+            order_id,
+            queue,
+        )
         if completed_section and queue:
             first_entry = queue[0]
             if (
@@ -514,6 +645,11 @@ class OrderService:
                 first_entry.get('shelf_id') == completed_section.get('shelf_id')
             ):
                 queue.pop(0)
+                logger.info(
+                    "Order %d removed completed section from queue. remaining=%d",
+                    order_id,
+                    len(queue),
+                )
 
         if completed_section:
             pending_sections = self._pending_detection_sections.get(order_id)
@@ -521,6 +657,17 @@ class OrderService:
                 pending_sections.discard(completed_section.get('section_id'))
                 if not pending_sections:
                     self._pending_detection_sections.pop(order_id, None)
+                logger.info(
+                    "Order %d pending detection sections updated: %s",
+                    order_id,
+                    pending_sections,
+                )
+
+        next_section_info = queue[0] if queue else None
+
+        if completed_section and completed_section.get('is_manual') and next_section_info and not next_section_info.get('is_manual'):
+            logger.info(f"Order {order_id}: Manual picking complete. Notifying user.")
+            await self._notifier.notify_manual_picking_complete(order_id)
 
         if queue:
             next_section = queue.pop(0)
@@ -538,6 +685,13 @@ class OrderService:
                 location_id=next_section['location_id'],
                 section_id=next_section['section_id']
             )
+            logger.info(
+                "Order %d dispatching move_to_section -> location=%s section=%s queue_after_dispatch=%d",
+                order_id,
+                next_section.get('location_id'),
+                next_section.get('section_id'),
+                len(queue),
+            )
             await self._robot.dispatch_move_to_section(move_req)
         else:
             logger.info(f"All sections visited for order {order_id}. Ending shopping.")
@@ -549,6 +703,11 @@ class OrderService:
             self._last_detection_signature.pop(order_id, None)
             self._last_arrival_signature.pop(order_id, None)
             self._last_move_location.pop(order_id, None)
+            self._manual_selection_candidates.pop(order_id, None)
+            logger.info(
+                "Order %d all section data cleared. Triggering end_shopping.",
+                order_id,
+            )
             
             # 피킹 완료 알림 전송
             await self._notifier.notify_picking_complete(order_id, robot_id)
@@ -573,35 +732,40 @@ class OrderService:
             bbox_map.pop(msg.product_id, None)
             if not bbox_map:
                 self._detected_product_bbox.pop(msg.order_id, None)
+
         candidates = self._manual_selection_candidates.get(msg.order_id)
         if candidates:
-            updated_candidates = list(candidates)
-            for index, candidate in enumerate(candidates):
-                if candidate.get("product_id") == msg.product_id:
-                    updated_candidates.pop(index)
-                    break
+            updated_candidates = [
+                candidate for candidate in candidates if candidate.get("product_id") != msg.product_id
+            ]
+            logger.info(
+                "Order %d manual candidates updated after selection. before=%d after=%d",
+                msg.order_id,
+                len(candidates),
+                len(updated_candidates),
+            )
             if updated_candidates:
                 self._manual_selection_candidates[msg.order_id] = updated_candidates
+                prompt_msg = SimpleNamespace(order_id=msg.order_id, robot_id=msg.robot_id)
+                await self._notifier.notify_product_selection_start(prompt_msg, updated_candidates)
             else:
                 self._manual_selection_candidates.pop(msg.order_id, None)
-
+                logger.info(
+                    "Order %d manual candidate list cleared after selection.",
+                    msg.order_id,
+                )
         # 현재 섹션의 모든 상품을 담았는지 확인 후 다음 단계 진행
         if msg.order_id in self._section_item_count:
             self._section_item_count[msg.order_id] -= 1
+            logger.info(
+                "Order %d section remaining item types: %d",
+                msg.order_id,
+                self._section_item_count[msg.order_id],
+            )
             if self._section_item_count[msg.order_id] <= 0:
                 logger.info(f"Section complete for order {msg.order_id}. Moving to next step.")
                 self._manual_selection_candidates.pop(msg.order_id, None)
                 await self._move_to_next_or_end(msg.order_id, msg.robot_id)
-            else:
-                remaining_candidates = self._manual_selection_candidates.get(msg.order_id)
-                if remaining_candidates:
-                    logger.info(
-                        "Order %d manual picking in progress. Prompting user for remaining %d items.",
-                        msg.order_id,
-                        len(remaining_candidates),
-                    )
-                    prompt_msg = SimpleNamespace(order_id=msg.order_id, robot_id=msg.robot_id)
-                    await self._notifier.notify_product_selection_start(prompt_msg, remaining_candidates)
 
     async def handle_cart_handover(self, msg: "PickeeCartHandover") -> None:
         """Pickee 장바구니 전달 완료 처리"""
