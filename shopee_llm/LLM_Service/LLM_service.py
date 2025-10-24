@@ -5,11 +5,10 @@ from flask import Flask
 from flask import jsonify
 # HTTP Util 클래스 import
 from HTTP_commu import HTTP_Util
-
 # ---------------------------------- 커스텀 클래스 import --------------------------------
 # Tool 함수가 선언된 Tool_function class import
 from LLM_commu import LLM_response
-# ---------------------------------- Flask 객체 생성 ------------------------------------
+# ---------------------------------- 필요 객체 생성 ------------------------------------
 # Flask 객체 생성
 # __name__ : 현재 실행 중인 모듈의 이름 (현재 프로그램 이름 자동으로 넣어줌)
 app = Flask(__name__)

@@ -235,11 +235,7 @@ void ExecutionManager::ProcessMoveCommand(const MoveCommand & command) {
 
 void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
   const std::string & arm_side = command.arm_side;
-  const double confidence = CalculateBoundingBoxConfidence(
-    command.bbox_x1,
-    command.bbox_y1,
-    command.bbox_x2,
-    command.bbox_y2);
+  const double confidence = command.detection_confidence;
   if (confidence < visual_servo_->GetConfidenceThreshold()) {
     pick_callback_(
       command.robot_id,
@@ -249,7 +245,7 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
       "failed",
       "servoing",
       0.0F,
-      "CNN 신뢰도가 임계값보다 낮습니다. 재탐지 요청이 필요합니다.");
+      "시각 서보 신뢰도가 임계값보다 낮습니다. 재탐지 요청이 필요합니다.");
     return;
   }
 
@@ -263,11 +259,7 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
     0.15F,
     "시각 서보 정렬을 준비 중입니다.");
 
-  PoseEstimate target_pose{};
-  target_pose.x = command.target_x;
-  target_pose.y = command.target_y;
-  target_pose.z = command.target_z;
-  target_pose.yaw_deg = command.target_yaw_deg;
+  PoseEstimate target_pose = command.target_pose;
   target_pose.confidence = confidence;
 
   std::string failure_reason;
@@ -376,11 +368,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     0.1F,
     "포장 위치로 시각 서보 제어를 준비 중입니다.");
 
-  PoseEstimate target_pose{};
-  target_pose.x = command.box_x;
-  target_pose.y = command.box_y;
-  target_pose.z = command.box_z;
-  target_pose.yaw_deg = command.box_yaw_deg;
+  PoseEstimate target_pose = command.target_pose;
   target_pose.confidence = 1.0;
 
   std::string failure_reason;
@@ -568,24 +556,6 @@ void ExecutionManager::ApplyPoseToArms(const PoseEstimate & pose) {
   UpdateArmPose("left", pose);
   UpdateArmPose("right", pose);
 }
-
-
-double ExecutionManager::CalculateBoundingBoxConfidence(
-  int32_t x1,
-  int32_t y1,
-  int32_t x2,
-  int32_t y2) const {
-  if (x2 <= x1 || y2 <= y1) {
-    return 0.0;
-  }
-  const double width = static_cast<double>(x2 - x1);
-  const double height = static_cast<double>(y2 - y1);
-  const double area = width * height;
-  const double normalized =
-    std::clamp(area / kBoundingBoxReferenceArea, 0.0, 1.0);
-  return normalized;
-}
-
 
 std::queue<ExecutionManager::ArmWorkItem> & ExecutionManager::GetArmQueue(
   const std::string & arm_side) {
