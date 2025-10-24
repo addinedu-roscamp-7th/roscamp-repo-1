@@ -34,10 +34,10 @@ class MockMoveToLocationClient(Node):
         request = PickeeMobileMoveToLocation.Request()
         request.robot_id = 1
         request.order_id = 1
-        request.location_id = 456
-        request.target_pose = Pose2D(x=0.7509509575962743, y=-0.19880112491037824, theta=87.7)
+        request.location_id = 11
+        request.target_pose = Pose2D(x=3.24, y=2.1, theta=-90.0)
     #     x: 0.4130041301250458
-#   y: -0.08875562995672226
+    #   y: -0.08875562995672226
         self.future = self.move_to_location_client.call_async(request)
         self.future.add_done_callback(self.move_to_location_response_callback)
         

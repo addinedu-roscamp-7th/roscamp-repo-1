@@ -8,7 +8,7 @@ import time
 # rclpy 라이브러리 import
 import rclpy
 # 노드 생성을 위한 Node2 라이브러리 추가
-from rclpy.node import Node2
+from rclpy.node import Node
 # 퍼블리셔, 서브스크라이버 서비스 품질을 위한 QOS 설정을 위해 QoSProfile import
 from rclpy.qos import QoSProfile
 # QOS 신뢰성 정책(RELIABLE/BEST_EFFORT) 사용을 위한 QoSReliabilityPolicy import
@@ -40,7 +40,7 @@ class OdomMove(Node):
         self.declare_parameter('odom_topic', '/odom')
         # vel_topic을 /cmd_vel 값으로 설정
         # /cmd_vel : 직선 속도와 각속도를 제어할수 있는 토픽
-        self.declare_parameter('vel_topic', '/cmd_vel')
+        self.declare_parameter('vel_topic', '/cmd_vel_modified')
         # speed_linear를 1.45 m/s 로 설정
         # speed_linear : 직선 속도
         self.declare_parameter('speed_linear', 0.20)
@@ -235,9 +235,9 @@ def run(target_distance: float):
 
 def main():
     # 앞으로 1.5m 이동
-    run(1.5)
+    run(0.5)
     # 뒤로 1.5m 이동
-    run(-1.5)
+    run(-0.5)
     # 앞으로 0.8m 이동
     run(0.8)
     #  뒤로 0.5m  이동

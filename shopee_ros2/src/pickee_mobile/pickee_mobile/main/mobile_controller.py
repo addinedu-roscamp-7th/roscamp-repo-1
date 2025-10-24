@@ -13,6 +13,8 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from shopee_interfaces.srv import PickeeMobileMoveToLocation
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D, PickeeMobilePose
 
+from pickee_mobile.main.mobile_go_strait import run
+
 
 
 class PickeeMobileController(Node):
@@ -172,6 +174,11 @@ class PickeeMobileController(Node):
             arrival_msg.message = "Success."
 
             self.arrival_publisher.publish(arrival_msg)
+
+            if self.location_id > 10:
+                run(0.17)
+                time.sleep(2)
+                run(-0.17)
 
         elif status == GoalStatus.STATUS_ABORTED:
             self.get_logger().info("❌ Goal aborted.")

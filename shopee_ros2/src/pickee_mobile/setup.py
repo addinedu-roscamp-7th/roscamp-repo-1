@@ -46,11 +46,11 @@ setup(
             'bringup = pickee_mobile.bringup:main',
 
             # Main Components
-            'mobile_controller = pickee_mobile.main.mobile_controller:main',
-            'mobile_move_to_location = pickee_mobile.main.mobile_move_to_location:main',
-            'mobile_pose = pickee_mobile.main.mobile_pose:main',
-            'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main',
-            'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main',
+            'mobile_controller = pickee_mobile.main.mobile_controller:main', # 모바일 로봇의 주요 제어 노드
+            'mobile_move_to_location = pickee_mobile.main.mobile_move_to_location:main', # 위치 이동을 처리하는 노드
+            'mobile_pose = pickee_mobile.main.mobile_pose:main', # 모바일 로봇의 위치 정보를 퍼블리시하는 노드
+            'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main', # 속도 명령을 수정하는 노드
+            'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main', # 직진 주행 실행 노드
             
 
             ####Test Nodes####
@@ -59,6 +59,7 @@ setup(
             'get_clicked_move = pickee_mobile.test.goal_test.get_send_goal:main',
             'custom_goal_move = pickee_mobile.test.goal_test.custom_goal:main',
             'goal_send_client = pickee_mobile.test.goal_test.goal_send_client:main',
+            'import_go_strait = pickee_mobile.test.goal_test.import_go_strait:main',
 
             # Topic Test
             'control_vel = pickee_mobile.test.topic_test.control_vel:main',
