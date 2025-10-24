@@ -1,7 +1,6 @@
 #include <array>
 #include <cmath>
 #include <memory>
-#include <optional>
 #include <type_traits>
 #include <utility>
 #include <string>
@@ -36,10 +35,10 @@ template<typename T>
 struct HasPoseField<
   T,
   std::void_t<
-    decltype(std::declval<T>().pose.joint_1),
-    decltype(std::declval<T>().pose.joint_2),
-    decltype(std::declval<T>().pose.joint_3),
-    decltype(std::declval<T>().pose.joint_4)>> : std::true_type {};
+    decltype(std::declval<T>().pose.x),
+    decltype(std::declval<T>().pose.y),
+    decltype(std::declval<T>().pose.z),
+    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
 
 }  // namespace detail
 
@@ -244,27 +243,19 @@ private:
   }
 
   PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
-    // Pose6D 메시지(x, y, z, rx)를 x, y, z, yaw_deg로 해석한다.
+    // Pose6D 메시지를 x, y, z, yaw_deg로 변환한다.
     PoseComponents components{};
     components.x = static_cast<double>(pose_msg.x);
     components.y = static_cast<double>(pose_msg.y);
     components.z = static_cast<double>(pose_msg.z);
-    components.yaw_deg = static_cast<double>(pose_msg.rx) * kRadiansToDegrees;
+    components.yaw_deg = static_cast<double>(pose_msg.rz) * kRadiansToDegrees;
     return components;
   }
 
   template<typename DetectedProductT>
-  std::optional<PoseComponents> ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
-    if constexpr (!detail::HasPoseField<DetectedProductT>::value) {
-      return std::nullopt;
-    } else {
-      PoseComponents components{};
-      components.x = static_cast<double>(product.pose.x);
-      components.y = static_cast<double>(product.pose.y);
-      components.z = static_cast<double>(product.pose.z);
-      components.yaw_deg = static_cast<double>(product.pose.rx) * kRadiansToDegrees;
-      return components;
-    }
+  PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
+    static_assert(detail::HasPoseField<DetectedProductT>::value, "DetectedProduct에 pose 필드가 필요합니다.");
+    return ExtractPoseFromPoseMsg(product.pose);
   }
 
   PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const {
@@ -331,7 +322,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
       response->success = false;
@@ -350,7 +341,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "bbox 좌표가 유효하지 않습니다.");
       response->success = false;
@@ -368,7 +359,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "target_product.confidence가 유효 범위를 벗어났습니다.");
       response->success = false;
@@ -383,7 +374,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "target_product.confidence가 cnn_confidence_threshold보다 낮습니다.");
       response->success = false;
@@ -391,24 +382,10 @@ private:
       return;
     }
 
-    const auto pick_pose_optional = ExtractPoseFromDetectedProduct(request->target_product);
-    if (!pick_pose_optional.has_value()) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "servoing",
-        0.0F,
-        "target_product.pose가 누락되었습니다.");
-      response->success = false;
-      response->message = "pose 필드가 필요합니다.";
-      return;
-    }
-    const PoseComponents pick_pose = pick_pose_optional.value();
+    const PoseComponents pick_pose = ExtractPoseFromDetectedProduct(request->target_product);
 
     if (!AreFinite(pick_pose) ||
+        !std::isfinite(static_cast<double>(request->target_product.pose.rx)) ||
         !std::isfinite(static_cast<double>(request->target_product.pose.ry)) ||
         !std::isfinite(static_cast<double>(request->target_product.pose.rz))) {
       PublishPickStatus(
@@ -417,7 +394,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "target_product.pose에 유효하지 않은 값이 포함되어 있습니다.");
       response->success = false;
@@ -432,7 +409,7 @@ private:
         request->target_product.product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "target_product.pose가 myCobot 280 작업 공간을 벗어났습니다.");
       response->success = false;
@@ -477,7 +454,7 @@ private:
         request->product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
       response->success = false;
@@ -487,6 +464,7 @@ private:
 
     const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
     if (!AreFinite(place_pose) ||
+        !std::isfinite(static_cast<double>(request->pose.rx)) ||
         !std::isfinite(static_cast<double>(request->pose.ry)) ||
         !std::isfinite(static_cast<double>(request->pose.rz))) {
       PublishPlaceStatus(
@@ -495,7 +473,7 @@ private:
         request->product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "pose에 유효하지 않은 값이 포함되어 있습니다.");
       response->success = false;
@@ -510,7 +488,7 @@ private:
         request->product_id,
         request->arm_side,
         "failed",
-        "servoing",
+        "planning",
         0.0F,
         "pose가 myCobot 280 작업 공간을 벗어났습니다.");
       response->success = false;

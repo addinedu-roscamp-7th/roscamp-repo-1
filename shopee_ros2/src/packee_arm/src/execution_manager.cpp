@@ -243,7 +243,7 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "servoing",
+      "planning",
       0.0F,
       "시각 서보 신뢰도가 임계값보다 낮습니다. 재탐지 요청이 필요합니다.");
     return;
@@ -255,9 +255,19 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "servoing",
-    0.15F,
-    "시각 서보 정렬을 준비 중입니다.");
+    "planning",
+    0.05F,
+    "픽업 경로를 준비 중입니다.");
+
+  pick_callback_(
+    command.robot_id,
+    command.order_id,
+    command.product_id,
+    arm_side,
+    "in_progress",
+    "approaching",
+    0.2F,
+    "목표 물체를 향해 접근 중입니다.");
 
   PoseEstimate target_pose = command.target_pose;
   target_pose.confidence = confidence;
@@ -266,8 +276,8 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
   const bool servo_success = DriveServo(
     arm_side,
     target_pose,
-    0.15F,
-    0.65F,
+    0.2F,
+    0.6F,
     [&](float progress, const std::string & detail) {
       pick_callback_(
         command.robot_id,
@@ -275,7 +285,7 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
         command.product_id,
         arm_side,
         "in_progress",
-        "servoing",
+        "approaching",
         progress,
         detail);
     },
@@ -288,8 +298,8 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "servoing",
-      0.3F,
+      "approaching",
+      0.4F,
       failure_reason);
     return;
   }
@@ -301,8 +311,8 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
     arm_side,
     "in_progress",
     "grasping",
-    0.75F,
-    "상품을 파지하고 있습니다.");
+    0.7F,
+    "상품을 파지하기 위해 그리퍼를 조향 중입니다.");
 
   const double grip_force = std::min(0.9 * gripper_->GetForceLimit(), 30.0);
   if (!gripper_->Close(arm_side, grip_force)) {
@@ -328,7 +338,7 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
     arm_side,
     "in_progress",
     "lifting",
-    0.9F,
+    0.85F,
     "상품을 들어올리는 중입니다.");
   std::this_thread::sleep_for(DurationFromInterval());
   pick_callback_(
@@ -352,7 +362,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "servoing",
+      "planning",
       0.0F,
       "해당 팔이 상품을 보유하고 있지 않습니다.");
     return;
@@ -364,9 +374,19 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "servoing",
-    0.1F,
-    "포장 위치로 시각 서보 제어를 준비 중입니다.");
+    "planning",
+    0.05F,
+    "포장 위치 정렬 계획을 수립 중입니다.");
+
+  place_callback_(
+    command.robot_id,
+    command.order_id,
+    command.product_id,
+    arm_side,
+    "in_progress",
+    "approaching",
+    0.2F,
+    "포장 위치로 접근 중입니다.");
 
   PoseEstimate target_pose = command.target_pose;
   target_pose.confidence = 1.0;
@@ -375,7 +395,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
   const bool servo_success = DriveServo(
     arm_side,
     target_pose,
-    0.1F,
+    0.2F,
     0.6F,
     [&](float progress, const std::string & detail) {
       place_callback_(
@@ -384,7 +404,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
         command.product_id,
         arm_side,
         "in_progress",
-        "servoing",
+        "approaching",
         progress,
         detail);
     },
@@ -397,8 +417,8 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "servoing",
-      0.3F,
+      "approaching",
+      0.4F,
       failure_reason);
     return;
   }
@@ -409,9 +429,9 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "placing",
-    0.75F,
-    "포장 박스 내부에 상품을 정렬 중입니다.");
+    "grasping",
+    0.7F,
+    "상품을 안정적으로 내려놓기 위해 그리퍼를 정렬 중입니다.");
   std::this_thread::sleep_for(DurationFromInterval());
 
   if (!gripper_->Open(arm_side)) {
@@ -421,8 +441,8 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "placing",
-      0.8F,
+      "grasping",
+      0.75F,
       "그리퍼 해제가 실패했습니다.");
     return;
   }
@@ -435,8 +455,8 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "retreat",
-    0.9F,
+    "lifting",
+    0.85F,
     "안전 위치로 복귀 중입니다.");
   std::this_thread::sleep_for(DurationFromInterval());
   place_callback_(

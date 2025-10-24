@@ -30,21 +30,10 @@ template<typename T>
 struct HasPoseMember<
   T,
   std::void_t<
-    decltype(std::declval<T>().pose.joint_1),
-    decltype(std::declval<T>().pose.joint_2),
-    decltype(std::declval<T>().pose.joint_3),
-    decltype(std::declval<T>().pose.joint_4)>> : std::true_type {};
-
-template<typename T, typename = void>
-struct HasPositionMember : std::false_type {};
-
-template<typename T>
-struct HasPositionMember<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().position.x),
-    decltype(std::declval<T>().position.y),
-    decltype(std::declval<T>().position.z)>> : std::true_type {};
+    decltype(std::declval<T>().pose.x),
+    decltype(std::declval<T>().pose.y),
+    decltype(std::declval<T>().pose.z),
+    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
 
 template<typename T, typename = void>
 struct HasBoxPositionMember : std::false_type {};
@@ -69,16 +58,12 @@ void AssignDetectedProductPose(
   float confidence) {
   product->confidence = confidence;
   if constexpr (detail::HasPoseMember<DetectedProductT>::value) {
-    product->pose.joint_1 = x;
-    product->pose.joint_2 = y;
-    product->pose.joint_3 = z;
-    product->pose.joint_4 = yaw_rad;
-    product->pose.joint_5 = 0.0F;
-    product->pose.joint_6 = 0.0F;
-  } else if constexpr (detail::HasPositionMember<DetectedProductT>::value) {
-    product->position.x = x;
-    product->position.y = y;
-    product->position.z = z;
+    product->pose.x = x;
+    product->pose.y = y;
+    product->pose.z = z;
+    product->pose.rx = 0.0F;
+    product->pose.ry = 0.0F;
+    product->pose.rz = yaw_rad;
   }
 }
 
@@ -90,12 +75,12 @@ void AssignPlacePose(
   float z,
   float yaw_rad) {
   if constexpr (detail::HasPoseMember<RequestT>::value) {
-    request->pose.joint_1 = x;
-    request->pose.joint_2 = y;
-    request->pose.joint_3 = z;
-    request->pose.joint_4 = yaw_rad;
-    request->pose.joint_5 = 0.0F;
-    request->pose.joint_6 = 0.0F;
+    request->pose.x = x;
+    request->pose.y = y;
+    request->pose.z = z;
+    request->pose.rx = 0.0F;
+    request->pose.ry = 0.0F;
+    request->pose.rz = yaw_rad;
   } else if constexpr (detail::HasBoxPositionMember<RequestT>::value) {
     request->box_position.x = x;
     request->box_position.y = y;
