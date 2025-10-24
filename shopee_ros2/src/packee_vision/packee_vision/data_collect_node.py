@@ -76,8 +76,8 @@ class DataCollector(Node):
         self.receiver = video_receiver
         self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_id = 12
-        self.target_pose = [223.6, 82.6, 194.9, -175.03, -1.42, -91.84]
+        self.object_id = 10
+        self.target_pose = [42.2, -39.0, 289.8, -153.04, 21.75, -85.67]
         self.save_dir = "./datasets"
 
         # 현재 관절 상태
@@ -89,7 +89,7 @@ class DataCollector(Node):
         self.rz = 0
 
         # 데이터 저장
-        self.datasets = {"image_current":[], "image_target": [], "class": [], "pose":[]}
+        self.datasets = {"images":[], "class": [], "pose":[]}
         self.count = 0
         self.current_pose_index = 0
 
@@ -150,9 +150,9 @@ class DataCollector(Node):
             return
 
         # target_pose 주변에서 랜덤 오프셋 생성
-        dx = random.uniform(-10, 10)
-        dy = random.uniform(-10, 10)
-        dz = random.uniform(-10, 10)
+        dx = random.uniform(-20, 20)
+        dy = random.uniform(-20, 20)
+        dz = random.uniform(-20, 20)
         drz = random.uniform(-10, 10)
 
         pose = [
@@ -167,13 +167,11 @@ class DataCollector(Node):
         self.MoveJetcobot(pose)
         time.sleep(1.0)
 
-        current_file_name = f"{self.save_dir}/{self.object_dict[self.object_id]}/image_{self.count:04d}.jpg"
-        target_file_name = f"{self.save_dir}/targets/{self.object_dict[self.object_id]}_target.jpg"
-        cv2.imwrite(current_file_name, undistorted)
-        self.datasets['image_current'].append(current_file_name)
-        self.datasets['image_target'].append(target_file_name)
+        file_name = f"{self.save_dir}/{self.object_dict[self.object_id]}/image_{self.count:04d}.jpg"
+        cv2.imwrite(file_name, undistorted)
+        self.datasets['images'].append(file_name)
         self.datasets['class'].append(self.object_id)
-        self.datasets['pose'].append([float(self.target_pose[0] - pose[0]), float(self.target_pose[1] - pose[1]), float(self.target_pose[2] - pose[2]), float(self.target_pose[3] - pose[3]), float(self.target_pose[4] - pose[4]), float(self.target_pose[5] - pose[5])])
+        self.datasets['pose'].append(pose)
         self.count += 1
 
 def main():
