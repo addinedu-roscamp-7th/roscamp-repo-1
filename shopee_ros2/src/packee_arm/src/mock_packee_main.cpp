@@ -65,12 +65,14 @@ void AssignDetectedProductPose(
   float x,
   float y,
   float z,
-  float yaw_deg) {
+  float yaw_rad,
+  float confidence) {
+  product->confidence = confidence;
   if constexpr (detail::HasPoseMember<DetectedProductT>::value) {
     product->pose.joint_1 = x;
     product->pose.joint_2 = y;
     product->pose.joint_3 = z;
-    product->pose.joint_4 = yaw_deg;
+    product->pose.joint_4 = yaw_rad;
     product->pose.joint_5 = 0.0F;
     product->pose.joint_6 = 0.0F;
   } else if constexpr (detail::HasPositionMember<DetectedProductT>::value) {
@@ -86,12 +88,12 @@ void AssignPlacePose(
   float x,
   float y,
   float z,
-  float yaw_deg) {
+  float yaw_rad) {
   if constexpr (detail::HasPoseMember<RequestT>::value) {
     request->pose.joint_1 = x;
     request->pose.joint_2 = y;
     request->pose.joint_3 = z;
-    request->pose.joint_4 = yaw_deg;
+    request->pose.joint_4 = yaw_rad;
     request->pose.joint_5 = 0.0F;
     request->pose.joint_6 = 0.0F;
   } else if constexpr (detail::HasBoxPositionMember<RequestT>::value) {
@@ -291,7 +293,7 @@ private:
     req->order_id = order_id_;
     req->arm_side = CurrentArmSide();
     req->target_product.product_id = CurrentProductId();
-    AssignDetectedProductPose(&req->target_product, 0.25F, 0.0F, 0.12F, 0.0F);
+    AssignDetectedProductPose(&req->target_product, 0.25F, 0.0F, 0.12F, 0.0F, 0.92F);
     req->target_product.bbox = CreateBBox(120, 180, 250, 320);
     current_future_ = pick_client_->async_send_request(req);
   }

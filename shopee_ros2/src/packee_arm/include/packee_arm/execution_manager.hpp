@@ -120,12 +120,6 @@ private:
 
   void ApplyPoseToArms(const PoseEstimate & pose);
 
-  double CalculateBoundingBoxConfidence(
-    int32_t x1,
-    int32_t y1,
-    int32_t x2,
-    int32_t y2) const;
-
   std::queue<ArmWorkItem> & GetArmQueue(const std::string & arm_side);
 
   std::mutex & GetArmMutex(const std::string & arm_side);
