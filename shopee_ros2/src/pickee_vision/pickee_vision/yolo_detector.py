@@ -2,6 +2,11 @@ import os
 from ultralytics import YOLO
 import numpy as np
 
+# DB의 product_id와 매치 시키기 위한 부분.
+pairs = [1,10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9]
+def match(num):
+    return pairs[num] if 0 <= num < len(pairs) else None
+
 class YoloDetector:
     #
     # YOLOv8 모델을 로드하고 객체 인식을 수행하는 클래스.
@@ -30,11 +35,11 @@ class YoloDetector:
                 continue
 
             for mask, box in zip(result.masks.xy, result.boxes):
-                class_id = int(box.cls)
+                class_id = match(int(box.cls))
                 class_name = result.names[class_id]
                 bbox = box.xyxy[0].tolist()
                 detection = {
-                    'class_id': class_id + 1,
+                    'class_id': class_id,
                     'class_name': class_name,
                     'confidence': float(box.conf),
                     'polygon': mask.tolist(),
