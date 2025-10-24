@@ -76,18 +76,17 @@ class DataCollector(Node):
         self.receiver = video_receiver
         self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_id = 1
-        self.stanby_pose = [38.4, -7.99, -56.51, -1.75, -4.3, 34.45]
-        self.target_pose = [39.99, -49.13, -62.49, 27.94, -2.19, 39.63]
+        self.object_id = 12
+        self.target_pose = [223.6, 82.6, 194.9, -175.03, -1.42, -91.84]
         self.save_dir = "./datasets"
 
         # 현재 관절 상태
-        self.joint_1 = 0
-        self.joint_2 = 0
-        self.joint_3 = 0
-        self.joint_4 = 0
-        self.joint_5 = 0
-        self.joint_6 = 0
+        self.x = 0
+        self.y = 0
+        self.z = 0
+        self.rx = 0
+        self.ry = 0
+        self.rz = 0
 
         # 데이터 저장
         self.datasets = {"image_current":[], "image_target": [], "class": [], "pose":[]}
@@ -105,7 +104,7 @@ class DataCollector(Node):
 
         os.makedirs(self.save_dir + f"/{self.object_dict[self.object_id]}", exist_ok=True)
 
-        self.MoveJetcobot(self.stanby_pose)
+        self.MoveJetcobot(self.target_pose)
         time.sleep(3.0)
 
         # 주기적 데이터 수집 (0.5초)
@@ -114,24 +113,24 @@ class DataCollector(Node):
 
 
     def MoveJetcobot(self, pose):
-        self.joint_1, self.joint_2, self.joint_3, self.joint_4, self.joint_5, self.joint_6 = pose
+        self.x, self.y, self.z, self.rx, self.ry, self.rz = pose
         msg = Pose6D()
-        msg.joint_1 = self.joint_1
-        msg.joint_2 = self.joint_2
-        msg.joint_3 = self.joint_3
-        msg.joint_4 = self.joint_4
-        msg.joint_5 = self.joint_5
-        msg.joint_6 = self.joint_6
+        msg.x = self.x
+        msg.y = self.y
+        msg.z = self.z
+        msg.rx = self.rx
+        msg.ry = self.ry
+        msg.rz = self.rz
         self.publisher.publish(msg)
 
     def AngleCallback(self, msg):
-        self.joint_1 = msg.joint_1
-        self.joint_2 = msg.joint_2
-        self.joint_3 = msg.joint_3
-        self.joint_4 = msg.joint_4
-        self.joint_5 = msg.joint_5
-        self.joint_6 = msg.joint_6
-        self.get_logger().info(f"Current angles: {msg.joint_1}, {msg.joint_2}, {msg.joint_3}, {msg.joint_4}, {msg.joint_5}, {msg.joint_6}")
+        self.x = msg.x
+        self.y = msg.y
+        self.z = msg.z
+        self.rx = msg.rx
+        self.ry = msg.ry
+        self.rz = msg.rz
+        self.get_logger().info(f"Current angles: {msg.x}, {msg.y}, {msg.z}, {msg.rx}, {msg.ry}, {msg.rz}")
 
     def CollectCallback(self):
         frame = self.receiver.get_frame()
@@ -151,18 +150,18 @@ class DataCollector(Node):
             return
 
         # target_pose 주변에서 랜덤 오프셋 생성
-        dx = random.uniform(-5, 5)
-        dy = random.uniform(-5, 5)
-        dz = random.uniform(-5, 5)
-        drz = random.uniform(-5, 5)
+        dx = random.uniform(-10, 10)
+        dy = random.uniform(-10, 10)
+        dz = random.uniform(-10, 10)
+        drz = random.uniform(-10, 10)
 
         pose = [
-            self.stanby_pose[0] + dx,
-            self.stanby_pose[1] + dy,
-            self.stanby_pose[2] + dz,
-            self.stanby_pose[3],
-            self.stanby_pose[4],
-            self.stanby_pose[5] + drz
+            self.target_pose[0] + dx,
+            self.target_pose[1] + dy,
+            self.target_pose[2] + dz,
+            self.target_pose[3],
+            self.target_pose[4],
+            self.target_pose[5] + drz
         ]
 
         self.MoveJetcobot(pose)
