@@ -1,7 +1,9 @@
 import os
+import sys
 from pathlib import Path
 from dataclasses import replace
 from typing import Any
+from typing import Callable
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
@@ -16,6 +18,8 @@ from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
+from PyQt6.QtWidgets import QDialog
+from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
 
 from shopee_app.services.app_notification_client import AppNotificationClient
@@ -28,7 +32,108 @@ from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
-from shopee_app.services.speech_to_text_worker import SpeechToTextWorker
+
+_LLM_SERVICE_DIR = Path(__file__).resolve().parents[5] / "shopee_llm" / "LLM_Service"
+if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
+    sys.path.append(str(_LLM_SERVICE_DIR))
+
+from STT_module import STT_Module
+
+
+class SttStatusDialog(QDialog):
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("음성 인식")
+        self.setModal(False)
+        self.setWindowFlag(QtCore.Qt.WindowType.Tool)
+        self.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        self.message_label = QLabel("", self)
+        layout.addWidget(self.message_label)
+
+    def update_message(self, text: str, *, warning: bool = False) -> None:
+        self.message_label.setText(text)
+        if warning:
+            self.message_label.setStyleSheet("color: #d32f2f;")
+        else:
+            self.message_label.setStyleSheet("")
+        self.adjustSize()
+        self.repaint()
+
+
+class SttWorker(QtCore.QObject):
+
+    microphone_detected = QtCore.pyqtSignal(int, str)
+    listening_started = QtCore.pyqtSignal()
+    result_ready = QtCore.pyqtSignal(str)
+    error_occurred = QtCore.pyqtSignal(str)
+    finished = QtCore.pyqtSignal()
+
+    def __init__(
+        self,
+        *,
+        stt_module: STT_Module,
+        detect_microphone: Callable[[STT_Module], tuple[int, str] | None],
+        parent: QtCore.QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._stt_module = stt_module
+        self._detect_microphone = detect_microphone
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        try:
+            microphone_info = self._detect_microphone(self._stt_module)
+            if microphone_info is None:
+                self.error_occurred.emit("사용 가능한 마이크 정보를 찾지 못했습니다.")
+                return
+            microphone_index, microphone_name = microphone_info
+            self.microphone_detected.emit(microphone_index, microphone_name)
+            prompt_notified = False
+
+            def _notify_prompt() -> None:
+                nonlocal prompt_notified
+                if prompt_notified:
+                    return
+                prompt_notified = True
+                self.listening_started.emit()
+
+            original_stdout = sys.stdout
+
+            class _StdoutProxy:
+                def __init__(self, target: Any, callback: Callable[[], None]) -> None:
+                    self._target = target
+                    self._callback = callback
+
+                def write(self, text: str) -> int:
+                    self._target.write(text)
+                    self._target.flush()
+                    if "Please Talk to me" in text:
+                        self._callback()
+                    return len(text)
+
+                def flush(self) -> None:
+                    self._target.flush()
+
+            sys.stdout = _StdoutProxy(original_stdout, _notify_prompt)
+            try:
+                result = self._stt_module.stt_use()
+            finally:
+                sys.stdout = original_stdout
+            if not prompt_notified:
+                self.listening_started.emit()
+            if not isinstance(result, str):
+                result = "" if result is None else str(result)
+            self.result_ready.emit(result)
+        except SystemExit:
+            self.error_occurred.emit("음성 인식이 중단되었습니다.")
+        except Exception as exc:  # noqa: BLE001
+            self.error_occurred.emit(str(exc))
+        finally:
+            self.finished.emit()
+
 
 class UserWindow(QWidget):
 
@@ -50,7 +155,7 @@ class UserWindow(QWidget):
         self.product_grid = getattr(self.ui, "gridLayout_2", None)
         self.products: list[ProductData] = []
         self.product_index: dict[int, ProductData] = {}
-        self.default_empty_products_message = '표시할 상품이 없습니다.'
+        self.default_empty_products_message = "표시할 상품이 없습니다."
         self.empty_products_message = self.default_empty_products_message
 
         self.cart_items: dict[int, CartItemData] = {}
@@ -97,7 +202,9 @@ class UserWindow(QWidget):
         self.selection_buttons: list[QPushButton] = []
         self.selection_button_group = QButtonGroup(self)
         self.selection_button_group.setExclusive(True)
-        self.selection_button_group.buttonToggled.connect(self.on_selection_button_toggled)
+        self.selection_button_group.buttonToggled.connect(
+            self.on_selection_button_toggled
+        )
         self.selection_options: list[dict[str, Any]] = []
         self.selection_selected_index: int | None = None
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
@@ -109,7 +216,7 @@ class UserWindow(QWidget):
             self.select_done_button.clicked.connect(self.on_select_done_clicked)
         self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
         if self.select_cancel_button is not None:
-            self.select_cancel_button.setText('선택 취소')
+            self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
         self.setup_cart_section()
         self.setup_navigation()
@@ -123,22 +230,22 @@ class UserWindow(QWidget):
         if self.search_input is not None:
             # 엔터 키 입력 시 검색을 자동으로 수행하지 않으면 사용자의 검색 흐름이 끊어진다.
             self.search_input.returnPressed.connect(self.on_search_submitted)
-        self.search_button = getattr(self.ui, 'btn_search', None)
+        self.search_button = getattr(self.ui, "btn_search", None)
         if self.search_button is not None:
             # 버튼을 눌렀을 때 검색이 실행되지 않으면 사용자가 직관적으로 조작하기 어렵다.
             self.search_button.clicked.connect(self.on_search_button_clicked)
-        self.mic_button = getattr(self.ui, 'btn_mic', None)
+        self.mic_button = getattr(self.ui, "btn_mic", None)
         if self.mic_button is not None:
-            mic_icon_path = Path(__file__).resolve().parent / 'icons' / 'mic.svg'
+            mic_icon_path = Path(__file__).resolve().parent / "icons" / "mic.svg"
             if mic_icon_path.exists():
                 self.mic_button.setIcon(QIcon(str(mic_icon_path)))
                 self.mic_button.setIconSize(QtCore.QSize(24, 24))
-            self.mic_button.setText('')
-            self.mic_button.setToolTip('음성으로 검색')
+            self.mic_button.setText("")
+            self.mic_button.setToolTip("음성으로 검색")
             self.mic_button.clicked.connect(self.on_microphone_clicked)
-        self.mic_info_label = getattr(self.ui, 'label_mic_info', None)
+        self.mic_info_label = getattr(self.ui, "label_mic_info", None)
         if self.mic_info_label is not None:
-            self.mic_info_label.setText('')
+            self.mic_info_label.setText("")
             self.mic_info_label.setVisible(False)
         self._stt_feedback_timer = QtCore.QTimer(self)
         self._stt_feedback_timer.setInterval(1000)
@@ -146,10 +253,15 @@ class UserWindow(QWidget):
         self._stt_status_hide_timer = QtCore.QTimer(self)
         self._stt_status_hide_timer.setSingleShot(True)
         self._stt_status_hide_timer.timeout.connect(self._hide_mic_info)
-        self._stt_thread: QtCore.QThread | None = None
-        self._stt_worker: SpeechToTextWorker | None = None
+        self._stt_module: STT_Module | None = None
         self._stt_busy = False
-        self._setup_speech_recognition()
+        self._stt_status_dialog: SttStatusDialog | None = None
+        self._stt_thread: QtCore.QThread | None = None
+        self._stt_worker: SttWorker | None = None
+        self._stt_status_close_timer = QtCore.QTimer(self)
+        self._stt_status_close_timer.setSingleShot(True)
+        self._stt_status_close_timer.timeout.connect(self._close_stt_status_dialog)
+        self._stt_last_microphone_name: str | None = None
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
@@ -157,7 +269,7 @@ class UserWindow(QWidget):
         self.service_client = (
             service_client if service_client is not None else MainServiceClient()
         )
-        self.current_user_id = ''
+        self.current_user_id = ""
         self._ensure_user_identity()
         self.current_order_id: int | None = None
         self.current_robot_id: int | None = None
@@ -190,42 +302,89 @@ class UserWindow(QWidget):
 
     def _ensure_user_identity(self) -> str:
         # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
-        user_id_value = ''
+        user_id_value = ""
         if isinstance(self.user_info, dict):
-            raw_id = self.user_info.get('user_id')
+            raw_id = self.user_info.get("user_id")
             if raw_id:
                 user_id_value = str(raw_id).strip()
         if not user_id_value:
-            fallback_user_id = os.getenv('SHOPEE_APP_GUEST_USER_ID', 'guest_user')
+            fallback_user_id = os.getenv("SHOPEE_APP_GUEST_USER_ID", "guest_user")
             user_id_value = fallback_user_id
             if isinstance(self.user_info, dict):
-                self.user_info['user_id'] = user_id_value
+                self.user_info["user_id"] = user_id_value
         self.current_user_id = user_id_value
         return user_id_value
 
-    def _setup_speech_recognition(self) -> None:
-        if self._stt_worker is not None:
+    def _get_stt_module(self) -> STT_Module:
+        if self._stt_module is None:
+            self._stt_module = STT_Module()
+        return self._stt_module
+
+    def _detect_microphone(self, stt_module: STT_Module) -> tuple[int, str] | None:
+        # 마이크 목록을 직접 확인해 사용자에게 안내할 정보를 구성한다.
+        mike_util = getattr(stt_module, "mike_handle", None)
+        if mike_util is None:
+            return None
+        mike_list = mike_util.mike_list_return()
+        if not mike_list:
+            return None
+        target_index = mike_util.pick_mike_index(mike_list)
+        if target_index is None:
+            return None
+        target_name = ""
+        for index, name in mike_list:
+            if index == target_index:
+                target_name = name
+                break
+        return target_index, target_name
+
+    def _show_stt_status_dialog(
+        self, text: str, *, icon: QMessageBox.Icon = QMessageBox.Icon.Information
+    ) -> None:
+        if self._stt_status_dialog is None:
+            dialog = SttStatusDialog(self)
+            self._stt_status_dialog = dialog
+        self._stt_status_close_timer.stop()
+        dialog = self._stt_status_dialog
+        prefix = "[안내] " if icon != QMessageBox.Icon.Warning else "[경고] "
+        dialog.update_message(
+            f"{prefix}{text}",
+            warning=icon == QMessageBox.Icon.Warning,
+        )
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _schedule_stt_status_close(self, timeout_ms: int) -> None:
+        self._stt_status_close_timer.stop()
+        if timeout_ms <= 0:
+            self._close_stt_status_dialog()
             return
-        self._stt_thread = QtCore.QThread(self)
-        stt_model_name = os.getenv('SHOPEE_STT_MODEL', 'base')
-        self._stt_worker = SpeechToTextWorker(model_name=stt_model_name)
-        self._stt_worker.moveToThread(self._stt_thread)
-        self._stt_worker.started.connect(self.on_stt_started)
-        self._stt_worker.result_ready.connect(self.on_stt_result_ready)
-        self._stt_worker.error_occurred.connect(self.on_stt_error)
-        self._stt_worker.finished.connect(self.on_stt_finished)
-        self._stt_thread.start()
+        self._stt_status_close_timer.start(timeout_ms)
+
+    def _close_stt_status_dialog(self) -> None:
+        self._stt_status_close_timer.stop()
+        if self._stt_status_dialog is None:
+            return
+        dialog = self._stt_status_dialog
+        self._stt_status_dialog = None
+        dialog.close()
+        dialog.deleteLater()
 
     def _shutdown_speech_recognition(self) -> None:
-        if self._stt_thread is None:
-            return
-        self._stt_thread.quit()
-        self._stt_thread.wait()
-        self._stt_thread = None
-        self._stt_worker = None
+        self._stt_module = None
         self._stt_busy = False
         self._stt_feedback_timer.stop()
         self._stt_status_hide_timer.stop()
+        if self._stt_thread is not None:
+            if self._stt_thread.isRunning():
+                self._stt_thread.requestInterruption()
+                self._stt_thread.quit()
+                self._stt_thread.wait()
+            self._stt_thread = None
+        self._stt_worker = None
+        self._stt_last_microphone_name = None
+        self._close_stt_status_dialog()
         if self.mic_button is not None:
             self.mic_button.setEnabled(True)
         self.unsetCursor()
@@ -256,22 +415,65 @@ class UserWindow(QWidget):
         self.on_search_submitted()
 
     def on_microphone_clicked(self) -> None:
-        if self._stt_worker is None:
-            QMessageBox.warning(
-                self, '음성 인식 오류', '음성 인식 모듈이 초기화되지 않았습니다.'
-            )
-            return
         if self._stt_busy:
             QMessageBox.information(
-                self, '음성 인식 진행 중', '이미 음성을 인식하고 있습니다.'
+                self, "음성 인식 진행 중", "이미 음성을 인식하고 있습니다."
             )
             return
         self._start_mic_feedback()
-        QtCore.QMetaObject.invokeMethod(
-            self._stt_worker,
-            'start_listening',
-            QtCore.Qt.ConnectionType.QueuedConnection,
+        self.on_stt_started()
+        self._show_stt_status_dialog(
+            "마이크 찾는 중...", icon=QMessageBox.Icon.Information
         )
+        stt_module = self._get_stt_module()
+        self._stt_last_microphone_name = None
+        worker = SttWorker(
+            stt_module=stt_module,
+            detect_microphone=self._detect_microphone,
+        )
+        thread = QtCore.QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.microphone_detected.connect(self._on_stt_microphone_detected)
+        worker.listening_started.connect(self._on_stt_listening_started)
+        worker.result_ready.connect(self.on_stt_result_ready)
+        worker.error_occurred.connect(self.on_stt_error)
+        worker.finished.connect(self._on_stt_worker_finished)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_stt_thread_finished)
+        self._stt_thread = thread
+        self._stt_worker = worker
+        thread.start()
+
+    @QtCore.pyqtSlot(int, str)
+    def _on_stt_microphone_detected(
+        self, microphone_index: int, microphone_name: str
+    ) -> None:
+        self._stt_last_microphone_name = microphone_name
+        self._show_stt_status_dialog(
+            f"인식된 마이크: [{microphone_index}] {microphone_name}\n 마이크를 초기화하는 중입니다...",
+            icon=QMessageBox.Icon.Information,
+        )
+
+    @QtCore.pyqtSlot()
+    def _on_stt_listening_started(self) -> None:
+        self._stt_status_close_timer.stop()
+        prompt = "검색할 음성을 말해주세요..."
+        if self._stt_last_microphone_name:
+            prompt = f"마이크: [{self._stt_last_microphone_name}] \n 음성 인식 중..."
+        self._show_stt_status_dialog(prompt, icon=QMessageBox.Icon.Information)
+
+    @QtCore.pyqtSlot()
+    def _on_stt_worker_finished(self) -> None:
+        self._stt_worker = None
+        self._stt_last_microphone_name = None
+        self.on_stt_finished()
+
+    @QtCore.pyqtSlot()
+    def _on_stt_thread_finished(self) -> None:
+        self._stt_thread = None
 
     def on_stt_started(self) -> None:
         self._stt_busy = True
@@ -285,36 +487,53 @@ class UserWindow(QWidget):
         if self.mic_button is not None:
             self.mic_button.setEnabled(True)
         self.unsetCursor()
+        if (
+            self._stt_status_dialog is not None
+            and not self._stt_status_close_timer.isActive()
+        ):
+            self._schedule_stt_status_close(2000)
         if not self._stt_status_hide_timer.isActive():
             self._hide_mic_info()
 
     def on_stt_result_ready(self, text: str) -> None:
         recognized = text.strip()
         if not recognized:
-            self._show_mic_info('음성을 인식하지 못했습니다.')
+            self._show_mic_info("음성을 인식하지 못했습니다.")
             self._stt_status_hide_timer.start(2000)
-            QMessageBox.information(self, '음성 인식', '음성을 인식하지 못했습니다.')
+            self._show_stt_status_dialog(
+                "음성을 인식하지 못했습니다.",
+                icon=QMessageBox.Icon.Information,
+            )
+            self._schedule_stt_status_close(2000)
             return
         if self.search_input is not None:
             self.search_input.setText(recognized)
         self.request_product_search(recognized)
-        self._show_mic_info(f'음성 인식 결과: {recognized}')
+        self._show_mic_info(f"음성 인식 결과: {recognized}")
         self._stt_status_hide_timer.start(2500)
-        QMessageBox.information(self, '음성 인식 결과', f'인식된 문장: {recognized}')
+        self._show_stt_status_dialog(
+            f"인식된 문장: {recognized}",
+            icon=QMessageBox.Icon.Information,
+        )
+        self._schedule_stt_status_close(2500)
 
     def on_stt_error(self, message: str) -> None:
-        QMessageBox.warning(self, '음성 인식 실패', message)
-        self._show_mic_info('음성 인식 실패')
+        self._show_stt_status_dialog(
+            f"음성 인식 실패: {message}",
+            icon=QMessageBox.Icon.Warning,
+        )
+        self._schedule_stt_status_close(2500)
+        self._show_mic_info("음성 인식 실패")
         self._stt_status_hide_timer.start(2500)
 
     def _start_mic_feedback(self) -> None:
         self._stt_status_hide_timer.stop()
         self._stt_feedback_timer.stop()
-        self._show_mic_info('음성 인식 중...')
+        self._show_mic_info("음성 인식 중...")
 
     def _on_stt_feedback_tick(self) -> None:
         self._stt_feedback_timer.stop()
-        self._show_mic_info('음성 인식 중...')
+        self._show_mic_info("음성 인식 중...")
 
     def _show_mic_info(self, text: str) -> None:
         if self.mic_info_label is None:
@@ -325,7 +544,7 @@ class UserWindow(QWidget):
     def _hide_mic_info(self) -> None:
         if self.mic_info_label is None:
             return
-        self.mic_info_label.setText('')
+        self.mic_info_label.setText("")
         self.mic_info_label.setVisible(False)
 
     def request_total_products(self) -> None:
@@ -342,26 +561,32 @@ class UserWindow(QWidget):
         try:
             response = self.service_client.fetch_total_products(user_id)
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}')
+            QMessageBox.warning(
+                self, "상품 로드 실패", f"전체 상품을 불러오지 못했습니다.\n{exc}"
+            )
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
         if not response:
-            QMessageBox.warning(self, '상품 로드 실패', '서버에서 전체 상품 응답을 받지 못했습니다.')
+            QMessageBox.warning(
+                self, "상품 로드 실패", "서버에서 전체 상품 응답을 받지 못했습니다."
+            )
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
-        if not response.get('result'):
-            message = response.get('message') or '전체 상품을 가져오지 못했습니다.'
-            QMessageBox.warning(self, '상품 로드 실패', message)
+        if not response.get("result"):
+            message = response.get("message") or "전체 상품을 가져오지 못했습니다."
+            QMessageBox.warning(self, "상품 로드 실패", message)
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
-        data = response.get('data') or {}
-        entries = data.get('products') or []
+        data = response.get("data") or {}
+        entries = data.get("products") or []
         products = self._convert_total_products(entries)
         if not products:
-            QMessageBox.information(self, '상품 로드 안내', '표시할 상품이 없어 기본 목록을 사용합니다.')
+            QMessageBox.information(
+                self, "상품 로드 안내", "표시할 상품이 없어 기본 목록을 사용합니다."
+            )
             self.set_products(self.load_initial_products())
             self.refresh_product_grid()
             return
@@ -374,14 +599,14 @@ class UserWindow(QWidget):
             return
         user_id = self._ensure_user_identity()
         if not user_id:
-            QMessageBox.warning(self, '검색 실패', '사용자 정보를 확인할 수 없습니다.')
+            QMessageBox.warning(self, "검색 실패", "사용자 정보를 확인할 수 없습니다.")
             return
         # 사용자 정보를 기반으로 필터를 구성하지 않으면 개인화된 검색 조건이 적용되지 않는다.
         allergy_filter, vegan_flag = self._build_search_filter()
         # 검색 입력 위젯 참조를 보관하지 않으면 이후에 상태를 복원할 수 없다.
         search_widget = self.search_input
         # 검색 버튼 상태를 추적하지 않으면 비활성화 후 복구할 수 없다.
-        search_button = getattr(self, 'search_button', None)
+        search_button = getattr(self, "search_button", None)
         # 위젯 존재 여부를 확인하지 않으면 None에 접근하면서 예외가 발생한다.
         if search_widget is not None:
             # 요청 동안 입력을 막지 않으면 사용자가 연타하여 중복 요청을 발생시킬 수 있다.
@@ -437,7 +662,7 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            self.empty_products_message = '조건에 맞는 상품이 없습니다.'
+            self.empty_products_message = "조건에 맞는 상품이 없습니다."
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -560,7 +785,9 @@ class UserWindow(QWidget):
         # 변환된 전체 목록을 반환하지 않으면 호출자가 결과를 사용할 수 없다.
         return products
 
-    def _convert_total_products(self, entries: list[dict[str, object]]) -> list[ProductData]:
+    def _convert_total_products(
+        self, entries: list[dict[str, object]]
+    ) -> list[ProductData]:
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
         fallback_image = ProductCard.FALLBACK_IMAGE
@@ -568,14 +795,14 @@ class UserWindow(QWidget):
             if not isinstance(entry, dict):
                 continue
             try:
-                product_id = int(entry.get('product_id'))
+                product_id = int(entry.get("product_id"))
             except (TypeError, ValueError):
                 continue
-            name = str(entry.get('name') or f'상품 {product_id}')
-            category = str(entry.get('category') or '기타')
-            price = int(entry.get('price') or 0)
-            discount_rate = int(entry.get('discount_rate') or 0)
-            is_vegan = bool(entry.get('is_vegan_friendly'))
+            name = str(entry.get("name") or f"상품 {product_id}")
+            category = str(entry.get("category") or "기타")
+            price = int(entry.get("price") or 0)
+            discount_rate = int(entry.get("discount_rate") or 0)
+            is_vegan = bool(entry.get("is_vegan_friendly"))
             # total_product 응답에는 allergy_info_id, section_id 등이 없으므로 기본값을 채워 넣는다.
             product = ProductData(
                 product_id=product_id,
@@ -585,18 +812,17 @@ class UserWindow(QWidget):
                 discount_rate=discount_rate,
                 allergy_info_id=0,
                 is_vegan_friendly=is_vegan,
-                section_id=int(entry.get('section_id') or 0),
-                warehouse_id=int(entry.get('warehouse_id') or 0),
-                length=int(entry.get('length') or 0),
-                width=int(entry.get('width') or 0),
-                height=int(entry.get('height') or 0),
-                weight=int(entry.get('weight') or 0),
-                fragile=bool(entry.get('fragile')),
+                section_id=int(entry.get("section_id") or 0),
+                warehouse_id=int(entry.get("warehouse_id") or 0),
+                length=int(entry.get("length") or 0),
+                width=int(entry.get("width") or 0),
+                height=int(entry.get("height") or 0),
+                weight=int(entry.get("weight") or 0),
+                fragile=bool(entry.get("fragile")),
                 image_path=fallback_image,
             )
             products.append(product)
         return products
-
 
     def setup_cart_section(self):
         self.cart_container = getattr(self.ui, "widget_3", None)
@@ -1055,9 +1281,9 @@ class UserWindow(QWidget):
         """주문 생성 시 알림 리스너를 시작한다."""
         user_id = self._ensure_user_identity()
         # 로그인 시 기억해 둔 비밀번호를 꺼내 알림 채널 인증에 재사용한다.
-        password = ''
+        password = ""
         if isinstance(self.user_info, dict):
-            raw_password = self.user_info.get('password')
+            raw_password = self.user_info.get("password")
             if raw_password:
                 password = str(raw_password)
         if self.notification_client is not None:
@@ -1109,9 +1335,7 @@ class UserWindow(QWidget):
             button.setFixedSize(123, 36)
             button.setText(f"선택지{index + 1}")
             name = str(
-                product.get("name")
-                or product.get("product_id")
-                or f"선택지{index + 1}"
+                product.get("name") or product.get("product_id") or f"선택지{index + 1}"
             )
             if name:
                 button.setToolTip(name)
@@ -1162,7 +1386,9 @@ class UserWindow(QWidget):
             bbox_value = int(bbox_number)
             product_id_value = int(product_id)
         except (TypeError, ValueError):
-            QMessageBox.warning(self, "상품 선택", "선택한 상품 정보를 확인할 수 없습니다.")
+            QMessageBox.warning(
+                self, "상품 선택", "선택한 상품 정보를 확인할 수 없습니다."
+            )
             return
 
         trigger_button = self.select_done_button
@@ -1179,7 +1405,9 @@ class UserWindow(QWidget):
         except MainServiceClientError as exc:
             if trigger_button is not None:
                 trigger_button.setEnabled(True)
-            QMessageBox.warning(self, "상품 선택", f"상품을 선택하지 못했습니다.\n{exc}")
+            QMessageBox.warning(
+                self, "상품 선택", f"상품을 선택하지 못했습니다.\n{exc}"
+            )
             return
 
         if trigger_button is not None:
@@ -1194,18 +1422,12 @@ class UserWindow(QWidget):
         self.selection_options = []
         self.selection_selected_index = None
         self.populate_selection_buttons([])
-        if (
-            self.order_select_stack is not None
-            and self.page_moving_view is not None
-        ):
+        if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
     def on_select_cancel_clicked(self) -> None:
         """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
-        if (
-            self.order_select_stack is not None
-            and self.page_moving_view is not None
-        ):
+        if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
     def categorize_cart_items(
@@ -1474,11 +1696,11 @@ class UserWindow(QWidget):
         if not products:
             message = getattr(
                 self,
-                'empty_products_message',
-                '표시할 상품이 없습니다.',
+                "empty_products_message",
+                "표시할 상품이 없습니다.",
             )
             placeholder = QLabel(message)
-            placeholder.setObjectName('product_grid_placeholder')
+            placeholder.setObjectName("product_grid_placeholder")
             placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             placeholder.setWordWrap(True)
             span = max(1, columns)
