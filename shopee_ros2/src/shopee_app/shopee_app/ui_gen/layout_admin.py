@@ -12,7 +12,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_Form_admin(object):
     def setupUi(self, Form_admin):
         Form_admin.setObjectName("Form_admin")
-        Form_admin.resize(1266, 758)
+        Form_admin.resize(861, 758)
         self.gridLayout = QtWidgets.QGridLayout(Form_admin)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setSpacing(0)

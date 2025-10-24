@@ -7,8 +7,11 @@ from typing import Callable
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QTransform
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
@@ -38,6 +41,20 @@ if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
     sys.path.append(str(_LLM_SERVICE_DIR))
 
 from STT_module import STT_Module
+
+
+class ClickableLabel(QLabel):
+
+    clicked = pyqtSignal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
 
 class SttStatusDialog(QDialog):
@@ -199,6 +216,7 @@ class UserWindow(QWidget):
         self.current_mode = None
         self.selection_container = getattr(self.ui, "widget_selection_container", None)
         self.selection_grid = getattr(self.ui, "grid_selection_buttons_2", None)
+        self.refresh_logo_label: ClickableLabel | None = None
         self.selection_buttons: list[QPushButton] = []
         self.selection_button_group = QButtonGroup(self)
         self.selection_button_group.setExclusive(True)
@@ -218,9 +236,9 @@ class UserWindow(QWidget):
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
+        self._setup_refresh_logo()
         self.setup_cart_section()
         self.setup_navigation()
-        self.ui.btn_to_login_page.clicked.connect(self.close)
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
@@ -999,7 +1017,11 @@ class UserWindow(QWidget):
         order_data: dict,
     ) -> None:
         self._ensure_notification_listener()
-        remote_items, auto_items = self.categorize_cart_items(ordered_items)
+        auto_select_map = self._build_order_auto_select_map(order_data)
+        remote_items, auto_items = self.categorize_cart_items(
+            ordered_items,
+            auto_select_map,
+        )
         self.remote_selection_items = remote_items
         self.auto_selection_items = auto_items
         self.selection_item_states.clear()
@@ -1305,6 +1327,64 @@ class UserWindow(QWidget):
         self.notification_client.connection_error.connect(self.on_notification_error)
         self.notification_client.start()
 
+    def _setup_refresh_logo(self) -> None:
+        # 로고를 클릭 가능하게 만들어 전체 상품 목록을 즉시 새로 고칠 수 있도록 구성한다.
+        top_layout = getattr(self.ui, "horizontalLayout", None)
+        original_label = getattr(self.ui, "label_main_logo", None)
+        if top_layout is None or original_label is None:
+            return
+        parent_widget = original_label.parent()
+        existing_index = top_layout.indexOf(original_label)
+        if existing_index < 0:
+            existing_index = 0
+        if isinstance(original_label, ClickableLabel):
+            logo_label = original_label
+        else:
+            top_layout.removeWidget(original_label)
+            original_label.hide()
+            original_label.deleteLater()
+            logo_label = ClickableLabel(parent_widget)
+            logo_label.setObjectName("label_main_logo")
+            top_layout.insertWidget(
+                existing_index,
+                logo_label,
+                0,
+                QtCore.Qt.AlignmentFlag.AlignLeft,
+            )
+            self.ui.label_main_logo = logo_label
+        logo_label.setToolTip("전체 상품 새로고침")
+        pixmap = self._render_logo_pixmap(QtCore.QSize(100, 30))
+        if pixmap is not None:
+            logo_label.setPixmap(pixmap)
+            logo_label.setMinimumSize(pixmap.size())
+        else:
+            logo_label.setText("Shopee")
+            logo_label.setStyleSheet(
+                "font-size: 20px; font-weight: 600; color: #ff4649;"
+            )
+        logo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        logo_label.clicked.connect(self._on_logo_refresh_clicked)
+        self.refresh_logo_label = logo_label
+
+    def _render_logo_pixmap(self, target_size: QtCore.QSize) -> QPixmap | None:
+        # SVG 로고를 원하는 크기로 렌더링해 픽스맵으로 변환한다.
+        logo_path = Path(__file__).resolve().parent / "image" / "logo.svg"
+        if not logo_path.exists():
+            return None
+        renderer = QSvgRenderer(str(logo_path))
+        if not renderer.isValid():
+            return None
+        pixmap = QPixmap(target_size)
+        pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        return pixmap
+
+    def _on_logo_refresh_clicked(self) -> None:
+        # 로고 클릭 시 전체 상품 목록을 즉시 재조회한다.
+        self.request_total_products()
+
     def _initialize_selection_grid(self) -> None:
         if self.selection_grid is None:
             return
@@ -1432,13 +1512,46 @@ class UserWindow(QWidget):
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
+    def _build_order_auto_select_map(
+        self,
+        order_data: dict[str, Any] | None,
+    ) -> dict[int, bool]:
+        # 서버 응답의 auto_select 값을 기준으로 상품 분류 정보를 구성한다.
+        auto_select_map: dict[int, bool] = {}
+        if not isinstance(order_data, dict):
+            return auto_select_map
+        products = order_data.get("products")
+        if not isinstance(products, list):
+            return auto_select_map
+        for entry in products:
+            if not isinstance(entry, dict):
+                continue
+            product_id_value = entry.get("product_id")
+            try:
+                product_id = int(product_id_value)
+            except (TypeError, ValueError):
+                continue
+            auto_flag = entry.get("auto_select")
+            auto_select_map[product_id] = bool(auto_flag)
+        return auto_select_map
+
     def categorize_cart_items(
         self,
         items: list[CartItemData],
+        auto_select_map: dict[int, bool] | None = None,
     ) -> tuple[list[CartItemData], list[CartItemData]]:
-        # TODO: 서버에서 상품별 선택 방식 정보를 제공하면 해당 데이터를 사용한다.
-        half = (len(items) + 1) // 2
-        return items[:half], items[half:]
+        # auto_select 플래그를 사용해 자동 및 원격 선택 상품을 구분한다.
+        if not items:
+            return [], []
+        reference_map = auto_select_map or {}
+        remote_items: list[CartItemData] = []
+        auto_items: list[CartItemData] = []
+        for item in items:
+            if reference_map.get(item.product_id, False):
+                auto_items.append(item)
+            else:
+                remote_items.append(item)
+        return remote_items, auto_items
 
     def populate_selection_list(
         self,

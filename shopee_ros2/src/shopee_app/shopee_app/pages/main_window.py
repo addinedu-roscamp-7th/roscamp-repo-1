@@ -8,6 +8,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QLineEdit
 from PyQt6.QtWidgets import QMainWindow
 from PyQt6.QtWidgets import QMessageBox
 
@@ -28,6 +29,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("Shopee GUI (PyQt6)")
+        self.ui.et_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.service_client = MainServiceClient()
         self._user_info: dict[str, Any] | None = None
         self._pixmap_helpers: list[_AspectRatioPixmapHelper] = []
