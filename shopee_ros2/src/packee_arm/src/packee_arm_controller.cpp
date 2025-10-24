@@ -244,12 +244,12 @@ private:
   }
 
   PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
-    // Pose6D 메시지(joint_1~4)를 x, y, z, yaw_deg로 해석한다.
+    // Pose6D 메시지(x, y, z, rx)를 x, y, z, yaw_deg로 해석한다.
     PoseComponents components{};
-    components.x = static_cast<double>(pose_msg.joint_1);
-    components.y = static_cast<double>(pose_msg.joint_2);
-    components.z = static_cast<double>(pose_msg.joint_3);
-    components.yaw_deg = static_cast<double>(pose_msg.joint_4) * kRadiansToDegrees;
+    components.x = static_cast<double>(pose_msg.x);
+    components.y = static_cast<double>(pose_msg.y);
+    components.z = static_cast<double>(pose_msg.z);
+    components.yaw_deg = static_cast<double>(pose_msg.rx) * kRadiansToDegrees;
     return components;
   }
 
@@ -259,10 +259,10 @@ private:
       return std::nullopt;
     } else {
       PoseComponents components{};
-      components.x = static_cast<double>(product.pose.joint_1);
-      components.y = static_cast<double>(product.pose.joint_2);
-      components.z = static_cast<double>(product.pose.joint_3);
-      components.yaw_deg = static_cast<double>(product.pose.joint_4) * kRadiansToDegrees;
+      components.x = static_cast<double>(product.pose.x);
+      components.y = static_cast<double>(product.pose.y);
+      components.z = static_cast<double>(product.pose.z);
+      components.yaw_deg = static_cast<double>(product.pose.rx) * kRadiansToDegrees;
       return components;
     }
   }
@@ -409,8 +409,8 @@ private:
     const PoseComponents pick_pose = pick_pose_optional.value();
 
     if (!AreFinite(pick_pose) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.joint_5)) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.joint_6))) {
+        !std::isfinite(static_cast<double>(request->target_product.pose.ry)) ||
+        !std::isfinite(static_cast<double>(request->target_product.pose.rz))) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
@@ -487,8 +487,8 @@ private:
 
     const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
     if (!AreFinite(place_pose) ||
-        !std::isfinite(static_cast<double>(request->pose.joint_5)) ||
-        !std::isfinite(static_cast<double>(request->pose.joint_6))) {
+        !std::isfinite(static_cast<double>(request->pose.ry)) ||
+        !std::isfinite(static_cast<double>(request->pose.rz))) {
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
