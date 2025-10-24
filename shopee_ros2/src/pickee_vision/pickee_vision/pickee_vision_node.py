@@ -145,7 +145,7 @@ class PickeeVisionNode(Node):
             # polygon_pts = np.array(det['polygon'], np.int32)
             # cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
             cv2.putText(frame, f"# {i + 1}: {product_dic[det['class_id']]}", (bbox_data[0], bbox_data[1] - 15), 
-                        cv2.FONT_HERSHEY_PLAIN, 1.1, (0, 255, 0), 1.5)
+                        cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)
         return frame
     
     def detect_products_callback(self, request, response):
