@@ -10,13 +10,13 @@ from shopee_interfaces.srv import ArmMoveToPose, ArmPickProduct, ArmPlaceProduct
 from shopee_interfaces.msg import ArmPoseStatus, ArmTaskStatus
 
 # HARDCODED POSES from user's "와사비 좌표 기록.txt"
-STANDBY_POSE = [0.0, 0.0, 0.0, 0.0, 0.0, -57.0]
-LYING_DOWN_POSE = [0.43, 101.25, 31.9, -150.73, -89.03, -29.61]
-PRE_PICK_1_POSE = [87.8, 101.25, -83.23, -19.59, 12.56, 62.92]
-PRE_PICK_2_POSE = [120.14, -12.56, -67.23, -12.48, -2.37, 67.41]
-PICK_WASABI_POSE = [116.27, -24.43, -84.9, 18.63, 0.79, 64.59]
-BASKET_ABOVE_POSE = [80.77, 53.34, -32.87, 72.5, -163.47, 25.92]
-BASKET_PLACE_POSE = [79.71, 112.32, -85.6, 67.5, -163.12, 27.77]
+STANDBY_POSE = [0.0, 0.0, 0.0, 0.0, 0.0, 48.0]
+LYING_DOWN_POSE = [2.9, 115.66, -122.16, 4.39, 6.06, -52.91]
+PRE_PICK_1_POSE = [89.91, 87.36, -51.59, -46.4, 6.06, -25.4]
+PRE_PICK_2_POSE = [105.73, -21.0, -51.41, -17.05, 8.17, -32.16]
+PICK_WASABI_POSE = [108.72, -43.59, -51.85, -0.35, 5.8, -26.63]
+BASKET_ABOVE_POSE = [-60.46, -15.55, -70.13, -1.58, -3.95, -16.52]
+BASKET_PLACE_POSE = [-63.45, -48.95, -70.13, 18.72, 4.13, -18.1]
 
 class PickeeArmController(Node):
     """Controls the Pickee Arm based on hardcoded sequences, with improved safety and synchronization."""
