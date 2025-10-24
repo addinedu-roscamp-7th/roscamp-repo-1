@@ -148,6 +148,5 @@ gha-creds-*.json
 
 *.jpg
 *.png
-*.pt
 *.csv
 *.txt
