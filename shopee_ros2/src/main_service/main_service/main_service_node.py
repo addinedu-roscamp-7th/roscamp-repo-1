@@ -409,7 +409,7 @@ class MainServiceApp:
                         continue
                     product_ids.append(pid)
 
-                product_map: Dict[int, Product] = {}
+                product_map: Dict[int, Dict[str, Any]] = {}
                 if product_ids:
                     with self._db.session_scope() as session:
                         products = (
@@ -417,7 +417,13 @@ class MainServiceApp:
                             .filter(Product.product_id.in_(product_ids))
                             .all()
                         )
-                        product_map = {product.product_id: product for product in products}
+                        product_map = {
+                            product.product_id: {
+                                'name': product.name or '',
+                                'auto_select': bool(product.auto_select),
+                            }
+                            for product in products
+                        }
 
                 products_payload: List[Dict[str, Any]] = []
                 for item in cart_items:
@@ -434,14 +440,14 @@ class MainServiceApp:
                     except (TypeError, ValueError):
                         quantity = 0
 
-                    product_obj = product_map.get(pid)
-                    if not product_obj:
+                    product_meta = product_map.get(pid)
+                    if not product_meta:
                         logger.warning('상품 ID %d에 대한 메타데이터를 찾을 수 없어 기본값으로 응답합니다.', pid)
                         product_name = ''
                         auto_select = False
                     else:
-                        product_name = product_obj.name or ''
-                        auto_select = bool(product_obj.auto_select)
+                        product_name = product_meta.get('name', '')
+                        auto_select = bool(product_meta.get('auto_select', False))
 
                     products_payload.append(
                         {

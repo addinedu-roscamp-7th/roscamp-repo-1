@@ -84,6 +84,7 @@ class MainServiceConfig(BaseSettings):
     DESTINATION_PACKING_NAME: str = "PACKING_AREA_A"
     DESTINATION_DELIVERY_NAME: str = "DELIVERY"
     DESTINATION_RETURN_NAME: str = "RETURN"
+    PACKEE_PRODUCT_DIMENSION_SCALE: float = 1.0
 
     # === Robot Fleet Management 설정 ===
     ROBOT_ALLOCATION_STRATEGY: str = "round_robin"  # round_robin | least_workload | battery_aware

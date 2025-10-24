@@ -29,7 +29,7 @@ class ProductLocationBuilder:
         """주문 항목을 기반으로 ProductLocation 리스트 생성"""
         from .database_models import OrderItem, Product
         
-        locations: List[ProductLocation] = []
+        enriched_locations: List[tuple[int, int, int, ProductLocation]] = []
         items = session.query(OrderItem).filter_by(order_id=order_id).all()
         
         for item in items:
@@ -38,7 +38,11 @@ class ProductLocationBuilder:
                 .filter_by(product_id=item.product_id)
                 .first()
             )
-            if not product or not product.section or not product.section.shelf:
+            if (
+                not product
+                or not product.section
+                or not product.section.shelf
+            ):
                 logger.warning(
                     'Skipping product %s for order %s due to missing section/shelf mapping',
                     item.product_id,
@@ -46,14 +50,53 @@ class ProductLocationBuilder:
                 )
                 continue
             
-            locations.append(
-                ProductLocation(
-                    product_id=product.product_id,
-                    location_id=product.section.shelf.location_id,
-                    section_id=product.section_id,
-                    quantity=item.quantity,
-                )
+            shelf = product.section.shelf
+            location = ProductLocation(
+                product_id=product.product_id,
+                location_id=shelf.location_id,
+                section_id=product.section_id,
+                quantity=item.quantity,
+            )
+            enriched_locations.append(
+                (shelf.shelf_id, product.section_id, location.product_id, location)
             )
         
-        return locations
+        enriched_locations.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
+        return [entry[3] for entry in enriched_locations]
 
+    def build_section_plan(self, session, order_id: int) -> List[dict[str, int]]:
+        """선반-섹션 순회 계획을 생성한다."""
+        from .database_models import OrderItem, Product
+        
+        plan_map: dict[tuple[int, int], dict[str, int]] = {}
+        items = session.query(OrderItem).filter_by(order_id=order_id).all()
+        
+        for item in items:
+            product = (
+                session.query(Product)
+                .filter_by(product_id=item.product_id)
+                .first()
+            )
+            if (
+                not product
+                or not product.section
+                or not product.section.shelf
+            ):
+                logger.warning(
+                    'Skipping product %s for section plan of order %s due to missing section/shelf mapping',
+                    item.product_id,
+                    order_id,
+                )
+                continue
+            
+            shelf = product.section.shelf
+            key = (shelf.shelf_id, product.section_id)
+            if key not in plan_map:
+                plan_map[key] = {
+                    'shelf_id': shelf.shelf_id,
+                    'location_id': shelf.location_id,
+                    'section_id': product.section_id,
+                }
+        
+        sorted_keys = sorted(plan_map.keys(), key=lambda entry: (entry[0], entry[1]))
+        return [plan_map[key] for key in sorted_keys]
