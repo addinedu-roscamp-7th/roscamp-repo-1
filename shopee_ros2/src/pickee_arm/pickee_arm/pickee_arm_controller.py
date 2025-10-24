@@ -94,7 +94,6 @@ class PickeeArmController(Node):
     def pick_product_callback(self, request, response):
         self.get_logger().info(f'Pick product request for "{request.target_product.product_id}" received.')
         self.get_logger().info("--- Starting Pick Sequence ---")
-        self._move_to_target_joints(STANDBY_POSE)
         self._control_gripper(100)
         self._move_to_target_joints(PRE_PICK_1_POSE)
         self._move_to_target_joints(PRE_PICK_2_POSE)
@@ -114,7 +113,6 @@ class PickeeArmController(Node):
     def place_product_callback(self, request, response):
         self.get_logger().info(f'Place product request for "{request.product_id}" received.')
         self.get_logger().info("--- Starting Place Sequence ---")
-        self._move_to_target_joints(STANDBY_POSE)
         self._move_to_target_joints(BASKET_ABOVE_POSE)
         self._move_to_target_joints(BASKET_PLACE_POSE)
         self._control_gripper(100)
