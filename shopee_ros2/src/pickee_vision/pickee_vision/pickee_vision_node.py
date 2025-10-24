@@ -18,23 +18,23 @@ from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckP
 from shopee_interfaces.msg import PickeeVisionDetection, DetectedProduct, DetectionInfo, BBox, Point2D, Pose6D, PickeeVisionCartCheck
 
 product_dic = {
-    1 : "", 
-    2 : "", 
-    3 : "", 
-    4 : "", 
-    5 : "", 
-    6 : "", 
-    7 : "", 
-    8 : "", 
-    9 : "", 
-    10 : "", 
-    11 : "", 
-    12 : "", 
-    13 : "", 
-    14 : "", 
-    15 : "", 
-    16 : "", 
-    17 : ""
+    1 : "고추냉이", 
+    2 : "불닭캔", 
+    3 : "버터캔", 
+    4 : "리챔", 
+    5 : "두유", 
+    6 : "카프리썬", 
+    7 : "홍사과", 
+    8 : "청사과", 
+    9 : "오렌지", 
+    10 : "삼겹살", 
+    11 : "닭", 
+    12 : "생선", 
+    13 : "전복", 
+    14 : "이클립스", 
+    15 : "아이비", 
+    16 : "빼빼로", 
+    17 : "오예스"
 }
 
 class PickeeVisionNode(Node):
@@ -73,7 +73,7 @@ class PickeeVisionNode(Node):
         self.camera_type = ""
         self.camera_flag = ""
         
-        # --- 하드웨어 및 상태 초기화 ---
+        # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
@@ -81,6 +81,13 @@ class PickeeVisionNode(Node):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
+
+        # --- 장애물 인식 용 카트정면 웹캠 (front) ---
+        """
+        
+        구현 필요
+        
+        """
 
         # --- 상품 인식 결과 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -96,7 +103,6 @@ class PickeeVisionNode(Node):
 
         # 메인 루프 타이머 (60 FPS)
         self.main_loop_timer = self.create_timer(1.0 / 60.0, self.main_loop)
-
         self.get_logger().info('Product Detector Node has been started.')
 
     def main_loop(self):
@@ -126,7 +132,10 @@ class PickeeVisionNode(Node):
             if self.camera_flag == "arm":
                 self.streamer.queue_reset()
                 self.camera_flag = "front"
-            self.streamer.queue_frame(frame) # frame 대신 카트 전용 프레임 변수 넣기
+            self.streamer.queue_frame(frame) 
+            """ 
+            frame 대신 카트 전용 프레임 변수 넣기 
+            """
 
     def draw_annotations(self, frame, detections):
         # 주어진 프레임에 감지된 객체 정보를 그립니다.
@@ -136,7 +145,7 @@ class PickeeVisionNode(Node):
             # polygon_pts = np.array(det['polygon'], np.int32)
             # cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
             cv2.putText(frame, f"# {i + 1}: {product_dic[det['class_id']]}", (bbox_data[0], bbox_data[1] - 15), 
-                        cv2.FONT_HERSHEY_PLAIN, 0.8, (0, 255, 0), 2)
+                        cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 0), 2)
         return frame
     
     def detect_products_callback(self, request, response):
@@ -177,8 +186,8 @@ class PickeeVisionNode(Node):
         else:
             # 요청된 상품 중 일부 또는 전체가 감지되지 않았을 경우
             response.success = False
-            message = "Failed to detect all requested products. Missing quantities: \n-----\n"
-            missing_str = "\n".join([f"Product ID {pid}: {qty} missing" for pid, qty in missing_products.items()])
+            message = "Failed to detect all requested products. Missing quantities: "
+            missing_str = ", ".join([f"Product ID {pid}: {qty} missing" for pid, qty in missing_products.items()])
             response.message = message + missing_str
             # self.get_logger().warning(f'Missing products/quantities: {missing_str}')
         
@@ -290,9 +299,14 @@ class PickeeVisionNode(Node):
         ret, frame = self.cap.read()
         if not ret:
             self.get_logger().error('Failed to capture frame for cart presence check.')
-            response.is_present = False
+            response.success = False
+            response.cart_present = False
+            response.confidence = 0
             response.message = "Failed to capture frame"
             return response
+
+        # 이전 상품 인식 정보 화면에서 지우기
+        self.last_detections = []
 
         # CNN 분류 수행
         class_id, confidence, class_name = self.cart_classifier.classify(frame)
@@ -300,24 +314,34 @@ class PickeeVisionNode(Node):
         # 'empty_cart'는 장바구니 존재, 'full_cart'는 장바구니 없음(사용 불가)으로 판단
         if class_name == 'empty_cart' and confidence >= 90:
             self.get_logger().info(f'Empty cart detected with confidence: {confidence:.2f}')
-            response.is_present = True
+            response.success = True
+            response.cart_present = True
+            response.confidence = confidence
             response.message = f'Empty cart is present (confidence: {confidence:.2f})'
         elif class_name == 'full_cart':
             self.get_logger().info(f'Full cart detected with confidence: {confidence:.2f}. Considering as not present for pickup.')
-            response.is_present = False
+            response.success = False
+            response.cart_present = False
+            response.confidence = confidence
             response.message = f'Cart is full, not available for use (confidence: {confidence:.2f})'
         elif class_name == 'no_cart':
             self.get_logger().info(f'NO cart detected with confidence: {confidence:.2f}. Considering as not present for pickup.')
-            response.is_present = False
+            response.success = False
+            response.cart_present = False
+            response.confidence = confidence
             response.message = f'Cart isn\'t here, not available for use (confidence: {confidence:.2f})'
         elif class_name == 'error':
             self.get_logger().error('An error occurred during cart classification.')
-            response.is_present = False
+            response.success = False
+            response.cart_present = False
+            response.confidence = confidence
             response.message = 'An error occurred during classification.'
         else:
             # 이 경우는 모델이 'empty_cart'나 'full_cart'나 'no_cart'가 아닌 다른 것을 예측한 경우
             self.get_logger().info(f'Cart not detected. Classified as: {class_name}')
-            response.is_present = False
+            response.success = False
+            response.cart_present = False
+            response.confidence = confidence
             response.message = f'Cart is not present. (classified as: {class_name})'
             
         return response

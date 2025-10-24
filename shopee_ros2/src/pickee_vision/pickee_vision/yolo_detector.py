@@ -34,7 +34,7 @@ class YoloDetector:
                 class_name = result.names[class_id]
                 bbox = box.xyxy[0].tolist()
                 detection = {
-                    'class_id': class_id,
+                    'class_id': class_id + 1,
                     'class_name': class_name,
                     'confidence': float(box.conf),
                     'polygon': mask.tolist(),
