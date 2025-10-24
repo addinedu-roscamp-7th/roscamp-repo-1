@@ -12,7 +12,7 @@ import pandas as pd
 import os
 
 class PoseCNN(nn.Module):
-    def __init__(self, num_classes=6):
+    def __init__(self, num_classes=3):
         super().__init__()
         resnet = models.resnet18(pretrained=False)
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
@@ -44,7 +44,7 @@ def load_model(model_path, num_classes, device):
     return model
 
 
-def predict(model, img_path, pose_mean=None, pose_std=None, class_names=None, device="cpu"):
+def predict(model, img_path, class_names=None, device="cpu"):
     transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((224, 224)),
@@ -62,17 +62,13 @@ def predict(model, img_path, pose_mean=None, pose_std=None, class_names=None, de
         pose_pred = pose_pred.cpu().numpy().flatten()
         cls_idx = cls_pred.argmax(dim=1).item()
 
-    # 역정규화 (있을 경우)
-    if pose_mean is not None and pose_std is not None:
-        pose_pred = pose_pred * np.array(pose_std) + np.array(pose_mean)
-
     cls_name = class_names[cls_idx] if class_names else str(cls_idx)
 
     return pose_pred, cls_name
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="./checkpoints/cnn.pt")
+    parser.add_argument("--model", type=str, default="./checkpoints/best.pt")
     parser.add_argument("--csv", type=str, default="./datasets/labels.csv")
     parser.add_argument("--image", type=str, required=True)
     args = parser.parse_args()
@@ -82,20 +78,12 @@ def main():
     class_names = sorted(df["class"].unique())
     num_classes = len(class_names)
 
-    # 포즈 통계 계산
-    if "pose" in df.columns:
-        poses = df["pose"].apply(lambda s: np.array(ast.literal_eval(s), dtype=np.float32))
-        pose_mat = np.stack(poses.values)
-        pose_mean, pose_std = pose_mat.mean(0).tolist(), pose_mat.std(0).tolist()
-    else:
-        pose_mean = pose_std = None
-
     # 모델 로드
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = load_model(args.model, num_classes, device)
 
     # 예측 수행
-    pose, cls_name = predict(model, args.image, pose_mean, pose_std, class_names, device)
+    pose, cls_name = predict(model, args.image, class_names, device)
 
     # 출력
     print(f"\n 예측 결과:")

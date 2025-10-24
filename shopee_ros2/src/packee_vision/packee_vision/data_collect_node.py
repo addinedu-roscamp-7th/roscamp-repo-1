@@ -76,7 +76,7 @@ class DataCollector(Node):
         self.receiver = video_receiver
         self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_id = 10
+        self.object_id = 12
         self.target_pose = [42.2, -39.0, 289.8, -153.04, 21.75, -85.67]
         self.save_dir = "./datasets"
 

@@ -71,50 +71,43 @@ class VideoReceiver:
         self.running = False
 
 class PoseCNN(nn.Module):
-    def __init__(self, num_classes=3, pose_classes=6):
+    def __init__(self,num_classes=5):
         super().__init__()
-        
-        base = models.resnet18(pretrained=True)
-        self.feature_extractor = nn.Sequential(*list(base.children())[:-1])
-        
-        self.reprogress = nn.Sequential(
-            nn.Linear(512 * 2, 256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
-            nn.ReLU(inplace=True)
+        resnet=models.resnet18(pretrained=True)
+        self.backbone=nn.Sequential(*list(resnet.children())[:-1])
+        feat_dim=512
+        self.pose_head=nn.Sequential(
+            nn.Linear(feat_dim,256),
+            nn.ReLU(),
+            nn.Dropout(p=0.3),
+            nn.Linear(256,6)
+        )
+        self.class_head=nn.Sequential(
+            nn.Linear(feat_dim,128),
+            nn.ReLU(),
+            nn.Dropout(p=0.3),
+            nn.Linear(128,num_classes)
         )
 
-        self.pose_head = nn.Linear(128, pose_classes)
-
-        self.class_head = nn.Linear(128, num_classes)
-    
-    def forward(self, current_img, target_img):
-        current_feature = self.feature_extractor(current_img).flatten(1)
-        target_feature = self.feature_extractor(target_img).flatten(1)
-
-        feature = torch.cat([current_feature, target_feature], dim=1)
-        shared = self.reprogress(feature)
-
-        pose_output = self.pose_head(shared)
-        class_output = self.class_head(shared)
-        
-
-        return pose_output, class_output
+    def forward(self,x):
+        f=self.backbone(x).flatten(1)
+        pose_out=self.pose_head(f)
+        cls_out=self.class_head(f)
+        return pose_out,cls_out
 
 class ControlNode(Node):
     def __init__(self, video_receiver):
         super().__init__("data_collect_node")
         self.receiver = video_receiver
 
-        self.object_name = "eclipse"
+        self.object_name = "wasabi"
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.yolo_model = YOLO('/home/addinedu/dev_ws/shopee/src/DataCollector/DataCollector/checkpoints/yolo_model.pt').to(device)
 
-        num_classes = 3
+        num_classes = 5
         self.cnn = PoseCNN(num_classes=num_classes).to(device)
-        self.cnn.load_state_dict(torch.load('/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/packee_vision/packee_vision/checkpoints/best.pt', map_location=device))
+        self.cnn.load_state_dict(torch.load('/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/packee_vision/packee_vision/checkpoints/cnn.pt', map_location=device))
         self.cnn.eval()
 
         self.publisher = self.create_publisher(Pose6D, '/packee1/move', 10)
@@ -146,7 +139,7 @@ class ControlNode(Node):
         self.rx = msg.rx
         self.ry = msg.ry
         self.rz = msg.rz
-        self.get_logger().info(f"Current angles: {msg.x}, {msg.y}, {msg.z}, {msg.rx}, {msg.ry}, {msg.rz}")
+        self.get_logger().info(f"Current coords: {msg.x}, {msg.y}, {msg.z}, {msg.rx}, {msg.ry}, {msg.rz}")
 
 
     def MoveJetcobot(self, x, y, z, rx, ry, rz):
@@ -157,37 +150,32 @@ class ControlNode(Node):
         msg.rx = rx
         msg.ry = ry
         msg.rz = rz
+        self.get_logger().info(f"send coords: {msg.x}, {msg.y}, {msg.z}, {msg.rx}, {msg.ry}, {msg.rz}")
+
         self.publisher.publish(msg)
 
-    def preprocess_image(self, cur_img, target_path, device):
+    def predict(self, model, img=None, target_path=None, class_names=None, device="cpu"):
         transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
         ])
 
-        target_img = cv2.imread(target_path)
-        if target_img is None:
-            raise FileNotFoundError(target_path)
-
-        target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2RGB)
-
-        cur_img_t = transform(cv2.cvtColor(cur_img, cv2.COLOR_BGR2RGB)).unsqueeze(0).to(device)
-        target_img_t = transform(target_img).unsqueeze(0).to(device)
-        return cur_img_t, target_img_t
-
-
-
-    def predict(self, model, cur_img, target_path, class_names=None, device="cpu"):
-        cur_img_t, tar_img_t = self.preprocess_image(cur_img, target_path, device)
+        if target_path is not None:
+            img = cv2.imread(target_path)
+            if img is None:
+                raise FileNotFoundError(target_path)
+            
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_t = transform(img).unsqueeze(0).to(device)
 
         with torch.no_grad():
-            pose_pred, cls_pred = model(cur_img_t, tar_img_t)
+            pose_pred, cls_pred = model(img_t)
             pose_pred = pose_pred.cpu().numpy().flatten()
             cls_idx = cls_pred.argmax(dim=1).item()
-            self.get_logger().info(f"Predicted class: {cls_idx}")
 
-        cls_name = class_names[cls_idx]
+        cls_name = class_names[cls_idx] if class_names else str(cls_idx)
+
         return pose_pred, cls_name
 
 
@@ -216,8 +204,6 @@ class ControlNode(Node):
                         frame_center_x = undistorted.shape[1] / 2
                         offset = x_center - frame_center_x
 
-                        # obj_crop = undistorted[y1:y2, x1:x2]
-
                         threshold = 0.15 * undistorted.shape[1]
 
                         if offset > threshold:
@@ -230,22 +216,28 @@ class ControlNode(Node):
                         target = f"/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/packee_vision/packee_vision/target_img/{self.object_name}_{grid_key}.jpg"
 
 
-                        pose, cls_name = self.predict(
-                            self.cnn, undistorted, target,
+                        current_pose, _ = self.predict(
+                            self.cnn, undistorted, None,
                             ['wasabi', 'fish', 'eclipse'], "cuda"
                         )
 
+                        self.get_logger().info(f"Current pose: {current_pose}")
 
-                        self.get_logger().info(f"Detected {cls_name} at {grid_key} with pose {pose}")
+                        target_pose, _ = self.predict(
+                            self.cnn, None, target,
+                            ['wasabi', 'fish', 'eclipse'], "cuda"
+                        )
+
+                        self.get_logger().info(f"Target pose: {target_pose}")
 
                         gain = 0.3  # 0.1~0.5 정도로 조정해보세요
                         self.MoveJetcobot(
-                            float(self.x + gain * pose[0]),
-                            float(self.y + gain * pose[1]),
-                            float(self.z + gain * pose[2]),
-                            float(self.rx + gain * pose[3]),
-                            float(self.ry + gain * pose[4]),
-                            float(self.rz + gain * pose[5])
+                            float(gain * (target_pose[0] - current_pose[0])),
+                            float(gain * (target_pose[1] - current_pose[1])),
+                            float(gain * (target_pose[2] - current_pose[2])),
+                            float(gain * (target_pose[3] - current_pose[3])),
+                            float(gain * (target_pose[4] - current_pose[4])),
+                            float(gain * (target_pose[5] - current_pose[5]))
                         )
         
         cv2.imshow("Undistorted", results[0].plot())

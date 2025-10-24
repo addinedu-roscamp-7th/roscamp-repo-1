@@ -18,45 +18,60 @@ class PoseDataset(torch.utils.data.Dataset):
         self.df = pd.read_csv(csv_path)
         self.img_dir = img_dir
         self.transform = transform
+        
+        # 클래스 인덱스 매핑
         if 'class' in self.df.columns:
             classes = sorted(self.df['class'].unique())
-            self.class_to_idx = class_to_idx or {c:i for i,c in enumerate(classes)}
+            self.class_to_idx = class_to_idx or {c: i for i, c in enumerate(classes)}
         else:
             self.class_to_idx = {}
-        self.pose_mean = np.array(pose_mean, dtype=np.float32) if pose_mean else None
-        self.pose_std  = np.array(pose_std, dtype=np.float32) if pose_std else None
+        
+        self.pose_mean = np.array(pose_mean, dtype=np.float32) if pose_mean is not None else None
+        self.pose_std = np.array(pose_std, dtype=np.float32) if pose_std is not None else None
 
-    def __len__(self): return len(self.df)
+    def __len__(self):
+        return len(self.df)
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
+        
+        # 이미지 로드
         img_path = row.get('image_path') or row.get('images')
         if self.img_dir and not os.path.isabs(img_path):
             img_path = os.path.join(self.img_dir, os.path.basename(img_path))
         img = cv2.imread(img_path)
-        if img is None: raise FileNotFoundError(img_path)
+        if img is None:
+            raise FileNotFoundError(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if self.transform: img = self.transform(img)
+        if self.transform:
+            img = self.transform(img)
         else:
-            img = cv2.resize(img, (224,224))
-            img = torch.tensor(img,dtype=torch.float32).permute(2,0,1)/255.
+            img = cv2.resize(img, (224, 224))
+            img = torch.tensor(img, dtype=torch.float32).permute(2, 0, 1) / 255.0
 
+        # Pose 파싱
         if 'pose' in self.df.columns:
             pose_str = row['pose']
-            pose = np.array(ast.literal_eval(pose_str) if isinstance(pose_str,str) else pose_str,dtype=np.float32)
+            pose = np.array(ast.literal_eval(pose_str) if isinstance(pose_str, str) else pose_str, dtype=np.float32)
         else:
-            cols = [c for c in self.df.columns if c.lower() in ['x','y','z','rx','ry','rz']]
-            pose = np.array([float(row[c]) for c in cols],dtype=np.float32)
+            cols = [c for c in self.df.columns if c.lower() in ['x', 'y', 'z', 'rx', 'ry', 'rz']]
+            pose = np.array([float(row[c]) for c in cols], dtype=np.float32)
 
         if self.pose_mean is not None:
             pose = (pose - self.pose_mean) / (self.pose_std + 1e-8)
 
-        label = self.class_to_idx.get(row.get('class','candy'),0)
+        # 클래스 인덱스 매핑
+        if 'class' in self.df.columns:
+            label_name = row['class']
+            label = self.class_to_idx.get(label_name, 0)
+        else:
+            label = 0
+
         return img, torch.tensor(pose), torch.tensor(label)
 
 
 class PoseCNN(nn.Module):
-    def __init__(self,num_classes=6):
+    def __init__(self,num_classes=3):
         super().__init__()
         resnet=models.resnet18(pretrained=True)
         self.backbone=nn.Sequential(*list(resnet.children())[:-1])
@@ -155,7 +170,7 @@ def plot_training(history,outpath):
 
     plt.tight_layout()
     plt.savefig(outpath)
-    print(f"📈 그래프 저장됨: {outpath}")
+    print(f"그래프 저장됨: {outpath}")
 
 
 def main():
