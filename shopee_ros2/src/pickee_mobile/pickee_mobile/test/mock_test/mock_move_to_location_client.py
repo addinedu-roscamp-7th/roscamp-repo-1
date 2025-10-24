@@ -35,7 +35,7 @@ class MockMoveToLocationClient(Node):
         request.robot_id = 1
         request.order_id = 1
         request.location_id = 456
-        request.target_pose = Pose2D(x=0.45, y=-0.27, theta=0.0)
+        request.target_pose = Pose2D(x=0.7509509575962743, y=-0.19880112491037824, theta=87.7)
     #     x: 0.4130041301250458
 #   y: -0.08875562995672226
         self.future = self.move_to_location_client.call_async(request)

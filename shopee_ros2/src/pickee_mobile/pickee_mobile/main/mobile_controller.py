@@ -77,7 +77,7 @@ class PickeeMobileController(Node):
 
         # 목적지 이동 액션 실행
         try:
-            self.send_goal(target.x, target.y, math.degrees(target.theta)) 
+            self.send_goal(target.x, target.y, target.theta)
             response.success = True
             response.message = "Successfully received goal."
         except Exception as e:

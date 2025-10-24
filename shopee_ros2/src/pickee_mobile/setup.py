@@ -61,7 +61,6 @@ setup(
 
             # Topic Test
             'control_vel = pickee_mobile.test.topic_test.control_vel:main',
-            'get_amcl_pose = pickee_mobile.test.topic_test.get_amcl_pose:main',
             'pub_pose = pickee_mobile.test.topic_test.pub_pose:main',
             'pub_cmd_vel = pickee_mobile.test.topic_test.pub_cmd_vel:main',
             'control_vel_teteop = pickee_mobile.test.topic_test.control_vel_teleop:main',
