@@ -50,6 +50,7 @@ setup(
             'mobile_move_to_location = pickee_mobile.main.mobile_move_to_location:main',
             'mobile_pose = pickee_mobile.main.mobile_pose:main',
             'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main',
+            'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main',
             
 
             ####Test Nodes####

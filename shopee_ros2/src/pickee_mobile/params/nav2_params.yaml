@@ -211,6 +211,8 @@ local_costmap:
         mark_threshold: 0
         observation_sources: scan
         footprint_clearing_enabled: True #### 로봇 몸체 내부의 장애물 무시, 원본 : 없음, False
+        # combination_method: 0 #### 0, 센서 데이터 우선
+        # clearing: 0 #### 장애물이 안보이면 삭제
         scan:
           topic: /scan_filtered
           max_obstacle_height: 2.0
