@@ -18,23 +18,23 @@ from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckP
 from shopee_interfaces.msg import PickeeVisionDetection, DetectedProduct, DetectionInfo, BBox, Point2D, Pose6D, PickeeVisionCartCheck
 
 product_dic = {
-    1 : "고추냉이", 
-    2 : "불닭캔", 
-    3 : "버터캔", 
-    4 : "리챔", 
-    5 : "두유", 
-    6 : "카프리썬", 
-    7 : "홍사과", 
-    8 : "청사과", 
-    9 : "오렌지", 
-    10 : "삼겹살", 
-    11 : "닭", 
-    12 : "생선", 
-    13 : "전복", 
-    14 : "이클립스", 
-    15 : "아이비", 
-    16 : "빼빼로", 
-    17 : "오예스"
+    1 : "wasabi", 
+    2 : "buldak_can", 
+    3 : "butter_can", 
+    4 : "richam", 
+    5 : "soymilk", 
+    6 : "capri_sun", 
+    7 : "red_apple", 
+    8 : "green_apple", 
+    9 : "orange", 
+    10 : "pork", 
+    11 : "chicken", 
+    12 : "fish", 
+    13 : "abalone", 
+    14 : "eclipse", 
+    15 : "ivy", 
+    16 : "pepero", 
+    17 : "ohyes"
 }
 
 class PickeeVisionNode(Node):
@@ -145,7 +145,7 @@ class PickeeVisionNode(Node):
             # polygon_pts = np.array(det['polygon'], np.int32)
             # cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
             cv2.putText(frame, f"# {i + 1}: {product_dic[det['class_id']]}", (bbox_data[0], bbox_data[1] - 15), 
-                        cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 0), 2)
+                        cv2.FONT_HERSHEY_PLAIN, 1.1, (0, 255, 0), 1.5)
         return frame
     
     def detect_products_callback(self, request, response):
