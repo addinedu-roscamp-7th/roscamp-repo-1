@@ -508,14 +508,9 @@ class UserWindow(QWidget):
             return
         if self.search_input is not None:
             self.search_input.setText(recognized)
-        self.request_product_search(recognized)
         self._show_mic_info(f"음성 인식 결과: {recognized}")
         self._stt_status_hide_timer.start(2500)
-        self._show_stt_status_dialog(
-            f"인식된 문장: {recognized}",
-            icon=QMessageBox.Icon.Information,
-        )
-        self._schedule_stt_status_close(2500)
+        self.request_product_search(recognized)
 
     def on_stt_error(self, message: str) -> None:
         self._show_stt_status_dialog(
@@ -615,7 +610,12 @@ class UserWindow(QWidget):
             # 응답을 기다리는 동안 버튼을 비활성화하지 않으면 반복 클릭으로 중복 요청이 발생한다.
             search_button.setEnabled(False)
         # 네트워크 예외를 처리하지 않으면 오류가 발생할 때 애플리케이션이 그대로 종료된다.
+        response = None
         try:
+            self._show_stt_status_dialog(
+                f"인식된 문장: {query}\n     요청한 음성으로 검색 중...",
+                icon=QMessageBox.Icon.Information,
+            )
             # 명세에 맞춘 검색 요청을 호출하지 않으면 서버로부터 상품 목록을 받을 수 없다.
             response = self.service_client.search_products(
                 user_id=user_id,
@@ -624,6 +624,7 @@ class UserWindow(QWidget):
                 is_vegan=vegan_flag,
             )
         except MainServiceClientError as exc:
+            self._close_stt_status_dialog()
             # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
             QMessageBox.warning(
                 self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}"
@@ -640,6 +641,7 @@ class UserWindow(QWidget):
             if search_button is not None:
                 # 버튼을 다시 활성화하지 않으면 사용자가 추가 검색을 수행할 수 없다.
                 search_button.setEnabled(True)
+        self._close_stt_status_dialog()
         # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
         if not response:
             QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")
