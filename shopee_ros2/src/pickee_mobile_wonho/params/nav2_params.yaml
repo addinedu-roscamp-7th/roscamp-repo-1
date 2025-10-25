@@ -398,8 +398,8 @@ behavior_server:
     simulate_ahead_time: 2.0
     max_rotational_vel: 0.8               # 1.0 → 0.8로 감소
     min_rotational_vel: 0.4
-    rotational_acc_lim: 2.5               # 3.2 → 2.5로 감소
-    
+    rotational_acc_lim: 2.5          git     # 3.2 → 2.5로 감소
+
 robot_state_publisher:
   ros__parameters:
     use_sim_time: False
