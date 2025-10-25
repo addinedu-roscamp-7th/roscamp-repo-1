@@ -182,6 +182,11 @@ Order -> EventBus: cart_update_notification
 ```
 
 - Pickee 실패 시: `FAIL_PICKUP`, 관리자 알림, 재시도 여부 결정.
+- 선반 방문 규칙:
+  - `ProductLocationBuilder`가 생성한 상품 목록에서 선반(`shelf_id`) 정보를 추출해 오름차순 정렬한다.
+  - 각 선반 내부에서는 섹션 ID가 `1 → 2 → 3 → 4` 순서가 되도록 재배열한다.
+  - `OrderService`는 정렬된 목록을 큐로 만들어, 선반 단위로 섹션을 차례로 순회하며 `/pickee/workflow/move_to_section` 서비스를 호출한다.
+  - 모든 선반과 섹션을 처리한 뒤에는 쇼핑 종료 플로우(`PickeeWorkflowEndShopping`)로 전환한다.
 
 ### 5.4 Packee 포장
 1. Pickee 장바구니 전달 완료 수신.

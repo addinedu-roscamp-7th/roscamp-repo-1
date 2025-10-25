@@ -82,9 +82,7 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
   robot_id: 1,
   order_id: 123,
   location_id: 5,
-  target_pose: {x: 10.5, y: 5.2, theta: 1.57},
-  global_path: [],
-  navigation_mode: 'normal'
+  target_pose: {x: 0.754, y: 0.56, theta: 1.0},
 }"
 
 # Global Path 업데이트
@@ -233,6 +231,7 @@ ros2 service call /pickee/workflow/start_task shopee_interfaces/srv/PickeeWorkfl
 ros2 service call /pickee/workflow/move_to_section shopee_interfaces/srv/PickeeWorkflowMoveToSection "{
   robot_id: 1,
   order_id: 123,
+  location_id: 1,
   section_id: 1
 }"
 
@@ -467,6 +466,7 @@ ros2 topic pub --once /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileA
   message: 'complete'
 }"
 
+# status : 'idle', 'moving', 'stopped', 'charging', 'error'
 ros2 topic pub --once /pickee/mobile/pose shopee_interfaces/msg/PickeeMobilePose "{
   robot_id: 1,
   order_id: 1,
@@ -478,7 +478,7 @@ ros2 topic pub --once /pickee/mobile/pose shopee_interfaces/msg/PickeeMobilePose
   linear_velocity: 1.0,
   angular_velocity: 1.0,
   battery_level: 70.0,
-  status: 'moving'
+  status: 'moving'  
 }"
 
 ros2 topic pub --once /pickee/mobile/speed_control shopee_interfaces/msg/PickeeMobileSpeedControl "{

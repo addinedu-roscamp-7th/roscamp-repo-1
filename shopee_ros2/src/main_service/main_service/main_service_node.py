@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
+import threading
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import rclpy
+from rclpy.executors import SingleThreadedExecutor
 
 from shopee_interfaces.srv import PickeeMainVideoStreamStart, PickeeMainVideoStreamStop
 
 from .api_controller import APIController
 from .config import settings
 from .database_manager import DatabaseManager
+from .database_models import Product
 from .event_bus import EventBus
 from .llm_client import LLMClient
 from .streaming_service import StreamingService
@@ -101,6 +105,11 @@ class MainServiceApp:
         )
         self._robot_history_service = robot_history_service or RobotHistoryService(self._db)
         self._dashboard_controller: Optional[DashboardController] = None
+
+        # ROS 스핀 제어 (GUI 비활성 시 사용)
+        self._ros_executor: Optional[SingleThreadedExecutor] = None
+        self._ros_executor_thread: Optional[threading.Thread] = None
+        self._ros_executor_stop = threading.Event()
 
         # RobotCoordinator에 InventoryService 주입
         self._robot.set_inventory_service(self._inventory_service)
@@ -201,6 +210,7 @@ class MainServiceApp:
             logger.info("Dashboard controller started successfully")
         else:
             logger.info(f"GUI is disabled (GUI_ENABLED={settings.GUI_ENABLED})")
+            self._start_ros_executor()
 
         await self._api.start()
         await self._streaming_service.start()
@@ -213,6 +223,7 @@ class MainServiceApp:
             await self._dashboard_controller.stop()
             self._dashboard_controller = None
 
+        self._stop_ros_executor()
         await self._api.stop()
         self._streaming_service.stop()
         self._robot.destroy_node()
@@ -221,6 +232,47 @@ class MainServiceApp:
             await self._robot_state_store.close()
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to close robot state store: %s", exc)
+
+    def _start_ros_executor(self) -> None:
+        """GUI 비활성 모드에서 ROS 노드를 스핀하기 위한 실행기를 시작한다."""
+        if self._ros_executor:
+            return
+
+        self._ros_executor_stop.clear()
+        executor = SingleThreadedExecutor()
+        executor.add_node(self._robot)
+        self._ros_executor = executor
+
+        def _spin() -> None:
+            """ROS 콜백 처리를 위한 백그라운드 스핀 루프."""
+            while rclpy.ok() and not self._ros_executor_stop.is_set():
+                executor.spin_once(timeout_sec=0.1)
+
+        self._ros_executor_thread = threading.Thread(
+            target=_spin,
+            name='RobotCoordinatorSpin',
+            daemon=True,
+        )
+        self._ros_executor_thread.start()
+
+    def _stop_ros_executor(self) -> None:
+        """ROS 실행기를 중지하고 자원을 정리한다."""
+        executor = self._ros_executor
+        if not executor:
+            return
+
+        self._ros_executor_stop.set()
+        if self._ros_executor_thread and self._ros_executor_thread.is_alive():
+            self._ros_executor_thread.join(timeout=2.0)
+
+        try:
+            executor.remove_node(self._robot)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to remove robot node from executor: %s", exc)
+
+        executor.shutdown()
+        self._ros_executor = None
+        self._ros_executor_thread = None
 
     def _install_handlers(self) -> None:
         """
@@ -330,34 +382,100 @@ class MainServiceApp:
 
         async def handle_order_create(data, peer=None):
             """주문 생성 처리"""
-            user_id = data.get("user_id")
-            cart_items = data.get("cart_items")
+            user_id = data.get('user_id')
+            cart_items = data.get('cart_items')
 
             if not user_id or not cart_items:
                 return {
-                    "type": "order_create_response",
-                    "result": False,
-                    "message": "user_id and cart_items are required.",
-                    "error_code": "SYS_001",
+                    'type': 'order_create_response',
+                    'result': False,
+                    'message': 'user_id and cart_items are required.',
+                    'error_code': 'SYS_001',
                 }
 
             result = await self._order_service.create_order(user_id, cart_items)
 
             if result:
                 order_id, robot_id = result
+
+                # 주문 응답에 상품 정보를 포함하기 위해 상품 메타데이터를 조회
+                product_ids: List[int] = []
+                for item in cart_items:
+                    pid_raw = item.get('product_id')
+                    try:
+                        pid = int(pid_raw)
+                    except (TypeError, ValueError):
+                        logger.warning('유효하지 않은 product_id 항목을 응답에서 제외합니다: %s', pid_raw)
+                        continue
+                    product_ids.append(pid)
+
+                product_map: Dict[int, Dict[str, Any]] = {}
+                if product_ids:
+                    with self._db.session_scope() as session:
+                        products = (
+                            session.query(Product)
+                            .filter(Product.product_id.in_(product_ids))
+                            .all()
+                        )
+                        product_map = {
+                            product.product_id: {
+                                'name': product.name or '',
+                                'auto_select': bool(product.auto_select),
+                            }
+                            for product in products
+                        }
+
+                products_payload: List[Dict[str, Any]] = []
+                for item in cart_items:
+                    pid_raw = item.get('product_id')
+                    qty_raw = item.get('quantity', 0)
+
+                    try:
+                        pid = int(pid_raw)
+                    except (TypeError, ValueError):
+                        continue
+
+                    try:
+                        quantity = int(qty_raw)
+                    except (TypeError, ValueError):
+                        quantity = 0
+
+                    product_meta = product_map.get(pid)
+                    if not product_meta:
+                        logger.warning('상품 ID %d에 대한 메타데이터를 찾을 수 없어 기본값으로 응답합니다.', pid)
+                        product_name = ''
+                        auto_select = False
+                    else:
+                        product_name = product_meta.get('name', '')
+                        auto_select = bool(product_meta.get('auto_select', False))
+
+                    products_payload.append(
+                        {
+                            'product_id': pid,
+                            'name': product_name,
+                            'quantity': quantity,
+                            'auto_select': auto_select,
+                        }
+                    )
+
                 return {
-                    "type": "order_create_response",
-                    "result": True,
-                    "error_code": "",
-                    "data": {"order_id": order_id, "robot_id": robot_id},
-                    "message": "Order successfully created",
+                    'type': 'order_create_response',
+                    'result': True,
+                    'error_code': '',
+                    'data': {
+                        'order_id': order_id,
+                        'robot_id': robot_id,
+                        'products': products_payload,
+                        'total_count': len(products_payload),
+                    },
+                    'message': 'Order successfully created',
                 }
             else:
                 return {
-                    "type": "order_create_response",
-                    "result": False,
-                    "message": "Failed to create order.",
-                    "error_code": "ORDER_001",
+                    'type': 'order_create_response',
+                    'result': False,
+                    'message': 'Failed to create order.',
+                    'error_code': 'ORDER_001',
                 }
 
         async def handle_product_selection(data, peer=None):
@@ -944,105 +1062,154 @@ class MainServiceApp:
         self._dashboard_controller = controller
 
 
-def main() -> None:
-    """메인 진입점 - Qt 기반 이벤트 루프"""
+def _run_with_gui(service_app: MainServiceApp) -> None:
+    """GUI 모드에서 Main Service를 실행한다."""
     import sys
-    import threading
     from PyQt6.QtWidgets import QApplication
 
-    # 로깅 설정
+    qt_app = QApplication(sys.argv)
+
+    loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
+    shutdown_requested = threading.Event()
+
+    def run_asyncio_loop() -> None:
+        """백그라운드 스레드에서 asyncio 이벤트 루프 실행"""
+        loop = asyncio.new_event_loop()
+        loop_holder['loop'] = loop
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(service_app.initialize())
+            logger.info("Asyncio services initialized")
+            loop.run_forever()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Asyncio loop error: %s", exc)
+        finally:
+            try:
+                loop.run_until_complete(service_app.cleanup())
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Service cleanup failed: %s", exc)
+            loop.close()
+            loop_holder.pop('loop', None)
+            logger.info("Asyncio loop stopped")
+
+    asyncio_thread = threading.Thread(target=run_asyncio_loop, daemon=True, name='AsyncioLoop')
+    asyncio_thread.start()
+
+    import time
+    from .constants import ROS_SPIN_INTERVAL
+
+    for _ in range(50):
+        if service_app._dashboard_controller:
+            break
+        time.sleep(ROS_SPIN_INTERVAL)
+
+    if service_app._dashboard_controller:
+        from .dashboard import DashboardWindow
+
+        window = DashboardWindow(
+            bridge=service_app._dashboard_controller.bridge,
+            ros_node=service_app._robot,
+            db_manager=service_app._db,
+            streaming_service=service_app._streaming_service,
+            loop=service_app._dashboard_controller._loop,
+        )
+        window.show()
+        logger.info("Dashboard GUI window created")
+    else:
+        logger.warning("GUI enabled but dashboard controller not ready")
+
+    def stop_asyncio_loop() -> None:
+        """Asyncio 이벤트 루프 종료를 요청한다."""
+        if shutdown_requested.is_set():
+            return
+        shutdown_requested.set()
+        loop = loop_holder.get('loop')
+        if loop and loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+
+    def handle_shutdown_signal(signum, frame) -> None:  # noqa: ARG001
+        """OS 시그널 수신 시 정리 절차를 호출한다."""
+        logger.info("Received signal %s, shutting down...", signum)
+        stop_asyncio_loop()
+        qt_app.quit()
+
+    qt_app.aboutToQuit.connect(stop_asyncio_loop)
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+
+    logger.info("Starting Qt event loop")
+    try:
+        exit_code = qt_app.exec()
+        logger.info("Qt event loop finished with exit code: %d", exit_code)
+    finally:
+        stop_asyncio_loop()
+        if asyncio_thread.is_alive():
+            asyncio_thread.join(timeout=5.0)
+
+
+def _run_headless(service_app: MainServiceApp) -> None:
+    """GUI 없이 Main Service를 실행한다."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    stop_event = asyncio.Event()
+
+    def handle_signal(signum, frame) -> None:  # noqa: ARG001
+        """시그널을 수신하면 정지 이벤트를 설정한다."""
+        logger.info("Received signal %s, shutting down...", signum)
+        loop.call_soon_threadsafe(stop_event.set)
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    async def runner() -> None:
+        await service_app.initialize()
+        logger.info("Main Service initialized (headless mode)")
+        try:
+            await stop_event.wait()
+        finally:
+            logger.info("Shutdown requested, cleaning up services...")
+            await service_app.cleanup()
+
+    try:
+        loop.run_until_complete(runner())
+    finally:
+        loop.close()
+
+
+def main() -> None:
+    """메인 서비스 진입점"""
     logging.basicConfig(
         level=settings.LOG_LEVEL,
         format=settings.LOG_FORMAT,
         handlers=[
             logging.StreamHandler(),
-        ]
+        ],
     )
 
     if settings.LOG_FILE:
         logging.getLogger().addHandler(logging.FileHandler(settings.LOG_FILE))
 
     logger.info("Starting Shopee Main Service")
-    logger.info("Config: API=%s:%d, LLM=%s, DB=%s",
-                settings.API_HOST, settings.API_PORT,
-                settings.LLM_BASE_URL,
-                settings.DB_URL.split('@')[-1] if '@' in settings.DB_URL else settings.DB_URL)
+    logger.info(
+        "Config: API=%s:%d, LLM=%s, DB=%s",
+        settings.API_HOST,
+        settings.API_PORT,
+        settings.LLM_BASE_URL,
+        settings.DB_URL.split('@')[-1] if '@' in settings.DB_URL else settings.DB_URL,
+    )
 
-    # ROS2 초기화
     rclpy.init()
 
+    service_app = MainServiceApp()
+
     try:
-        # Qt Application 생성 (메인 스레드에서)
-        qt_app = QApplication(sys.argv)
-
-        # MainServiceApp 생성
-        service_app = MainServiceApp()
-
-        # asyncio 이벤트 루프를 백그라운드 스레드에서 실행
-        def run_asyncio_loop():
-            """백그라운드 스레드에서 asyncio 이벤트 루프 실행"""
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                # 서비스 초기화
-                loop.run_until_complete(service_app.initialize())
-                logger.info("Asyncio services initialized")
-
-                # asyncio 이벤트 루프 계속 실행
-                loop.run_forever()
-            except Exception as e:
-                logger.exception("Asyncio loop error: %s", e)
-            finally:
-                # 정리 작업
-                try:
-                    loop.run_until_complete(service_app.cleanup())
-                except:
-                    pass
-                loop.close()
-                logger.info("Asyncio loop stopped")
-
-        # asyncio 스레드 시작
-        asyncio_thread = threading.Thread(target=run_asyncio_loop, daemon=True, name='AsyncioLoop')
-        asyncio_thread.start()
-
-        # asyncio 초기화 대기 (최대 5초)
-        import time
-        from .constants import ROS_SPIN_INTERVAL
-
-        for _ in range(50):
-            if service_app._dashboard_controller:
-                break
-            time.sleep(ROS_SPIN_INTERVAL)
-
-        # GUI가 활성화된 경우 GUI 윈도우 생성
-        window = None
-        if settings.GUI_ENABLED and service_app._dashboard_controller:
-            from .dashboard import DashboardWindow
-            window = DashboardWindow(
-                bridge=service_app._dashboard_controller.bridge,
-                ros_node=service_app._robot,
-                db_manager=service_app._db,
-                streaming_service=service_app._streaming_service,
-                loop=service_app._dashboard_controller._loop
-            )
-            window.show()
-            logger.info("Dashboard GUI window created")
+        if settings.GUI_ENABLED:
+            _run_with_gui(service_app)
         else:
-            logger.warning("GUI enabled but dashboard controller not ready")
-
-        logger.info("Starting Qt event loop")
-
-        # Qt 이벤트 루프 실행
-        exit_code = qt_app.exec()
-
-        logger.info("Qt event loop finished with exit code: %d", exit_code)
-
-    except KeyboardInterrupt:
-        logger.info("Received shutdown signal")
-    except Exception as e:
-        logger.exception("Fatal error: %s", e)
-        raise
+            logger.info("GUI disabled (GUI_ENABLED=%s)", settings.GUI_ENABLED)
+            _run_headless(service_app)
     finally:
         rclpy.shutdown()
         logger.info("Shopee Main Service stopped")

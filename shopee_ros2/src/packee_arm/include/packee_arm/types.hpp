@@ -36,9 +36,8 @@ struct PickCommand {
   int32_t order_id;
   int32_t product_id;
   std::string arm_side;
-  double target_x;
-  double target_y;
-  double target_z;
+  PoseEstimate target_pose;
+  double detection_confidence;
   int32_t bbox_x1;
   int32_t bbox_y1;
   int32_t bbox_x2;
@@ -51,9 +50,7 @@ struct PlaceCommand {
   int32_t order_id;
   int32_t product_id;
   std::string arm_side;
-  double box_x;
-  double box_y;
-  double box_z;
+  PoseEstimate target_pose;
 };
 
 }  // namespace packee_arm

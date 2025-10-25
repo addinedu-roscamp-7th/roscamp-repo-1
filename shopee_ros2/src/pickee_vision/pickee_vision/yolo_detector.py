@@ -2,10 +2,15 @@ import os
 from ultralytics import YOLO
 import numpy as np
 
+# DB의 product_id와 매치 시키기 위한 부분.
+pairs = [1,10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9]
+def match(num):
+    return pairs[num] if 0 <= num < len(pairs) else None
+
 class YoloDetector:
-    """
-    YOLOv8 모델을 로드하고 객체 인식을 수행하는 클래스.
-    """
+    #
+    # YOLOv8 모델을 로드하고 객체 인식을 수행하는 클래스.
+    #
     def __init__(self, model_path):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -14,14 +19,14 @@ class YoloDetector:
         print(f"YOLOv8 model loaded from {model_path}")
 
     def detect(self, frame: np.ndarray) -> list:
-        """
-        주어진 이미지 프레임에서 객체를 탐지하고 결과를 반환합니다.
+        #
+        # 주어진 이미지 프레임에서 객체를 탐지하고 결과를 반환합니다.
+        #
+        # :param frame: OpenCV 이미지 프레임 (numpy.ndarray)
+        # :return: 감지된 객체 정보 리스트. 예: 
+        #         [{'class_id': 0, 'confidence': 0.95, 'polygon': [[x1, y1], [x2, y2], ...]}, ...]
 
-        :param frame: OpenCV 이미지 프레임 (numpy.ndarray)
-        :return: 감지된 객체 정보 리스트. 예: 
-                 [{'class_id': 0, 'confidence': 0.95, 'polygon': [[x1, y1], [x2, y2], ...]}, ...]
-        """
-        results = self.model.predict(source=frame, conf=0.8) # stream=False가 기본값
+        results = self.model.predict(source=frame, conf=0.8, device=0) # device는 최고사양 GPU 번호 확인해서 입력. (nvidia-smi)
         detections = []
 
         # predict의 결과는 리스트 형태이므로 순회합니다. (단일 이미지이므로 루프는 한 번만 실행됨)
@@ -30,7 +35,7 @@ class YoloDetector:
                 continue
 
             for mask, box in zip(result.masks.xy, result.boxes):
-                class_id = int(box.cls)
+                class_id = match(int(box.cls))
                 class_name = result.names[class_id]
                 bbox = box.xyxy[0].tolist()
                 detection = {

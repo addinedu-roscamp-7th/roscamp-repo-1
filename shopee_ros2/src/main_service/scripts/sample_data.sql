@@ -10,35 +10,25 @@ INSERT INTO allergy_info (nuts, milk, seafood, soy, peach, gluten, eggs) VALUES
 (FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),  -- ID: 1 (알러지 없음)
 (TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),   -- ID: 2 (견과류)
 (FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE),   -- ID: 3 (유제품)
-(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),   -- ID: 4 (해산물)
-(FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE),   -- ID: 5 (콩)
-(FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE),   -- ID: 6 (복숭아)
-(FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE),   -- ID: 7 (글루텐)
-(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE),   -- ID: 8 (계란)
-(TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE),    -- ID: 9 (견과류 + 유제품)
-(TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),    -- ID: 10 (견과류 + 해산물)
-(FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE),    -- ID: 11 (유제품 + 해산물)
-(FALSE, FALSE, FALSE, TRUE, FALSE, TRUE, FALSE),    -- ID: 12 (콩 + 글루텐)
-(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE),    -- ID: 13 (유제품 + 계란)
-(TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE);     -- ID: 14 (견과류 + 유제품 + 콩)
+(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE);   -- ID: 4 (해산물)
 
 -- ========================================
 -- 2. Admin
 -- ========================================
 INSERT INTO admin (id, password, name) VALUES
-('admin', 'admin123', '장진혁');
+('admin', 'admin123', 'PrimaryKey');
 
 -- ========================================
 -- 3. Customer
 -- ========================================
 INSERT INTO customer (id, password, name, gender, age, address, allergy_info_id, is_vegan) VALUES
-('admin', 'admin123', '장진혁', TRUE, 28, '서울시 강서구', 1, FALSE),
+('admin', 'admin123', 'PrimaryKey', TRUE, 28, '서울시 강서구', 1, FALSE),
 ('user1', 'pass123', '김철수', TRUE, 30, '서울시 강남구', 1, FALSE),
 ('user2', 'pass123', '이영희', FALSE, 25, '서울시 서초구', 2, FALSE),
-('user3', 'pass123', '박해산', TRUE, 35, '서울시 중구', 4, FALSE),
-('user4', 'pass123', '최복합', FALSE, 42, '서울시 영등포구', 9, FALSE),
-('user5', 'pass123', '정콩글', TRUE, 38, '서울시 동작구', 12, FALSE),
-('vegan_user', 'pass123', '박비건', FALSE, 28, '서울시 송파구', 1, TRUE);
+('user3', 'pass123', '박해산', TRUE, 35, '서울시 중구', 1, FALSE),
+('user4', 'pass123', '최복합', FALSE, 42, '서울시 영등포구', 1, FALSE),
+('user5', 'pass123', '정콩글', TRUE, 38, '서울시 동작구', 4, FALSE),
+('vegan_user', 'pass123', '김비건', FALSE, 28, '서울시 송파구', 1, TRUE);
 
 -- ========================================
 -- 4. Location
@@ -102,7 +92,7 @@ INSERT INTO shelf (location_id, shelf_name) VALUES
 -- ========================================
 INSERT INTO section (shelf_id, location_id, section_name) VALUES
 -- Shelf A Sections
-(1, 7, 'SECTION_A_1'),    -- ID: 1 (과일)
+(1, 7, 'SECTION_A_1'),    -- ID: 1 (고추냉이)
 (1, 8, 'SECTION_A_2'),    -- ID: 2 (과일)
 (1, 9, 'SECTION_A_3'),    -- ID: 3 (스프레드)
 (1, 10, 'SECTION_A_4'),   -- ID: 4 (예비)
@@ -120,25 +110,27 @@ INSERT INTO section (shelf_id, location_id, section_name) VALUES
 -- ========================================
 -- 8. Product (테스트용 상품)
 -- ========================================
-INSERT INTO product (barcode, name, quantity, price, discount_rate, category, allergy_info_id, is_vegan_friendly, auto_select, section_id, warehouse_id) VALUES
--- Shelf A (과일/스프레드)
-('8801234567001', '사과', 50, 3000, 0, '과일', 1, TRUE, TRUE, 1, 3),
-('8801234567002', '바나나', 30, 2000, 10, '과일', 1, TRUE, TRUE, 2, 3),
-('8801234567003', '유기농 사과', 20, 5000, 0, '과일', 1, TRUE, TRUE, 1, 3),
-('8801234567010', '땅콩버터', 25, 4500, 0, '스프레드', 2, TRUE, FALSE, 3, 1),
-
--- Shelf B (채소/신선식품)
-('8801234567004', '양상추', 40, 2500, 0, '채소', 1, TRUE, TRUE, 5, 3),
-('8801234567005', '토마토', 35, 3500, 5, '채소', 1, TRUE, TRUE, 6, 3),
-('8801234567011', '계란', 100, 5000, 0, '신선식품', 8, FALSE, FALSE, 7, 3),
-('8801234567012', '새우', 20, 12000, 15, '해산물', 4, FALSE, FALSE, 7, 2),
-
--- Shelf C (음료/베이커리)
-('8801234567006', '사과주스', 60, 1500, 0, '음료', 1, TRUE, TRUE, 9, 1),
-('8801234567007', '우유', 45, 2500, 0, '음료', 3, FALSE, TRUE, 10, 2),
-('8801234567008', '두유', 40, 2300, 0, '음료', 5, TRUE, TRUE, 10, 2),
-('8801234567009', '아몬드우유', 35, 2800, 0, '음료', 9, TRUE, TRUE, 10, 2),
-('8801234567013', '식빵', 30, 3500, 0, '베이커리', 7, FALSE, FALSE, 11, 1);
+INSERT INTO product (barcode, name, quantity, price, discount_rate, category, allergy_info_id, is_vegan_friendly, auto_select, section_id, warehouse_id,length,width,height) VALUES
+-- Shelf A (기성품)
+('7701234567001', '고추냉이', 2, 4500, 0, '기성품', 1,FALSE, TRUE, 1, 1,2.8,4.0,14.1),
+('7701234567002', '불닭캔', 3, 3000, 5, '기성품', 1,FALSE, TRUE, 1, 1,7.7,7.7,3.3),
+('7701234567003', '버터캔', 3, 3000, 5, '기성품', 1,FALSE, TRUE, 1, 1,7.7,7.7,3.3),
+('7701234567004', '리챔', 3, 6000, 5, '기성품', 1,FALSE, TRUE, 1, 1,6.0,10.0,5.5),
+('7701234567005', '두유', 3, 1500, 0, '기성품', 1, FALSE, TRUE, 1, 1,3.9,5.5,10.7),
+('7701234567006', '카프리썬', 2, 2500, 0, '기성품', 1, FALSE, TRUE, 1, 1,6.0,8.0,14.5),
+-- Shelf B (신선식품)
+('8801234567001', '홍사과', 3, 1700, 0, '과일', 1,TRUE, FALSE, 2, 2,4.0,4.0,4.5),
+('8801234567002', '청사과', 3, 1700, 0, '과일', 1,TRUE, FALSE, 2, 2,4.0,4.0,4.5),
+('8801234567003', '오렌지', 3, 2000, 0, '과일', 1,TRUE, FALSE, 2, 2,3.5,3.5,2.5),
+('8801234567004', '삼겹살', 3, 8000, 0, '육류', 1,FALSE, FALSE, 2, 2,8.0,16.0,3.0),
+('8801234567005', '닭', 3, 7500, 0, '육류', 1,FALSE, FALSE, 2, 2,7.0,13.0,3.0),
+('8801234567006', '생선', 3, 8000, 0, '어류', 4,FALSE, FALSE, 2, 2,5.0,18.0,3.0),
+('8801234567007', '전복', 3, 15000, 0, '어류', 4,FALSE, FALSE, 2,2, 5.5,9.0,3.0),
+-- Shelf C (과자)
+('9901234567001', '이클립스', 3, 1000, 0, '과자', 3,FALSE, TRUE, 3, 3,3.9,4.0,7.8),
+('9901234567002', '아이비', 3, 3000, 5, '과자', 3,FALSE, TRUE, 3, 3,5.0,10.0,5.0),
+('9901234567003', '빼빼로', 3, 1500, 0, '과자', 2, FALSE, TRUE, 3, 3,2.3,8.7,16.0),
+('9901234567004', '오예스', 3, 3500, 0, '과자', 3, FALSE, TRUE, 3, 3,7.5,9.5,2.5);
 
 -- ========================================
 -- 9. Box (포장 박스 규격)

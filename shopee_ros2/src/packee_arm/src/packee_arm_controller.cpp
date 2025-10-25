@@ -1,6 +1,8 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <type_traits>
+#include <utility>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -10,6 +12,7 @@
 
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
 #include "shopee_interfaces/msg/arm_task_status.hpp"
+#include "shopee_interfaces/msg/pose6_d.hpp"
 #include "shopee_interfaces/srv/arm_move_to_pose.hpp"
 #include "shopee_interfaces/srv/arm_pick_product.hpp"
 #include "shopee_interfaces/srv/arm_place_product.hpp"
@@ -22,6 +25,28 @@
 #include "packee_arm/visual_servo_module.hpp"
 
 namespace packee_arm {
+
+namespace detail {
+
+template<typename T, typename = void>
+struct HasPoseField : std::false_type {};
+
+template<typename T>
+struct HasPoseField<
+  T,
+  std::void_t<
+    decltype(std::declval<T>().pose.x),
+    decltype(std::declval<T>().pose.y),
+    decltype(std::declval<T>().pose.z),
+    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
+
+}  // namespace detail
+
+namespace {
+
+constexpr double kRadiansToDegrees = 57.29577951308232;  // rad → deg 변환 계수
+
+}  // namespace
 
 using shopee_interfaces::msg::ArmPoseStatus;
 using shopee_interfaces::msg::ArmTaskStatus;
@@ -122,6 +147,14 @@ public:
   }
 
 private:
+  // PoseComponents 구조체는 Pose6D 메시지를 카티션 좌표/회전(yaw)로 변환한 결과를 저장한다.
+  struct PoseComponents {
+    double x;
+    double y;
+    double z;
+    double yaw_deg;
+  };
+
   void DeclareAndLoadParameters() {
     const double declared_servo_gain_xy =
       this->declare_parameter<double>("servo_gain_xy", 0.02);
@@ -207,6 +240,22 @@ private:
     pose.yaw_deg = yaw;
     pose.confidence = 1.0;
     return pose;
+  }
+
+  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
+    // Pose6D 메시지를 x, y, z, yaw_deg로 변환한다.
+    PoseComponents components{};
+    components.x = static_cast<double>(pose_msg.x);
+    components.y = static_cast<double>(pose_msg.y);
+    components.z = static_cast<double>(pose_msg.z);
+    components.yaw_deg = static_cast<double>(pose_msg.rz) * kRadiansToDegrees;
+    return components;
+  }
+
+  template<typename DetectedProductT>
+  PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
+    static_assert(detail::HasPoseField<DetectedProductT>::value, "DetectedProduct에 pose 필드가 필요합니다.");
+    return ExtractPoseFromPoseMsg(product.pose);
   }
 
   PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const {
@@ -300,10 +349,10 @@ private:
       return;
     }
 
-    if (!AreFinite(
-        request->target_product.position.x,
-        request->target_product.position.y,
-        request->target_product.position.z)) {
+    const double detection_confidence =
+      static_cast<double>(request->target_product.confidence);
+    if (!std::isfinite(detection_confidence) || detection_confidence <= 0.0 ||
+        detection_confidence > 1.0) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
@@ -312,16 +361,13 @@ private:
         "failed",
         "planning",
         0.0F,
-        "target_position에 유효하지 않은 값이 포함되어 있습니다.");
+        "target_product.confidence가 유효 범위를 벗어났습니다.");
       response->success = false;
-      response->message = "target_position 값이 잘못되었습니다.";
+      response->message = "confidence 값이 잘못되었습니다.";
       return;
     }
 
-    if (!IsWithinWorkspace(
-        request->target_product.position.x,
-        request->target_product.position.y,
-        request->target_product.position.z)) {
+    if (detection_confidence < cnn_confidence_threshold_) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
@@ -330,9 +376,44 @@ private:
         "failed",
         "planning",
         0.0F,
-        "target_position이 myCobot 280 작업 공간을 벗어났습니다.");
+        "target_product.confidence가 cnn_confidence_threshold보다 낮습니다.");
       response->success = false;
-      response->message = "target_position이 작업 공간 범위를 벗어났습니다.";
+      response->message = "confidence가 임계값보다 낮습니다.";
+      return;
+    }
+
+    const PoseComponents pick_pose = ExtractPoseFromDetectedProduct(request->target_product);
+
+    if (!AreFinite(pick_pose) ||
+        !std::isfinite(static_cast<double>(request->target_product.pose.rx)) ||
+        !std::isfinite(static_cast<double>(request->target_product.pose.ry)) ||
+        !std::isfinite(static_cast<double>(request->target_product.pose.rz))) {
+      PublishPickStatus(
+        request->robot_id,
+        request->order_id,
+        request->target_product.product_id,
+        request->arm_side,
+        "failed",
+        "planning",
+        0.0F,
+        "target_product.pose에 유효하지 않은 값이 포함되어 있습니다.");
+      response->success = false;
+      response->message = "pose 값이 잘못되었습니다.";
+      return;
+    }
+
+    if (!IsWithinWorkspace(pick_pose.x, pick_pose.y, pick_pose.z)) {
+      PublishPickStatus(
+        request->robot_id,
+        request->order_id,
+        request->target_product.product_id,
+        request->arm_side,
+        "failed",
+        "planning",
+        0.0F,
+        "target_product.pose가 myCobot 280 작업 공간을 벗어났습니다.");
+      response->success = false;
+      response->message = "pose가 작업 공간 범위를 벗어났습니다.";
       return;
     }
 
@@ -341,9 +422,12 @@ private:
     command.order_id = request->order_id;
     command.product_id = request->target_product.product_id;
     command.arm_side = request->arm_side;
-    command.target_x = request->target_product.position.x;
-    command.target_y = request->target_product.position.y;
-    command.target_z = request->target_product.position.z;
+    command.target_pose.x = pick_pose.x;
+    command.target_pose.y = pick_pose.y;
+    command.target_pose.z = pick_pose.z;
+    command.target_pose.yaw_deg = pick_pose.yaw_deg;
+    command.target_pose.confidence = detection_confidence;
+    command.detection_confidence = detection_confidence;
     command.bbox_x1 = request->target_product.bbox.x1;
     command.bbox_y1 = request->target_product.bbox.y1;
     command.bbox_x2 = request->target_product.bbox.x2;
@@ -378,10 +462,11 @@ private:
       return;
     }
 
-    if (!AreFinite(
-        request->box_position.x,
-        request->box_position.y,
-        request->box_position.z)) {
+    const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
+    if (!AreFinite(place_pose) ||
+        !std::isfinite(static_cast<double>(request->pose.rx)) ||
+        !std::isfinite(static_cast<double>(request->pose.ry)) ||
+        !std::isfinite(static_cast<double>(request->pose.rz))) {
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
@@ -390,16 +475,13 @@ private:
         "failed",
         "planning",
         0.0F,
-        "box_position에 유효하지 않은 값이 포함되어 있습니다.");
+        "pose에 유효하지 않은 값이 포함되어 있습니다.");
       response->success = false;
-      response->message = "box_position 값이 잘못되었습니다.";
+      response->message = "pose 값이 잘못되었습니다.";
       return;
     }
 
-    if (!IsWithinWorkspace(
-        request->box_position.x,
-        request->box_position.y,
-        request->box_position.z)) {
+    if (!IsWithinWorkspace(place_pose.x, place_pose.y, place_pose.z)) {
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
@@ -408,9 +490,9 @@ private:
         "failed",
         "planning",
         0.0F,
-        "box_position이 myCobot 280 작업 공간을 벗어났습니다.");
+        "pose가 myCobot 280 작업 공간을 벗어났습니다.");
       response->success = false;
-      response->message = "box_position이 작업 공간 범위를 벗어났습니다.";
+      response->message = "pose가 작업 공간 범위를 벗어났습니다.";
       return;
     }
 
@@ -419,9 +501,11 @@ private:
     command.order_id = request->order_id;
     command.product_id = request->product_id;
     command.arm_side = request->arm_side;
-    command.box_x = request->box_position.x;
-    command.box_y = request->box_position.y;
-    command.box_z = request->box_position.z;
+    command.target_pose.x = place_pose.x;
+    command.target_pose.y = place_pose.y;
+    command.target_pose.z = place_pose.z;
+    command.target_pose.yaw_deg = place_pose.yaw_deg;
+    command.target_pose.confidence = 1.0;
     execution_manager_->EnqueuePlace(command);
     response->success = true;
     response->message = "상품 담기 명령을 수락했습니다.";
@@ -612,6 +696,10 @@ private:
 
   bool AreFinite(double x, double y, double z) const {
     return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
+  }
+
+  bool AreFinite(const PoseComponents & pose) const {
+    return AreFinite(pose.x, pose.y, pose.z) && std::isfinite(pose.yaw_deg);
   }
 
   rclcpp::Publisher<ArmPoseStatus>::SharedPtr pose_status_pub_;

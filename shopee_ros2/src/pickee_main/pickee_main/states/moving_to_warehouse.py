@@ -39,6 +39,8 @@ class MovingToWarehouseState(State):
                         if success:
                             self.is_moving = True
                             self._node.get_logger().info('창고로 이동을 시작했습니다.')
+                            # 이동 상태 발행
+                            self._node.publish_moving_status(self.warehouse_id)
                         else:
                             self._node.get_logger().error('창고 이동 명령 전달 실패')
                     else:

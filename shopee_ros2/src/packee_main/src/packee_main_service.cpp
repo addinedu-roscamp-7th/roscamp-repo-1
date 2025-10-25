@@ -171,10 +171,13 @@ public:
         request->target_product.product_id = product_id;
         request->target_product.confidence = 0.95f;
 
-        if(target_position.size() == 3) {
-            request->target_product.position.x = target_position[0];
-            request->target_product.position.y = target_position[1];
-            request->target_product.position.z = target_position[2];
+        if(target_position.size() == 6) {
+            request->target_product.pose.x = target_position[0];
+            request->target_product.pose.y = target_position[1];
+            request->target_product.pose.z = target_position[2];
+            request->target_product.pose.rx = target_position[3];
+            request->target_product.pose.ry = target_position[4];
+            request->target_product.pose.rz = target_position[5];
         }
         if(bbox.size() == 4) {
             request->target_product.bbox.x1 = bbox[0];
@@ -210,12 +213,6 @@ public:
         request->order_id = order_id;
         request->product_id = product_id;
         request->arm_side = arm_side;
-
-        if(box_position.size() == 3) {
-            request->box_position.x = box_position[0];
-            request->box_position.y = box_position[1];
-            request->box_position.z = box_position[2];
-        }
 
         if (!place_product_client_->wait_for_service(1s)) {
             RCLCPP_ERROR(this->get_logger(), "PlaceProduct service not available");

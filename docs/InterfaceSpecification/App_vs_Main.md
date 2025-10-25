@@ -510,7 +510,16 @@ Main = Shopee Main Service
   "error_code": "string",
   "data": {
     "order_id": "int",
-    "robot_id": "int"
+    "robot_id": "int",
+    "products": [
+      {
+        "product_id": "int",
+        "name": "string",
+        "quantity": "int",
+        "auto_select": "boolean"
+      },
+    ],
+    "total_count": "int"
   },
   "message": "string"
 }
@@ -702,7 +711,8 @@ Main = Shopee Main Service
   "data": {
     "user_type": "string",
     "user_id": "string",
-    "robot_id": "int"
+    "robot_id": "int", 
+    "camera_type": "string"
   }
 }
 ```
@@ -714,7 +724,8 @@ Main = Shopee Main Service
   "data": {
     "user_type": "admin",
     "user_id": "admin01",
-    "robot_id": 1
+    "robot_id": 1, 
+    "camera_type": "front"
   }
 }
 ```

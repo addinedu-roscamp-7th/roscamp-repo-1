@@ -456,90 +456,6 @@ class TestOrderServiceDashboardHelpers:
         assert payload[0]["failure_reason"] == "robot timeout"
 
 
-class TestOrderServicePickingModes:
-    """
-    새로운 수동/자동 피킹 모드 로직에 대한 테스트 스위트.
-    """
-
-    async def test_create_order_prioritizes_manual_sections(
-        self,
-        order_service: OrderService,
-        mock_db_manager: MagicMock,
-        mock_robot_coordinator: AsyncMock,
-        mock_allocator: MagicMock,
-    ):
-        """
-        create_order가 수동 섹션을 자동 섹션보다 우선하여 큐를 생성하는지 테스트.
-        """
-        # Arrange
-        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
-
-        # 1. Mock DB Models & Queries
-        mock_customer = Customer(customer_id=1, id="testuser")
-        manual_prod = Product(product_id=1, name="Manual Pick", auto_select=False)
-        auto_prod = Product(product_id=2, name="Auto Pick", auto_select=True)
-
-        mock_customer_query = MagicMock()
-        mock_customer_query.filter_by.return_value.first.return_value = mock_customer
-
-        mock_product_query = MagicMock()
-        mock_product_query.filter.return_value.all.return_value = [manual_prod, auto_prod]
-
-        def query_side_effect(model):
-            if model == Customer:
-                return mock_customer_query
-            if model == Product:
-                return mock_product_query
-            return MagicMock()
-        mock_session.query.side_effect = query_side_effect
-
-        # Mock flush/add to get an order_id
-        def flush_side_effect():
-            if hasattr(mock_session, 'new_order'):
-                mock_session.new_order.order_id = 99
-        mock_session.flush = flush_side_effect
-        def add_side_effect(instance):
-            if isinstance(instance, Order):
-                mock_session.new_order = instance
-        mock_session.add.side_effect = add_side_effect
-
-        # 2. Mock ProductLocationBuilder result
-        from shopee_interfaces.msg import ProductLocation
-        product_locations = [
-            ProductLocation(product_id=2, location_id=20, section_id=200), # Auto - intentionally put first
-            ProductLocation(product_id=1, location_id=10, section_id=100), # Manual
-        ]
-        order_service._product_builder = MagicMock()
-        order_service._product_builder.build_product_locations.return_value = product_locations
-
-        # 3. Mock Robot Coordinator and Allocator
-        mock_robot_coordinator.dispatch_pick_task.return_value = MagicMock(success=True)
-        mock_robot_coordinator.dispatch_move_to_section.return_value = MagicMock(success=True)
-        mock_allocator.reserve_robot.return_value = MagicMock(robot_id=5)
-
-        user_id = "testuser"
-        items = [{"product_id": 1, "quantity": 1}, {"product_id": 2, "quantity": 1}]
-
-        # Act
-        await order_service.create_order(user_id, items)
-
-        # Assert
-        queue = order_service._order_section_queue.get(99)
-        assert queue is not None, "Section queue was not created"
-        assert len(queue) == 2, "Queue should have two sections"
-
-        # Manual section (100) should be first
-        assert queue[0]["section_id"] == 100
-        assert queue[0]["is_manual"] is True
-        
-        # Auto section (200) should be second
-        assert queue[1]["section_id"] == 200
-        assert queue[1]["is_manual"] is False
-
-        # Check that the first move command goes to the manual section
-        mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
-
-
 class TestOrderServiceEndShopping:
     """Test suite for OrderService.end_shopping."""
 
@@ -575,22 +491,23 @@ class TestOrderServiceEndShopping:
         order_service: OrderService,
     ):
         """
-        handle_product_detected가 자동 섹션에서 select_product를 호출하는지 테스트.
+        handle_product_detected가 감지된 모든 상품에 대해 select_product를 호출하는지 테스트.
         """
         # Arrange
         from shopee_interfaces.msg import PickeeProductDetection
         order_id = 101
         robot_id = 5
         
-        # Set up the service state to simulate being in an auto-pick section
-        order_service._current_section_info[order_id] = {'section_id': 200, 'is_manual': False}
+        order_service._current_section_info[order_id] = {
+            'shelf_id': 1,
+            'location_id': 10,
+            'section_id': 2,
+            'is_manual': False,
+        }
         
         # Mock the select_product method to spy on it
         order_service.select_product = AsyncMock()
         
-        # Mock the notifier to ensure it's NOT called
-        order_service._notifier.notify_product_selection_start = AsyncMock()
-
         # Create the incoming message
         detected_product = MagicMock()
         detected_product.product_id = 2
@@ -607,74 +524,159 @@ class TestOrderServiceEndShopping:
             product_id=2,
             bbox_number=1
         )
-        order_service._notifier.notify_product_selection_start.assert_not_awaited()
 
-    async def test_handle_product_detected_notifies_user_for_manual_pick(
+    async def test_handle_product_detected_prompts_manual_pick(
         self,
         order_service: OrderService,
         mock_db_manager: MagicMock,
     ):
         """
-        handle_product_detected가 수동 섹션에서 사용자에게 알림을 보내는지 테스트.
+        handle_product_detected가 수동 섹션에서 사용자 알림을 보내고 select_product를 호출하지 않는지 테스트.
         """
-        # Arrange
         from shopee_interfaces.msg import PickeeProductDetection
         order_id = 102
         robot_id = 6
 
-        # Set up the service state to simulate being in a manual-pick section
-        order_service._current_section_info[order_id] = {'section_id': 100, 'is_manual': True}
-        
-        # Mock the select_product method to ensure it's NOT called
+        order_service._current_section_info[order_id] = {
+            'shelf_id': 2,
+            'location_id': 30,
+            'section_id': 1,
+            'is_manual': True,
+        }
+
         order_service.select_product = AsyncMock()
-        
-        # Mock the notifier to spy on it
         order_service._notifier.notify_product_selection_start = AsyncMock()
 
-        # Mock DB for loading product name
         mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
-        mock_session.query.return_value.filter.return_value.all.return_value = [Product(product_id=1, name="Manual")]
+        mock_session.query.return_value.filter.return_value.all.return_value = [
+            Product(product_id=5, name="Manual Item", auto_select=False)
+        ]
 
-        # Create the incoming message
         detected_product = MagicMock()
-        detected_product.product_id = 1
-        detected_product.bbox_number = 2
+        detected_product.product_id = 5
+        detected_product.bbox_number = 3
         msg = PickeeProductDetection(order_id=order_id, robot_id=robot_id, products=[detected_product])
 
-        # Act
         await order_service.handle_product_detected(msg)
 
-        # Assert
         order_service._notifier.notify_product_selection_start.assert_awaited_once()
         order_service.select_product.assert_not_awaited()
 
-    async def test_move_to_next_or_end_notifies_on_manual_to_auto_transition(
+    async def test_move_to_next_or_end_dispatches_next_section(
         self,
         order_service: OrderService,
         mock_robot_coordinator: AsyncMock,
     ):
         """
-        수동->자동 섹션 전환 시 알림이 전송되는지 테스트.
+        현재 구간 완료 후 다음 구간으로 이동 명령이 발행되는지 검증한다.
         """
         # Arrange
         order_id = 103
         robot_id = 7
 
-        # Simulate being in a completed manual section
-        order_service._current_section_info[order_id] = {'section_id': 100, 'is_manual': True}
-        
-        # Simulate the queue having an auto section next
+        order_service._current_section_info[order_id] = {
+            'shelf_id': 1,
+            'location_id': 10,
+            'section_id': 1,
+            'is_manual': False,
+        }
+
         order_service._order_section_queue[order_id] = [
-            {'location_id': 20, 'section_id': 200, 'is_manual': False}
+            {'shelf_id': 1, 'location_id': 10, 'section_id': 1, 'is_manual': False},
+            {'shelf_id': 2, 'location_id': 20, 'section_id': 3, 'is_manual': True},
         ]
 
-        # Mock the notifier to spy on the new method
-        order_service._notifier.notify_manual_picking_complete = AsyncMock()
+        order_service._pending_detection_sections[order_id] = {1}
+        mock_robot_coordinator.dispatch_move_to_section.return_value = MagicMock(success=True)
 
         # Act
         await order_service._move_to_next_or_end(order_id, robot_id)
 
         # Assert
-        order_service._notifier.notify_manual_picking_complete.assert_awaited_once_with(order_id)
-        # Also assert that the robot is dispatched to the next section
         mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
+        next_call = mock_robot_coordinator.dispatch_move_to_section.await_args[0][0]
+        assert next_call.location_id == 20
+        assert next_call.section_id == 3
+        assert order_service._current_section_info[order_id]["shelf_id"] == 2
+
+class TestOrderServicePickingPlan:
+    """
+    선반-섹션 순회 정책에 대한 테스트 스위트.
+    """
+
+    async def test_create_order_sorts_sections_by_shelf_then_section(
+        self,
+        order_service: OrderService,
+        mock_db_manager: MagicMock,
+        mock_robot_coordinator: AsyncMock,
+        mock_allocator: MagicMock,
+    ):
+        """
+        create_order가 선반 ID와 섹션 ID 기준으로 정렬된 큐를 생성하는지 검증한다.
+        """
+        mock_session = mock_db_manager.session_scope.return_value.__enter__.return_value
+
+        mock_customer = Customer(customer_id=1, id="testuser")
+        mock_customer_query = MagicMock()
+        mock_customer_query.filter_by.return_value.first.return_value = mock_customer
+
+        def query_side_effect(model):
+            if model == Customer:
+                return mock_customer_query
+            return MagicMock()
+
+        mock_session.query.side_effect = query_side_effect
+
+        def flush_side_effect():
+            if hasattr(mock_session, "new_order"):
+                mock_session.new_order.order_id = 99
+
+        mock_session.flush = flush_side_effect
+
+        def add_side_effect(instance):
+            if isinstance(instance, Order):
+                mock_session.new_order = instance
+
+        mock_session.add.side_effect = add_side_effect
+
+        from shopee_interfaces.msg import ProductLocation
+
+        product_locations = [
+            ProductLocation(product_id=2, location_id=20, section_id=3),
+            ProductLocation(product_id=1, location_id=10, section_id=1),
+            ProductLocation(product_id=3, location_id=20, section_id=4),
+        ]
+
+        order_service._product_builder = MagicMock()
+        order_service._product_builder.build_product_locations.return_value = product_locations
+        order_service._product_builder.build_section_plan.return_value = [
+            {"shelf_id": 2, "location_id": 20, "section_id": 4},
+            {"shelf_id": 1, "location_id": 10, "section_id": 1},
+            {"shelf_id": 2, "location_id": 20, "section_id": 3},
+        ]
+
+        mock_robot_coordinator.dispatch_pick_task.return_value = MagicMock(success=True)
+        mock_robot_coordinator.dispatch_move_to_section.return_value = MagicMock(success=True)
+        mock_allocator.reserve_robot.return_value = MagicMock(robot_id=5)
+
+        user_id = "testuser"
+        items = [
+            {"product_id": 1, "quantity": 1},
+            {"product_id": 2, "quantity": 1},
+            {"product_id": 3, "quantity": 1},
+        ]
+
+        await order_service.create_order(user_id, items)
+
+        queue = order_service._order_section_queue.get(99)
+        assert queue is not None
+        assert [entry["shelf_id"] for entry in queue] == [1, 2, 2]
+        assert [entry["section_id"] for entry in queue] == [1, 3, 4]
+        assert queue[0]["is_manual"] is False
+        assert queue[1]["is_manual"] is True
+        assert queue[2]["is_manual"] is True
+
+        mock_robot_coordinator.dispatch_move_to_section.assert_awaited_once()
+        called_request = mock_robot_coordinator.dispatch_move_to_section.await_args[0][0]
+        assert called_request.location_id == 10
+        assert called_request.section_id == 1

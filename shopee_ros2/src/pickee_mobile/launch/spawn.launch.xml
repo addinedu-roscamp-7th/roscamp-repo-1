@@ -24,7 +24,7 @@
 
     <node pkg="ros_gz_bridge" exec="parameter_bridge" name='parameter_bridge' output='screen' 
         args="$(var namespace)/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan 
-            $(var namespace)/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist 
+            $(var namespace)/cmd_vel_modified@geometry_msgs/msg/Twist@gz.msgs.Twist 
             $(var namespace)/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry 
             $(var namespace)/joint_states@sensor_msgs/msg/JointState@gz.msgs.Model"/>
     

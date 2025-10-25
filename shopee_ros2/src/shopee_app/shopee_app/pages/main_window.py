@@ -8,6 +8,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QLineEdit
 from PyQt6.QtWidgets import QMainWindow
 from PyQt6.QtWidgets import QMessageBox
 
@@ -28,6 +29,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("Shopee GUI (PyQt6)")
+        self.ui.et_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.service_client = MainServiceClient()
         self._user_info: dict[str, Any] | None = None
         self._pixmap_helpers: list[_AspectRatioPixmapHelper] = []
@@ -75,6 +77,8 @@ class MainWindow(QMainWindow):
 
         user_info = response.get('data') or {}
         user_info.setdefault('user_id', user_id)
+        # 알림 전용 연결에서도 재인증할 수 있도록 비밀번호를 보관한다.
+        user_info.setdefault('password', password)
         self._user_info = user_info
         self.ui.et_password.clear()
 

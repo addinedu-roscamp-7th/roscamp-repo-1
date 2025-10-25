@@ -2,6 +2,7 @@
 #define PACKEE_ARM_EXECUTION_MANAGER_HPP_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -118,12 +119,6 @@ private:
   PoseEstimate GetPresetPose(const std::string & pose_type) const;
 
   void ApplyPoseToArms(const PoseEstimate & pose);
-
-  double CalculateBoundingBoxConfidence(
-    int32_t x1,
-    int32_t y1,
-    int32_t x2,
-    int32_t y2) const;
 
   std::queue<ArmWorkItem> & GetArmQueue(const std::string & arm_side);
 

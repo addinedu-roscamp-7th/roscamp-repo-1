@@ -13,4 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.venv_gui/bin/activate"
 
 # 3) 앱 실행
+# export SHOPEE_MAIN_HOST=192.168.0.154
+export SHOPEE_MAIN_HOST=127.0.0.1
+export SHOPEE_MAIN_PORT=5000
+export SHOPEE_MAIN_TIMEOUT=3.0
+
 exec python -m shopee_app.launcher

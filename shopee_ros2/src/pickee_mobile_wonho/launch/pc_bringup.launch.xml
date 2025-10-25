@@ -1,0 +1,20 @@
+<?xml version='1.0' ?>
+<!-- PC에서 실행할 Nav2 + Shopee 인터페이스 -->
+
+<launch>
+    <arg name="use_sim_time" default="False"/>
+    <arg name="filter_yaml_path" default="$(find-pkg-share pickee_mobile_wonho)/config/laser_filter.yaml" />
+
+    <!-- URDF 업로드 -->
+    <include file="$(find-pkg-share pickee_mobile_wonho)/launch/upload.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+
+    <!-- Shopee 인터페이스 노드 (Nav2와 메인 서비스 연결) -->
+    <node pkg="pickee_mobile_wonho" exec="pickee_mobile_wonho_node">
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+
+    <!-- 레이저 필터는 로봇에서 실행하므로 PC에서는 제거 -->
+
+</launch>

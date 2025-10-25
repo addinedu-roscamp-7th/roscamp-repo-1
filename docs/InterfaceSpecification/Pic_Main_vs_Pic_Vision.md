@@ -271,6 +271,7 @@ string message
 string user_type
 string user_id
 int32 robot_id
+string camera_type
 ```
 
 #### Response:

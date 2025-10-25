@@ -145,3 +145,8 @@ colcon_install/
 
 .gemini/
 gha-creds-*.json
+
+*.jpg
+*.png
+*.csv
+*.txt

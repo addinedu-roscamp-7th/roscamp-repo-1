@@ -2,7 +2,7 @@
 
 <launch>
     <arg name="namespace" default=""/>
-    <arg name="robot_name" default="$(var namespace)/pinky"/>
+    <arg name="robot_name" default="$(var namespace)/pickee_mobile_wonho"/>
     <arg name="x" default="0.0"/>
     <arg name="y" default="0.0"/>
     <arg name="z" default="0.1"/>
@@ -10,7 +10,7 @@
     <arg name="P" default="0.0"/>
     <arg name="Y" default="0.0"/>
 
-    <include file="$(find-pkg-share pickee_mobile)/launch/upload.launch.xml">
+    <include file="$(find-pkg-share pickee_mobile_wonho)/launch/upload.launch.xml">
         <arg name='use_sim_time' value='True'/>
         <arg name='prefix' value='$(var namespace)/'/>
     </include>

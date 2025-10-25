@@ -1,6 +1,6 @@
-float32 joint_1
-float32 joint_2
-float32 joint_3
-float32 joint_4
-float32 joint_5
-float32 joint_6
+float32 x
+float32 y
+float32 z
+float32 rx
+float32 ry
+float32 rz

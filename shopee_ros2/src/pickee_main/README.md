@@ -30,22 +30,17 @@ cd ./ros2_ws
 colcon build --packages-select shopee_interfaces
 colcon build --packages-select pickee_main
 source install/setup.bash
-```
-1. **통합 테스트 실행**:
-```bash
-# 터미널 1: Mock 노드들과 Main Controller 실행
-ros2 launch pickee_main integration_test.launch.py
-
-# 터미널 2: 테스트 클라이언트 실행  
-ros2 run pickee_main integration_test_client
-```
 
 2. **개별 컴포넌트 테스트**:
 ```bash
+# 대쉬보드
+ros2 run pickee_main dashboard
 # Main Controller 실행
 ros2 run pickee_main main_controller
 
 # Mock 노드 개별 실행 : 테스트용
+ros2 run pickee_main mock_shopee_main
+
 ros2 run pickee_main mock_mobile_node
 ros2 run pickee_main mock_arm_node  
 ros2 run pickee_main mock_vision_node

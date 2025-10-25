@@ -50,16 +50,16 @@ PackeeArmController (rclcpp::Node)
 ### 5.1 서비스 서버
 | 이름 | 타입 | 목적 | 비고 |
 | --- | --- | --- | --- |
-| `/packee/arm/move_to_pose` | `PackeeArmMoveToPose.srv` | 지정된 포즈(`cart_view`, `standby`)로 로봇 팔 자세 변경 | `pose_type` 검증, 진행률 업데이트 |
-| `/packee/arm/pick_product` | `PackeeArmPickProduct.srv` | 특정 팔이 상품을 픽업 | Vision 결과 기반 좌표 사용, `arm_side` 검증 |
-| `/packee/arm/place_product` | `PackeeArmPlaceProduct.srv` | 픽업된 상품을 포장 박스에 담기 | 픽업 완료 상태 확인 후 진행 |
+| `/packee/arm/move_to_pose` | `ArmMoveToPose.srv` | 지정된 포즈(`cart_view`, `standby`)로 로봇 팔 자세 변경 | `pose_type` 검증, 진행률 업데이트 |
+| `/packee/arm/pick_product` | `ArmPickProduct.srv` | 특정 팔이 상품을 픽업 | Vision 결과 기반 좌표 사용, `arm_side` 검증 |
+| `/packee/arm/place_product` | `ArmPlaceProduct.srv` | 픽업된 상품을 포장 박스에 담기 | 픽업 완료 상태 확인 후 진행 |
 
 ### 5.2 토픽 퍼블리셔
 | 이름 | 타입 | 내용 | 수신자 |
 | --- | --- | --- | --- |
 | `/packee/arm/pose_status` | `ArmPoseStatus.msg` | 자세 명령 진행률, 메시지 | Packee Main, Shopee App |
-| `/packee/arm/pick_status` | `PackeeArmTaskStatus.msg` | 픽업 단계(current_phase, progress) | Packee Main, Shopee App |
-| `/packee/arm/place_status` | `PackeeArmTaskStatus.msg` | 담기 단계(current_phase, progress) | Packee Main, Shopee App |
+| `/packee/arm/pick_status` | `ArmTaskStatus.msg` | 픽업 단계(current_phase, progress) | Packee Main, Shopee App |
+| `/packee/arm/place_status` | `ArmTaskStatus.msg` | 담기 단계(current_phase, progress) | Packee Main, Shopee App |
 
 ### 5.3 기타 인터페이스
 - 향후 `/diagnostics` 토픽 연동을 통해 HealthMonitor 결과를 발행하여 Packee Main의 장애 대응 로직과 연계한다.

@@ -226,7 +226,7 @@ class OrderNotifier:
                 "data": {
                     "order_id": order_id,
                 },
-                "message": "수동 선택 상품을 모두 담았습니다. 이제부터 로봇이 나머지 상품을 자동으로 담습니다.",
+                "message": "수동 선택 상품을 모두 담았습니다. 로봇이 다음 구역으로 이동합니다.",
             },
             order_id=order_id,
         )

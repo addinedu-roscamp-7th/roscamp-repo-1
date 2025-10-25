@@ -60,7 +60,7 @@ class MainServiceConfig(BaseSettings):
     
     # === LLM 서비스 설정 ===
     LLM_BASE_URL: str = "http://localhost:5001"
-    LLM_TIMEOUT: float = 1.5
+    LLM_TIMEOUT: float = 20
     LLM_MAX_RETRIES: int = 2
     LLM_RETRY_BACKOFF: float = 0.5
     
@@ -79,11 +79,12 @@ class MainServiceConfig(BaseSettings):
     ROS_STATUS_HEALTH_TIMEOUT: float = 10.0
     ROS_EVENT_TOPIC_TIMEOUT: float = 300.0
     
-    PICKEE_PACKING_LOCATION_ID: int = 2
-    PICKEE_HOME_LOCATION_ID: int = 0
+    PICKEE_PACKING_LOCATION_ID: int = 20  # 기본 포장 구역 위치 (PACKING_ZONE: location_id 20)
+    PICKEE_HOME_LOCATION_ID: int = 19  # 기본 대기/충전 위치 (ROBOT_HOME: location_id 19)
     DESTINATION_PACKING_NAME: str = "PACKING_AREA_A"
     DESTINATION_DELIVERY_NAME: str = "DELIVERY"
     DESTINATION_RETURN_NAME: str = "RETURN"
+    PACKEE_PRODUCT_DIMENSION_SCALE: float = 1.0
 
     # === Robot Fleet Management 설정 ===
     ROBOT_ALLOCATION_STRATEGY: str = "round_robin"  # round_robin | least_workload | battery_aware

@@ -17,10 +17,10 @@ CHUNK_DATA_SIZE = 1400
 JPEG_QUALITY = 90
 
 class UdpStreamer:
-    """
-    별도 스레드에서 동작하며, Queue를 통해 받은 이미지 프레임을
-    UDP로 비동기적으로 스트리밍하는 클래스.
-    """
+    #
+    # 별도 스레드에서 동작하며, Queue를 통해 받은 이미지 프레임을
+    # UDP로 비동기적으로 스트리밍하는 클래스.
+    #
     def __init__(self, host: str, port: int, robot_id: int = 1):
         self._host = host
         self._port = port
@@ -32,7 +32,7 @@ class UdpStreamer:
         self.transport: Optional[asyncio.DatagramTransport] = None
 
     def start(self):
-        """스트리밍 스레드를 시작합니다."""
+        # 스트리밍 스레드를 시작합니다.
         if self.is_running:
             logging.warning("UdpStreamer is already running.")
             return
@@ -43,7 +43,7 @@ class UdpStreamer:
         logging.info("UdpStreamer thread started.")
 
     def stop(self):
-        """스트리밍 스레드를 종료합니다."""
+        # 스트리밍 스레드를 종료합니다.
         if not self.is_running:
             return
         
@@ -59,7 +59,7 @@ class UdpStreamer:
         logging.info("UdpStreamer thread stopped.")
 
     def queue_frame(self, frame):
-        """메인 스레드에서 스트리밍할 프레임을 큐에 추가합니다."""
+        # 메인 스레드에서 스트리밍할 프레임을 큐에 추가합니다.
         if not self.is_running:
             return
         try:
@@ -68,8 +68,13 @@ class UdpStreamer:
         except queue.Full:
             logging.warning("Frame queue is full, dropping a frame.")
 
+    def queue_reset(self):
+        # 큐의 내용을 초기화 합니다.
+        self.frame_queue = queue.Queue(maxsize=5) # 프레임 보관함
+        return
+
     def _run_async_loop(self):
-        """새로운 스레드의 진입점으로, asyncio 이벤트 루프를 설정하고 실행합니다."""
+        # 새로운 스레드의 진입점으로, asyncio 이벤트 루프를 설정하고 실행합니다.
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -78,7 +83,7 @@ class UdpStreamer:
             loop.close()
 
     async def _async_worker(self):
-        """실제 UDP 통신을 담당하는 비동기 워커"""
+        # 실제 UDP 통신을 담당하는 비동기 워커
         loop = asyncio.get_running_loop()
         try:
             self.transport, _ = await loop.create_datagram_endpoint(
@@ -109,7 +114,7 @@ class UdpStreamer:
             self.transport.close()
 
     async def _send_frame(self, frame):
-        """하나의 프레임을 인코딩하고 청크로 나누어 전송합니다."""
+        # 하나의 프레임을 인코딩하고 청크로 나누어 전송합니다.
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
         result, encimg = cv2.imencode('.jpg', frame, encode_param)
         if not result:
