@@ -594,12 +594,28 @@ Main = Shopee Main Service
 {
   "type": "product_selection_response",
   "result": true,
+  "error_code": "",
   "data": {
     "order_id": 15,
     "product_id": 54,
     "bbox_number": 2
   },
   "message": "Product selection confirmed"
+}
+```
+
+**실패 예시**
+```json
+{
+  "type": "product_selection_response",
+  "result": false,
+  "error_code": "ROBOT_002",
+  "data": {
+    "order_id": 15,
+    "product_id": 54,
+    "bbox_number": 2
+  },
+  "message": "Failed to process selection"
 }
 ```
 
@@ -632,8 +648,10 @@ Main = Shopee Main Service
   "result": true,
   "error_code": "string",
   "data": {
-    "bbox": "int"
-  }
+    "bbox": "int",
+    "product_id": "int"
+  },
+  "message": "string"
 }
 ```
 
@@ -761,10 +779,14 @@ Main = Shopee Main Service
   "type": "video_stream_start_response",
   "result": false,
   "error_code": "SYS_001",
-  "data": {},
+  "data": {
+    "detail": "Robot not reachable"
+  },
   "message": "Invalid server"
 }
 ```
+
+> ℹ️ `data.detail`는 로봇이 반환한 상세 사유가 있을 때만 포함됩니다.
 
 ### 영상 스트림 중지
 
@@ -827,10 +849,14 @@ Main = Shopee Main Service
   "type": "video_stream_stop_response",
   "result": false,
   "error_code": "SYS_001",
-  "data": {},
+  "data": {
+    "detail": "Robot not reachable"
+  },
   "message": "Invalid server"
 }
 ```
+
+> ℹ️ `data.detail`는 스트림 중지 과정에서 수집한 추가 사유가 있을 때만 포함됩니다.
 
 ### 재고 조회
 
@@ -931,6 +957,23 @@ Main = Shopee Main Service
 }
 ```
 
+**실패 예시**
+```json
+{
+  "type": "inventory_search_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "products": [],
+    "total_count": 0,
+    "detail": "Database timeout"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 오류 원인을 진단할 때만 포함됩니다.
+
 ### 재고 추가
 
 **요청**
@@ -1003,11 +1046,28 @@ Main = Shopee Main Service
 {
   "type": "inventory_create_response",
   "result": false,
-  "error_code": "SYS_001",
-  "data": {},
+  "error_code": "PROD_003",
+  "data": {
+    "detail": "Missing fields: product_id"
+  },
   "message": "Invalid server"
 }
 ```
+
+**실패 예시 (시스템 오류)**
+```json
+{
+  "type": "inventory_create_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "detail": "Database timeout"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 내부 오류 사유가 있을 때만 포함됩니다.
 
 ### 재고 수정
 
@@ -1081,11 +1141,39 @@ Main = Shopee Main Service
 {
   "type": "inventory_update_response",
   "result": false,
-  "error_code": "SYS_001",
-  "data": {},
+  "error_code": "PROD_003",
+  "data": {
+    "detail": "Invalid price value"
+  },
   "message": "Invalid server"
 }
 ```
+
+**실패 예시 (상품 없음)**
+```json
+{
+  "type": "inventory_update_response",
+  "result": false,
+  "error_code": "PROD_001",
+  "data": {},
+  "message": "Product not found."
+}
+```
+
+**실패 예시 (시스템 오류)**
+```json
+{
+  "type": "inventory_update_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "detail": "Validation failed"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 내부 오류 사유가 있을 때만 포함됩니다.
 
 ### 재고 삭제
 
@@ -1144,8 +1232,34 @@ Main = Shopee Main Service
   "type": "inventory_delete_response",
   "result": false,
   "error_code": "SYS_001",
-  "data": {},
+  "data": {
+    "detail": "Database timeout"
+  },
   "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 내부 오류 사유가 있을 때만 포함됩니다.
+
+**실패 예시 (상품 없음)**
+```json
+{
+  "type": "inventory_delete_response",
+  "result": false,
+  "error_code": "PROD_001",
+  "data": {},
+  "message": "Product not found."
+}
+```
+
+**실패 예시 (요청 오류)**
+```json
+{
+  "type": "inventory_delete_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {},
+  "message": "product_id is required."
 }
 ```
 
@@ -1240,6 +1354,23 @@ Main = Shopee Main Service
 }
 ```
 
+**실패 예시**
+```json
+{
+  "type": "robot_history_search_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "histories": [],
+    "total_count": 0,
+    "detail": "Database timeout"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 진단 정보가 있을 때만 포함됩니다.
+
 ## 이벤트 알림
 
 ### 로봇 이동 알림
@@ -1270,11 +1401,13 @@ Main = Shopee Main Service
   "data": {
     "order_id": 45,
     "robot_id": 1,
-    "destination": "SECTION_A1_01"
+    "destination": "SECTION_A_1"
   },
-  "message": "상품 위치로 이동 중입니다"
+  "message": "섹션 SECTION_A_1로 이동 중입니다."
 }
 ```
+
+> 📌 목적지가 포장 구역(`location_id = PICKEE_PACKING_LOCATION_ID`)이면 `"destination": "PACKING_AREA_A"`, `"message": "포장 구역으로 이동 중입니다."` 형태로 전달됩니다. 대기 구역 등 다른 특수 위치 역시 해당 위치에 따라 문구가 자동으로 조정됩니다.
 
 ### 로봇 도착 알림
 
@@ -1537,3 +1670,240 @@ Main = Shopee Main Service
 **비고**:
 - order_status: ERD 정의 enum 사용 (예: PACKED, FAIL_PACK)
 - order_status 비율을 진행율로 표현 가능
+
+### 로봇 상태 조회
+
+- From: App
+- To: Main Service
+- Message Type: `robot_status_request`
+
+```json
+{
+  "type": "robot_status_request",
+  "data": {
+    "robot_type": "string|null  # pickee | packee | null"
+  }
+}
+```
+
+**응답**
+- Message Type: `robot_status_response`
+
+```json
+{
+  "type": "robot_status_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "robots": [
+      {
+        "robot_id": "int",
+        "type": "string",
+        "status": "string",
+        "detailed_status": "string",
+        "reserved": "boolean",
+        "active_order_id": "int|null",
+        "battery_level": "float|null",
+        "maintenance_mode": "boolean",
+        "last_update": "string|null"
+      }
+    ],
+    "total_count": "int"
+  },
+  "message": "string"
+}
+```
+
+**성공 예시**
+```json
+{
+  "type": "robot_status_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "robots": [
+      {
+        "robot_id": 1,
+        "type": "pickee",
+        "status": "WORKING",
+        "detailed_status": "MOVING_TO_SHELF",
+        "reserved": true,
+        "active_order_id": 120,
+        "battery_level": 82.5,
+        "maintenance_mode": false,
+        "last_update": "2025-02-02T04:51:23Z"
+      }
+    ],
+    "total_count": 1
+  },
+  "message": "Robot status retrieved"
+}
+```
+
+**실패 예시**
+```json
+{
+  "type": "robot_status_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "robots": [],
+    "total_count": 0,
+    "detail": "Fleet service unavailable"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 진단 정보가 있을 때만 포함됩니다.
+
+### 로봇 유지보수 모드 설정
+
+- From: App
+- To: Main Service
+- Message Type: `robot_maintenance_mode`
+
+```json
+{
+  "type": "robot_maintenance_mode",
+  "data": {
+    "robot_id": "int",
+    "enabled": "boolean"
+  }
+}
+```
+
+**응답**
+- Message Type: `robot_maintenance_mode_response`
+
+```json
+{
+  "type": "robot_maintenance_mode_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "robot_id": "int",
+    "maintenance_mode": "boolean"
+  },
+  "message": "string"
+}
+```
+
+**성공 예시**
+```json
+{
+  "type": "robot_maintenance_mode_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "robot_id": 3,
+    "maintenance_mode": true
+  },
+  "message": "Maintenance mode enabled for robot 3"
+}
+```
+
+**실패 예시 (대상 없음)**
+```json
+{
+  "type": "robot_maintenance_mode_response",
+  "result": false,
+  "error_code": "ROBOT_001",
+  "data": {},
+  "message": "Robot 99 not found"
+}
+```
+
+**실패 예시 (요청 오류)**
+```json
+{
+  "type": "robot_maintenance_mode_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {},
+  "message": "robot_id is required"
+}
+```
+
+**실패 예시 (내부 오류)**
+```json
+{
+  "type": "robot_maintenance_mode_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "detail": "Database timeout"
+  },
+  "message": "Invalid server"
+}
+```
+
+> ℹ️ `data.detail`는 진단 정보가 있을 때만 포함됩니다.
+
+### 서비스 헬스체크
+
+- From: App
+- To: Main Service
+- Message Type: `health_check`
+
+```json
+{
+  "type": "health_check"
+}
+```
+
+**응답**
+- Message Type: `health_check_response`
+
+```json
+{
+  "type": "health_check_response",
+  "result": true,
+  "error_code": "string",
+  "data": {
+    "status": "string",
+    "checks": {
+      "database": "boolean",
+      "ros2": "boolean",
+      "robot_count": "int"
+    }
+  },
+  "message": "string"
+}
+```
+
+**성공 예시**
+```json
+{
+  "type": "health_check_response",
+  "result": true,
+  "error_code": "",
+  "data": {
+    "status": "healthy",
+    "checks": {
+      "database": true,
+      "ros2": true,
+      "robot_count": 4
+    }
+  },
+  "message": "Service is healthy"
+}
+```
+
+**실패 예시**
+```json
+{
+  "type": "health_check_response",
+  "result": false,
+  "error_code": "SYS_001",
+  "data": {
+    "status": "degraded",
+    "checks": {
+      "database": false,
+      "ros2": true,
+      "robot_count": 0
+    }
+  },
+  "message": "Service degraded"
+}
+```

@@ -10,9 +10,9 @@ from datetime import datetime
 from typing import Any, Dict
 
 import rclpy
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QMainWindow, QLabel
-from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtGui import QCloseEvent, QKeyEvent
 
 from .ui_gen.dashboard_window_ui import Ui_DashboardWindow
 from .tabs.overview_tab import OverviewTab
@@ -109,9 +109,21 @@ class DashboardWindow(QMainWindow, Ui_DashboardWindow):
         """UI의 추가적인 속성을 설정한다."""
         self.status_label = QLabel('상태: 연결 대기 중...')
         self.statusbar.addPermanentWidget(self.status_label)
-        
+
         # 전체화면으로 시작
         self.showFullScreen()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """키보드 이벤트 처리 - ESC와 F11로 전체화면 토글"""
+        if event.key() == Qt.Key.Key_Escape or event.key() == Qt.Key.Key_F11:
+            if self.isFullScreen():
+                self.showNormal()
+                logger.info('전체화면 모드 해제')
+            else:
+                self.showFullScreen()
+                logger.info('전체화면 모드 활성화')
+        else:
+            super().keyPressEvent(event)
 
     def closeEvent(self, event: QCloseEvent):
         """윈도우 종료 이벤트 처리"""
