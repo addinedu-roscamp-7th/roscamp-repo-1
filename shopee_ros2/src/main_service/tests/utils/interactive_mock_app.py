@@ -25,8 +25,8 @@ DEFAULT_CART = [
 class AppState:
     """세션 상태를 보관한다."""
 
-    user_id: str = 'admin'
-    password: str = 'admin123'
+    user_id: str = 'user1'
+    password: str = 'pass123'
     robot_id: Optional[int] = None
     order_id: Optional[int] = None
     last_notifications: list[Dict[str, Any]] = field(default_factory=list)
