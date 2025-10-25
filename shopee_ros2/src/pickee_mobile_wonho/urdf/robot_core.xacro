@@ -223,14 +223,14 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://pickee_mobile_wonho/meshes/visual/lidar.dae" scale="1 1 1"/>
+                <mesh filename="/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile_wonho/meshes/visual/lidar.dae" scale="1 1 1"/>
             </geometry>
             <material name="blue"/>
         </visual>
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <geometry>
-                <mesh filename="package://pickee_mobile_wonho/meshes/collision/lidar.stl" scale="1 1 1"/>
+                <mesh filename="/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile_wonho/meshes/collision/lidar.stl" scale="1 1 1"/>
             </geometry>
         </collision>
         <inertial>

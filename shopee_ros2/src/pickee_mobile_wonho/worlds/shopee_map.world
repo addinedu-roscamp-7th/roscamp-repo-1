@@ -48,7 +48,7 @@
 
     <include>
       <name>shopee_map</name>
-      <uri>model://shopee_map</uri>
+      <uri>/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile_wonho/models/shopee_map</uri>
       <pose>0 0 0.01 0 0 0</pose>
     </include>
   </world>

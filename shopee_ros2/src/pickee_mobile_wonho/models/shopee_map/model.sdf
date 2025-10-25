@@ -7,7 +7,7 @@
       <visual name="shopee_visual">
         <geometry>
           <mesh>
-            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+            <uri>/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile_wonho/models/shopee_map/meshes/shopee_map2.obj</uri>
           </mesh>
         </geometry>
         <material>
@@ -18,7 +18,7 @@
       <collision name="shopee_collision">
         <geometry>
           <mesh>
-            <uri>model://shopee_map/meshes/shopee_map2.obj</uri>
+            <uri>/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile_wonho/models/shopee_map/meshes/shopee_map2.obj</uri>
           </mesh>
         </geometry>
       </collision>

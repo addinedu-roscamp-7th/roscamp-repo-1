@@ -82,7 +82,19 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
   robot_id: 1,
   order_id: 123,
   location_id: 5,
-  target_pose: {x: 0.754, y: 0.56, theta: 1.0},
+  target_pose: {x: 0.71, y: 0.40, theta: 1.57},
+}"
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "{
+  robot_id: 1,
+  order_id: 123,
+  location_id: 5,
+  target_pose: {x: 3.24, y: 2.1, theta: -1.57},
+}"
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "{
+  robot_id: 1,
+  order_id: 123,
+  location_id: 5,
+  target_pose: {x: -1.59, y: 1.47, theta: 0.0},
 }"
 
 # Global Path 업데이트

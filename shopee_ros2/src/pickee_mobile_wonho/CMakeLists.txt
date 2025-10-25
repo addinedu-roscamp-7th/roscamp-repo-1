@@ -122,12 +122,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/urdf")
 endif()
 
 # Install worlds (if exists)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/worlds")
-  install(DIRECTORY
-    worlds
-    DESTINATION share/${PROJECT_NAME}/
-  )
-endif()
+install(DIRECTORY
+  worlds
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install worlds (if exists)
+install(DIRECTORY
+  models/
+  DESTINATION share/${PROJECT_NAME}/models
+)
 
 # if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/primitives")
 #   install(
