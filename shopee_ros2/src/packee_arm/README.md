@@ -50,7 +50,21 @@ Packee Main Controller와 `docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`�
   - `preset_pose_cart_view=[0.16, 0.0, 0.18, 0.0]`  
   - `preset_pose_standby=[0.10, 0.0, 0.14, 0.0]`
 - 안전 작업 공간은 수평 반경 0.28 m, Z 범위 0.05~0.30 m로 제한되며 서비스를 통해 전달되는 `target_product.pose`, `pose`도 동일하게 검증됩니다.
-- 실제 하드웨어 제어 전에는 `mycobot_ros2` 패키지(시리얼 연결, 전원 공급, `joint_state_publisher` 등)를 먼저 기동해 ROS2 컨트롤 인터페이스를 활성화해야 합니다. 컨트롤러 노드는 해당 드라이버가 활성화된 상태에서 실행해야 안전하게 속도 명령을 교환할 수 있습니다.
+- 실제 하드웨어 제어 전에는 `jetcobot_bridge` 노드가 사용할 시리얼 장치를 확인하고, Jetson 측에서 `pymycobot` 패키지를 설치해야 합니다.  
+  ```bash
+  sudo apt-get install python3-pip
+  pip3 install pymycobot
+  ```
+
+### JetCobot Bridge 노드
+- `ArmDriverProxy`와 `GripperController`는 각각 `TwistStamped`, `Float32` 메시지를 `/packee/jetcobot/<arm>/cmd_vel`, `/packee/jetcobot/<arm>/gripper_cmd` 토픽으로 발행합니다.
+- `scripts/jetcobot_bridge.py`는 위 토픽을 구독해 JetCobot 시리얼 포트로 명령을 전달하며, `ros2 launch packee_arm packee_arm.launch.py run_jetcobot_bridge:=true` 로 함께 기동할 수 있습니다.
+- 주요 런치 인자
+  - `left_serial_port`, `right_serial_port`: JetCobot USB 포트 경로 (단일 팔인 경우 오른쪽을 비웁니다)
+  - `left_arm_velocity_topic`, `right_arm_velocity_topic`: Velocity 명령 토픽 (필요 시 네임스페이스 조정)
+  - `left_gripper_topic`, `right_gripper_topic`: 그리퍼 명령 토픽
+  - `jetcobot_move_speed`: `sync_send_coords` 속도(0~100), 기본 40
+  - `jetcobot_command_period`: 속도 명령 적분 간격, 기본 0.15 초
 
 ## 빌드 및 실행
 ```bash

@@ -92,13 +92,20 @@ public:
       max_translation_speed_,
       max_yaw_speed_deg_);
     driver_ = std::make_unique<ArmDriverProxy>(
-      this->get_logger(),
+      this,
       max_translation_speed_,
       max_yaw_speed_deg_,
-      command_timeout_sec_);
+      command_timeout_sec_,
+      left_velocity_topic_,
+      right_velocity_topic_,
+      velocity_frame_id_);
+    // JetCobot 브릿지가 float32 명령을 받아 실제 그리퍼를 여닫도록 퍼블리셔를 구성한다.
     gripper_ = std::make_unique<GripperController>(
+      this,
       this->get_logger(),
-      gripper_force_limit_);
+      gripper_force_limit_,
+      left_gripper_topic_,
+      right_gripper_topic_);
     execution_manager_ = std::make_unique<ExecutionManager>(
       this,
       std::bind(
@@ -174,6 +181,17 @@ private:
       this->declare_parameter<double>("progress_publish_interval", 0.15);
     const double declared_command_timeout =
       this->declare_parameter<double>("command_timeout_sec", 4.0);
+    const std::string declared_left_velocity_topic =
+      this->declare_parameter<std::string>("left_arm_velocity_topic", "/packee/jetcobot/left/cmd_vel");
+    const std::string declared_right_velocity_topic =
+      this->declare_parameter<std::string>("right_arm_velocity_topic", "/packee/jetcobot/right/cmd_vel");
+    const std::string declared_velocity_frame =
+      this->declare_parameter<std::string>("velocity_frame_id", "packee_base");
+    // JetCobot 브릿지와 직접 연결되는 그리퍼 명령 토픽을 노출한다.
+    const std::string declared_left_gripper_topic =
+      this->declare_parameter<std::string>("left_gripper_topic", "/packee/jetcobot/left/gripper_cmd");
+    const std::string declared_right_gripper_topic =
+      this->declare_parameter<std::string>("right_gripper_topic", "/packee/jetcobot/right/gripper_cmd");
 
     const std::vector<double> cart_view_values = this->declare_parameter<std::vector<double>>(
       "preset_pose_cart_view",
@@ -191,6 +209,11 @@ private:
     gripper_force_limit_ = declared_gripper_force_limit;
     progress_publish_interval_sec_ = declared_progress_interval;
     command_timeout_sec_ = declared_command_timeout;
+    left_velocity_topic_ = declared_left_velocity_topic;
+    right_velocity_topic_ = declared_right_velocity_topic;
+    velocity_frame_id_ = declared_velocity_frame;
+    left_gripper_topic_ = declared_left_gripper_topic;
+    right_gripper_topic_ = declared_right_gripper_topic;
 
     cart_view_preset_ = ParsePoseParameter(
       cart_view_values,
@@ -729,6 +752,11 @@ private:
   double gripper_force_limit_{12.0};
   double progress_publish_interval_sec_{0.15};
   double command_timeout_sec_{4.0};
+  std::string left_velocity_topic_{"/packee/jetcobot/left/cmd_vel"};
+  std::string right_velocity_topic_{"/packee/jetcobot/right/cmd_vel"};
+  std::string velocity_frame_id_{"packee_base"};
+  std::string left_gripper_topic_{"/packee/jetcobot/left/gripper_cmd"};
+  std::string right_gripper_topic_{"/packee/jetcobot/right/gripper_cmd"};
   const std::array<double, 4> default_cart_view_pose_{{0.16, 0.0, 0.18, 0.0}};  // 카트 확인 자세
   const std::array<double, 4> default_standby_pose_{{0.10, 0.0, 0.14, 0.0}};  // 대기 자세
   PoseEstimate cart_view_preset_{};

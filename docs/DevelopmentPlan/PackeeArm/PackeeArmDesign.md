@@ -82,6 +82,7 @@ PackeeArmController (rclcpp::Node)
 - 축별 제어 법칙은 `v_i = -λ_i (r_i* - r_{c,i})`이며 yaw는 `wrap(Rz* - Rz_c)`로 ±π 범위로 맞춘다.
 - 기본 게인은 `λ = 0.03`이며, CNN 추정 불확실도에 따라 축별로 자동 조정한다.
 - 속도 명령은 `ArmDriverProxy`를 통해 전송되고, 명령 클리핑(0.2 m/s, 15 deg/s)과 조인트 변환을 통해 실제 하드웨어로 전달된다.
+- JetCobot 연동 시 `ArmDriverProxy`는 `/packee/jetcobot/<arm>/cmd_vel` 토픽으로 `TwistStamped`를 발행하고, `scripts/jetcobot_bridge.py`가 `pymycobot` API를 호출해 실좌표 명령을 수행한다. 그리퍼 힘 명령 역시 `/packee/jetcobot/<arm>/gripper_cmd` 토픽을 통해 Float32 값으로 전달된다.
 - Jacobian 계산이나 카메라 보정 없이도 CNN이 2D→3D 매핑을 제공하므로 제어 파이프라인이 단순하다.
 
 ### 6.4 학습/실험 요약
@@ -102,21 +103,21 @@ PackeeArmController (rclcpp::Node)
 1. Packee Main이 좌/우 팔, 목표 상품, 목표 이미지/포즈 보조정보를 포함해 서비스를 호출한다.
 2. Arm Controller는 `arm_side`, 좌표 범위, 현재 Queue 상태를 점검하고 작업을 예약한다.
 3. VisualServoModule이 목표 grasp 이미지/포즈를 기준으로 4 DOF를 제어하며, 오차가 임계값 아래로 떨어지면 그리퍼를 폐합해 픽업을 완료한다.
-4. 진행 단계는 `servoing` → `grasping` → `lifting`으로 단순화되며, 각 단계마다 `pick_status`를 발행한다.
+4. 진행 단계는 `planning` → `approaching` → `grasping` → `lifting` → `done` 순으로 정의하며, 각 단계마다 `pick_status`를 발행한다.
 5. 성공 시 `accepted=true`와 함께 해당 상품을 “place 대기” 상태로 표시하고, CNN 신뢰도가 낮거나 하드웨어 오류가 발생하면 실패 상태를 보고한다.
 
 ### 7.3 상품 담기 (`place_product`)
 1. Packee Main이 동일 상품 ID와 박스 목표 이미지를 전달하여 서비스를 호출한다.
 2. Arm Controller는 픽업 완료 여부를 확인하고, 박스 내부 목표 자세를 로드한다.
 3. VisualServoModule이 목표 대비 현재 이미지를 기반으로 박스 상단에서 yaw 정렬 및 위치 맞춤을 수행하고, 오차 허용 범위에 도달하면 그리퍼를 개방한다.
-4. 진행 단계는 `servoing` → `placing` → `retreat`로 정의하며, 각 단계마다 `place_status`를 발행한다.
+4. 진행 단계는 `planning` → `approaching` → `moving` → `done` 순으로 정의하며, 각 단계마다 `place_status`를 발행한다.
 5. 완료 후 안전 거리로 복귀하고 큐에서 해당 상품을 제거한다. 실패 시 원인(시야 손실, CNN 신뢰도 저하, 하드웨어 오류)을 상태 메시지에 포함한다.
 
 ## 8. 상태 및 예외 처리
 - 내부 상태는 `IDLE`, `MOVING`, `PICKING`, `PLACING`, `ERROR`로 관리하여 Packee Main의 상위 상태(`StateDiagram_Packee.md`)와 매핑한다.
 - 주요 예외 케이스와 대응:
   - 파라미터 오류: 즉시 거부, 상태 토픽 `failed` 발행.
-  - CNN 신뢰도 저하: `current_phase='servoing'`, 재탐지 요청 여부를 메시지에 포함.
+  - CNN 신뢰도 저하: `current_phase='approaching'`, 재탐지 요청 여부를 메시지에 포함.
   - 그리퍼 이상: `current_phase='grasping'` 또는 `placing`에서 실패, 센서 코드 로그 기록.
   - 하드웨어 응답 타임아웃: `accepted=false`, Packee Main이 재시도/중단 판단.
 - 모든 예외는 Diagnostics 모듈이 에러 코드와 함께 로깅하여 Shopee App 알림 요건(UR_04/SR_11)에 대응한다.
@@ -137,6 +138,11 @@ PackeeArmController (rclcpp::Node)
 | `command_timeout_sec` | double | 4.0 | 하드웨어 응답 타임아웃 |
 | `preset_pose_cart_view` | double[4] | `[0.16, 0.0, 0.18, 0.0]` | myCobot 280 카트 점검 자세 (x, y, z, yaw_deg) |
 | `preset_pose_standby` | double[4] | `[0.10, 0.0, 0.14, 0.0]` | 기본 대기 자세 (x, y, z, yaw_deg) |
+| `left_arm_velocity_topic` | string | `/packee/jetcobot/left/cmd_vel` | 좌측 팔 Twist 명령 토픽 |
+| `right_arm_velocity_topic` | string | `/packee/jetcobot/right/cmd_vel` | 우측 팔 Twist 명령 토픽 |
+| `left_gripper_topic` | string | `/packee/jetcobot/left/gripper_cmd` | 좌측 그리퍼 힘 명령 토픽 |
+| `right_gripper_topic` | string | `/packee/jetcobot/right/gripper_cmd` | 우측 그리퍼 힘 명령 토픽 |
+| `velocity_frame_id` | string | `packee_base` | TwistStamped frame_id |
 - 파라미터는 런타임에 조정 가능하도록 설계하며, Packee Main 파라미터(`component_service_timeout`)와 정합성을 유지한다.
 
 - myCobot 280 기준 좌표계는 베이스 중심을 원점(미터)으로 하며, Z 축은 작업대 기준 0.0 m에서 시작한다. `preset_pose_*` 파라미터는 듀얼 암 구성 시 좌/우 동일 값을 적용하고, 필요 시 개별 값으로 오버라이드할 수 있다.

@@ -44,10 +44,50 @@ def generate_launch_description() -> LaunchDescription:
         'command_timeout_sec',
         default_value='5.0',
         description='명령 타임아웃 (초)')
+    left_arm_velocity_topic_arg = DeclareLaunchArgument(
+        'left_arm_velocity_topic',
+        default_value='/packee/jetcobot/left/cmd_vel',
+        description='좌측 팔 속도 명령 토픽')
+    right_arm_velocity_topic_arg = DeclareLaunchArgument(
+        'right_arm_velocity_topic',
+        default_value='/packee/jetcobot/right/cmd_vel',
+        description='우측 팔 속도 명령 토픽')
+    left_gripper_topic_arg = DeclareLaunchArgument(
+        'left_gripper_topic',
+        default_value='/packee/jetcobot/left/gripper_cmd',
+        description='좌측 팔 그리퍼 명령 토픽')
+    right_gripper_topic_arg = DeclareLaunchArgument(
+        'right_gripper_topic',
+        default_value='/packee/jetcobot/right/gripper_cmd',
+        description='우측 팔 그리퍼 명령 토픽')
+    velocity_frame_id_arg = DeclareLaunchArgument(
+        'velocity_frame_id',
+        default_value='packee_base',
+        description='TwistStamped frame_id 설정')
     run_mock_main_arg = DeclareLaunchArgument(
         'run_mock_main',
         default_value='false',
         description='Packee Main 모의 노드를 함께 실행')
+    run_jetcobot_bridge_arg = DeclareLaunchArgument(
+        'run_jetcobot_bridge',
+        default_value='true',
+        description='JetCobot 브릿지 노드 실행 여부')
+    left_serial_port_arg = DeclareLaunchArgument(
+        'left_serial_port',
+        default_value='/dev/ttyUSB0',
+        description='좌측 JetCobot 시리얼 포트')
+    right_serial_port_arg = DeclareLaunchArgument(
+        'right_serial_port',
+        default_value='',
+        description='우측 JetCobot 시리얼 포트 (단일 팔 환경이면 비워두세요)')
+    jetcobot_move_speed_arg = DeclareLaunchArgument(
+        'jetcobot_move_speed',
+        default_value='40',
+        description='JetCobot sync_send_coords 속도 (0~100)')
+    jetcobot_command_period_arg = DeclareLaunchArgument(
+        'jetcobot_command_period',
+        default_value='0.15',
+        description='JetCobot 브릿지 적분 주기 (초)')
 
     # Packee Arm Controller 노드 정의
     controller_node = Node(
@@ -64,7 +104,12 @@ def generate_launch_description() -> LaunchDescription:
             'max_yaw_speed_deg': LaunchConfiguration('max_yaw_speed_deg'),
             'gripper_force_limit': LaunchConfiguration('gripper_force_limit'),
             'progress_publish_interval': LaunchConfiguration('progress_publish_interval'),
-            'command_timeout_sec': LaunchConfiguration('command_timeout_sec')
+            'command_timeout_sec': LaunchConfiguration('command_timeout_sec'),
+            'left_arm_velocity_topic': LaunchConfiguration('left_arm_velocity_topic'),
+            'right_arm_velocity_topic': LaunchConfiguration('right_arm_velocity_topic'),
+            'left_gripper_topic': LaunchConfiguration('left_gripper_topic'),
+            'right_gripper_topic': LaunchConfiguration('right_gripper_topic'),
+            'velocity_frame_id': LaunchConfiguration('velocity_frame_id')
         }])
 
     # Packee Main 모의 노드 정의 (옵션)
@@ -76,6 +121,23 @@ def generate_launch_description() -> LaunchDescription:
             output='screen')
     ], condition=IfCondition(LaunchConfiguration('run_mock_main')))
 
+    jetcobot_bridge_node = Node(
+        package='packee_arm',
+        executable='jetcobot_bridge.py',
+        name='jetcobot_bridge',
+        output='screen',
+        parameters=[{
+            'left_serial_port': LaunchConfiguration('left_serial_port'),
+            'right_serial_port': LaunchConfiguration('right_serial_port'),
+            'left_velocity_topic': LaunchConfiguration('left_arm_velocity_topic'),
+            'right_velocity_topic': LaunchConfiguration('right_arm_velocity_topic'),
+            'left_gripper_topic': LaunchConfiguration('left_gripper_topic'),
+            'right_gripper_topic': LaunchConfiguration('right_gripper_topic'),
+            'command_period_sec': LaunchConfiguration('jetcobot_command_period'),
+            'move_speed': LaunchConfiguration('jetcobot_move_speed')
+        }],
+        condition=IfCondition(LaunchConfiguration('run_jetcobot_bridge')))
+
     return LaunchDescription([
         servo_gain_xy_arg,
         servo_gain_z_arg,
@@ -86,7 +148,18 @@ def generate_launch_description() -> LaunchDescription:
         gripper_force_limit_arg,
         progress_publish_interval_arg,
         command_timeout_sec_arg,
+        left_arm_velocity_topic_arg,
+        right_arm_velocity_topic_arg,
+        left_gripper_topic_arg,
+        right_gripper_topic_arg,
+        velocity_frame_id_arg,
         run_mock_main_arg,
+        run_jetcobot_bridge_arg,
+        left_serial_port_arg,
+        right_serial_port_arg,
+        jetcobot_move_speed_arg,
+        jetcobot_command_period_arg,
         controller_node,
-        mock_main_group
+        mock_main_group,
+        jetcobot_bridge_node
     ])

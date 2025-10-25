@@ -5,6 +5,8 @@
 #include <mutex>
 #include <string>
 
+#include "geometry_msgs/msg/twist_stamped.hpp"
+#include "rclcpp/node.hpp"
 #include "rclcpp/logger.hpp"
 
 namespace packee_arm {
@@ -13,10 +15,13 @@ namespace packee_arm {
 class ArmDriverProxy {
 public:
   ArmDriverProxy(
-    const rclcpp::Logger & logger,
+    rclcpp::Node * node,
     double max_translation_speed,
     double max_yaw_speed_deg,
-    double command_timeout_sec);
+    double command_timeout_sec,
+    const std::string & left_velocity_topic,
+    const std::string & right_velocity_topic,
+    const std::string & velocity_frame_id);
 
   bool SendVelocityCommand(
     const std::string & arm_side,
@@ -33,12 +38,26 @@ public:
     double command_timeout_sec);
 
 private:
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr GetPublisher(
+    const std::string & arm_side);
+
+  void PublishTwist(
+    const rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr & publisher,
+    double vx,
+    double vy,
+    double vz,
+    double yaw_rate_deg);
+
+  rclcpp::Node * node_;
   rclcpp::Logger logger_;
   mutable std::mutex mutex_;
   double max_translation_speed_;
   double max_yaw_speed_deg_;
   double command_timeout_sec_;
   std::chrono::steady_clock::time_point last_command_time_;
+  std::string velocity_frame_id_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr left_velocity_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr right_velocity_pub_;
 };
 
 }  // namespace packee_arm

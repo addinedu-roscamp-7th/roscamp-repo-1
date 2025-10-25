@@ -429,9 +429,9 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "grasping",
+    "moving",
     0.7F,
-    "상품을 안정적으로 내려놓기 위해 그리퍼를 정렬 중입니다.");
+    "포장 위치에 맞춰 엔드이펙터를 정렬 중입니다.");
   std::this_thread::sleep_for(DurationFromInterval());
 
   if (!gripper_->Open(arm_side)) {
@@ -441,7 +441,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
       command.product_id,
       arm_side,
       "failed",
-      "grasping",
+      "moving",
       0.75F,
       "그리퍼 해제가 실패했습니다.");
     return;
@@ -455,7 +455,7 @@ void ExecutionManager::ProcessPlaceCommand(const PlaceCommand & command) {
     command.product_id,
     arm_side,
     "in_progress",
-    "lifting",
+    "moving",
     0.85F,
     "안전 위치로 복귀 중입니다.");
   std::this_thread::sleep_for(DurationFromInterval());

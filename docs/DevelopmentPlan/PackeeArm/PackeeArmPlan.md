@@ -41,8 +41,9 @@
   - 학습된 ONNX/TensorRT 모델 로딩, 추론 파이프라인, 신뢰도 산출을 구현한다.
   - 224×224 리사이즈, 정규화 등 전처리와 추론 후 포즈/신뢰도 후처리를 연결한다.
 - **Step 3.3: ExecutionManager/Hardware 연계**
-  - 명령 큐와 VisualServoModule을 연결해 서비스별 상태(`servoing`, `grasping`, `placing`)를 관리한다.
+  - 명령 큐와 VisualServoModule을 연결해 서비스별 상태(`planning`, `approaching`, `grasping`, `lifting`, `moving`, `done`)를 관리한다.
   - `ArmDriverProxy`에 속도 명령 인터페이스를 구현하고, 그리퍼 제어와 타임아웃 응답을 연동한다.
+  - JetCobot 브릿지 노드(`jetcobot_bridge.py`)를 통해 `/packee/jetcobot/<arm>/cmd_vel`, `/packee/jetcobot/<arm>/gripper_cmd` 토픽을 실제 시리얼 명령으로 변환한다.
 
 ## Phase 4: 진단·예외 처리 및 파라미터 튜닝
 

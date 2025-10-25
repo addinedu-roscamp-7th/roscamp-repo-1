@@ -72,5 +72,8 @@ install(
 
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY resource DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS
+  scripts/jetcobot_bridge.py
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
