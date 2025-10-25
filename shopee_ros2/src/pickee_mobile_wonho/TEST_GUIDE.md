@@ -35,6 +35,15 @@ ros2 launch pickee_mobile_wonho nav2_view.launch.xml
 
 ## 간단 실행 명령어를 주행 시뮬레이션을 띄워놓은 상태에서 실행해봐도 됩니다. (물론 노드들 다 실행시켜 놓아야 됩니다.)
 
+## 기타 명렁어
+### 속도 명령 확인
+ros2 topic echo /cmd_vel
+
+### 코스트맵 상태 확인  
+ros2 topic echo /local_costmap/costmap_updates
+
+### 플래너 상태 확인
+ros2 topic echo /plan
 ```
 
 ## Service & Topic List
