@@ -47,24 +47,24 @@ INSERT INTO location (location_name, location_x, location_y, location_theta, aru
 
 -- Section Locations (Shelf A)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_A_1', 15.0, 25.5, 0.0, 201),   -- ID: 7 (Section A-1: 과일)
-('SECTION_A_2', 15.5, 25.5, 0.0, 202),   -- ID: 8 (Section A-2: 과일)
-('SECTION_A_3', 16.0, 25.5, 0.0, 203),   -- ID: 9 (Section A-3: 스프레드)
-('SECTION_A_4', 16.5, 25.5, 0.0, 204);   -- ID: 10 (Section A-4: 예비)
+('SECTION_A_1', -1.59, 1.47, 0.0, 201),   -- ID: 7 (Section A-1: 과일)
+('SECTION_A_2', -1.59, 1.47, 0.0, 202),   -- ID: 8 (Section A-2: 과일)
+('SECTION_A_3', -1.59, 1.47, 0.0, 203),   -- ID: 9 (Section A-3: 스프레드)
+('SECTION_A_4', -1.59, 1.47, 0.0, 204);   -- ID: 10 (Section A-4: 예비)
 
 -- Section Locations (Shelf B)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_B_1', 20.0, 30.5, 0.0, 211),   -- ID: 11 (Section B-1: 채소)
-('SECTION_B_2', 20.5, 30.5, 0.0, 212),   -- ID: 12 (Section B-2: 채소)
-('SECTION_B_3', 21.0, 30.5, 0.0, 213),   -- ID: 13 (Section B-3: 신선식품)
-('SECTION_B_4', 21.5, 30.5, 0.0, 214);   -- ID: 14 (Section B-4: 예비)
+('SECTION_B_1', 0.71, 0.40, 1.57, 211),   -- ID: 11 (Section B-1: 채소)
+('SECTION_B_2', 0.71, 0.40, 1.57, 212),   -- ID: 12 (Section B-2: 채소)
+('SECTION_B_3', 0.71, 0.40, 1.57, 213),   -- ID: 13 (Section B-3: 신선식품)
+('SECTION_B_4', 0.71, 0.40, 1.57, 214);   -- ID: 14 (Section B-4: 예비)
 
 -- Section Locations (Shelf C)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_C_1', 25.0, 35.5, 0.0, 221),   -- ID: 15 (Section C-1: 음료)
-('SECTION_C_2', 25.5, 35.5, 0.0, 222),   -- ID: 16 (Section C-2: 음료)
-('SECTION_C_3', 26.0, 35.5, 0.0, 223),   -- ID: 17 (Section C-3: 베이커리)
-('SECTION_C_4', 26.5, 35.5, 0.0, 224);   -- ID: 18 (Section C-4: 예비)
+('SECTION_C_1', 3.24, 2.10, -1.57, 221),   -- ID: 15 (Section C-1: 음료)
+('SECTION_C_2', 3.24, 2.10, -1.57, 222),   -- ID: 16 (Section C-2: 음료)
+('SECTION_C_3', 3.24, 2.10, -1.57, 223),   -- ID: 17 (Section C-3: 베이커리)
+('SECTION_C_4', 3.24, 2.10, -1.57, 224);   -- ID: 18 (Section C-4: 예비)
 
 -- Special Locations
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
