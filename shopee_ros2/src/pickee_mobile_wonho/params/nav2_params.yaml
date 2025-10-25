@@ -155,7 +155,7 @@ controller_server:
         critical_weight: 20.0              # 15.0 → 20.0으로 증가
         consider_footprint: true           # false → true (회전 시 footprint 고려)
         collision_cost: 12000.0            # 10000.0 → 12000.0으로 증가
-        collision_margin_distance: 0.12    # 0.08 → 0.12로 증가 (안전 마진 확대)
+        collision_margin_distance: 0.18    # 0.08 → 0.12로 증가 (안전 마진 확대)
         near_goal_distance: 0.5            # 0.4 → 0.5로 증가
         # inflation_radius: 0.55 # (only in Humble)
         # cost_scaling_factor: 10.0 # (only in Humble)
@@ -218,18 +218,18 @@ local_costmap:
       footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"
       # footprint: '[[0.15, 0.2695], [0.15, -0.2695], [-0.55, -0.2695], [-0.55, 0.2695]]'
       # 반지름 설정 (Global과 동일하게)
-      robot_radius: 0.42
-      inscribed_radius: 0.20
-      circumscribed_radius: 0.42
-      inflation_radius: 0.50
-      cost_scaling_factor: 5.0
+      robot_radius: 0.5
+      inscribed_radius: 0.15
+      circumscribed_radius: 0.5
+      inflation_radius: 0.6
+      cost_scaling_factor: 3.0
       footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"
 
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 5.0
-        inflation_radius: 0.50
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.6
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -271,10 +271,10 @@ global_costmap:
       footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"   
 
       # 반지름 설정 수정 
-      robot_radius: 0.42                    # 로봇 반지름
-      inscribed_radius: 0.20               # 내접원 반지름
-      circumscribed_radius: 0.42           # 외접원 반지름
-      inflation_radius: 0.50               # 팽창 반지름 (circumscribed_radius보다 커야 함)
+      robot_radius: 0.5                    # 로봇 반지름
+      inscribed_radius: 0.15               # 내접원 반지름
+      circumscribed_radius: 0.5           # 외접원 반지름
+      inflation_radius: 0.6               # 팽창 반지름 (circumscribed_radius보다 커야 함)
       cost_scaling_factor: 3.0             # 비용 스케일링
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       obstacle_layer:
@@ -298,7 +298,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.50
+        inflation_radius: 0.6
       always_send_full_costmap: True
 
 map_server:
@@ -334,9 +334,9 @@ planner_server:
       angle_quantization_bins: 72         # Number of angle bins for search
       analytic_expansion_ratio: 3.5       # The ratio to attempt analytic expansions during search for final approach.
       analytic_expansion_max_length: 3.0  # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
-      analytic_expansion_max_cost: 150.0  # 200.0 → 150.0으로 감소 (더 안전한 확장)
+      analytic_expansion_max_cost: 120.0  # 200.0 → 150.0으로 감소 (더 안전한 확장)
       analytic_expansion_max_cost_override: false  #  Whether or not to override the maximum cost setting if within critical distance to goal (ie probably required)
-      minimum_turning_radius: 0.30        # 0.35 → 0.30으로 감소 (더 급한 회전 허용)
+      minimum_turning_radius: 0.25        # 0.35 → 0.30으로 감소 (더 급한 회전 허용)
       reverse_penalty: 2.0                # Penalty to apply if motion is reversing, must be => 1
       change_penalty: 0.1                 # 0.0 → 0.1로 증가 (방향 변경 시 페널티)
       non_straight_penalty: 1.1           # 1.2 → 1.1로 감소 (직진 선호도 완화)
