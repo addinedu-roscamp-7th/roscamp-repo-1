@@ -1,0 +1,31 @@
+# ompl_planning.yaml (key bits)
+planning_plugins:
+  - ompl_interface/OMPLPlanner
+
+response_adapters:
+  - default_planning_response_adapters/AddTimeOptimalParameterization
+  - default_planning_response_adapters/ValidateSolution
+  - default_planning_response_adapters/DisplayMotionPath
+
+planner_configs:
+  RRTConnectkConfigDefault:
+    type: geometric::RRTConnect
+    range: 0.15
+    goal_bias: 0.1
+    longest_valid_segment_fraction: 0.005
+
+manipulator:
+  default_planner_config: RRTConnectkConfigDefault
+  planner_configs:
+    - RRTConnectkConfigDefault
+    - RRTstarkConfigDefault
+  # Let OMPL try harder
+  planning_time: 5.0
+  num_planning_attempts: 10
+  longest_valid_segment_fraction: 0.002
+  max_velocity_scaling_factor: 0.3
+  max_acceleration_scaling_factor: 0.3
+workspace_parameters:
+  min_corner: [-0.4, -0.4, 0.0]
+  max_corner: [0.4, 0.4, 0.6]
+
