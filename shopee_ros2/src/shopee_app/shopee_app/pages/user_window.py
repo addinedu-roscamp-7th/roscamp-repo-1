@@ -240,6 +240,12 @@ class UserWindow(QWidget):
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
+        self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
+        if self.shop_end_button is not None:
+            self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
+        self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
+        if self.shop_continue_button is not None:
+            self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
         self._setup_refresh_logo()
         self.setup_cart_section()
         self.setup_navigation()
@@ -301,6 +307,7 @@ class UserWindow(QWidget):
 
         self.profile_dialog = ProfileDialog(self)
         self.profile_dialog.set_user_info(self.user_info)
+        self.profile_dialog.logout_requested.connect(self.on_logout_requested)
         profile_button = getattr(self.ui, "btn_profile", None)
         if profile_button is not None:
             icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
@@ -944,6 +951,15 @@ class UserWindow(QWidget):
 
     def on_store_button_clicked(self):
         self.set_mode("pick")
+
+    def on_shop_end_clicked(self) -> None:
+        self.on_logout_requested()
+
+    def on_shop_continue_clicked(self) -> None:
+        self.pick_flow_completed = False
+        self.set_mode("shopping")
+        if self.order_select_stack is not None and self.page_moving_view is not None:
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
     def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
@@ -1741,6 +1757,9 @@ class UserWindow(QWidget):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def on_logout_requested(self) -> None:
+        self.close()
 
     def _update_user_header(self) -> None:
         name = str(

@@ -1083,13 +1083,51 @@
                        </layout>
                       </item>
                       <item>
-                       <widget class="QLabel" name="label_9">
-                        <property name="frameShape">
-                         <enum>QFrame::Box</enum>
-                        </property>
-                        <property name="text">
-                         <string>로봇 영상</string>
-                        </property>
+                       <widget class="QStackedWidget" name="stackedWidget_3">
+                        <widget class="QWidget" name="page_front">
+                         <layout class="QVBoxLayout" name="verticalLayout_20">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QGraphicsView" name="gv_front"/>
+                          </item>
+                         </layout>
+                        </widget>
+                        <widget class="QWidget" name="page_arm">
+                         <layout class="QVBoxLayout" name="verticalLayout_22">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QGraphicsView" name="gv_arm"/>
+                          </item>
+                         </layout>
+                        </widget>
                        </widget>
                       </item>
                      </layout>
@@ -1097,7 +1135,7 @@
                    </item>
                    <item>
                     <widget class="QWidget" name="order_select_area" native="true">
-                     <layout class="QVBoxLayout" name="verticalLayout_17" stretch="1,10">
+                     <layout class="QVBoxLayout" name="verticalLayout_17" stretch="0,1,10">
                       <property name="spacing">
                        <number>0</number>
                       </property>
@@ -1113,6 +1151,12 @@
                       <property name="bottomMargin">
                        <number>0</number>
                       </property>
+                      <item>
+                       <widget class="QStackedWidget" name="stackedWidget_2">
+                        <widget class="QWidget" name="page_3"/>
+                        <widget class="QWidget" name="page_4"/>
+                       </widget>
+                      </item>
                       <item>
                        <widget class="QLabel" name="label_11">
                         <property name="text">
@@ -1309,14 +1353,14 @@
                              <item>
                               <layout class="QHBoxLayout" name="horizontalLayout_11">
                                <item>
-                                <widget class="QPushButton" name="pushButton_4">
+                                <widget class="QPushButton" name="btn_shop_end">
                                  <property name="text">
                                   <string>쇼핑 종료하기</string>
                                  </property>
                                 </widget>
                                </item>
                                <item>
-                                <widget class="QPushButton" name="pushButton_3">
+                                <widget class="QPushButton" name="btn_shop_continue">
                                  <property name="text">
                                   <string>쇼핑 더하기</string>
                                  </property>
@@ -1371,7 +1415,7 @@
                 <item>
                  <widget class="QLabel" name="label_robot_notification">
                   <property name="text">
-                   <string>현재 쇼피패키 감자칩 60g 으로 이동중</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
