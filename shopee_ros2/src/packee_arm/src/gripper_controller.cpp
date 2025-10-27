@@ -30,8 +30,6 @@ bool GripperController::Close(const std::string & arm_side, double requested_for
   if (requested_force > force_limit_) {
     RCLCPP_ERROR(
       logger_,
-    pose.yaw_deg로 변환·관
-    리합니다.
       "팔 %s 그리퍼 힘이 한계를 초과했습니다. 요청=%.2f, 제한=%.2f",
       arm_side.c_str(),
       requested_force,
