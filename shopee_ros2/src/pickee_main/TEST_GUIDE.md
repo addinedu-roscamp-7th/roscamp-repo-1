@@ -97,6 +97,13 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
   target_pose: {x: 3.24, y: 2.1, theta: -1.57},
 }"
 
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "{
+  robot_id: 1,
+  order_id: 123,
+  location_id: 5,
+  target_pose: {x: 1.0, y: 1.0, theta: 0.0},
+}"
+
 # Global Path 업데이트
 ros2 service call /pickee/mobile/update_global_path shopee_interfaces/srv/PickeeMobileUpdateGlobalPath "{
   robot_id: 1,
@@ -549,14 +556,14 @@ ros2 topic pub --once /pickee/product_detected shopee_interfaces/msg/PickeeProdu
 }"
 
 ros2 topic echo /pickee/robot_status
-ros2 topic pub --once /pickee/robot_status shopee_interfaces/msg/PickeeRobotStatus "{
+ros2 topic pub /pickee/robot_status shopee_interfaces/msg/PickeeRobotStatus "{
   robot_id: 1,
   state: 'PK_S10',
   battery_level: 70.0,
   current_order_id: 1,
-  position_x: 10.0,
-  position_y: 10.0,
-  orientation_z: 10.0
+  position_x: 0.0,
+  position_y: 0.0,
+  orientation_z: 0.0
 }"
 
 ros2 topic echo /pickee/vision/cart_check_result
