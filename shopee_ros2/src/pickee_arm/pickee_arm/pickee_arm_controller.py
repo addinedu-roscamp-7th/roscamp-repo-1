@@ -17,6 +17,7 @@ PRE_PICK_2_POSE = [105.73, -21.0, -51.41, -17.05, 8.17, -32.16]
 PICK_WASABI_POSE = [108.72, -43.59, -51.85, -0.35, 5.8, -26.63]
 BASKET_ABOVE_POSE = [-60.46, -15.55, -70.13, -1.58, -3.95, -16.52]
 BASKET_PLACE_POSE = [-63.45, -48.95, -70.13, 18.72, 4.13, -18.1]
+CHECK_SHELF_POSE = [80.68, 40.25, -15.46, -77.43, 22.76, -60.2]
 
 class PickeeArmController(Node):
     """Controls the Pickee Arm based on hardcoded sequences, with improved safety and synchronization."""
@@ -85,6 +86,8 @@ class PickeeArmController(Node):
             target_pose_joints = STANDBY_POSE
         elif request.pose_type == "lying_down":
             target_pose_joints = LYING_DOWN_POSE
+        elif request.pose_type == "shelf_view":
+            target_pose_joints = CHECK_SHELF_POSE
         self._move_to_target_joints(target_pose_joints)
         status_msg = ArmPoseStatus(status="completed", progress=1.0, message=f"Reached {request.pose_type} pose")
         self.pose_status_pub.publish(status_msg)
