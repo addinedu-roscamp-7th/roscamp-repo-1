@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from pathlib import Path
@@ -5,6 +6,7 @@ from dataclasses import replace
 from typing import Any
 from typing import Callable
 
+import yaml
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
 from PyQt6.QtGui import QPainter
@@ -12,6 +14,9 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QTransform
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtGui import QImage
+from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush
+from PyQt6.QtGui import QColor
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
@@ -27,11 +32,16 @@ from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtWidgets import QGraphicsScene
 from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtWidgets import QGraphicsEllipseItem
+from PyQt6.QtWidgets import QGraphicsLineItem
+from PyQt6.QtWidgets import QGraphicsPixmapItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.services.video_stream_client import VideoStreamReceiver
+from shopee_app.services.rosbridge_client import RosbridgePoseSubscriber
+from shopee_app.services.rosbridge_client import RosbridgeConfig
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
@@ -45,6 +55,52 @@ if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
     sys.path.append(str(_LLM_SERVICE_DIR))
 
 from STT_module import STT_Module
+
+
+DEFAULT_MAP_CONFIG = Path(__file__).resolve().parents[5] / 'shopee_ros2' / 'src' / 'pickee_mobile' / 'map' / 'shopee_map.yaml'
+DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / 'image' / 'map.png'
+VECTOR_ICON_PATH = Path(__file__).resolve().parent / 'icons' / 'vector.svg'
+DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+
+
+def _get_env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _get_env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        parts = [float(part.strip()) for part in value.split(",")]
+        return tuple(parts)
+    except ValueError:
+        return default
+
+
+ROSBRIDGE_HOST = os.getenv('SHOPEE_ROSBRIDGE_HOST', '127.0.0.1')
+ROSBRIDGE_PORT = _get_env_int('SHOPEE_ROSBRIDGE_PORT', 9090)
+ROSBRIDGE_TOPIC = os.getenv('SHOPEE_ROSBRIDGE_POSE_TOPIC', '/pickee/mobile/pose')
+MAP_CONFIG_PATH = Path(os.getenv('SHOPEE_APP_MAP_CONFIG', str(DEFAULT_MAP_CONFIG)))
+MAP_IMAGE_PATH = os.getenv('SHOPEE_APP_MAP_IMAGE')
+MAP_RESOLUTION_OVERRIDE = _get_env_float('SHOPEE_APP_MAP_RESOLUTION', -1.0)
+MAP_ORIGIN_OVERRIDE = _get_env_tuple('SHOPEE_APP_MAP_ORIGIN', ())
 
 
 class ClickableLabel(QLabel):
@@ -243,13 +299,22 @@ class UserWindow(QWidget):
         self.page_arm = getattr(self.ui, "page_arm", None)
         self.gv_front = getattr(self.ui, "gv_front", None)
         self.gv_arm = getattr(self.ui, "gv_arm", None)
+        self.map_view = getattr(self.ui, "gv_map", None)
         self.front_scene: QGraphicsScene | None = None
         self.arm_scene: QGraphicsScene | None = None
         self.front_item = None
         self.arm_item = None
+        self.map_scene: QGraphicsScene | None = None
+        self.map_pixmap_item: QGraphicsPixmapItem | None = None
+        self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
+        self.map_heading_item: QGraphicsLineItem | None = None
+        self.map_resolution: float | None = None
+        self.map_origin: tuple[float, float] | None = None
+        self.map_image_size: tuple[int, int] | None = None
         self.video_receiver: VideoStreamReceiver | None = None
         self.active_camera_type: str | None = None
         self._init_video_views()
+        self._init_map_view()
         self.select_title_label = getattr(self.ui, "label_7", None)
         self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
@@ -362,6 +427,8 @@ class UserWindow(QWidget):
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
+        self.pose_subscriber: RosbridgePoseSubscriber | None = None
+        self._setup_pose_subscription()
 
     def _ensure_user_identity(self) -> str:
         # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
@@ -458,6 +525,10 @@ class UserWindow(QWidget):
             self.notification_client.stop()
         self._shutdown_speech_recognition()
         self._stop_video_stream(send_request=True)
+        if self.pose_subscriber is not None:
+            self.pose_subscriber.stop()
+            self.pose_subscriber.deleteLater()
+            self.pose_subscriber = None
         self.closed.emit()
         super().closeEvent(event)
 
@@ -997,6 +1068,8 @@ class UserWindow(QWidget):
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
         if self.active_camera_type:
             self._update_video_buttons(self.active_camera_type)
+        else:
+            self._auto_start_front_camera_if_possible()
 
     def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
@@ -1530,6 +1603,140 @@ class UserWindow(QWidget):
             self.video_stack.setCurrentWidget(self.page_front)
         self._update_video_buttons(None)
 
+    def _init_map_view(self) -> None:
+        if self.map_view is None:
+            return
+        self.map_scene = QGraphicsScene(self.map_view)
+        self.map_view.setScene(self.map_scene)
+        self.map_view.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        self.map_view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        pixmap, resolution, origin = self._load_map_pixmap()
+        self.map_pixmap_item = self.map_scene.addPixmap(pixmap)
+        self.map_pixmap_item.setZValue(0)
+        scene_rect = self.map_pixmap_item.boundingRect()
+        self.map_scene.setSceneRect(scene_rect)
+        self._fit_map_to_view()
+        self.map_resolution = resolution
+        self.map_origin = (origin[0], origin[1])
+        self.map_image_size = (pixmap.width(), pixmap.height())
+        robot_item, heading_item = self._create_robot_graphics()
+        robot_item.setZValue(10)
+        robot_item.setVisible(False)
+        self.map_scene.addItem(robot_item)
+        if heading_item is not None:
+            heading_item.setZValue(11)
+            heading_item.setVisible(False)
+        self.map_robot_item = robot_item
+        self.map_heading_item = heading_item
+        self.map_view.installEventFilter(self)
+
+    def _create_robot_graphics(self) -> tuple[QGraphicsPixmapItem | QGraphicsEllipseItem, QGraphicsLineItem | None]:
+        pixmap = self._render_robot_svg()
+        if pixmap is not None and not pixmap.isNull():
+            item = QGraphicsPixmapItem(pixmap)
+            item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
+            item.setTransformationMode(QtCore.Qt.TransformationMode.SmoothTransformation)
+            return item, None
+        radius = 10
+        pen = QPen(QColor('#ff4649'))
+        pen.setWidth(2)
+        brush = QBrush(QColor('#ff4649'))
+        item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
+        item.setPen(pen)
+        item.setBrush(brush)
+        heading = QGraphicsLineItem(0, 0, radius * 2, 0, item)
+        heading.setPen(pen)
+        return item, heading
+
+    def _render_robot_svg(self) -> QPixmap | None:
+        if not VECTOR_ICON_PATH.exists():
+            return None
+        renderer = QSvgRenderer(str(VECTOR_ICON_PATH))
+        if not renderer.isValid():
+            return None
+        size = renderer.defaultSize()
+        if not size.isValid() or size.width() <= 0 or size.height() <= 0:
+            size = QtCore.QSize(*DEFAULT_ROBOT_ICON_SIZE)
+        image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+        return QPixmap.fromImage(image)
+
+    def _load_map_pixmap(self) -> tuple[QPixmap, float, tuple[float, float, float]]:
+        if MAP_IMAGE_PATH:
+            pixmap = QPixmap(MAP_IMAGE_PATH)
+            if not pixmap.isNull():
+                resolution = (
+                    MAP_RESOLUTION_OVERRIDE
+                    if MAP_RESOLUTION_OVERRIDE > 0
+                    else 0.05
+                )
+                origin_values = (
+                    MAP_ORIGIN_OVERRIDE
+                    if MAP_ORIGIN_OVERRIDE
+                    else (0.0, 0.0, 0.0)
+                )
+                origin_x = origin_values[0] if len(origin_values) > 0 else 0.0
+                origin_y = origin_values[1] if len(origin_values) > 1 else 0.0
+                origin_theta = origin_values[2] if len(origin_values) > 2 else 0.0
+                return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            print(f"[Map] 지정된 MAP_IMAGE를 불러오지 못했습니다: {MAP_IMAGE_PATH}")
+        config_path = MAP_CONFIG_PATH
+        try:
+            with config_path.open("r", encoding="utf-8") as file:
+                data = yaml.safe_load(file) or {}
+            image_name = data.get("image")
+            resolution = float(data.get("resolution", 0.05))
+            origin_raw = data.get("origin") or [0.0, 0.0, 0.0]
+            origin_x = float(origin_raw[0]) if len(origin_raw) > 0 else 0.0
+            origin_y = float(origin_raw[1]) if len(origin_raw) > 1 else 0.0
+            origin_theta = float(origin_raw[2]) if len(origin_raw) > 2 else 0.0
+            candidate_paths: list[Path] = []
+            if DEFAULT_IMAGE_FALLBACK.exists():
+                candidate_paths.append(DEFAULT_IMAGE_FALLBACK.resolve())
+            if image_name:
+                candidate_paths.append((config_path.parent / image_name).resolve())
+            for candidate in candidate_paths:
+                pixmap = QPixmap(str(candidate))
+                if not pixmap.isNull():
+                    return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            last_candidate = candidate_paths[-1] if candidate_paths else config_path.parent
+            raise FileNotFoundError(f"map image not found: {last_candidate}")
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[Map] 지도 정보를 불러오지 못했습니다: {exc}")
+        if DEFAULT_IMAGE_FALLBACK.exists():
+            pixmap = QPixmap(str(DEFAULT_IMAGE_FALLBACK))
+            if not pixmap.isNull():
+                return pixmap, 0.05, (0.0, 0.0, 0.0)
+        fallback = QPixmap(640, 480)
+        fallback.fill(QColor("#f5f5f5"))
+        painter = QPainter(fallback)
+        grid_pen = QPen(QColor("#d0d0d0"))
+        grid_pen.setWidth(1)
+        painter.setPen(grid_pen)
+        step = 40
+        for x in range(0, fallback.width(), step):
+            painter.drawLine(x, 0, x, fallback.height())
+        for y in range(0, fallback.height(), step):
+            painter.drawLine(0, y, fallback.width(), y)
+            painter.end()
+        return fallback, 0.05, (0.0, 0.0, 0.0)
+
+    def _fit_map_to_view(self) -> None:
+        if self.map_view is None or self.map_scene is None or self.map_pixmap_item is None:
+            return
+        rect = self.map_pixmap_item.boundingRect()
+        if rect.isNull():
+            return
+        self.map_view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def eventFilter(self, obj: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        if obj is self.map_view and event.type() == QtCore.QEvent.Type.Resize:
+            QtCore.QTimer.singleShot(0, self._fit_map_to_view)
+        return super().eventFilter(obj, event)
+
     def _update_video_buttons(self, active: str | None) -> None:
         if self.front_view_button is not None:
             self.front_view_button.setChecked(active == "front")
@@ -1554,6 +1761,71 @@ class UserWindow(QWidget):
         if self.front_view_button is None:
             return
         self.on_camera_button_clicked("front")
+
+    def _setup_pose_subscription(self) -> None:
+        if self.pose_subscriber is not None:
+            return
+        config = RosbridgeConfig(
+            host=ROSBRIDGE_HOST,
+            port=ROSBRIDGE_PORT,
+            topic=ROSBRIDGE_TOPIC,
+        )
+        self.pose_subscriber = RosbridgePoseSubscriber(config, parent=self)
+        self.pose_subscriber.pose_received.connect(self.on_pose_message)
+        self.pose_subscriber.connection_error.connect(self.on_pose_error)
+        self.pose_subscriber.start()
+
+    def on_pose_message(self, msg: dict) -> None:
+        robot_id_raw = msg.get("robot_id")
+        try:
+            robot_id_value = int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            robot_id_value = None
+        if (
+            self.current_robot_id is not None
+            and robot_id_value is not None
+            and robot_id_value != self.current_robot_id
+        ):
+            return
+        pose = msg.get("current_pose") or {}
+        x = pose.get("x")
+        y = pose.get("y")
+        theta = pose.get("theta", 0.0)
+        if x is None or y is None:
+            return
+        if self.current_robot_id is None and robot_id_value is not None:
+            self.current_robot_id = robot_id_value
+            self._auto_start_front_camera_if_possible()
+        self._update_robot_pose(float(x), float(y), float(theta))
+
+    def on_pose_error(self, message: str) -> None:
+        print(f"[Rosbridge] {message}")
+
+    def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
+        if (
+            self.map_scene is None
+            or self.map_robot_item is None
+            or self.map_resolution is None
+            or self.map_origin is None
+            or self.map_image_size is None
+        ):
+            return
+        width, height = self.map_image_size
+        origin_x, origin_y = self.map_origin
+        px = (x - origin_x) / self.map_resolution
+        py = (y - origin_y) / self.map_resolution
+        scene_y = height - py
+        if not (math.isfinite(px) and math.isfinite(scene_y)):
+            return
+        px = max(0.0, min(px, float(width)))
+        scene_y = max(0.0, min(scene_y, float(height)))
+        self.map_robot_item.setVisible(True)
+        if self.map_heading_item is not None:
+            self.map_heading_item.setVisible(True)
+        self.map_robot_item.setPos(px, scene_y)
+        angle_deg = -math.degrees(theta)
+        self.map_robot_item.setRotation(angle_deg)
+        self._fit_map_to_view()
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""

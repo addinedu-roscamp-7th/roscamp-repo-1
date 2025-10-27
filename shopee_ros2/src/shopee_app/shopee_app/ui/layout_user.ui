@@ -982,7 +982,7 @@
                 </property>
                 <item>
                  <widget class="QWidget" name="map_area" native="true">
-                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,17">
+                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,16">
                    <property name="spacing">
                     <number>0</number>
                    </property>
@@ -1006,14 +1006,7 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QLabel" name="label_13">
-                     <property name="frameShape">
-                      <enum>QFrame::Panel</enum>
-                     </property>
-                     <property name="text">
-                      <string>지도</string>
-                     </property>
-                    </widget>
+                    <widget class="QGraphicsView" name="gv_map"/>
                    </item>
                   </layout>
                  </widget>
