@@ -1,3 +1,6 @@
+// packee_arm_controller.cpp
+// 🟢 [NOTE] Pose6D는 joint_1~joint_6 필드 기반 구조로 처리됩니다.
+
 #include <array>
 #include <cmath>
 #include <memory>
@@ -28,6 +31,7 @@ namespace packee_arm {
 
 namespace detail {
 
+// Pose6D 내부 필드 탐지용 템플릿
 template<typename T, typename = void>
 struct HasPoseField : std::false_type {};
 
@@ -54,25 +58,21 @@ using shopee_interfaces::srv::ArmMoveToPose;
 using shopee_interfaces::srv::ArmPickProduct;
 using shopee_interfaces::srv::ArmPlaceProduct;
 
-// PackeeArmController 클래스는 ROS 인터페이스, 파라미터 관리, 상태 발행을 담당한다.
+// ------------------------------------------------------------------
+// PackeeArmController 클래스 정의
+// ------------------------------------------------------------------
 class PackeeArmController : public rclcpp::Node {
 public:
   PackeeArmController()
   : rclcpp::Node("packee_arm_controller"),
     valid_pose_types_({"cart_view", "standby"}),
-    valid_arm_sides_({"left", "right"}) {
-    // myCobot 280을 위한 기본 파라미터와 자세 프리셋을 로드한다.
+    valid_arm_sides_({"left", "right"}) 
+  {
     DeclareAndLoadParameters();
 
-    pose_status_pub_ = this->create_publisher<ArmPoseStatus>(
-      "/packee/arm/pose_status",
-      rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
-    pick_status_pub_ = this->create_publisher<ArmTaskStatus>(
-      "/packee/arm/pick_status",
-      rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
-    place_status_pub_ = this->create_publisher<ArmTaskStatus>(
-      "/packee/arm/place_status",
-      rclcpp::QoS(rclcpp::KeepLast(10)).reliable());
+    pose_status_pub_ = this->create_publisher<ArmPoseStatus>("/packee/arm/pose_status", 10);
+    pick_status_pub_ = this->create_publisher<ArmTaskStatus>("/packee/arm/pick_status", 10);
+    place_status_pub_ = this->create_publisher<ArmTaskStatus>("/packee/arm/place_status", 10);
 
     move_service_ = this->create_service<ArmMoveToPose>(
       "/packee/arm/move_to_pose",
@@ -85,12 +85,9 @@ public:
       std::bind(&PackeeArmController::HandlePlaceProduct, this, std::placeholders::_1, std::placeholders::_2));
 
     visual_servo_ = std::make_unique<VisualServoModule>(
-      servo_gain_xy_,
-      servo_gain_z_,
-      servo_gain_yaw_,
-      cnn_confidence_threshold_,
-      max_translation_speed_,
-      max_yaw_speed_deg_);
+      servo_gain_xy_, servo_gain_z_, servo_gain_yaw_,
+      cnn_confidence_threshold_, max_translation_speed_, max_yaw_speed_deg_);
+
     driver_ = std::make_unique<ArmDriverProxy>(
       this,
       max_translation_speed_,
@@ -106,39 +103,25 @@ public:
       gripper_force_limit_,
       left_gripper_topic_,
       right_gripper_topic_);
+
+      this->get_logger(), max_translation_speed_, max_yaw_speed_deg_, command_timeout_sec_);
+
+    gripper_ = std::make_unique<GripperController>(
+      this->get_logger(), gripper_force_limit_);
+
     execution_manager_ = std::make_unique<ExecutionManager>(
       this,
-      std::bind(
-        &PackeeArmController::PublishPoseStatus,
-        this,
-        std::placeholders::_1,
-        std::placeholders::_2,
-        std::placeholders::_3,
-        std::placeholders::_4,
-        std::placeholders::_5,
-        std::placeholders::_6),
-      std::bind(
-        &PackeeArmController::PublishPickStatus,
-        this,
-        std::placeholders::_1,
-        std::placeholders::_2,
-        std::placeholders::_3,
-        std::placeholders::_4,
-        std::placeholders::_5,
-        std::placeholders::_6,
-        std::placeholders::_7,
-        std::placeholders::_8),
-      std::bind(
-        &PackeeArmController::PublishPlaceStatus,
-        this,
-        std::placeholders::_1,
-        std::placeholders::_2,
-        std::placeholders::_3,
-        std::placeholders::_4,
-        std::placeholders::_5,
-        std::placeholders::_6,
-        std::placeholders::_7,
-        std::placeholders::_8),
+      std::bind(&PackeeArmController::PublishPoseStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6),
+      std::bind(&PackeeArmController::PublishPickStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+        std::placeholders::_7, std::placeholders::_8),
+      std::bind(&PackeeArmController::PublishPlaceStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+        std::placeholders::_7, std::placeholders::_8),
       visual_servo_.get(),
       driver_.get(),
       gripper_.get(),
@@ -150,11 +133,12 @@ public:
     parameter_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&PackeeArmController::OnParametersUpdated, this, std::placeholders::_1));
 
-    RCLCPP_INFO(this->get_logger(), "Packee Arm Controller 노드가 초기화되었습니다.");
+    RCLCPP_INFO(this->get_logger(), "✅ Packee Arm Controller 노드 초기화 완료");
   }
 
 private:
-  // PoseComponents 구조체는 Pose6D 메시지를 카티션 좌표/회전(yaw)로 변환한 결과를 저장한다.
+  // ------------------------------------------------------------------
+  // 내부 Pose 구조 정의
   struct PoseComponents {
     double x;
     double y;
@@ -267,6 +251,11 @@ private:
 
   PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
     // Pose6D 메시지를 x, y, z, yaw_deg로 변환한다.
+
+  // ------------------------------------------------------------------
+  // Pose6D 추출 (joint_1~joint_4 기준)
+  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D &pose_msg) const {
+
     PoseComponents components{};
     components.x = static_cast<double>(pose_msg.x);
     components.y = static_cast<double>(pose_msg.y);
@@ -274,6 +263,7 @@ private:
     components.yaw_deg = static_cast<double>(pose_msg.rz) * kRadiansToDegrees;
     return components;
   }
+
 
   template<typename DetectedProductT>
   PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
@@ -304,41 +294,38 @@ private:
     return true;
   }
 
+  // ------------------------------------------------------------------
+  // MoveToPose 핸들러 
   void HandleMoveToPose(
     const std::shared_ptr<ArmMoveToPose::Request> request,
-    std::shared_ptr<ArmMoveToPose::Response> response) {
+    std::shared_ptr<ArmMoveToPose::Response> response) 
+  {
     if (!valid_pose_types_.count(request->pose_type)) {
-      PublishPoseStatus(
-        request->robot_id,
-        request->order_id,
-        request->pose_type,
-        "failed",
-        0.0F,
-        "지원되지 않는 pose_type입니다.");
+      PublishPoseStatus(request->robot_id, request->order_id,
+        request->pose_type, "failed", 0.0F, "지원되지 않는 pose_type입니다.");
       response->success = false;
       response->message = "유효하지 않은 pose_type입니다.";
       return;
     }
 
-    MoveCommand command{};
-    command.robot_id = request->robot_id;
-    command.order_id = request->order_id;
-    command.pose_type = request->pose_type;
-    execution_manager_->EnqueueMove(command);
+    MoveCommand cmd{};
+    cmd.robot_id = request->robot_id;
+    cmd.order_id = request->order_id;
+    cmd.pose_type = request->pose_type;
+    execution_manager_->EnqueueMove(cmd);
+
     response->success = true;
     response->message = "자세 변경 명령을 수락했습니다.";
-    RCLCPP_INFO(
-      this->get_logger(),
-      "자세 변경 명령 수신: robot_id=%d, order_id=%d, pose_type=%s",
-      request->robot_id,
-      request->order_id,
-      request->pose_type.c_str());
   }
 
+  // ------------------------------------------------------------------
+  // PickProduct 핸들러
   void HandlePickProduct(
     const std::shared_ptr<ArmPickProduct::Request> request,
-    std::shared_ptr<ArmPickProduct::Response> response) {
+    std::shared_ptr<ArmPickProduct::Response> response)
+  {
     if (!valid_arm_sides_.count(request->arm_side)) {
+
       PublishPickStatus(
         request->robot_id,
         request->order_id,
@@ -348,10 +335,15 @@ private:
         "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
+
+      PublishPickStatus(request->robot_id, request->order_id,
+        request->target_product.product_id, request->arm_side,
+        "failed", "servoing", 0.0F, "arm_side가 유효하지 않습니다."); 
       response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
+
 
     if (!IsValidBoundingBox(
         request->target_product.bbox.x1,
@@ -456,21 +448,37 @@ private:
     command.bbox_x2 = request->target_product.bbox.x2;
     command.bbox_y2 = request->target_product.bbox.y2;
     execution_manager_->EnqueuePick(command);
+
+    const PoseComponents pick_pose = ExtractPoseFromPoseMsg(request->target_product.pose);
+
+    PickCommand cmd{};
+    cmd.robot_id = request->robot_id;
+    cmd.order_id = request->order_id;
+    cmd.product_id = request->target_product.product_id;
+    cmd.arm_side = request->arm_side;
+    cmd.target_x = pick_pose.x;
+    cmd.target_y = pick_pose.y;
+    cmd.target_z = pick_pose.z;
+    cmd.target_yaw_deg = pick_pose.yaw_deg;
+    cmd.bbox_x1 = request->target_product.bbox.x1;
+    cmd.bbox_y1 = request->target_product.bbox.y1;
+    cmd.bbox_x2 = request->target_product.bbox.x2;
+    cmd.bbox_y2 = request->target_product.bbox.y2;
+    execution_manager_->EnqueuePick(cmd);
+
+
     response->success = true;
     response->message = "상품 픽업 명령을 수락했습니다.";
-    RCLCPP_INFO(
-      this->get_logger(),
-      "픽업 명령 수신: robot_id=%d, order_id=%d, product_id=%d, arm_side=%s",
-      request->robot_id,
-      request->order_id,
-      request->target_product.product_id,
-      request->arm_side.c_str());
   }
 
+  // ------------------------------------------------------------------
+  // 🟢 [FIXED NOTE] PlaceProduct 핸들러 (Pose6D = joint_1~joint_4)
   void HandlePlaceProduct(
     const std::shared_ptr<ArmPlaceProduct::Request> request,
-    std::shared_ptr<ArmPlaceProduct::Response> response) {
+    std::shared_ptr<ArmPlaceProduct::Response> response)
+  {
     if (!valid_arm_sides_.count(request->arm_side)) {
+
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
@@ -480,12 +488,18 @@ private:
         "planning",
         0.0F,
         "arm_side가 유효하지 않습니다.");
+
+      PublishPlaceStatus(request->robot_id, request->order_id,
+        request->product_id, request->arm_side,
+        "failed", "servoing", 0.0F, "arm_side가 유효하지 않습니다.");
+
       response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
 
     const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
+
     if (!AreFinite(place_pose) ||
         !std::isfinite(static_cast<double>(request->pose.rx)) ||
         !std::isfinite(static_cast<double>(request->pose.ry)) ||
@@ -499,10 +513,18 @@ private:
         "planning",
         0.0F,
         "pose에 유효하지 않은 값이 포함되어 있습니다.");
+
+
+    if (!AreFinite(place_pose)) {
+      PublishPlaceStatus(request->robot_id, request->order_id,
+        request->product_id, request->arm_side,
+        "failed", "servoing", 0.0F, "pose 값이 잘못되었습니다.");
+
       response->success = false;
       response->message = "pose 값이 잘못되었습니다.";
       return;
     }
+
 
     if (!IsWithinWorkspace(place_pose.x, place_pose.y, place_pose.z)) {
       PublishPlaceStatus(
@@ -530,201 +552,82 @@ private:
     command.target_pose.yaw_deg = place_pose.yaw_deg;
     command.target_pose.confidence = 1.0;
     execution_manager_->EnqueuePlace(command);
+
+    PlaceCommand cmd{};
+    cmd.robot_id = request->robot_id;
+    cmd.order_id = request->order_id;
+    cmd.product_id = request->product_id;
+    cmd.arm_side = request->arm_side;
+    cmd.box_x = place_pose.x;
+    cmd.box_y = place_pose.y;
+    cmd.box_z = place_pose.z;
+    cmd.box_yaw_deg = place_pose.yaw_deg;
+    execution_manager_->EnqueuePlace(cmd);
+
     response->success = true;
     response->message = "상품 담기 명령을 수락했습니다.";
-    RCLCPP_INFO(
-      this->get_logger(),
-      "담기 명령 수신: robot_id=%d, order_id=%d, product_id=%d, arm_side=%s",
-      request->robot_id,
-      request->order_id,
-      request->product_id,
-      request->arm_side.c_str());
   }
 
-  void PublishPoseStatus(
-    int32_t robot_id,
-    int32_t order_id,
-    const std::string & pose_type,
-    const std::string & status,
-    float progress,
-    const std::string & message) {
-    auto status_msg = ArmPoseStatus();
-    status_msg.robot_id = robot_id;
-    status_msg.order_id = order_id;
-    status_msg.pose_type = pose_type;
-    status_msg.status = status;
-    status_msg.progress = progress;
-    status_msg.message = message;
-    pose_status_pub_->publish(status_msg);
+  // ------------------------------------------------------------------
+  // 상태 퍼블리셔 함수들
+  void PublishPoseStatus(int32_t robot_id, int32_t order_id,
+                         const std::string &pose_type,
+                         const std::string &status, float progress,
+                         const std::string &message)
+  {
+    ArmPoseStatus msg;
+    msg.robot_id = robot_id;
+    msg.order_id = order_id;
+    msg.pose_type = pose_type;
+    msg.status = status;
+    msg.progress = progress;
+    msg.message = message;
+    pose_status_pub_->publish(msg);
   }
 
-  void PublishPickStatus(
-    int32_t robot_id,
-    int32_t order_id,
-    int32_t product_id,
-    const std::string & arm_side,
-    const std::string & status,
-    const std::string & current_phase,
-    float progress,
-    const std::string & message) {
-    auto status_msg = ArmTaskStatus();
-    status_msg.robot_id = robot_id;
-    status_msg.order_id = order_id;
-    status_msg.product_id = product_id;
-    status_msg.arm_side = arm_side;
-    status_msg.status = status;
-    status_msg.current_phase = current_phase;
-    status_msg.progress = progress;
-    status_msg.message = message;
-    pick_status_pub_->publish(status_msg);
+  void PublishPickStatus(int32_t robot_id, int32_t order_id, int32_t product_id,
+                         const std::string &arm_side,
+                         const std::string &status,
+                         const std::string &phase,
+                         float progress, const std::string &message)
+  {
+    ArmTaskStatus msg;
+    msg.robot_id = robot_id;
+    msg.order_id = order_id;
+    msg.product_id = product_id;
+    msg.arm_side = arm_side;
+    msg.status = status;
+    msg.current_phase = phase;
+    msg.progress = progress;
+    msg.message = message;
+    pick_status_pub_->publish(msg);
   }
 
-  void PublishPlaceStatus(
-    int32_t robot_id,
-    int32_t order_id,
-    int32_t product_id,
-    const std::string & arm_side,
-    const std::string & status,
-    const std::string & current_phase,
-    float progress,
-    const std::string & message) {
-    auto status_msg = ArmTaskStatus();
-    status_msg.robot_id = robot_id;
-    status_msg.order_id = order_id;
-    status_msg.product_id = product_id;
-    status_msg.arm_side = arm_side;
-    status_msg.status = status;
-    status_msg.current_phase = current_phase;
-    status_msg.progress = progress;
-    status_msg.message = message;
-    place_status_pub_->publish(status_msg);
+  void PublishPlaceStatus(int32_t robot_id, int32_t order_id, int32_t product_id,
+                          const std::string &arm_side,
+                          const std::string &status,
+                          const std::string &phase,
+                          float progress, const std::string &message)
+  {
+    ArmTaskStatus msg;
+    msg.robot_id = robot_id;
+    msg.order_id = order_id;
+    msg.product_id = product_id;
+    msg.arm_side = arm_side;
+    msg.status = status;
+    msg.current_phase = phase;
+    msg.progress = progress;
+    msg.message = message;
+    place_status_pub_->publish(msg);
   }
 
-  rcl_interfaces::msg::SetParametersResult OnParametersUpdated(
-    const std::vector<rclcpp::Parameter> & parameters) {
-    auto result = rcl_interfaces::msg::SetParametersResult();
-    result.successful = true;
-    result.reason = "파라미터가 업데이트되었습니다.";
-
-    double next_servo_gain_xy = servo_gain_xy_;
-    double next_servo_gain_z = servo_gain_z_;
-    double next_servo_gain_yaw = servo_gain_yaw_;
-    double next_confidence_threshold = cnn_confidence_threshold_;
-    double next_max_translation_speed = max_translation_speed_;
-    double next_max_yaw_speed_deg = max_yaw_speed_deg_;
-    double next_gripper_force_limit = gripper_force_limit_;
-    double next_progress_interval = progress_publish_interval_sec_;
-    double next_command_timeout = command_timeout_sec_;
-    PoseEstimate next_cart_view_preset = cart_view_preset_;
-    PoseEstimate next_standby_preset = standby_preset_;
-
-    for (const auto & parameter : parameters) {
-      if ("servo_gain_xy" == parameter.get_name()) {
-        next_servo_gain_xy = parameter.as_double();
-      } else if ("servo_gain_z" == parameter.get_name()) {
-        next_servo_gain_z = parameter.as_double();
-      } else if ("servo_gain_yaw" == parameter.get_name()) {
-        next_servo_gain_yaw = parameter.as_double();
-      } else if ("cnn_confidence_threshold" == parameter.get_name()) {
-        next_confidence_threshold = parameter.as_double();
-      } else if ("max_translation_speed" == parameter.get_name()) {
-        next_max_translation_speed = parameter.as_double();
-      } else if ("max_yaw_speed_deg" == parameter.get_name()) {
-        next_max_yaw_speed_deg = parameter.as_double();
-      } else if ("gripper_force_limit" == parameter.get_name()) {
-        next_gripper_force_limit = parameter.as_double();
-      } else if ("progress_publish_interval" == parameter.get_name()) {
-        next_progress_interval = parameter.as_double();
-      } else if ("command_timeout_sec" == parameter.get_name()) {
-        next_command_timeout = parameter.as_double();
-      } else if ("preset_pose_cart_view" == parameter.get_name()) {
-        next_cart_view_preset = ParsePoseParameter(
-          parameter.as_double_array(),
-          "preset_pose_cart_view",
-          default_cart_view_pose_);
-      } else if ("preset_pose_standby" == parameter.get_name()) {
-        next_standby_preset = ParsePoseParameter(
-          parameter.as_double_array(),
-          "preset_pose_standby",
-          default_standby_pose_);
-      }
-    }
-
-    if (next_servo_gain_xy <= 0.0 || next_servo_gain_z <= 0.0 || next_servo_gain_yaw <= 0.0) {
-      result.successful = false;
-      result.reason = "서보 게인은 0보다 커야 합니다.";
-      return result;
-    }
-    if (next_confidence_threshold <= 0.0 || next_confidence_threshold > 1.0) {
-      result.successful = false;
-      result.reason = "cnn_confidence_threshold는 (0, 1] 범위여야 합니다.";
-      return result;
-    }
-    if (next_max_translation_speed <= 0.0 || next_max_yaw_speed_deg <= 0.0) {
-      result.successful = false;
-      result.reason = "속도 제한은 0보다 커야 합니다.";
-      return result;
-    }
-    if (next_gripper_force_limit <= 0.0) {
-      result.successful = false;
-      result.reason = "gripper_force_limit은 0보다 커야 합니다.";
-      return result;
-    }
-    if (next_progress_interval <= 0.0) {
-      result.successful = false;
-      result.reason = "progress_publish_interval은 0보다 커야 합니다.";
-      return result;
-    }
-    if (next_command_timeout <= 0.0) {
-      result.successful = false;
-      result.reason = "command_timeout_sec은 0보다 커야 합니다.";
-      return result;
-    }
-
-    servo_gain_xy_ = next_servo_gain_xy;
-    servo_gain_z_ = next_servo_gain_z;
-    servo_gain_yaw_ = next_servo_gain_yaw;
-    cnn_confidence_threshold_ = next_confidence_threshold;
-    max_translation_speed_ = next_max_translation_speed;
-    max_yaw_speed_deg_ = next_max_yaw_speed_deg;
-    gripper_force_limit_ = next_gripper_force_limit;
-    progress_publish_interval_sec_ = next_progress_interval;
-    command_timeout_sec_ = next_command_timeout;
-    cart_view_preset_ = next_cart_view_preset;
-    standby_preset_ = next_standby_preset;
-
-    visual_servo_->UpdateGains(servo_gain_xy_, servo_gain_z_, servo_gain_yaw_);
-    visual_servo_->UpdateConstraints(
-      cnn_confidence_threshold_,
-      max_translation_speed_,
-      max_yaw_speed_deg_);
-    gripper_->UpdateForceLimit(gripper_force_limit_);
-    driver_->UpdateConstraints(
-      max_translation_speed_,
-      max_yaw_speed_deg_,
-      command_timeout_sec_);
-    execution_manager_->UpdateTiming(
-      progress_publish_interval_sec_,
-      command_timeout_sec_);
-    execution_manager_->UpdatePosePresets(
-      cart_view_preset_,
-      standby_preset_);
-
-    return result;
+  bool AreFinite(const PoseComponents &pose) const {
+    return std::isfinite(pose.x) && std::isfinite(pose.y) &&
+           std::isfinite(pose.z) && std::isfinite(pose.yaw_deg);
   }
 
-  bool IsValidBoundingBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) const {
-    return x2 > x1 && y2 > y1;
-  }
-
-  bool AreFinite(double x, double y, double z) const {
-    return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
-  }
-
-  bool AreFinite(const PoseComponents & pose) const {
-    return AreFinite(pose.x, pose.y, pose.z) && std::isfinite(pose.yaw_deg);
-  }
-
+  // ------------------------------------------------------------------
+  // 멤버 변수
   rclcpp::Publisher<ArmPoseStatus>::SharedPtr pose_status_pub_;
   rclcpp::Publisher<ArmTaskStatus>::SharedPtr pick_status_pub_;
   rclcpp::Publisher<ArmTaskStatus>::SharedPtr place_status_pub_;
@@ -732,8 +635,6 @@ private:
   rclcpp::Service<ArmMoveToPose>::SharedPtr move_service_;
   rclcpp::Service<ArmPickProduct>::SharedPtr pick_service_;
   rclcpp::Service<ArmPlaceProduct>::SharedPtr place_service_;
-
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 
   std::unique_ptr<VisualServoModule> visual_servo_;
   std::unique_ptr<ArmDriverProxy> driver_;
@@ -752,6 +653,7 @@ private:
   double gripper_force_limit_{12.0};
   double progress_publish_interval_sec_{0.15};
   double command_timeout_sec_{4.0};
+
   std::string left_velocity_topic_{"/packee/jetcobot/left/cmd_vel"};
   std::string right_velocity_topic_{"/packee/jetcobot/right/cmd_vel"};
   std::string velocity_frame_id_{"packee_base"};
@@ -763,15 +665,17 @@ private:
   PoseEstimate standby_preset_{};
 };
 
+// ------------------------------------------------------------------
 }  // namespace packee_arm
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv)
+{
   rclcpp::init(argc, argv);
   auto node = std::make_shared<packee_arm::PackeeArmController>();
   try {
     rclcpp::spin(node);
-  } catch (const std::exception & exception) {
-    RCLCPP_ERROR(node->get_logger(), "예외 발생: %s", exception.what());
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(node->get_logger(), "예외 발생: %s", e.what());
   }
   rclcpp::shutdown();
   return 0;
