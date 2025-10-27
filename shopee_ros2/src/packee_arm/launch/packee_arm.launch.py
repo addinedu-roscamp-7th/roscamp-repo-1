@@ -82,7 +82,7 @@ def generate_launch_description() -> LaunchDescription:
         description='우측 JetCobot 시리얼 포트 (단일 팔 환경이면 비워두세요)')
     jetcobot_move_speed_arg = DeclareLaunchArgument(
         'jetcobot_move_speed',
-        default_value='40',
+        default_value='30',
         description='JetCobot sync_send_coords 속도 (0~100)')
     jetcobot_command_period_arg = DeclareLaunchArgument(
         'jetcobot_command_period',

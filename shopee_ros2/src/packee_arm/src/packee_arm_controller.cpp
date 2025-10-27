@@ -748,7 +748,7 @@ private:
   double servo_gain_yaw_{0.04};
   double cnn_confidence_threshold_{0.75};
   double max_translation_speed_{0.05};
-  double max_yaw_speed_deg_{40.0};
+  double max_yaw_speed_deg_{30.0};
   double gripper_force_limit_{12.0};
   double progress_publish_interval_sec_{0.15};
   double command_timeout_sec_{4.0};
@@ -758,7 +758,7 @@ private:
   std::string left_gripper_topic_{"/packee/jetcobot/left/gripper_cmd"};
   std::string right_gripper_topic_{"/packee/jetcobot/right/gripper_cmd"};
   const std::array<double, 4> default_cart_view_pose_{{0.16, 0.0, 0.18, 0.0}};  // 카트 확인 자세
-  const std::array<double, 4> default_standby_pose_{{0.10, 0.0, 0.14, 0.0}};  // 대기 자세
+  const std::array<double, 4> default_standby_pose_{{0.0, 0.0, 0.0, 0.0}};  // 대기 자세
   PoseEstimate cart_view_preset_{};
   PoseEstimate standby_preset_{};
 };

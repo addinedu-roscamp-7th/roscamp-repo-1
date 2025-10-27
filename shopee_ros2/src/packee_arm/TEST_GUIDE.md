@@ -21,6 +21,11 @@ sub /packee/robot_status [shopee_interfaces/msg/PackeeRobotStatus]
 Packee 기준 필수 필드는 `product_id`, `confidence`, `bbox`, `pose`, `bbox_number(=0)`, `detection_info`입니다.  
 `pose`는 joint_1~joint_6을 사용하며, 테스트 시 joint_5~6은 0으로 두어도 됩니다.
 
+### Pose6D 메시지 작성 규칙
+- `shopee_interfaces/msg/Pose6D`는 `joint_1`~`joint_6` 여섯 축을 모두 포함해야 하며, Packee Arm 컨트롤러는 이 값을 `Pose6D` → `PoseComponents`로 변환해 카티션 좌표를 계산합니다.
+- `/packee/arm/pick_product`의 `target_product.pose`와 `/packee/arm/place_product`의 `pose`는 모두 Pose6D이므로, XYZ 위치(`joint_1`~`joint_3`)뿐만 아니라 `joint_4`(yaw)까지 최소한 채워야 합니다.
+- 값은 미터/라디안 기반 Pose6D 정의(`docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`)에 맞춰 설정하고, 안전 작업 공간(반경 0.28 m, Z 0.05~0.30 m)을 벗어나지 않도록 합니다.
+
 > myCobot 280의 안전 작업 공간은 수평 반경 0.28 m, Z 0.05~0.30 m 입니다. 아래 테스트 값도 이 범위 안에서 설정해야 합니다.
 
 ## 명령어 예시
