@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QTimer
 
+# /bin/python3 /home/lim/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/pickee_mobile/test/mock_test/mock_move_to_location_client_gui.py
+
 
 class MoveToLocationClient(Node):
     def __init__(self):
@@ -66,7 +68,7 @@ class MoveToLocationGUI(QWidget):
         request = PickeeMobileMoveToLocation.Request()
         request.robot_id = 1
         request.order_id = 123
-        request.location_id = 456
+        request.location_id = 1
         request.target_pose = Pose2D(x=x, y=y, theta=theta)
 
         self.future = self.node.client.call_async(request)
