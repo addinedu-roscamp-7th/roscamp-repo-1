@@ -19,106 +19,150 @@ class PickeeArmNode(Node):
 
     def __init__(self):
         super().__init__('pickee_arm_node')
-        self.arm = None # self.arm을 먼저 None으로 초기화
+        self.arm = None
         
         try:
             self.arm = ArmControl(self.get_logger())
-            # Initial startup sequence
-            self.arm.control_gripper(100) # Start with gripper open
+            self.arm.control_gripper(100)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
         except Exception as e:
             self.get_logger().fatal(f"ArmControl initialization failed: {e}. Shutting down node.")
             return
 
-        # Mapping from pose name string to pose data
         self.pose_map = {
             "standby": arm_poses.STANDBY_POSE,
             "lying_down": arm_poses.LYING_DOWN_POSE,
             "shelf_view": arm_poses.CHECK_SHELF_POSE,
         }
         
-        # Create ROS2 services and publishers
         self.move_to_pose_srv = self.create_service(
             ArmMoveToPose, '/pickee/arm/move_to_pose', self.move_to_pose_callback)
         self.pick_product_srv = self.create_service(
             ArmPickProduct, '/pickee/arm/pick_product', self.pick_product_callback)
         self.place_product_srv = self.create_service(
             ArmPlaceProduct, '/pickee/arm/place_product', self.place_product_callback)
+            
         self.pose_status_pub = self.create_publisher(ArmPoseStatus, '/pickee/arm/pose_status', 10)
         self.pick_status_pub = self.create_publisher(ArmTaskStatus, '/pickee/arm/pick_status', 10)
         self.place_status_pub = self.create_publisher(ArmTaskStatus, '/pickee/arm/place_status', 10)
 
         self.get_logger().info('Pickee Arm Node has been started.')
 
+    def _publish_pose_status(self, request, status, progress, message=""):
+        msg = ArmPoseStatus()
+        msg.robot_id = request.robot_id
+        msg.order_id = request.order_id
+        msg.pose_type = request.pose_type
+        msg.status = status
+        msg.progress = progress
+        msg.message = message
+        self.pose_status_pub.publish(msg)
+        self.get_logger().info(f"Published Pose Status: {status} ({progress*100:.0f}%) for pose {request.pose_type}")
+
+    def _publish_task_status(self, publisher, request, product_id, status, current_phase, progress, message=""):
+        msg = ArmTaskStatus()
+        msg.robot_id = request.robot_id
+        msg.order_id = request.order_id
+        msg.product_id = product_id
+        msg.arm_side = ""
+        msg.status = status
+        msg.current_phase = current_phase
+        msg.progress = progress
+        msg.message = message
+        publisher.publish(msg)
+        self.get_logger().info(f"Published Task Status: {status} ({progress*100:.0f}%) - Phase: {current_phase}")
+
     def destroy_node(self):
-        """Node shutdown callback. Releases the robot arm safely."""
-        # self.arm이 성공적으로 생성되었는지 확인
         if self.arm and self.arm.is_connected():
-            self.get_logger().info("Moving to lying down pose before releasing servos.")
+            self.get_logger().info("Moving to lying down pose and holding position.")
             self.arm.move_to_joints(arm_poses.LYING_DOWN_POSE)
-            self.arm.release_servos()
         super().destroy_node()
 
     def move_to_pose_callback(self, request, response):
         self.get_logger().info(f'Move to pose request received: {request.pose_type}')
-        
+        self._publish_pose_status(request, "in_progress", 0.1, f"Starting to move to {request.pose_type}")
+
         target_pose = self.pose_map.get(request.pose_type)
         
-        if target_pose:
-            self.arm.move_to_joints(target_pose)
-            status_msg = ArmPoseStatus(status="completed", progress=1.0, message=f"Reached {request.pose_type} pose")
-            response.success = True
-        else:
-            self.get_logger().error(f"Unknown pose_type: {request.pose_type}")
-            status_msg = ArmPoseStatus(status="failed", progress=0.0, message=f"Unknown pose type: {request.pose_type}")
+        if not target_pose:
             response.success = False
-            
-        self.pose_status_pub.publish(status_msg)
+            response.message = f"Unknown pose_type: {request.pose_type}"
+            self.get_logger().error(response.message)
+            self._publish_pose_status(request, "failed", 0.0, response.message)
+            return response
+
+        try:
+            self.arm.move_to_joints(target_pose)
+            response.success = True
+            response.message = f"Successfully moved to {request.pose_type}"
+            self._publish_pose_status(request, "completed", 1.0, response.message)
+        except Exception as e:
+            response.success = False
+            response.message = f"Failed to move to {request.pose_type}: {e}"
+            self.get_logger().error(response.message)
+            self._publish_pose_status(request, "failed", 0.5, response.message)
+
         return response
 
     def pick_product_callback(self, request, response):
         self.get_logger().info(f'Pick product request for "{request.target_product.product_id}" received.')
-        self.get_logger().info("--- Starting Pick Sequence ---")
-        
-        self.arm.control_gripper(100) # Open
-        self.arm.move_to_joints(arm_poses.PRE_PICK_1_POSE)
-        self.arm.move_to_joints(arm_poses.PRE_PICK_2_POSE)
-        self.arm.move_to_joints(arm_poses.PICK_ITEM_POSE)
-        self.arm.control_gripper(0) # Close
-        self.arm.move_to_joints(arm_poses.PRE_PICK_2_POSE)
-        self.arm.move_to_joints(arm_poses.PRE_PICK_1_POSE)
-        self.arm.move_to_joints(arm_poses.STANDBY_POSE)
-        
-        self.get_logger().info("--- Pick Sequence Finished ---")
-        status_msg = ArmTaskStatus(status="completed", current_phase="done", progress=1.0, message="Product picked successfully")
-        status_msg.product_id = request.target_product.product_id
-        status_msg.arm_side = ""
-        self.pick_status_pub.publish(status_msg)
-        response.success = True
+        pub = self.pick_status_pub
+        product_id = request.target_product.product_id
+        self._publish_task_status(pub, request, product_id, "in_progress", "starting", 0.05, "Starting pick sequence")
+
+        try:
+            self.arm.control_gripper(100)
+            self._publish_task_status(pub, request, product_id, "in_progress", "approaching", 0.2, "Approaching item")
+            self.arm.move_to_joints(arm_poses.PRE_PICK_1_POSE)
+            self.arm.move_to_joints(arm_poses.PRE_PICK_2_POSE)
+            self._publish_task_status(pub, request, product_id, "in_progress", "grasping", 0.6, "Grasping item")
+            self.arm.move_to_joints(arm_poses.PICK_ITEM_POSE)
+            self.arm.control_gripper(0)
+            self._publish_task_status(pub, request, product_id, "in_progress", "lifting", 0.8, "Lifting item")
+            self.arm.move_to_joints(arm_poses.PRE_PICK_2_POSE)
+            self.arm.move_to_joints(arm_poses.PRE_PICK_1_POSE)
+            self.arm.move_to_joints(arm_poses.STANDBY_POSE)
+            
+            response.success = True
+            response.message = "Product picked successfully"
+            self._publish_task_status(pub, request, product_id, "completed", "done", 1.0, response.message)
+        except Exception as e:
+            response.success = False
+            response.message = f"Pick sequence failed: {e}"
+            self.get_logger().error(response.message)
+            self._publish_task_status(pub, request, product_id, "failed", "error", 0.5, response.message)
+
         return response
 
     def place_product_callback(self, request, response):
         self.get_logger().info(f'Place product request for "{request.product_id}" received.')
-        self.get_logger().info("--- Starting Place Sequence ---")
-        
-        self.arm.move_to_joints(arm_poses.BASKET_ABOVE_POSE)
-        self.arm.move_to_joints(arm_poses.BASKET_PLACE_POSE)
-        self.arm.control_gripper(100) # Open
-        self.arm.move_to_joints(arm_poses.BASKET_ABOVE_POSE)
-        self.arm.move_to_joints(arm_poses.STANDBY_POSE)
-        
-        self.get_logger().info("--- Place Sequence Finished ---")
-        status_msg = ArmTaskStatus(status="completed", current_phase="done", progress=1.0, message="Product placed successfully")
-        status_msg.product_id = request.product_id
-        status_msg.arm_side = ""
-        self.place_status_pub.publish(status_msg)
-        response.success = True
+        pub = self.place_status_pub
+        product_id = request.product_id
+        self._publish_task_status(pub, request, product_id, "in_progress", "starting", 0.05, "Starting place sequence")
+
+        try:
+            self._publish_task_status(pub, request, product_id, "in_progress", "moving", 0.3, "Moving to basket")
+            self.arm.move_to_joints(arm_poses.BASKET_ABOVE_POSE)
+            self.arm.move_to_joints(arm_poses.BASKET_PLACE_POSE)
+            self._publish_task_status(pub, request, product_id, "in_progress", "releasing", 0.8, "Releasing item")
+            self.arm.control_gripper(100)
+            self.arm.move_to_joints(arm_poses.BASKET_ABOVE_POSE)
+            self.arm.move_to_joints(arm_poses.STANDBY_POSE)
+
+            response.success = True
+            response.message = "Product placed successfully"
+            self._publish_task_status(pub, request, product_id, "completed", "done", 1.0, response.message)
+        except Exception as e:
+            response.success = False
+            response.message = f"Place sequence failed: {e}"
+            self.get_logger().error(response.message)
+            self._publish_task_status(pub, request, product_id, "failed", "error", 0.5, response.message)
+
         return response
 
 def main(args=None):
     rclpy.init(args=args)
     node = PickeeArmNode()
-    # node.arm이 성공적으로 생성되었는지 확인
     if node.arm:
         try:
             rclpy.spin(node)
