@@ -19,11 +19,11 @@ sub /packee/robot_status [shopee_interfaces/msg/PackeeRobotStatus]
 
 `ArmPickProduct` 요청 본문은 `DetectedProduct` 메시지를 그대로 중첩합니다.  
 Packee 기준 필수 필드는 `product_id`, `confidence`, `bbox`, `pose`, `bbox_number(=0)`, `detection_info`입니다.  
-`pose`는 joint_1~joint_6을 사용하며, 테스트 시 joint_5~6은 0으로 두어도 됩니다.
+`pose`는 `Pose6D` 구조(`x`, `y`, `z`, `rx`, `ry`, `rz`)를 그대로 사용합니다.
 
 ### Pose6D 메시지 작성 규칙
-- `shopee_interfaces/msg/Pose6D`는 `joint_1`~`joint_6` 여섯 축을 모두 포함해야 하며, Packee Arm 컨트롤러는 이 값을 `Pose6D` → `PoseComponents`로 변환해 카티션 좌표를 계산합니다.
-- `/packee/arm/pick_product`의 `target_product.pose`와 `/packee/arm/place_product`의 `pose`는 모두 Pose6D이므로, XYZ 위치(`joint_1`~`joint_3`)뿐만 아니라 `joint_4`(yaw)까지 최소한 채워야 합니다.
+- `shopee_interfaces/msg/Pose6D`는 직교 좌표(`x`, `y`, `z`)와 라디안 단위 회전(`rx`, `ry`, `rz`)을 포함합니다. Packee Arm 컨트롤러는 이 중 `x`, `y`, `z`, `rz`를 사용해 내부 `PoseEstimate`(x, y, z, yaw_deg)로 변환합니다. (`shopee_ros2/src/packee_arm/src/packee_arm_controller.cpp:268-274`)
+- `/packee/arm/pick_product`의 `target_product.pose`와 `/packee/arm/place_product`의 `pose` 모두에서 `rz`는 Yaw 축 회전(라디안)을 의미하며, 나머지 축(`rx`, `ry`)은 현재 하드웨어 제약상 사용되지 않아 0으로 두어도 됩니다.
 - 값은 미터/라디안 기반 Pose6D 정의(`docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`)에 맞춰 설정하고, 안전 작업 공간(반경 0.28 m, Z 0.05~0.30 m)을 벗어나지 않도록 합니다.
 
 > myCobot 280의 안전 작업 공간은 수평 반경 0.28 m, Z 0.05~0.30 m 입니다. 아래 테스트 값도 이 범위 안에서 설정해야 합니다.
@@ -55,12 +55,12 @@ ros2 service call /packee/arm/pick_product shopee_interfaces/srv/ArmPickProduct 
             bbox_coords: {x1: 0, y1: 0, x2: 0, y2: 0}
         },
         pose: {
-            joint_1: 0.12,
-            joint_2: -0.05,
-            joint_3: 0.18,
-            joint_4: 0.0,
-            joint_5: 0.0,
-            joint_6: 0.0
+            x: 0.12,
+            y: -0.05,
+            z: 0.18,
+            rx: 0.0,
+            ry: 0.0,
+            rz: 0.0
         }
     }
 }"
@@ -70,12 +70,12 @@ ros2 service call /packee/arm/place_product shopee_interfaces/srv/ArmPlaceProduc
     product_id: 20,
     arm_side: 'left',
     pose: {
-        joint_1: 0.10,
-        joint_2: 0.06,
-        joint_3: 0.16,
-        joint_4: 0.0,
-        joint_5: 0.0,
-        joint_6: 0.0
+        x: 0.10,
+        y: 0.06,
+        z: 0.16,
+        rx: 0.0,
+        ry: 0.0,
+        rz: 0.0
     }
 }"
 ```
