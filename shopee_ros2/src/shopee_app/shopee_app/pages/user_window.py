@@ -228,6 +228,10 @@ class UserWindow(QWidget):
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
         self.page_select_product = getattr(self.ui, "page_select_product", None)
         self.page_moving_view = getattr(self.ui, "page_moving", None)
+        self.page_end_pick_up = getattr(self.ui, "page_end_pick_up", None)
+        self.pick_flow_completed = False
+        self.progress_bar = getattr(self.ui, "shop_progressBar", None)
+        self.progress_text = getattr(self.ui, "text_progress", None)
         self.select_title_label = getattr(self.ui, "label_7", None)
         self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
@@ -1016,6 +1020,7 @@ class UserWindow(QWidget):
         ordered_items: list[CartItemData],
         order_data: dict,
     ) -> None:
+        self.pick_flow_completed = False
         self._ensure_notification_listener()
         auto_select_map = self._build_order_auto_select_map(order_data)
         remote_items, auto_items = self.categorize_cart_items(
@@ -1084,18 +1089,19 @@ class UserWindow(QWidget):
             self.current_robot_id = robot_id
         destination = data.get("destination")
         message_text = payload.get("message") or "로봇 이동중"
-        status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if destination:
             formatted = f"{message_text} : {destination}"
         else:
             formatted = message_text
-        if status_label is not None:
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
 
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_robot_arrived_notification(self, payload: dict) -> None:
         """로봇 도착 알림에 따라 상태 텍스트를 갱신한다."""
@@ -1128,11 +1134,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_picking_complete_notification(self, payload: dict) -> None:
         """모든 상품 담기 완료 알림을 처리한다."""
@@ -1156,6 +1163,9 @@ class UserWindow(QWidget):
         if footer_label is not None:
             footer_label.setText(message_text)
         print(f"[알림] {message_text}")
+        self.pick_flow_completed = True
+        self._mark_all_selection_completed()
+        self._show_pick_complete_page()
 
     def handle_product_selection_start(self, payload: dict) -> None:
         """상품 선택 시작 알림을 처리한다."""
@@ -1295,11 +1305,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def _ensure_notification_listener(self) -> None:
         """주문 생성 시 알림 리스너를 시작한다."""
@@ -1500,6 +1511,7 @@ class UserWindow(QWidget):
             QMessageBox.warning(self, "상품 선택", message)
             return
 
+        self._set_selection_status(product_id_value, '선택 진행중')
         QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         self.selection_options = []
         self.selection_selected_index = None
@@ -1616,10 +1628,76 @@ class UserWindow(QWidget):
         if isinstance(widget, CartSelectItemWidget):
             widget.label_progress.setText(f"({picked}/{total})")
             if picked >= total:
-                widget.label_status.setText("완료")
+                widget.set_status("완료")
             else:
                 base_status = str(state.get("base_status") or "대기")
-                widget.label_status.setText(base_status)
+                widget.set_status(base_status)
+        self._refresh_selection_progress_summary()
+
+    def _show_pick_complete_page(self) -> None:
+        if self.order_select_stack is None or self.page_end_pick_up is None:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_end_pick_up)
+
+    def _set_selection_status(self, product_id: int, status_text: str) -> None:
+        """선택 항목의 상태 텍스트를 갱신한다."""
+        state = self.selection_item_states.get(product_id)
+        if state is None:
+            return
+        state["base_status"] = status_text
+        widget = state.get("widget")
+        if isinstance(widget, CartSelectItemWidget):
+            widget.set_status(status_text)
+
+    def _show_moving_page(self) -> None:
+        """선택 단계가 아니고 쇼핑이 완료되지 않았다면 이동 화면을 표시한다."""
+        if self.pick_flow_completed:
+            return
+        if self.order_select_stack is None or self.page_moving_view is None:
+            return
+        current_widget = self.order_select_stack.currentWidget()
+        if current_widget is self.page_select_product:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _mark_all_selection_completed(self) -> None:
+        """선택 항목 전체를 완료 상태로 동기화한다."""
+        if not self.selection_item_states:
+            return
+        for state in self.selection_item_states.values():
+            total = int(state.get("total", 0))
+            state["picked"] = total
+            state["base_status"] = "완료"
+            widget = state.get("widget")
+            if isinstance(widget, CartSelectItemWidget):
+                widget.label_progress.setText(f"({total}/{total})")
+                widget.set_status("완료")
+        self._refresh_selection_progress_summary()
+
+    def _refresh_selection_progress_summary(self) -> None:
+        """전체 진행률을 합산해 Progress Bar와 텍스트에 반영한다."""
+        if not self.selection_item_states:
+            if self.progress_bar is not None:
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(0)
+            if self.progress_text is not None:
+                self.progress_text.setText("0%")
+            return
+        total_required = 0
+        total_picked = 0
+        for state in self.selection_item_states.values():
+            total_required += max(0, int(state.get("total", 0)))
+            total_picked += max(0, int(state.get("picked", 0)))
+        total_required = max(total_required, 0)
+        total_picked = min(total_required, total_picked)
+        progress_ratio = 0
+        if total_required > 0:
+            progress_ratio = round((total_picked / total_required) * 100)
+        if self.progress_bar is not None:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(progress_ratio)
+        if self.progress_text is not None:
+            self.progress_text.setText(f"{progress_ratio}%")
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)

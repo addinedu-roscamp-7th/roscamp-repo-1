@@ -470,7 +470,7 @@
                    <item>
                     <widget class="QLabel" name="text_progress">
                      <property name="text">
-                      <string>80%</string>
+                      <string>0%</string>
                      </property>
                     </widget>
                    </item>
@@ -479,7 +479,7 @@
                  <item>
                   <widget class="QProgressBar" name="shop_progressBar">
                    <property name="value">
-                    <number>24</number>
+                    <number>0</number>
                    </property>
                   </widget>
                  </item>
@@ -533,7 +533,7 @@
          <enum>QFrame::StyledPanel</enum>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="page_content_user">
          <property name="sizePolicy">
@@ -1123,7 +1123,7 @@
                       <item>
                        <widget class="QStackedWidget" name="stackedWidget">
                         <property name="currentIndex">
-                         <number>1</number>
+                         <number>2</number>
                         </property>
                         <widget class="QWidget" name="page_moving">
                          <layout class="QVBoxLayout" name="verticalLayout_16">
@@ -1251,7 +1251,84 @@
                           </item>
                          </layout>
                         </widget>
-                        <widget class="QWidget" name="page_end_pick_up"/>
+                        <widget class="QWidget" name="page_end_pick_up">
+                         <layout class="QVBoxLayout" name="verticalLayout_18">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QWidget" name="widget_2" native="true">
+                            <layout class="QVBoxLayout" name="verticalLayout_21">
+                             <property name="spacing">
+                              <number>0</number>
+                             </property>
+                             <property name="leftMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="topMargin">
+                              <number>20</number>
+                             </property>
+                             <property name="rightMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="bottomMargin">
+                              <number>0</number>
+                             </property>
+                             <item>
+                              <widget class="QLabel" name="label_19">
+                               <property name="text">
+                                <string>쇼핑을 종료하시겠습니까? </string>
+                               </property>
+                               <property name="alignment">
+                                <set>Qt::AlignCenter</set>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QLabel" name="label_12">
+                               <property name="text">
+                                <string>쇼핑리스트의 모든 상품을 담았습니다.</string>
+                               </property>
+                               <property name="alignment">
+                                <set>Qt::AlignCenter</set>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_11">
+                               <item>
+                                <widget class="QPushButton" name="pushButton_4">
+                                 <property name="text">
+                                  <string>쇼핑 종료하기</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QPushButton" name="pushButton_3">
+                                 <property name="text">
+                                  <string>쇼핑 더하기</string>
+                                 </property>
+                                </widget>
+                               </item>
+                              </layout>
+                             </item>
+                            </layout>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
                        </widget>
                       </item>
                      </layout>
