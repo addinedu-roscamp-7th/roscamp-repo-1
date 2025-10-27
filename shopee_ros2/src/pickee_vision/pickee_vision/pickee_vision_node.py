@@ -74,20 +74,21 @@ class PickeeVisionNode(Node):
         self.camera_flag = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
+        self.arm_cam = cv2.VideoCapture(0)
+        if not self.arm_cam.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
             raise IOError("Cannot open camera 0")
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.arm_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
 
         # --- 장애물 인식 용 카트정면 웹캠 (front) ---
-        """
-        
-        구현 필요
-        
-        """
+        self.front_cam = cv2.VideoCapture(2)
+        if not self.front_cam.isOpened():
+            self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
+            raise IOError("Cannot open camera 2")
+        self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         # --- 상품 인식 결과 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -107,35 +108,36 @@ class PickeeVisionNode(Node):
 
     def main_loop(self):
         # 상시 실행되는 메인 루프: 영상처리, 로컬 디스플레이, UDP 큐잉 담당
-        ret, frame = self.cap.read()
-        if not ret:
+        ret_arm, arm_frame = self.arm_cam.read()
+        ret_front, front_frame = self.front_cam.read()
+        
+        if not ret_arm and not ret_front: # 둘 다 실패하면 리턴
+            self.get_logger().warn('Failed to capture frame from both cameras.')
             return
-
-        # 항상 최신 인식 결과를 화면에 그림
-        annotated_frame = self.draw_annotations(frame.copy(), self.last_detections)
-
-        # 로컬 화면에 표시
+        
+        # 로컬 디스플레이 (기존 로직 유지)
+        display_frame = arm_frame.copy() if ret_arm else np.zeros((480, 640, 3), dtype=np.uint8) # 로봇팔 프레임 우선 표시
+        annotated_frame = self.draw_annotations(display_frame, self.last_detections)
         cv2.imshow("Detection Result", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.get_logger().info('"q" pressed, shutting down node.')
             self.destroy_node()
             if rclpy.ok(): rclpy.get_current_context().shutdown()
 
-        # 로봇팔 프레임 전송: 스트리밍이 켜져 있으면, 원본 프레임을 스트리머의 큐에 넣음
-        if self.streamer.is_running and self.camera_type == "arm":
-            if self.camera_flag == "front":
-                self.streamer.queue_reset()
-                self.camera_flag = "arm"
-            self.streamer.queue_frame(frame)
-        # 카트정면 프레임 전송: 스트리밍이 켜져 있으면, 원본 프레임을 스트리머의 큐에 넣음
-        if self.streamer.is_running and self.camera_type == "front":
-            if self.camera_flag == "arm":
-                self.streamer.queue_reset()
-                self.camera_flag = "front"
-            self.streamer.queue_frame(frame) 
-            """ 
-            frame 대신 카트 전용 프레임 변수 넣기 
-            """
+        # UDP 스트리밍 처리
+        if self.streamer.is_running:
+            if self.camera_type == "arm" and ret_arm:
+                if self.camera_flag == "front": # 카메라 타입 변경 시 큐 리셋
+                    self.streamer.queue_reset()
+                    self.camera_flag = "arm"
+                self.streamer.queue_frame(arm_frame)
+            elif self.camera_type == "front" and ret_front:
+                if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
+                    self.streamer.queue_reset()
+                    self.camera_flag = "front"
+                self.streamer.queue_frame(front_frame)
+            else:
+                self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
     def draw_annotations(self, frame, detections):
         # 주어진 프레임에 감지된 객체 정보를 그립니다.
@@ -151,7 +153,7 @@ class PickeeVisionNode(Node):
     def detect_products_callback(self, request, response):
         # 서비스 요청 시 1회 인식 및 데이터 발행
         self.get_logger().info(f'Detect products request received for order_id={request.order_id}')
-        ret, frame = self.cap.read()
+        ret, frame = self.arm_cam.read()
         if not ret:
             self.get_logger().error('Failed to capture frame for detection.')
             response.success = False
@@ -223,8 +225,8 @@ class PickeeVisionNode(Node):
         # self.get_logger().info(f'Published {len(detected_products)} detection data to topic.')
 
     def video_stream_start_callback(self, request, response):
-        self.get_logger().info('Video stream start service called.')
-        self.camera_type = request.camera_type
+        self.get_logger().info(f'Video stream start service called for camera: {request.camera_type}.')
+        self.streaming_camera_type = request.camera_type # Use the new variable name
         self.streamer.start()
         response.success = True
         response.message = "UDP streamer started."
@@ -233,6 +235,7 @@ class PickeeVisionNode(Node):
     def video_stream_stop_callback(self, request, response):
         self.get_logger().info('Video stream stop service called.')
         self.streamer.stop()
+        self.streaming_camera_type = "" # Reset streaming camera type
         response.success = True
         response.message = "UDP streamer stopped."
         return response
@@ -240,8 +243,7 @@ class PickeeVisionNode(Node):
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Check product in cart request received for product_id: {request.product_id}')
         
-        # 1. 프레임 캡처
-        ret, frame = self.cap.read()
+        ret, frame = self.arm_cam.read() # 로봇팔 카메라 사용
         if not ret:
             self.get_logger().error('Failed to capture frame for product in cart check.')
             # 실패 메시지 발행
@@ -296,7 +298,7 @@ class PickeeVisionNode(Node):
     def check_cart_presence_callback(self, request, response):
         # 서비스 요청 시 장바구니 존재 여부를 클래시피케이션 모델로 확인
         self.get_logger().info('Check cart presence request received.')
-        ret, frame = self.cap.read()
+        ret, frame = self.arm_cam.read() # 로봇팔 카메라 사용
         if not ret:
             self.get_logger().error('Failed to capture frame for cart presence check.')
             response.success = False
@@ -349,7 +351,8 @@ class PickeeVisionNode(Node):
     def destroy_node(self):
         self.get_logger().info("Shutting down node.")
         self.streamer.stop()
-        if self.cap.isOpened(): self.cap.release()
+        if self.arm_cam.isOpened(): self.arm_cam.release()
+        if self.front_cam.isOpened(): self.front_cam.release()
         cv2.destroyAllWindows()
         super().destroy_node()
 

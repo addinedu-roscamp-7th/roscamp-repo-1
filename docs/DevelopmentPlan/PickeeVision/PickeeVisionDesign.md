@@ -49,9 +49,16 @@ SC_06_3 음성 명령
        * /pickee/vision/detect_products
        * /pickee/vision/check_product_in_cart
        * /pickee/vision/check_cart_presence
+
+       * /pickee/vision/video_stream_start
+       * /pickee/vision/video_stream_stop
+   
    * 토픽 발행 (Publisher)
        * /pickee/vision/detection_result
        * /pickee/vision/cart_check_result
+
+   * (내부 기능)
+       * UDP 영상 스트림 송출 (포트 6000)
 
   3. staff_tracker_node
    * 서비스 제공 (Service Server)
@@ -63,10 +70,3 @@ SC_06_3 음성 명령
        * /pickee/vision/staff_location
    * 서비스 호출 (Service Client)
        * /pickee/tts_request
-
-  4. camera_service_node
-   * 서비스 제공 (Service Server)
-       * /pickee/vision/video_stream_start
-       * /pickee/vision/video_stream_stop
-   * (내부 기능)
-       * UDP 영상 스트림 송출 (포트 6000)
