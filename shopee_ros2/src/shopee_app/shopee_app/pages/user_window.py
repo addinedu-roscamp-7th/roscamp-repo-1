@@ -11,6 +11,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QTransform
 from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QImage
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
@@ -24,10 +25,13 @@ from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsView
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
+from shopee_app.services.video_stream_client import VideoStreamReceiver
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
@@ -232,6 +236,20 @@ class UserWindow(QWidget):
         self.pick_flow_completed = False
         self.progress_bar = getattr(self.ui, "shop_progressBar", None)
         self.progress_text = getattr(self.ui, "text_progress", None)
+        self.front_view_button: QPushButton | None = None
+        self.arm_view_button: QPushButton | None = None
+        self.video_stack = getattr(self.ui, "stackedWidget_3", None)
+        self.page_front = getattr(self.ui, "page_front", None)
+        self.page_arm = getattr(self.ui, "page_arm", None)
+        self.gv_front = getattr(self.ui, "gv_front", None)
+        self.gv_arm = getattr(self.ui, "gv_arm", None)
+        self.front_scene: QGraphicsScene | None = None
+        self.arm_scene: QGraphicsScene | None = None
+        self.front_item = None
+        self.arm_item = None
+        self.video_receiver: VideoStreamReceiver | None = None
+        self.active_camera_type: str | None = None
+        self._init_video_views()
         self.select_title_label = getattr(self.ui, "label_7", None)
         self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
@@ -240,6 +258,22 @@ class UserWindow(QWidget):
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
+        self.front_view_button = getattr(self.ui, "btn_view_front", None)
+        self.arm_view_button = getattr(self.ui, "btn_view_arm", None)
+        self.camera_button_group = QButtonGroup(self)
+        self.camera_button_group.setExclusive(True)
+        if self.front_view_button is not None:
+            self.front_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.front_view_button)
+            self.front_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("front")
+            )
+        if self.arm_view_button is not None:
+            self.arm_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.arm_view_button)
+            self.arm_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("arm")
+            )
         self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
         if self.shop_end_button is not None:
             self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
@@ -423,6 +457,7 @@ class UserWindow(QWidget):
         if self.notification_client is not None:
             self.notification_client.stop()
         self._shutdown_speech_recognition()
+        self._stop_video_stream(send_request=True)
         self.closed.emit()
         super().closeEvent(event)
 
@@ -960,6 +995,8 @@ class UserWindow(QWidget):
         self.set_mode("shopping")
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
+        if self.active_camera_type:
+            self._update_video_buttons(self.active_camera_type)
 
     def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
@@ -1054,6 +1091,7 @@ class UserWindow(QWidget):
 
         self.current_order_id = order_data.get("order_id")
         self.current_robot_id = order_data.get("robot_id")
+        self._auto_start_front_camera_if_possible()
 
         status_label = getattr(self.ui, "label_12", None)
         if status_label is not None:
@@ -1103,6 +1141,7 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
         destination = data.get("destination")
         message_text = payload.get("message") or "로봇 이동중"
         if destination:
@@ -1132,6 +1171,7 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
 
         section_id = data.get("section_id")
         location_id = data.get("location_id")
@@ -1463,6 +1503,58 @@ class UserWindow(QWidget):
         else:
             self.selection_selected_index = None
 
+    def _init_video_views(self) -> None:
+        if self.gv_front is not None:
+            self.front_scene = QGraphicsScene(self.gv_front)
+            self.gv_front.setScene(self.front_scene)
+            self.gv_front.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_front.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_front.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.front_item = self.front_scene.addPixmap(QPixmap())
+        if self.gv_arm is not None:
+            self.arm_scene = QGraphicsScene(self.gv_arm)
+            self.gv_arm.setScene(self.arm_scene)
+            self.gv_arm.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_arm.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_arm.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.arm_item = self.arm_scene.addPixmap(QPixmap())
+        if self.video_stack is not None and self.page_front is not None:
+            self.video_stack.setCurrentWidget(self.page_front)
+        self._update_video_buttons(None)
+
+    def _update_video_buttons(self, active: str | None) -> None:
+        if self.front_view_button is not None:
+            self.front_view_button.setChecked(active == "front")
+        if self.arm_view_button is not None:
+            self.arm_view_button.setChecked(active == "arm")
+
+    def on_camera_button_clicked(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            QMessageBox.information(self, "영상 요청", "연결된 로봇 정보가 없습니다.")
+            self._update_video_buttons(None)
+            return
+        target_page = self.page_front if camera_type == "front" else self.page_arm
+        if self.video_stack is not None and target_page is not None:
+            self.video_stack.setCurrentWidget(target_page)
+        self._start_video_stream(camera_type)
+
+    def _auto_start_front_camera_if_possible(self) -> None:
+        if self.active_camera_type is not None:
+            return
+        if self.current_robot_id is None:
+            return
+        if self.front_view_button is None:
+            return
+        self.on_camera_button_clicked("front")
+
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
         if not checked:
@@ -1539,6 +1631,105 @@ class UserWindow(QWidget):
         """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _start_video_stream(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            return
+        if self.active_camera_type == camera_type and self.video_receiver is not None:
+            if self.video_receiver.isRunning():
+                self._update_video_buttons(camera_type)
+                return
+        self._stop_video_stream(send_request=True)
+        user_type = self._current_user_type()
+        try:
+            response = self.service_client.start_video_stream(
+                user_id=self.current_user_id,
+                user_type=user_type,
+                robot_id=int(self.current_robot_id),
+                camera_type=camera_type,
+            )
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, "영상 요청 실패", str(exc))
+            self._update_video_buttons(None)
+            return
+        if not response or not response.get("result", False):
+            message = response.get("message") if isinstance(response, dict) else None
+            QMessageBox.warning(
+                self,
+                "영상 요청 실패",
+                message or "영상 스트림을 시작할 수 없습니다.",
+            )
+            self._update_video_buttons(None)
+            return
+        self.active_camera_type = camera_type
+        self.video_receiver = VideoStreamReceiver(
+            robot_id=int(self.current_robot_id),
+            camera_type=camera_type,
+            parent=self,
+        )
+        self.video_receiver.frame_received.connect(self.on_video_frame_received)
+        self.video_receiver.error_occurred.connect(self.on_video_stream_error)
+        self.video_receiver.start()
+        self._update_video_buttons(camera_type)
+
+    def _stop_video_stream(self, *, send_request: bool) -> None:
+        if self.video_receiver is not None:
+            self.video_receiver.stop()
+            self.video_receiver = None
+        if (
+            send_request
+            and self.active_camera_type is not None
+            and self.current_robot_id is not None
+        ):
+            user_type = self._current_user_type()
+            try:
+                self.service_client.stop_video_stream(
+                    user_id=self.current_user_id,
+                    user_type=user_type,
+                    robot_id=int(self.current_robot_id),
+                )
+            except MainServiceClientError:
+                pass
+        self.active_camera_type = None
+        self._update_video_buttons(None)
+
+    def _current_user_type(self) -> str:
+        if isinstance(self.user_info, dict):
+            value = self.user_info.get("user_type") or self.user_info.get("role")
+            if value:
+                return str(value)
+        return "user"
+
+    def on_video_frame_received(self, camera_type: str, image: QImage) -> None:
+        if image.isNull():
+            return
+        pixmap = QPixmap.fromImage(image)
+        scene = self.front_scene if camera_type == "front" else self.arm_scene
+        item_attr = "front_item" if camera_type == "front" else "arm_item"
+        view = self.gv_front if camera_type == "front" else self.gv_arm
+        if scene is None or view is None:
+            return
+        item = getattr(self, item_attr)
+        if item is None:
+            item = scene.addPixmap(pixmap)
+            setattr(self, item_attr, item)
+        else:
+            item.setPixmap(pixmap)
+        print(f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}")
+        self._fit_view(view, item)
+        scene.update()
+
+    def _fit_view(self, view: QGraphicsView, item) -> None:
+        if item is None:
+            return
+        rect = item.boundingRect()
+        if rect.isNull():
+            return
+        view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def on_video_stream_error(self, message: str) -> None:
+        self._stop_video_stream(send_request=False)
+        QMessageBox.warning(self, "영상 스트림 오류", message)
 
     def _build_order_auto_select_map(
         self,

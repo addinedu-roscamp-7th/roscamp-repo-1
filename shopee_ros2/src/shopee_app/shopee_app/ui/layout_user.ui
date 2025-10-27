@@ -1135,7 +1135,7 @@
                    </item>
                    <item>
                     <widget class="QWidget" name="order_select_area" native="true">
-                     <layout class="QVBoxLayout" name="verticalLayout_17" stretch="0,1,10">
+                     <layout class="QVBoxLayout" name="verticalLayout_17" stretch="1,10">
                       <property name="spacing">
                        <number>0</number>
                       </property>
@@ -1151,12 +1151,6 @@
                       <property name="bottomMargin">
                        <number>0</number>
                       </property>
-                      <item>
-                       <widget class="QStackedWidget" name="stackedWidget_2">
-                        <widget class="QWidget" name="page_3"/>
-                        <widget class="QWidget" name="page_4"/>
-                       </widget>
-                      </item>
                       <item>
                        <widget class="QLabel" name="label_11">
                         <property name="text">
