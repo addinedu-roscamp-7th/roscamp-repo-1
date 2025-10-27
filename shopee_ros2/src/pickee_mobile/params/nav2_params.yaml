@@ -72,6 +72,17 @@ bt_navigator:
 controller_server:
   ros__parameters:
     controller_frequency: 30.0
+
+    ####
+    goal_checker_plugins: ["goal_checker"]
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.02       # 2 cm 위치 오차 허용
+      yaw_goal_tolerance: 0.02      # 약 1.1° 회전 오차 허용
+      stateful: True                # 도착 후 약간 움직여도 SUCCESS 유지
+    ####
+
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 56
@@ -116,12 +127,12 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 5.0
-        threshold_to_consider: 1.4
+        threshold_to_consider: 1.4 # 목적지 직선 오차, 원본 : 1.4
       GoalAngleCritic:
         enabled: true
         cost_power: 1
         cost_weight: 3.0
-        threshold_to_consider: 0.5
+        threshold_to_consider: 0.5 # 목적지 각도 오차, 원본 : 0.5
       PreferForwardCritic:
         enabled: true
         cost_power: 1
@@ -280,14 +291,14 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: True
 
-planner_server:
+planner_server: #전역 경로 계획
   ros__parameters:
     expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 1.0
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
+      tolerance: 0.05 #### 전역 경로 기준 정밀도, 원본 : 0.5
       use_astar: false
       allow_unknown: true
 
