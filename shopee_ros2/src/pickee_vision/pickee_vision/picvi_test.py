@@ -82,13 +82,13 @@ class PickeeVisionNode(Node):
         self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
 
-        # --- 장애물 인식 용 카트정면 웹캠 (front) ---
-        self.front_cam = cv2.VideoCapture(2)
-        if not self.front_cam.isOpened():
-            self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
-            raise IOError("Cannot open camera 2")
-        self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # # --- 장애물 인식 용 카트정면 웹캠 (front) ---
+        # self.front_cam = cv2.VideoCapture(2)
+        # if not self.front_cam.isOpened():
+        #     self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
+        #     raise IOError("Cannot open camera 2")
+        # self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        # self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         # --- 상품 인식 결과 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -109,9 +109,12 @@ class PickeeVisionNode(Node):
     def main_loop(self):
         # 상시 실행되는 메인 루프: 영상처리, 로컬 디스플레이, UDP 큐잉 담당
         ret_arm, arm_frame = self.arm_cam.read()
-        ret_front, front_frame = self.front_cam.read()
+        # ret_front, front_frame = self.front_cam.read()
         
-        if not ret_arm and not ret_front: # 둘 다 실패하면 리턴
+        # if not ret_arm and not ret_front: # 둘 다 실패하면 리턴
+        #     self.get_logger().warn('Failed to capture frame from both cameras.')
+        #     return
+        if not ret_arm: # 테스트용
             self.get_logger().warn('Failed to capture frame from both cameras.')
             return
         
@@ -123,18 +126,33 @@ class PickeeVisionNode(Node):
             self.destroy_node()
             if rclpy.ok(): rclpy.get_current_context().shutdown()
 
-        # UDP 스트리밍 처리
+        # # UDP 스트리밍 처리
+        # if self.streamer.is_running:
+        #     if self.camera_type == "arm" and ret_arm:
+        #         if self.camera_flag == "front": # 카메라 타입 변경 시 큐 리셋
+        #             self.streamer.queue_reset()
+        #             self.camera_flag = "arm"
+        #         self.streamer.queue_frame(arm_frame)
+        #     elif self.camera_type == "front" and ret_front:
+        #         if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
+        #             self.streamer.queue_reset()
+        #             self.camera_flag = "front"
+        #         self.streamer.queue_frame(front_frame)
+        #     else:
+        #         self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
+
+        # UDP 스트리밍 처리 - 테스트용
         if self.streamer.is_running:
             if self.camera_type == "arm" and ret_arm:
                 if self.camera_flag == "front": # 카메라 타입 변경 시 큐 리셋
                     self.streamer.queue_reset()
                     self.camera_flag = "arm"
                 self.streamer.queue_frame(arm_frame)
-            elif self.camera_type == "front" and ret_front:
-                if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
-                    self.streamer.queue_reset()
-                    self.camera_flag = "front"
-                self.streamer.queue_frame(front_frame)
+            # elif self.camera_type == "front" and ret_front:
+            #     if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
+            #         self.streamer.queue_reset()
+            #         self.camera_flag = "front"
+            #     self.streamer.queue_frame(front_frame)
             else:
                 self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
@@ -152,15 +170,15 @@ class PickeeVisionNode(Node):
     def detect_products_callback(self, request, response):
         # 서비스 요청 시 1회 인식 및 데이터 발행
         self.get_logger().info(f'Detect products request received for order_id={request.order_id}')
-        ret_arm, frame_arm = self.arm_cam.read()
-        if not ret_arm:
+        ret, frame = self.arm_cam.read()
+        if not ret:
             self.get_logger().error('Failed to capture frame for detection.')
             response.success = False
             response.message = "Failed to capture frame"
             return response
 
         # 인식 수행 및 결과 저장 (yolo_detector.py 클래스)
-        self.last_detections = self.product_detector.detect(frame_arm)
+        self.last_detections = self.product_detector.detect(frame)
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         # 요청된 상품 ID의 필요 수량과 실제 감지된 수량을 비교 변수 설정
@@ -242,8 +260,8 @@ class PickeeVisionNode(Node):
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Check product in cart request received for product_id: {request.product_id}')
         
-        ret_arm, frame_arm = self.arm_cam.read() # 로봇팔 카메라 사용
-        if not ret_arm:
+        ret, frame = self.arm_cam.read() # 로봇팔 카메라 사용
+        if not ret:
             self.get_logger().error('Failed to capture frame for product in cart check.')
             # 실패 메시지 발행
             result_msg = PickeeVisionCartCheck(
@@ -263,7 +281,7 @@ class PickeeVisionNode(Node):
             return response
 
         # 2. 프레임에서 상품 감지
-        self.last_detections = self.product_detector.detect(frame_arm)
+        self.last_detections = self.product_detector.detect(frame)
         
         # 3. 요청된 상품 개수 세기
         requested_product_id = request.product_id
@@ -297,8 +315,8 @@ class PickeeVisionNode(Node):
     def check_cart_presence_callback(self, request, response):
         # 서비스 요청 시 장바구니 존재 여부를 클래시피케이션 모델로 확인
         self.get_logger().info('Check cart presence request received.')
-        ret_arm, frame_arm = self.arm_cam.read() # 로봇팔 카메라 사용
-        if not ret_arm:
+        ret, frame = self.arm_cam.read() # 로봇팔 카메라 사용
+        if not ret:
             self.get_logger().error('Failed to capture frame for cart presence check.')
             response.success = False
             response.cart_present = False
@@ -310,7 +328,7 @@ class PickeeVisionNode(Node):
         self.last_detections = []
 
         # CNN 분류 수행
-        class_id, confidence, class_name = self.cart_classifier.classify(frame_arm)
+        class_id, confidence, class_name = self.cart_classifier.classify(frame)
 
         # 'empty_cart'는 장바구니 존재, 'full_cart'는 장바구니 없음(사용 불가)으로 판단
         if class_name == 'empty_cart' and confidence >= 90:
