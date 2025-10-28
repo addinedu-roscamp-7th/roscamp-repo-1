@@ -1,5 +1,5 @@
 # 실행 
-# python3 train.py --csv /home/addinedu/dev_ws/shopee/src/DataCollector/DataCollector/datasets/labels.csv --outdir ./checkpoints --epochs 60 --batch 32 --lr 1e-4
+# python3 train.py --csv /home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/packee_vision/packee_vision/datasets/labels.csv --outdir ./checkpoints --epochs 60 --batch 32 --lr 1e-4
 
 import os, ast, argparse
 from pathlib import Path
