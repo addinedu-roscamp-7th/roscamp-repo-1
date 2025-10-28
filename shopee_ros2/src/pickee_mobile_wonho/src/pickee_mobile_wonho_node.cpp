@@ -260,7 +260,7 @@ private:
         cmd_vel_msg.angular.y = 0.0;
         cmd_vel_msg.angular.z = 0.0;
         if (current_status_ == "idle") {
-            if (msg->z > 0.5) {
+            if (msg->z > 0.75) {
                 // 상세 ArUco 마커 정보 출력
                 RCLCPP_INFO(this->get_logger(),
                     "ArUco 마커 수신: ID=%d, 위치=(%.3f, %.3f, %.3f), 회전=(%.3f, %.3f, %.3f)",
@@ -269,7 +269,7 @@ private:
                     msg->roll, msg->pitch, msg->yaw);
 
                 // 로봇의 x 속도를 0.1로 설정하는 Twist 메시지 발행
-                cmd_vel_msg.linear.x = 0.05;   // x축 속도 0.1 m/s
+                cmd_vel_msg.linear.x = 0.08;   // x축 속도 0.08 m/s
 
                 // /cmd_vel 토픽으로 속도 명령 발행
                 static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;

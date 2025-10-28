@@ -866,12 +866,13 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Vision check cart presence service call failed: {str(e)}')
             return None
 
-    async def call_vision_video_stream_start(self, user_type, user_id):
+    async def call_vision_video_stream_start(self, user_type, user_id, camera_type):
         # Vision에 영상 송출 시작 명령
         request = PickeeVisionVideoStreamStart.Request()
         request.user_type = user_type
         request.user_id = user_id
         request.robot_id = self.robot_id
+        request.camera_type = camera_type
         
         if not self.vision_video_stream_start_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Vision video stream start service not available')
@@ -1287,7 +1288,7 @@ class PickeeMainController(Node):
 
     def video_start_callback(self, request, response):
         # 영상 송출 시작 명령 콜백
-        self.get_logger().info(f'Received video start: user_type={request.user_type}, user_id={request.user_id}')
+        self.get_logger().info(f'Received video start: user_type={request.user_type}, user_id={request.user_id}, camera_type={request.camera_type}')
         
         # Vision에 영상 송출 시작 명령 전달 (스레드에서 비동기 실행)
         def run_async_video_start():
@@ -1295,15 +1296,15 @@ class PickeeMainController(Node):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 success = loop.run_until_complete(
-                    self.call_vision_video_stream_start(request.user_type, request.user_id)
+                    self.call_vision_video_stream_start(request.user_type, request.user_id, request.camera_type)
                 )
                 loop.close()
                 
                 if success:
-                    self.get_logger().info(f'Video streaming started successfully for {request.user_type}:{request.user_id}')
+                    self.get_logger().info(f'Video streaming started successfully for {request.user_type}:{request.user_id}, camera_type={request.camera_type}')
                 else:
-                    self.get_logger().error(f'Failed to start video streaming for {request.user_type}:{request.user_id}')
-                    
+                    self.get_logger().error(f'Failed to start video streaming for {request.user_type}:{request.user_id}, camera_type={request.camera_type}')
+
             except Exception as e:
                 self.get_logger().error(f'Video start service call failed: {str(e)}')
         
