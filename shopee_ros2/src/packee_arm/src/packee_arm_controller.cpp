@@ -195,14 +195,10 @@ private:
     double yaw_deg;
   };
 
-<<<<<<< HEAD
-  void DeclareAndLoadParameters() {
-=======
   // 파라미터를 선언하고 기본값을 로드한다.
   // 노드 파라미터를 선언하고 기본값을 로드한다.
   void DeclareAndLoadParameters()
   {
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
     const double declared_servo_gain_xy =
       this->declare_parameter<double>("servo_gain_xy", 0.02);
     const double declared_servo_gain_z =
@@ -221,20 +217,6 @@ private:
       this->declare_parameter<double>("progress_publish_interval", 0.15);
     const double declared_command_timeout =
       this->declare_parameter<double>("command_timeout_sec", 4.0);
-<<<<<<< HEAD
-    const std::string declared_left_velocity_topic =
-      this->declare_parameter<std::string>("left_arm_velocity_topic", "/packee/jetcobot/left/cmd_vel");
-    const std::string declared_right_velocity_topic =
-      this->declare_parameter<std::string>("right_arm_velocity_topic", "/packee/jetcobot/right/cmd_vel");
-    const std::string declared_velocity_frame =
-      this->declare_parameter<std::string>("velocity_frame_id", "packee_base");
-    // JetCobot 브릿지와 직접 연결되는 그리퍼 명령 토픽을 노출한다.
-    const std::string declared_left_gripper_topic =
-      this->declare_parameter<std::string>("left_gripper_topic", "/packee/jetcobot/left/gripper_cmd");
-    const std::string declared_right_gripper_topic =
-      this->declare_parameter<std::string>("right_gripper_topic", "/packee/jetcobot/right/gripper_cmd");
-=======
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
 
     const std::vector<double> cart_view_values = this->declare_parameter<std::vector<double>>(
       "preset_pose_cart_view",
@@ -252,14 +234,6 @@ private:
     gripper_force_limit_ = declared_gripper_force_limit;
     progress_publish_interval_sec_ = declared_progress_interval;
     command_timeout_sec_ = declared_command_timeout;
-<<<<<<< HEAD
-    left_velocity_topic_ = declared_left_velocity_topic;
-    right_velocity_topic_ = declared_right_velocity_topic;
-    velocity_frame_id_ = declared_velocity_frame;
-    left_gripper_topic_ = declared_left_gripper_topic;
-    right_gripper_topic_ = declared_right_gripper_topic;
-=======
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
 
     cart_view_preset_ = ParsePoseParameter(
       cart_view_values,
@@ -271,13 +245,6 @@ private:
       default_standby_pose_);
   }
 
-<<<<<<< HEAD
-  PoseEstimate ParsePoseParameter(
-    const std::vector<double> & values,
-    const std::string & parameter_name,
-    const std::array<double, 4> & fallback) const {
-    // 파라미터 배열을 PoseEstimate로 변환하며 범위 검증을 수행한다.
-=======
   // 파라미터 벡터를 PoseEstimate로 변환하며 유효성 검사를 수행한다.
   // 파라미터 배열을 PoseEstimate로 변환하며 값 검증을 수행한다.
   PoseEstimate ParsePoseParameter(
@@ -285,7 +252,6 @@ private:
     const std::string & parameter_name,
     const std::array<double, 4> & fallback) const
   {
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
     if (values.size() != 4U) {
       RCLCPP_WARN(
         this->get_logger(),
@@ -296,13 +262,8 @@ private:
     const double x = values[0];
     const double y = values[1];
     const double z = values[2];
-<<<<<<< HEAD
-    const double yaw = values[3];
-    if (!AreFinite(x, y, z) || !std::isfinite(yaw)) {
-=======
     const double yaw_deg = values[3];
     if (!AreFinite(x, y, z) || !std::isfinite(yaw_deg)) {
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       RCLCPP_WARN(
         this->get_logger(),
         "%s 파라미터에 유한하지 않은 값이 포함되어 기본값을 사용합니다.",
@@ -316,68 +277,15 @@ private:
         parameter_name.c_str());
       return MakePoseFromArray(fallback);
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
     PoseEstimate pose{};
     pose.x = x;
     pose.y = y;
     pose.z = z;
-<<<<<<< HEAD
-    pose.yaw_deg = yaw;
-=======
     pose.yaw_deg = yaw_deg;
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
     pose.confidence = 1.0;
     return pose;
   }
 
-<<<<<<< HEAD
-  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
-    // Pose6D 메시지를 x, y, z, yaw_deg로 변환한다.
-
-  // ------------------------------------------------------------------
-  // Pose6D 추출 (joint_1~joint_4 기준)
-  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D &pose_msg) const {
-
-    PoseComponents components{};
-    components.x = static_cast<double>(pose_msg.x);
-    components.y = static_cast<double>(pose_msg.y);
-    components.z = static_cast<double>(pose_msg.z);
-    components.yaw_deg = static_cast<double>(pose_msg.rz) * kRadiansToDegrees;
-    return components;
-  }
-
-
-  template<typename DetectedProductT>
-  PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
-    static_assert(detail::HasPoseField<DetectedProductT>::value, "DetectedProduct에 pose 필드가 필요합니다.");
-    return ExtractPoseFromPoseMsg(product.pose);
-  }
-
-  PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const {
-    // 배열 형태의 기본값을 PoseEstimate로 치환한다.
-    PoseEstimate pose{};
-    pose.x = values[0];
-    pose.y = values[1];
-    pose.z = values[2];
-    pose.yaw_deg = values[3];
-    pose.confidence = 1.0;
-    return pose;
-  }
-
-  bool IsWithinWorkspace(double x, double y, double z) const {
-    // myCobot 280 작업 공간(수평 반경, 높이)을 벗어나는지 확인한다.
-    const double radial = std::sqrt((x * x) + (y * y));
-    if (radial > kMyCobotReach + 1e-6) {
-      return false;
-    }
-    if (z < kMyCobotMinZ || z > kMyCobotMaxZ) {
-      return false;
-    }
-    return true;
-=======
   // 기본 배열 값을 PoseEstimate로 변환한다.
   PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const
   {
@@ -451,7 +359,6 @@ private:
       return alias_iter->second;
     }
     return {};
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
   }
 
   // ------------------------------------------------------------------
@@ -493,166 +400,49 @@ private:
     std::shared_ptr<ArmPickProduct::Response> response)
   {
     if (!valid_arm_sides_.count(request->arm_side)) {
-<<<<<<< HEAD
-
-=======
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       PublishPickStatus(
         request->robot_id,
         request->order_id,
         request->target_product.product_id,
         request->arm_side,
         "failed",
-<<<<<<< HEAD
-        "planning",
-        0.0F,
-        "arm_side가 유효하지 않습니다.");
-
-      PublishPickStatus(request->robot_id, request->order_id,
-        request->target_product.product_id, request->arm_side,
-        "failed", "servoing", 0.0F, "arm_side가 유효하지 않습니다."); 
-=======
         "servoing",
         0.0F,
         "arm_side가 유효하지 않습니다.");
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
 
-<<<<<<< HEAD
-
-    if (!IsValidBoundingBox(
-        request->target_product.bbox.x1,
-        request->target_product.bbox.y1,
-        request->target_product.bbox.x2,
-        request->target_product.bbox.y2)) {
-=======
     PoseComponents pick_pose = ExtractPoseFromDetectedProduct(request->target_product);
     if (!AreFinite(pick_pose)) {
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       PublishPickStatus(
         request->robot_id,
         request->order_id,
         request->target_product.product_id,
         request->arm_side,
         "failed",
-<<<<<<< HEAD
-        "planning",
-        0.0F,
-        "bbox 좌표가 유효하지 않습니다.");
-      response->success = false;
-      response->message = "bbox가 유효하지 않습니다.";
-      return;
-    }
-
-    const double detection_confidence =
-      static_cast<double>(request->target_product.confidence);
-    if (!std::isfinite(detection_confidence) || detection_confidence <= 0.0 ||
-        detection_confidence > 1.0) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.confidence가 유효 범위를 벗어났습니다.");
-      response->success = false;
-      response->message = "confidence 값이 잘못되었습니다.";
-      return;
-    }
-
-    if (detection_confidence < cnn_confidence_threshold_) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.confidence가 cnn_confidence_threshold보다 낮습니다.");
-      response->success = false;
-      response->message = "confidence가 임계값보다 낮습니다.";
-      return;
-    }
-
-    const PoseComponents pick_pose = ExtractPoseFromDetectedProduct(request->target_product);
-
-    if (!AreFinite(pick_pose) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.rx)) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.ry)) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.rz))) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.pose에 유효하지 않은 값이 포함되어 있습니다.");
-      response->success = false;
-      response->message = "pose 값이 잘못되었습니다.";
-=======
         "servoing",
         0.0F,
         "pose 값이 유효하지 않습니다.");
       response->success = false;
       response->message = "pose 값이 유효하지 않습니다.";
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       return;
     }
 
     if (!IsWithinWorkspace(pick_pose.x, pick_pose.y, pick_pose.z)) {
-<<<<<<< HEAD
-=======
       // packee_main이 범위를 벗어난 좌표를 보낼 수 있으므로 안전 범위로 보정한다.
       ClampPoseToWorkspace(&pick_pose);
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       PublishPickStatus(
         request->robot_id,
         request->order_id,
         request->target_product.product_id,
         request->arm_side,
-<<<<<<< HEAD
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.pose가 myCobot 280 작업 공간을 벗어났습니다.");
-      response->success = false;
-      response->message = "pose가 작업 공간 범위를 벗어났습니다.";
-      return;
-    }
-
-    PickCommand command{};
-    command.robot_id = request->robot_id;
-    command.order_id = request->order_id;
-    command.product_id = request->target_product.product_id;
-    command.arm_side = request->arm_side;
-    command.target_pose.x = pick_pose.x;
-    command.target_pose.y = pick_pose.y;
-    command.target_pose.z = pick_pose.z;
-    command.target_pose.yaw_deg = pick_pose.yaw_deg;
-    command.target_pose.confidence = detection_confidence;
-    command.detection_confidence = detection_confidence;
-    command.bbox_x1 = request->target_product.bbox.x1;
-    command.bbox_y1 = request->target_product.bbox.y1;
-    command.bbox_x2 = request->target_product.bbox.x2;
-    command.bbox_y2 = request->target_product.bbox.y2;
-    execution_manager_->EnqueuePick(command);
-
-    const PoseComponents pick_pose = ExtractPoseFromPoseMsg(request->target_product.pose);
-=======
         "in_progress",
         "planning",
         0.05F,
         "target_product.pose가 작업 범위를 벗어나 보정했습니다.");
     }
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
 
     PickCommand cmd{};
     cmd.robot_id = request->robot_id;
@@ -680,59 +470,20 @@ private:
     std::shared_ptr<ArmPlaceProduct::Response> response)
   {
     if (!valid_arm_sides_.count(request->arm_side)) {
-<<<<<<< HEAD
-
-=======
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
         request->product_id,
         request->arm_side,
         "failed",
-<<<<<<< HEAD
-        "planning",
-        0.0F,
-        "arm_side가 유효하지 않습니다.");
-
-      PublishPlaceStatus(request->robot_id, request->order_id,
-        request->product_id, request->arm_side,
-        "failed", "servoing", 0.0F, "arm_side가 유효하지 않습니다.");
-
-=======
         "servoing",
         0.0F,
         "arm_side가 유효하지 않습니다.");
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       response->success = false;
       response->message = "arm_side가 유효하지 않습니다.";
       return;
     }
 
-<<<<<<< HEAD
-    const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
-
-    if (!AreFinite(place_pose) ||
-        !std::isfinite(static_cast<double>(request->pose.rx)) ||
-        !std::isfinite(static_cast<double>(request->pose.ry)) ||
-        !std::isfinite(static_cast<double>(request->pose.rz))) {
-      PublishPlaceStatus(
-        request->robot_id,
-        request->order_id,
-        request->product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "pose에 유효하지 않은 값이 포함되어 있습니다.");
-
-
-    if (!AreFinite(place_pose)) {
-      PublishPlaceStatus(request->robot_id, request->order_id,
-        request->product_id, request->arm_side,
-        "failed", "servoing", 0.0F, "pose 값이 잘못되었습니다.");
-
-=======
     PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
     if (!AreFinite(place_pose)) {
       PublishPlaceStatus(
@@ -744,50 +495,22 @@ private:
         "servoing",
         0.0F,
         "pose 값이 유효하지 않습니다.");
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       response->success = false;
       response->message = "pose 값이 유효하지 않습니다.";
       return;
     }
 
-<<<<<<< HEAD
-
-    if (!IsWithinWorkspace(place_pose.x, place_pose.y, place_pose.z)) {
-=======
     if (IsZeroPose(place_pose)) {
       // 좌표가 제공되지 않은 경우 standby 프리셋 사용
       place_pose.x = standby_preset_.x;
       place_pose.y = standby_preset_.y;
       place_pose.z = standby_preset_.z;
       place_pose.yaw_deg = standby_preset_.yaw_deg;
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
       PublishPlaceStatus(
         request->robot_id,
         request->order_id,
         request->product_id,
         request->arm_side,
-<<<<<<< HEAD
-        "failed",
-        "planning",
-        0.0F,
-        "pose가 myCobot 280 작업 공간을 벗어났습니다.");
-      response->success = false;
-      response->message = "pose가 작업 공간 범위를 벗어났습니다.";
-      return;
-    }
-
-    PlaceCommand command{};
-    command.robot_id = request->robot_id;
-    command.order_id = request->order_id;
-    command.product_id = request->product_id;
-    command.arm_side = request->arm_side;
-    command.target_pose.x = place_pose.x;
-    command.target_pose.y = place_pose.y;
-    command.target_pose.z = place_pose.z;
-    command.target_pose.yaw_deg = place_pose.yaw_deg;
-    command.target_pose.confidence = 1.0;
-    execution_manager_->EnqueuePlace(command);
-=======
         "in_progress",
         "planning",
         0.05F,
@@ -807,7 +530,6 @@ private:
         0.05F,
         "pose가 작업 범위를 벗어나 보정했습니다.");
     }
->>>>>>> 71d5a28 ([PackeeArm] 작업 수정)
 
     PlaceCommand cmd{};
     cmd.robot_id = request->robot_id;

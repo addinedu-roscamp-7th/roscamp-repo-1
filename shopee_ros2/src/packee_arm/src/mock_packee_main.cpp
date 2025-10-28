@@ -14,79 +14,8 @@
 
 using namespace std::chrono_literals;
 
-<<<<<<< HEAD
-namespace detail {
-
-template<typename T, typename = void>
-struct HasPoseMember : std::false_type {};
-
-template<typename T>
-struct HasPoseMember<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().pose.x),
-    decltype(std::declval<T>().pose.y),
-    decltype(std::declval<T>().pose.z),
-    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
-
-template<typename T, typename = void>
-struct HasBoxPositionMember : std::false_type {};
-
-template<typename T>
-struct HasBoxPositionMember<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().box_position.x),
-    decltype(std::declval<T>().box_position.y),
-    decltype(std::declval<T>().box_position.z)>> : std::true_type {};
-
-}  // namespace detail
-
-template<typename DetectedProductT>
-void AssignDetectedProductPose(
-  DetectedProductT * product,
-  float x,
-  float y,
-  float z,
-  float yaw_rad,
-  float confidence) {
-  product->confidence = confidence;
-  if constexpr (detail::HasPoseMember<DetectedProductT>::value) {
-    product->pose.x = x;
-    product->pose.y = y;
-    product->pose.z = z;
-    product->pose.rx = 0.0F;
-    product->pose.ry = 0.0F;
-    product->pose.rz = yaw_rad;
-  }
-}
-
-template<typename RequestT>
-void AssignPlacePose(
-  RequestT * request,
-  float x,
-  float y,
-  float z,
-  float yaw_rad) {
-  if constexpr (detail::HasPoseMember<RequestT>::value) {
-    request->pose.x = x;
-    request->pose.y = y;
-    request->pose.z = z;
-    request->pose.rx = 0.0F;
-    request->pose.ry = 0.0F;
-    request->pose.rz = yaw_rad;
-  } else if constexpr (detail::HasBoxPositionMember<RequestT>::value) {
-    request->box_position.x = x;
-    request->box_position.y = y;
-    request->box_position.z = z;
-  }
-}
-
-class MockPackeeMain : public rclcpp::Node {
-=======
 class MockPackeeMain : public rclcpp::Node
 {
->>>>>>> cb6b472 ([PackeeArm] packee_controller 수정)
 public:
   MockPackeeMain()
   : Node("mock_packee_main"), state_("wait_services"), current_arm_index_(0)
