@@ -2,14 +2,17 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QListWidget, QTextEdit, QTreeWidget, QDockWidget, QTreeWidgetItem, QLabel
 )
+import numpy as np 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 
 from .ros_node import RosNodeThread
+from ..cam.camera_thread import CameraThread
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pickee Main Dashboard")
+        self.setWindowTitle("Pickee Main Dashboard123123")
         self.setGeometry(100, 100, 1400, 800)
 
         # 1. 노드 목록 패널
@@ -23,10 +26,11 @@ class MainWindow(QMainWindow):
         self.comm_tree_widget = QTreeWidget()
         self.comm_tree_widget.setHeaderLabels(["Name", "Type"])
         comm_dock.setWidget(self.comm_tree_widget)
+        comm_dock.setFixedWidth(320)
         self.addDockWidget(Qt.LeftDockWidgetArea, comm_dock)
 
         # 3. 상태 머신 패널
-        state_dock = QDockWidget("State Machine", self)
+        state_dock = QDockWidget("State Machine2123", self)
         self.state_label = QLabel("Initializing...")
         self.state_label.setAlignment(Qt.AlignCenter)
         state_dock.setWidget(self.state_label)
@@ -39,6 +43,15 @@ class MainWindow(QMainWindow):
         log_dock.setWidget(self.log_text_edit)
         self.addDockWidget(Qt.RightDockWidgetArea, log_dock)
 
+        # 5. 카메라 화면 패널
+        camera_dock = QDockWidget("Camera", self)
+        self.camera_label = QLabel("카메라 대기 중...")
+        self.camera_label.setAlignment(Qt.AlignCenter)
+        self.camera_label.setMinimumSize(320, 240)
+        self.camera_label.setScaledContents(True)
+        camera_dock.setWidget(self.camera_label)
+        self.addDockWidget(Qt.LeftDockWidgetArea, camera_dock)
+
         self.setCentralWidget(self.log_text_edit) # 중앙 위젯 설정
 
         # ROS2 스레드 시작
@@ -49,6 +62,12 @@ class MainWindow(QMainWindow):
         self.ros_thread.services_updated.connect(self.update_service_list)
         self.ros_thread.state_updated.connect(self.update_state)
         self.ros_thread.start()
+
+        # 카메라 스레드 시작
+        self.camera_thread = CameraThread(camera_index=2)
+        self.camera_thread.frame_ready.connect(self.update_camera_frame)
+        self.camera_thread.marker_detected.connect(self.on_marker_detected)
+        self.camera_thread.start()
 
         # 서비스/토픽 트리 초기화
         self.topics_root = QTreeWidgetItem(self.comm_tree_widget, ["Topics"])
@@ -109,9 +128,24 @@ class MainWindow(QMainWindow):
     def update_state(self, state):
         self.state_label.setText(state)
 
+    def update_camera_frame(self, qt_image):
+        # 카메라 프레임을 QLabel에 표시
+        pixmap = QPixmap.fromImage(qt_image)
+        self.camera_label.setPixmap(pixmap)
+
+    def on_marker_detected(self, marker_id, tvec, rvec):
+        # 마커 검출 시 로그 출력
+        tvec_flat = np.array(tvec).flatten()
+        rvec_flat = np.array(rvec).flatten()
+        tvec_str = f'[{tvec_flat[0]:.3f}, {tvec_flat[1]:.3f}, {tvec_flat[2]:.3f}]'
+        rvec_str = f'[{rvec_flat[0]:.3f}, {rvec_flat[1]:.3f}, {rvec_flat[2]:.3f}]'
+        log_msg = f'마커 ID: {marker_id}, 위치: {tvec_str}, 회전: {rvec_str}'
+        self.append_log('aruco_detector', 'INFO', log_msg, marker_id is not None)
+
     def closeEvent(self, event):
-        # 윈도우 종료 시 ROS 스레드 정리
+        # 윈도우 종료 시 스레드 정리
         self.ros_thread.stop()
+        self.camera_thread.stop()
         super().closeEvent(event)
 
     def update_node_list(self, nodes):
