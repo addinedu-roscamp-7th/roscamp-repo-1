@@ -58,7 +58,7 @@ public:
         const std::shared_ptr<CheckAvailability::Request> request,
         std::shared_ptr<CheckAvailability::Response> response)
     {
-        robot_status = "";
+        // robot_status = "";
         response->success = true;
         response->message = "Availability check OK";
     }
@@ -69,12 +69,13 @@ public:
     {
         response->success = true;
         response->message = "Packing started";
-
-        if (robot_status == "CHECKING_CART") {
-            robot_status = "Detecting_Products";
+        
+        // TODO
+        // if (robot_status == "CHECKING_CART") {
+        //     robot_status = "Detecting_Products";
             
-            callDetectProducts(request->robot_id, request->order_id, request->expected_product_ids);
-        }
+        //     callDetectProducts(request->robot_id, request->order_id, request->expected_product_ids);
+        // }
     }
 
     // ================= 클라이언트 호출 함수 =================

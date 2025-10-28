@@ -4,18 +4,44 @@ import cv2
 import os
 import numpy as np
 from ament_index_python.packages import get_package_share_directory
-import queue
-import threading
 from collections import Counter
 
-# 분리된 클래스들
+# ^&*()
+# --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
 from .cnn_classifier import CnnClassifier
+from .pose_detector import PoseDetector # New
+from .tracker import ByteTracker # New
 from .udp_video import UdpStreamer
 
-# ROS 관련
-from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckProductInCart, VisionCheckCartPresence, PickeeVisionVideoStreamStart, PickeeVisionVideoStreamStop
-from shopee_interfaces.msg import PickeeVisionDetection, DetectedProduct, DetectionInfo, BBox, Point2D, Pose6D, PickeeVisionCartCheck
+# --- ROS 인터페이스 ---
+# 서비스
+from shopee_interfaces.srv import (
+    PickeeVisionDetectProducts, 
+    PickeeVisionCheckProductInCart, 
+    VisionCheckCartPresence, 
+    PickeeVisionVideoStreamStart, 
+    PickeeVisionVideoStreamStop,
+    PickeeVisionSetMode, # New
+    PickeeVisionRegisterStaff, # New
+    PickeeVisionTrackStaff, # New
+    PickeeTtsRequest # New
+)
+# 메시지
+from shopee_interfaces.msg import (
+    PickeeVisionDetection, 
+    DetectedProduct, 
+    DetectionInfo, 
+    BBox, 
+    Point2D, 
+    Pose6D, 
+    PickeeVisionCartCheck,
+    PickeeVisionObstacles, # New
+    Obstacle, # New
+    PickeeVisionStaffLocation, # New
+    PickeeVisionStaffRegister # New
+)
+# ^&*()
 
 product_dic = {
     1 : "wasabi", 
@@ -71,7 +97,6 @@ class PickeeVisionNode(Node):
         # UDP 스트리머 서버 설정
         self.streamer = UdpStreamer(host='0.0.0.0', port=6000, robot_id=self.ROBOT_ID)
         self.camera_type = ""
-        self.camera_flag = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
         self.arm_cam = cv2.VideoCapture(0)
@@ -123,18 +148,12 @@ class PickeeVisionNode(Node):
             self.destroy_node()
             if rclpy.ok(): rclpy.get_current_context().shutdown()
 
-        # UDP 스트리밍 처리
+        # UDP 스트리밍 처리 - 테스트용
         if self.streamer.is_running:
             if self.camera_type == "arm" and ret_arm:
-                if self.camera_flag != "arm": # 카메라 타입 변경 시 큐 리셋
-                    self.streamer.queue_reset()
-                    self.camera_flag = "arm"
-                self.streamer.queue_frame(arm_frame)
+                self.streamer.send_frame(arm_frame)
             elif self.camera_type == "front" and ret_front:
-                if self.camera_flag != "front": # 카메라 타입 변경 시 큐 리셋
-                    self.streamer.queue_reset()
-                    self.camera_flag = "front"
-                self.streamer.queue_frame(front_frame)
+                self.streamer.send_frame(front_frame)
             else:
                 self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
@@ -225,7 +244,7 @@ class PickeeVisionNode(Node):
 
     def video_stream_start_callback(self, request, response):
         self.get_logger().info(f'Video stream start service called for camera: {request.camera_type}.')
-        self.streaming_camera_type = request.camera_type # camera_type 반영
+        self.camera_type = request.camera_type # camera_type 반영
         self.streamer.start()
         response.success = True
         response.message = "UDP streamer started."
@@ -234,7 +253,7 @@ class PickeeVisionNode(Node):
     def video_stream_stop_callback(self, request, response):
         self.get_logger().info('Video stream stop service called.')
         self.streamer.stop()
-        self.streaming_camera_type = "" # camera_type 리셋
+        self.camera_type = "" # camera_type 리셋
         response.success = True
         response.message = "UDP streamer stopped."
         return response
