@@ -46,12 +46,14 @@ setup(
             'bringup = pickee_mobile.bringup:main',
 
             # Main Components
+            'mobile_aruco_pub = pickee_mobile.main.mobile_aruco_pub:main', # ArUco 마커 인식 및 퍼블리시 노드
             'mobile_controller = pickee_mobile.main.mobile_controller:main', # 모바일 로봇의 주요 제어 노드
-            'mobile_move_to_location = pickee_mobile.main.mobile_move_to_location:main', # 위치 이동을 처리하는 노드
-            'mobile_pose = pickee_mobile.main.mobile_pose:main', # 모바일 로봇의 위치 정보를 퍼블리시하는 노드
             'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main', # 속도 명령을 수정하는 노드
-            'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main', # 직진 주행 실행 노드
-            'mobile_rotate = pickee_mobile.main.mobile_rotate:main', # 회전 주행 실행 노드
+
+            # Module Components 함수
+            'module_go_strait = pickee_mobile.module.module_go_strait:main',
+            'module_rotate = pickee_mobile.module.module_rotate:main',
+            'module_aruco_detect = pickee_mobile.module.module_aruco_detect:main',
             
 
             ####Test Nodes####

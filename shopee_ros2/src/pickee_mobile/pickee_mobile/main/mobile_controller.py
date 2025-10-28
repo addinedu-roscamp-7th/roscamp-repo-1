@@ -13,8 +13,8 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from shopee_interfaces.srv import PickeeMobileMoveToLocation
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D, PickeeMobilePose
 
-from pickee_mobile.main.mobile_go_strait import run
-from pickee_mobile.main.mobile_rotate import rotate_inline
+from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_rotate import rotate_inline
 
 
 

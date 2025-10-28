@@ -1,5 +1,5 @@
 import time
-from pickee_mobile.main.mobile_go_strait import run
+from pickee_mobile.module.module_go_strait import run
 
 def main():
     print("🚀 0.5m 전진 시작!")
