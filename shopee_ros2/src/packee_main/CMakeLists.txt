@@ -7,27 +7,27 @@ find_package(rclcpp REQUIRED)
 find_package(rosidl_runtime_cpp REQUIRED)
 find_package(shopee_interfaces REQUIRED)
 
-add_executable(packee_main_service src/packee_main_service.cpp)
-ament_target_dependencies(packee_main_service rclcpp rosidl_runtime_cpp shopee_interfaces)
-target_include_directories(packee_main_service PUBLIC
+add_executable(packee_check_availability src/packee_check_availability.cpp)
+ament_target_dependencies(packee_check_availability rclcpp rosidl_runtime_cpp shopee_interfaces)
+target_include_directories(packee_check_availability PUBLIC
   ${rosidl_runtime_cpp_INCLUDE_DIRS}
 )
-target_compile_features(packee_main_service PUBLIC cxx_std_17)
+target_compile_features(packee_check_availability PUBLIC cxx_std_17)
 
 install(
-  TARGETS packee_main_service
+  TARGETS packee_check_availability
   DESTINATION lib/${PROJECT_NAME}
 )
 
-add_executable(packee_main_topic src/packee_main_topic.cpp)
-ament_target_dependencies(packee_main_topic rclcpp rosidl_runtime_cpp shopee_interfaces)
-target_include_directories(packee_main_topic PUBLIC
+add_executable(packee_packing src/packee_packing.cpp)
+ament_target_dependencies(packee_packing rclcpp rosidl_runtime_cpp shopee_interfaces)
+target_include_directories(packee_packing PUBLIC
   ${rosidl_runtime_cpp_INCLUDE_DIRS}
 )
-target_compile_features(packee_main_topic PUBLIC cxx_std_17)
+target_compile_features(packee_packing PUBLIC cxx_std_17)
 
 install(
-  TARGETS packee_main_topic
+  TARGETS packee_packing
   DESTINATION lib/${PROJECT_NAME}
 )
 
