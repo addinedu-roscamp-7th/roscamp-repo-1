@@ -269,7 +269,7 @@ private:
                     msg->roll, msg->pitch, msg->yaw);
 
                 // 로봇의 x 속도를 0.1로 설정하는 Twist 메시지 발행
-                cmd_vel_msg.linear.x = 0.1;   // x축 속도 0.1 m/s
+                cmd_vel_msg.linear.x = 0.05;   // x축 속도 0.1 m/s
 
                 // /cmd_vel 토픽으로 속도 명령 발행
                 static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
