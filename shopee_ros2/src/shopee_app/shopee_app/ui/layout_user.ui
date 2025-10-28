@@ -491,7 +491,11 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="widget_remote_select_list"/>
+                  <widget class="QListWidget" name="widget_remote_select_list">
+                   <property name="frameShape">
+                    <enum>QFrame::NoFrame</enum>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <widget class="QLabel" name="label_14">
@@ -501,7 +505,11 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="widget_auto_select_list"/>
+                  <widget class="QListWidget" name="widget_auto_select_list">
+                   <property name="frameShape">
+                    <enum>QFrame::NoFrame</enum>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <spacer name="verticalSpacer">
@@ -601,8 +609,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>783</width>
-                  <height>452</height>
+                  <width>296</width>
+                  <height>123</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -754,8 +762,8 @@
                        <rect>
                         <x>0</x>
                         <y>0</y>
-                        <width>751</width>
-                        <height>68</height>
+                        <width>100</width>
+                        <height>30</height>
                        </rect>
                       </property>
                       <layout class="QVBoxLayout" name="cart_items_layout"/>
@@ -982,7 +990,7 @@
                 </property>
                 <item>
                  <widget class="QWidget" name="map_area" native="true">
-                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,16">
+                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,18">
                    <property name="spacing">
                     <number>0</number>
                    </property>
@@ -1006,7 +1014,11 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QGraphicsView" name="gv_map"/>
+                    <widget class="QGraphicsView" name="gv_map">
+                     <property name="frameShape">
+                      <enum>QFrame::NoFrame</enum>
+                     </property>
+                    </widget>
                    </item>
                   </layout>
                  </widget>
@@ -1095,7 +1107,11 @@
                            <number>0</number>
                           </property>
                           <item>
-                           <widget class="QGraphicsView" name="gv_front"/>
+                           <widget class="QGraphicsView" name="gv_front">
+                            <property name="frameShape">
+                             <enum>QFrame::NoFrame</enum>
+                            </property>
+                           </widget>
                           </item>
                          </layout>
                         </widget>

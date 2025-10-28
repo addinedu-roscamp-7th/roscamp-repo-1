@@ -2,12 +2,19 @@
 // 🟢 Pose6D 메시지를 joint_* / x,y,z 양쪽 포맷으로 대응하여 packee_main과의 연동을 담당한다.
 
 #include <algorithm>
+// packee_arm_controller.cpp
+// 🟢 Pose6D 메시지를 joint_* / x,y,z 양쪽 포맷으로 대응하여 packee_main과의 연동을 담당한다.
+
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
+#include <optional>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -60,6 +67,33 @@ struct HasPoseJoint<
     decltype(std::declval<PoseT>().joint_4)>> : std::true_type {};
 
 // DetectedProduct.pose 필드 존재 여부를 통합적으로 확인한다.
+// Pose6D가 x/y/z 필드를 사용하는지 식별한다.
+template<typename PoseT, typename = void>
+struct HasPoseXYZ : std::false_type {};
+
+template<typename PoseT>
+struct HasPoseXYZ<
+  PoseT,
+  std::void_t<
+    decltype(std::declval<PoseT>().x),
+    decltype(std::declval<PoseT>().y),
+    decltype(std::declval<PoseT>().z),
+    decltype(std::declval<PoseT>().rz)>> : std::true_type {};
+
+// Pose6D가 joint_* 필드를 사용하는지 식별한다.
+template<typename PoseT, typename = void>
+struct HasPoseJoint : std::false_type {};
+
+template<typename PoseT>
+struct HasPoseJoint<
+  PoseT,
+  std::void_t<
+    decltype(std::declval<PoseT>().joint_1),
+    decltype(std::declval<PoseT>().joint_2),
+    decltype(std::declval<PoseT>().joint_3),
+    decltype(std::declval<PoseT>().joint_4)>> : std::true_type {};
+
+// DetectedProduct.pose 필드 존재 여부를 통합적으로 확인한다.
 template<typename T, typename = void>
 struct HasPoseField : std::false_type {};
 
@@ -78,7 +112,22 @@ struct HasPositionField : std::false_type {};
 template<typename T>
 struct HasPositionField<
   T,
+  std::void_t<decltype(std::declval<T>().pose)>> : std::integral_constant<
+    bool,
+    HasPoseXYZ<decltype(std::declval<T>().pose)>::value ||
+    HasPoseJoint<decltype(std::declval<T>().pose)>::value> {};
+
+// packee_main(Mock)에서 position.x/y/z를 사용할 가능성도 대비한다.
+template<typename T, typename = void>
+struct HasPositionField : std::false_type {};
+
+template<typename T>
+struct HasPositionField<
+  T,
   std::void_t<
+    decltype(std::declval<T>().position.x),
+    decltype(std::declval<T>().position.y),
+    decltype(std::declval<T>().position.z)>> : std::true_type {};
     decltype(std::declval<T>().position.x),
     decltype(std::declval<T>().position.y),
     decltype(std::declval<T>().position.z)>> : std::true_type {};
@@ -98,11 +147,16 @@ using shopee_interfaces::srv::ArmPlaceProduct;
 // ------------------------------------------------------------------
 // PackeeArmController 클래스 정의
 // ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// PackeeArmController 클래스 정의
+// ------------------------------------------------------------------
 class PackeeArmController : public rclcpp::Node {
 public:
   PackeeArmController()
   : rclcpp::Node("packee_arm_controller"),
     valid_pose_types_({"cart_view", "standby"}),
+    valid_arm_sides_({"left", "right"}) 
+  {
     valid_arm_sides_({"left", "right"}) 
   {
     DeclareAndLoadParameters();
@@ -127,6 +181,9 @@ public:
       servo_gain_xy_, servo_gain_z_, servo_gain_yaw_,
       cnn_confidence_threshold_, max_translation_speed_, max_yaw_speed_deg_);
 
+      servo_gain_xy_, servo_gain_z_, servo_gain_yaw_,
+      cnn_confidence_threshold_, max_translation_speed_, max_yaw_speed_deg_);
+
     driver_ = std::make_unique<ArmDriverProxy>(
       this->get_logger(),
       max_translation_speed_,
@@ -137,6 +194,17 @@ public:
       gripper_force_limit_);
     execution_manager_ = std::make_unique<ExecutionManager>(
       this,
+      std::bind(&PackeeArmController::PublishPoseStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6),
+      std::bind(&PackeeArmController::PublishPickStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+        std::placeholders::_7, std::placeholders::_8),
+      std::bind(&PackeeArmController::PublishPlaceStatus, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+        std::placeholders::_7, std::placeholders::_8),
       std::bind(&PackeeArmController::PublishPoseStatus, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
         std::placeholders::_4, std::placeholders::_5, std::placeholders::_6),
@@ -159,6 +227,7 @@ public:
     parameter_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&PackeeArmController::OnParametersUpdated, this, std::placeholders::_1));
 
+    RCLCPP_INFO(this->get_logger(), "✅ Packee Arm Controller 노드 초기화 완료");
     RCLCPP_INFO(this->get_logger(), "✅ Packee Arm Controller 노드 초기화 완료");
   }
 
@@ -207,35 +276,12 @@ private:
       this->declare_parameter<std::string>("right_gripper_topic", "/packee/jetcobot/right/gripper_cmd");
 
     const std::vector<double> cart_view_values = this->declare_parameter<std::vector<double>>(
-      "preset_pose_cart_view",
-      std::vector<double>(default_cart_view_pose_.begin(), default_cart_view_pose_.end()));
+      "preset_pose_cart_view", {0.16, 0.0, 0.18, 0.0});
     const std::vector<double> standby_values = this->declare_parameter<std::vector<double>>(
-      "preset_pose_standby",
-      std::vector<double>(default_standby_pose_.begin(), default_standby_pose_.end()));
+      "preset_pose_standby", {0.10, 0.0, 0.14, 0.0});
 
-    servo_gain_xy_ = declared_servo_gain_xy;
-    servo_gain_z_ = declared_servo_gain_z;
-    servo_gain_yaw_ = declared_servo_gain_yaw;
-    cnn_confidence_threshold_ = declared_confidence_threshold;
-    max_translation_speed_ = declared_max_translation_speed;
-    max_yaw_speed_deg_ = declared_max_yaw_speed_deg;
-    gripper_force_limit_ = declared_gripper_force_limit;
-    progress_publish_interval_sec_ = declared_progress_interval;
-    command_timeout_sec_ = declared_command_timeout;
-    left_velocity_topic_ = declared_left_velocity_topic;
-    right_velocity_topic_ = declared_right_velocity_topic;
-    velocity_frame_id_ = declared_velocity_frame;
-    left_gripper_topic_ = declared_left_gripper_topic;
-    right_gripper_topic_ = declared_right_gripper_topic;
-
-    cart_view_preset_ = ParsePoseParameter(
-      cart_view_values,
-      "preset_pose_cart_view",
-      default_cart_view_pose_);
-    standby_preset_ = ParsePoseParameter(
-      standby_values,
-      "preset_pose_standby",
-      default_standby_pose_);
+    cart_view_preset_ = ParsePoseParameter(cart_view_values, "preset_pose_cart_view", default_cart_view_pose_);
+    standby_preset_ = ParsePoseParameter(standby_values, "preset_pose_standby", default_standby_pose_);
   }
 
   // 파라미터 벡터를 PoseEstimate로 변환하며 유효성 검사를 수행한다.
@@ -883,6 +929,8 @@ int main(int argc, char **argv)
   auto node = std::make_shared<packee_arm::PackeeArmController>();
   try {
     rclcpp::spin(node);
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(node->get_logger(), "예외 발생: %s", e.what());
   } catch (const std::exception &e) {
     RCLCPP_ERROR(node->get_logger(), "예외 발생: %s", e.what());
   }

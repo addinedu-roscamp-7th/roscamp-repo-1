@@ -113,6 +113,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
             return
         msg = payload.get("msg")
         if isinstance(msg, dict):
+            print(f'[Map] rosbridge 메시지 수신: {msg}')
             self.pose_received.emit(msg)
 
     def _on_error(self, _ws_app: websocket.WebSocketApp, error: Exception) -> None:

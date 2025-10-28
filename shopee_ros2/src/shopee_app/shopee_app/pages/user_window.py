@@ -57,9 +57,16 @@ if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
 from STT_module import STT_Module
 
 
-DEFAULT_MAP_CONFIG = Path(__file__).resolve().parents[5] / 'shopee_ros2' / 'src' / 'pickee_mobile' / 'map' / 'shopee_map.yaml'
-DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / 'image' / 'map.png'
-VECTOR_ICON_PATH = Path(__file__).resolve().parent / 'icons' / 'vector.svg'
+DEFAULT_MAP_CONFIG = (
+    Path(__file__).resolve().parents[5]
+    / "shopee_ros2"
+    / "src"
+    / "pickee_mobile"
+    / "map"
+    / "shopee_map.yaml"
+)
+DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
+VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
 DEFAULT_ROBOT_ICON_SIZE = (56, 56)
 
 
@@ -94,13 +101,14 @@ def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
         return default
 
 
-ROSBRIDGE_HOST = os.getenv('SHOPEE_ROSBRIDGE_HOST', '127.0.0.1')
-ROSBRIDGE_PORT = _get_env_int('SHOPEE_ROSBRIDGE_PORT', 9090)
-ROSBRIDGE_TOPIC = os.getenv('SHOPEE_ROSBRIDGE_POSE_TOPIC', '/pickee/mobile/pose')
-MAP_CONFIG_PATH = Path(os.getenv('SHOPEE_APP_MAP_CONFIG', str(DEFAULT_MAP_CONFIG)))
-MAP_IMAGE_PATH = os.getenv('SHOPEE_APP_MAP_IMAGE')
-MAP_RESOLUTION_OVERRIDE = _get_env_float('SHOPEE_APP_MAP_RESOLUTION', -1.0)
-MAP_ORIGIN_OVERRIDE = _get_env_tuple('SHOPEE_APP_MAP_ORIGIN', ())
+ROSBRIDGE_HOST = os.getenv("SHOPEE_ROSBRIDGE_HOST", "127.0.0.1")
+ROSBRIDGE_PORT = _get_env_int("SHOPEE_ROSBRIDGE_PORT", 9090)
+ROSBRIDGE_TOPIC = os.getenv("SHOPEE_ROSBRIDGE_POSE_TOPIC", "/pickee/mobile/pose")
+MAP_CONFIG_PATH = Path(os.getenv("SHOPEE_APP_MAP_CONFIG", str(DEFAULT_MAP_CONFIG)))
+MAP_IMAGE_PATH = os.getenv("SHOPEE_APP_MAP_IMAGE")
+MAP_RESOLUTION_OVERRIDE = _get_env_float("SHOPEE_APP_MAP_RESOLUTION", -1.0)
+MAP_ORIGIN_OVERRIDE = _get_env_tuple("SHOPEE_APP_MAP_ORIGIN", ())
+VIDEO_STREAM_DEBUG = os.getenv("SHOPEE_APP_DEBUG_VIDEO_STREAM", "0") == "1"
 
 
 class ClickableLabel(QLabel):
@@ -213,7 +221,45 @@ class SttWorker(QtCore.QObject):
 
 
 class UserWindow(QWidget):
-
+    IMAGE_ROOT = Path(__file__).resolve().parent / "image"
+    PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
+        1: IMAGE_ROOT / "product_horseradish.png",
+        2: IMAGE_ROOT / "product_spicy_chicken.png",
+        4: IMAGE_ROOT / "product_richam.png",
+        5: IMAGE_ROOT / "product_soymilk.png",
+        6: IMAGE_ROOT / "product_caprisun.png",
+        7: IMAGE_ROOT / "product_apple.png",
+        8: IMAGE_ROOT / "product_green_apple.png",
+        9: IMAGE_ROOT / "product_ivy.png",
+        10: IMAGE_ROOT / "product_pork.png",
+        11: IMAGE_ROOT / "product_chicken.png",
+        12: IMAGE_ROOT / "product_mackerel.png",
+        13: IMAGE_ROOT / "product_abalone.png",
+        14: IMAGE_ROOT / "product_eclips.png",
+        16: IMAGE_ROOT / "product_pepero.png",
+        17: IMAGE_ROOT / "product_oyes.png",
+        18: IMAGE_ROOT / "product_orange.png",
+        19: IMAGE_ROOT / "product_jangjorim.png",
+    }
+    PRODUCT_IMAGE_BY_NAME: dict[str, Path] = {
+        "고추냉이": IMAGE_ROOT / "product_horseradish.png",
+        "버터캔": IMAGE_ROOT / "product_jangjorim.png",
+        "리챔": IMAGE_ROOT / "product_richam.png",
+        "두유": IMAGE_ROOT / "product_soymilk.png",
+        "카프리썬": IMAGE_ROOT / "product_caprisun.png",
+        "홍사과": IMAGE_ROOT / "product_apple.png",
+        "청사과": IMAGE_ROOT / "green_apple.png",
+        "삼겹살": IMAGE_ROOT / "product_pork.png",
+        "닭": IMAGE_ROOT / "product_chicken.png",
+        "생선": IMAGE_ROOT / "product_mackerel.png",
+        "전복": IMAGE_ROOT / "product_abalone.png",
+        "이클립스": IMAGE_ROOT / "product_eclips.png",
+        "빼빼로": IMAGE_ROOT / "product_pepero.png",
+        "오예스": IMAGE_ROOT / "product_oyes.png",
+        "아이비": IMAGE_ROOT / "product_ivy.png",
+        "오렌지": IMAGE_ROOT / "product_orange.png",
+        "불닭캔": IMAGE_ROOT / "product_spicy_chicken.png",
+    }
     closed = pyqtSignal()
 
     def __init__(
@@ -835,13 +881,26 @@ class UserWindow(QWidget):
         # bool()로 강제하지 않으면 0과 1 같은 값이 그대로 전달되어 혼란을 줄 수 있다.
         return normalized_allergy, bool(vegan_value)
 
+    def _resolve_product_image(self, product_id: int, name: str) -> Path:
+        # 사전에 등록된 이미지가 있으면 즉시 반환한다.
+        mapped_path = self.PRODUCT_IMAGE_BY_ID.get(product_id)
+        if mapped_path and mapped_path.exists():
+            return mapped_path
+        # 이름 기반 매핑을 사용해 식별 가능한 이미지를 찾는다.
+        normalized_name = (name or "").strip()
+        if normalized_name:
+            name_path = self.PRODUCT_IMAGE_BY_NAME.get(normalized_name)
+            if name_path and name_path.exists():
+                return name_path
+        # 매핑 결과가 없거나 파일이 없으면 기본 이미지를 사용한다.
+        return ProductCard.FALLBACK_IMAGE
+
     def _convert_search_results(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
-        # 이미지 경로를 미리 정해두지 않으면 각 상품마다 반복 계산해야 한다.
-        fallback_image = ProductCard.FALLBACK_IMAGE
+        # 이미지 경로 계산은 전용 헬퍼로 위임해 중복을 줄인다.
 
         # 안전한 정수 변환 함수를 정의하지 않으면 잘못된 값이 들어왔을 때 예외로 루프가 중단된다.
         def to_int(value: object, default: int = 0) -> int:
@@ -912,7 +971,7 @@ class UserWindow(QWidget):
                     height=height,
                     weight=weight,
                     fragile=fragile,
-                    image_path=fallback_image,
+                    image_path=self._resolve_product_image(product_id, name),
                 )
             except TypeError:
                 # 필수 필드가 누락된 경우 해당 상품만 건너뛰어 전체 처리를 계속한다.
@@ -927,7 +986,6 @@ class UserWindow(QWidget):
     ) -> list[ProductData]:
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
-        fallback_image = ProductCard.FALLBACK_IMAGE
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -956,7 +1014,7 @@ class UserWindow(QWidget):
                 height=int(entry.get("height") or 0),
                 weight=int(entry.get("weight") or 0),
                 fragile=bool(entry.get("fragile")),
-                image_path=fallback_image,
+                image_path=self._resolve_product_image(product_id, name),
             )
             products.append(product)
         return products
@@ -1630,17 +1688,21 @@ class UserWindow(QWidget):
         self.map_heading_item = heading_item
         self.map_view.installEventFilter(self)
 
-    def _create_robot_graphics(self) -> tuple[QGraphicsPixmapItem | QGraphicsEllipseItem, QGraphicsLineItem | None]:
+    def _create_robot_graphics(
+        self,
+    ) -> tuple[QGraphicsPixmapItem | QGraphicsEllipseItem, QGraphicsLineItem | None]:
         pixmap = self._render_robot_svg()
         if pixmap is not None and not pixmap.isNull():
             item = QGraphicsPixmapItem(pixmap)
             item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
-            item.setTransformationMode(QtCore.Qt.TransformationMode.SmoothTransformation)
+            item.setTransformationMode(
+                QtCore.Qt.TransformationMode.SmoothTransformation
+            )
             return item, None
         radius = 10
-        pen = QPen(QColor('#ff4649'))
+        pen = QPen(QColor("#ff4649"))
         pen.setWidth(2)
-        brush = QBrush(QColor('#ff4649'))
+        brush = QBrush(QColor("#ff4649"))
         item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
         item.setPen(pen)
         item.setBrush(brush)
@@ -1669,14 +1731,10 @@ class UserWindow(QWidget):
             pixmap = QPixmap(MAP_IMAGE_PATH)
             if not pixmap.isNull():
                 resolution = (
-                    MAP_RESOLUTION_OVERRIDE
-                    if MAP_RESOLUTION_OVERRIDE > 0
-                    else 0.05
+                    MAP_RESOLUTION_OVERRIDE if MAP_RESOLUTION_OVERRIDE > 0 else 0.05
                 )
                 origin_values = (
-                    MAP_ORIGIN_OVERRIDE
-                    if MAP_ORIGIN_OVERRIDE
-                    else (0.0, 0.0, 0.0)
+                    MAP_ORIGIN_OVERRIDE if MAP_ORIGIN_OVERRIDE else (0.0, 0.0, 0.0)
                 )
                 origin_x = origin_values[0] if len(origin_values) > 0 else 0.0
                 origin_y = origin_values[1] if len(origin_values) > 1 else 0.0
@@ -1702,7 +1760,9 @@ class UserWindow(QWidget):
                 pixmap = QPixmap(str(candidate))
                 if not pixmap.isNull():
                     return pixmap, resolution, (origin_x, origin_y, origin_theta)
-            last_candidate = candidate_paths[-1] if candidate_paths else config_path.parent
+            last_candidate = (
+                candidate_paths[-1] if candidate_paths else config_path.parent
+            )
             raise FileNotFoundError(f"map image not found: {last_candidate}")
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[Map] 지도 정보를 불러오지 못했습니다: {exc}")
@@ -1725,7 +1785,11 @@ class UserWindow(QWidget):
         return fallback, 0.05, (0.0, 0.0, 0.0)
 
     def _fit_map_to_view(self) -> None:
-        if self.map_view is None or self.map_scene is None or self.map_pixmap_item is None:
+        if (
+            self.map_view is None
+            or self.map_scene is None
+            or self.map_pixmap_item is None
+        ):
             return
         rect = self.map_pixmap_item.boundingRect()
         if rect.isNull():
@@ -1770,33 +1834,30 @@ class UserWindow(QWidget):
             port=ROSBRIDGE_PORT,
             topic=ROSBRIDGE_TOPIC,
         )
+        print(f"[Map] ROS 토픽 구독 시작: {config.topic}")
         self.pose_subscriber = RosbridgePoseSubscriber(config, parent=self)
         self.pose_subscriber.pose_received.connect(self.on_pose_message)
         self.pose_subscriber.connection_error.connect(self.on_pose_error)
         self.pose_subscriber.start()
 
     def on_pose_message(self, msg: dict) -> None:
-        robot_id_raw = msg.get("robot_id")
-        try:
-            robot_id_value = int(robot_id_raw) if robot_id_raw is not None else None
-        except (TypeError, ValueError):
-            robot_id_value = None
+        robot_id_value = self._extract_robot_id(msg)
         if (
             self.current_robot_id is not None
             and robot_id_value is not None
             and robot_id_value != self.current_robot_id
         ):
             return
-        pose = msg.get("current_pose") or {}
-        x = pose.get("x")
-        y = pose.get("y")
-        theta = pose.get("theta", 0.0)
-        if x is None or y is None:
+        pose = self._extract_pose(msg)
+        if pose is None:
+            print(f"[Map] 위치 정보가 없는 메시지를 수신했습니다: {msg}")
             return
         if self.current_robot_id is None and robot_id_value is not None:
             self.current_robot_id = robot_id_value
             self._auto_start_front_camera_if_possible()
-        self._update_robot_pose(float(x), float(y), float(theta))
+        x, y, theta = pose
+        print(f"[Map] pose 업데이트 수신: x={x}, y={y}, theta={theta}")
+        self._update_robot_pose(x, y, theta)
 
     def on_pose_error(self, message: str) -> None:
         print(f"[Rosbridge] {message}")
@@ -1826,6 +1887,45 @@ class UserWindow(QWidget):
         angle_deg = -math.degrees(theta)
         self.map_robot_item.setRotation(angle_deg)
         self._fit_map_to_view()
+
+    def _extract_robot_id(self, msg: dict) -> int | None:
+        robot_id_raw = msg.get("robot_id")
+        try:
+            return int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_pose(self, msg: dict) -> tuple[float, float, float] | None:
+        pose_dict = msg.get("current_pose")
+        if isinstance(pose_dict, dict):
+            return self._parse_pose_components(
+                pose_dict.get("x"),
+                pose_dict.get("y"),
+                pose_dict.get("theta"),
+            )
+        if "position_x" in msg or "position_y" in msg:
+            return self._parse_pose_components(
+                msg.get("position_x"),
+                msg.get("position_y"),
+                msg.get("orientation_z"),
+            )
+        return None
+
+    def _parse_pose_components(
+        self,
+        x_value: object,
+        y_value: object,
+        theta_value: object,
+    ) -> tuple[float, float, float] | None:
+        try:
+            if x_value is None or y_value is None:
+                return None
+            x = float(x_value)
+            y = float(y_value)
+            theta = float(theta_value) if theta_value is not None else 0.0
+            return x, y, theta
+        except (TypeError, ValueError):
+            return None
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
@@ -1891,7 +1991,7 @@ class UserWindow(QWidget):
             QMessageBox.warning(self, "상품 선택", message)
             return
 
-        self._set_selection_status(product_id_value, '선택 진행중')
+        self._set_selection_status(product_id_value, "선택 진행중")
         QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         self.selection_options = []
         self.selection_selected_index = None
@@ -1987,7 +2087,10 @@ class UserWindow(QWidget):
             setattr(self, item_attr, item)
         else:
             item.setPixmap(pixmap)
-        print(f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}")
+        if VIDEO_STREAM_DEBUG:
+            print(
+                f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}"
+            )
         self._fit_view(view, item)
         scene.update()
 
@@ -2554,7 +2657,6 @@ class UserWindow(QWidget):
         self.current_columns = -1
 
     def load_initial_products(self) -> list[ProductData]:
-        image_root = Path(__file__).resolve().parent.parent / "image"
         return [
             ProductData(
                 product_id=1,
@@ -2571,7 +2673,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(1, "삼겹살"),
             ),
             ProductData(
                 product_id=2,
@@ -2588,7 +2690,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=3,
@@ -2605,7 +2707,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(3, "서울우유"),
             ),
             ProductData(
                 product_id=4,
@@ -2622,7 +2724,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(4, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2639,7 +2741,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2656,7 +2758,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2673,6 +2775,6 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
         ]

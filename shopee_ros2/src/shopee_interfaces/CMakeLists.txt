@@ -15,6 +15,7 @@ find_package(rosidl_default_generators REQUIRED)
 set(msg_files
   "msg/ArmPoseStatus.msg"
   "msg/ArmTaskStatus.msg"
+  "msg/ArucoPose.msg"
   "msg/BBox.msg"
   "msg/DetectedProduct.msg"
   "msg/DetectionInfo.msg"

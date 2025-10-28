@@ -5,14 +5,14 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='packee_main',
-            executable='packee_main_service',
-            name='packee_main_service',
+            executable='packee_check_availability',
+            name='packee_check_availability',
             output='screen'
         ),
         Node(
             package='packee_main',
-            executable='packee_main_topic',
-            name='packee_main_topic',
+            executable='packee_packing',
+            name='packee_packing',
             output='screen'
         )
     ])
