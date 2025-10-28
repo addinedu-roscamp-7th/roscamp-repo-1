@@ -38,6 +38,9 @@ public:
             std::bind(&PackeePackingCheckAvailability::PoseStatusCallback, this, _1)
         );
 
+        cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
+        move_pose_client_ = this->create_client<ArmMoveToPose>("/packee/arm/move_to_pose");
+
         RCLCPP_INFO(this->get_logger(), "packee_packing_check_availability_server started");
     }
 
@@ -85,11 +88,6 @@ public:
         auto request = std::make_shared<CheckCartPresence::Request>();
         request->robot_id = robot_id;
 
-        int domain_id = robot_id == 1 ? 20 : 21;
-
-        std::string domain = "/domain" + std::to_string(domain_id);
-        cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
-
         auto future = cart_presence_client_->async_send_request(request);
         if (future.wait_for(5s) == std::future_status::ready)
         {
@@ -115,8 +113,6 @@ public:
         request->robot_id = robot_id;
         request->order_id = order_id;
         request->pose_type = pose_type;
-
-        move_pose_client_ = this->create_client<ArmMoveToPose>("/packee" + robot_id + "/arm/move_to_pose");
 
         auto future = move_pose_client_->async_send_request(request);
         if (future.wait_for(5s) == std::future_status::ready)
