@@ -101,6 +101,7 @@ MAP_CONFIG_PATH = Path(os.getenv('SHOPEE_APP_MAP_CONFIG', str(DEFAULT_MAP_CONFIG
 MAP_IMAGE_PATH = os.getenv('SHOPEE_APP_MAP_IMAGE')
 MAP_RESOLUTION_OVERRIDE = _get_env_float('SHOPEE_APP_MAP_RESOLUTION', -1.0)
 MAP_ORIGIN_OVERRIDE = _get_env_tuple('SHOPEE_APP_MAP_ORIGIN', ())
+VIDEO_STREAM_DEBUG = os.getenv('SHOPEE_APP_DEBUG_VIDEO_STREAM', '0') == '1'
 
 
 class ClickableLabel(QLabel):
@@ -1770,36 +1771,33 @@ class UserWindow(QWidget):
             port=ROSBRIDGE_PORT,
             topic=ROSBRIDGE_TOPIC,
         )
+        print(f'[Map] ROS 토픽 구독 시작: {config.topic}')
         self.pose_subscriber = RosbridgePoseSubscriber(config, parent=self)
         self.pose_subscriber.pose_received.connect(self.on_pose_message)
         self.pose_subscriber.connection_error.connect(self.on_pose_error)
         self.pose_subscriber.start()
 
     def on_pose_message(self, msg: dict) -> None:
-        robot_id_raw = msg.get("robot_id")
-        try:
-            robot_id_value = int(robot_id_raw) if robot_id_raw is not None else None
-        except (TypeError, ValueError):
-            robot_id_value = None
+        robot_id_value = self._extract_robot_id(msg)
         if (
             self.current_robot_id is not None
             and robot_id_value is not None
             and robot_id_value != self.current_robot_id
         ):
             return
-        pose = msg.get("current_pose") or {}
-        x = pose.get("x")
-        y = pose.get("y")
-        theta = pose.get("theta", 0.0)
-        if x is None or y is None:
+        pose = self._extract_pose(msg)
+        if pose is None:
+            print(f'[Map] 위치 정보가 없는 메시지를 수신했습니다: {msg}')
             return
         if self.current_robot_id is None and robot_id_value is not None:
             self.current_robot_id = robot_id_value
             self._auto_start_front_camera_if_possible()
-        self._update_robot_pose(float(x), float(y), float(theta))
+        x, y, theta = pose
+        print(f'[Map] pose 업데이트 수신: x={x}, y={y}, theta={theta}')
+        self._update_robot_pose(x, y, theta)
 
     def on_pose_error(self, message: str) -> None:
-        print(f"[Rosbridge] {message}")
+        print(f'[Rosbridge] {message}')
 
     def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
         if (
@@ -1826,6 +1824,45 @@ class UserWindow(QWidget):
         angle_deg = -math.degrees(theta)
         self.map_robot_item.setRotation(angle_deg)
         self._fit_map_to_view()
+
+    def _extract_robot_id(self, msg: dict) -> int | None:
+        robot_id_raw = msg.get("robot_id")
+        try:
+            return int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_pose(self, msg: dict) -> tuple[float, float, float] | None:
+        pose_dict = msg.get("current_pose")
+        if isinstance(pose_dict, dict):
+            return self._parse_pose_components(
+                pose_dict.get("x"),
+                pose_dict.get("y"),
+                pose_dict.get("theta"),
+            )
+        if "position_x" in msg or "position_y" in msg:
+            return self._parse_pose_components(
+                msg.get("position_x"),
+                msg.get("position_y"),
+                msg.get("orientation_z"),
+            )
+        return None
+
+    def _parse_pose_components(
+        self,
+        x_value: object,
+        y_value: object,
+        theta_value: object,
+    ) -> tuple[float, float, float] | None:
+        try:
+            if x_value is None or y_value is None:
+                return None
+            x = float(x_value)
+            y = float(y_value)
+            theta = float(theta_value) if theta_value is not None else 0.0
+            return x, y, theta
+        except (TypeError, ValueError):
+            return None
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
@@ -1987,7 +2024,8 @@ class UserWindow(QWidget):
             setattr(self, item_attr, item)
         else:
             item.setPixmap(pixmap)
-        print(f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}")
+        if VIDEO_STREAM_DEBUG:
+            print(f'[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}')
         self._fit_view(view, item)
         scene.update()
 

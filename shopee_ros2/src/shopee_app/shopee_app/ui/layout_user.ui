@@ -982,7 +982,7 @@
                 </property>
                 <item>
                  <widget class="QWidget" name="map_area" native="true">
-                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,16">
+                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,18">
                    <property name="spacing">
                     <number>0</number>
                    </property>
@@ -1006,7 +1006,11 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QGraphicsView" name="gv_map"/>
+                    <widget class="QGraphicsView" name="gv_map">
+                     <property name="frameShape">
+                      <enum>QFrame::NoFrame</enum>
+                     </property>
+                    </widget>
                    </item>
                   </layout>
                  </widget>
@@ -1095,7 +1099,11 @@
                            <number>0</number>
                           </property>
                           <item>
-                           <widget class="QGraphicsView" name="gv_front"/>
+                           <widget class="QGraphicsView" name="gv_front">
+                            <property name="frameShape">
+                             <enum>QFrame::NoFrame</enum>
+                            </property>
+                           </widget>
                           </item>
                          </layout>
                         </widget>
