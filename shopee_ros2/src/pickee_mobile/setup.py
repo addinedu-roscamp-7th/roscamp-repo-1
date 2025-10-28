@@ -51,6 +51,7 @@ setup(
             'mobile_pose = pickee_mobile.main.mobile_pose:main', # 모바일 로봇의 위치 정보를 퍼블리시하는 노드
             'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main', # 속도 명령을 수정하는 노드
             'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main', # 직진 주행 실행 노드
+            'mobile_rotate = pickee_mobile.main.mobile_rotate:main', # 회전 주행 실행 노드
             
 
             ####Test Nodes####
@@ -73,6 +74,9 @@ setup(
             'mock_update_global_path_client = pickee_mobile.test.mock_test.mock_update_global_path_client:main',
             'mock_pose_subscriber = pickee_mobile.test.mock_test.mock_pose_subscriber:main',
             'mock_arrival_subscriber = pickee_mobile.test.mock_test.mock_arrival_subscriber:main',
+
+            # Aruco Test
+            'aruco_detect = pickee_mobile.test.aruco.aruco_detect:main'
         ],
     }
 
