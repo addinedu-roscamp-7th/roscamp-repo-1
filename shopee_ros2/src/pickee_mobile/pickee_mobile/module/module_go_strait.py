@@ -203,45 +203,41 @@ class OdomMove(Node):
 
 # target_distance 인자로 받아서 주행하는 함수 선언
 # target_distance : 움직이고 싶은 거리
-def run(target_distance: float):
-    # rclpy 초기화
+def run_standalone(target_distance: float):
     rclpy.init()
-    # OdomMove 클래스 객체 생성
     node = OdomMove(target_distance)
-    # 에러가 없으면
     try:
-        # 이상이 없을 때 까지
         while rclpy.ok() and not node.done:
-            # 노드 0.1초 단위로 반복
             rclpy.spin_once(node, timeout_sec=0.1)
-    # 키보드 인터럽트 발생 시 ctrl+c
-    except KeyboardInterrupt:
-        # 노드 종료
-        node._finish()
-        # ros2 종료
-        rclpy.shutdown()
-    # 최종적으로
     finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
-        try:
-            # 노드 제거
-            node.destroy_node()
-        finally:
-            # rclpy 상태가 정상적이라면
-            if rclpy.ok():
-                # rclpy 종료
-                rclpy.shutdown()
+# ✅ ROS Node 안에서 호출할 버전
+def run(node: Node, target_distance: float):
+    node.get_logger().info(f"🏃‍♂️ Forward {target_distance}m")
+
+    pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
+    cmd = Twist()
+    speed = 0.2 * (1 if target_distance > 0 else -1)
+    distance = abs(target_distance)
+    duration = distance / 0.2
+
+    end = time.time() + duration
+    while time.time() < end:
+        cmd.linear.x = speed
+        pub.publish(cmd)
+        time.sleep(0.02)
+    
+    pub.publish(Twist())
+    node.get_logger().info("✅ Forward done")
+
 
 
 def main():
     # 앞으로 1.5m 이동
-    run(0.5)
-    # 뒤로 1.5m 이동
-    run(-0.5)
-    # 앞으로 0.8m 이동
-    run(0.8)
-    #  뒤로 0.5m  이동
-    run(-0.5)
+    run_standalone(-0.3)
+
 
 if __name__ == '__main__':
     # 메인 함수 실행

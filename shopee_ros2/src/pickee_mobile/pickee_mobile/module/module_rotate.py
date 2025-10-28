@@ -177,7 +177,18 @@ def rotate(angle_deg: float):
             if rclpy.ok():
                 rclpy.shutdown()
 
-def rotate_inline(node: Node, angle_deg: float):
+def rotate_standalone(angle_deg: float):
+    rclpy.init()
+    node = OdomRotate(angle_deg)
+    try:
+        while rclpy.ok() and not node.done:
+            rclpy.spin_once(node, timeout_sec=0.1)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+def rotate(node: Node, angle_deg: float):
     """
     이미 실행 중인 ROS 노드 내부에서 회전할 때 사용.
     rclpy.init() / shutdown() 없이 주어진 노드의 publisher 사용.

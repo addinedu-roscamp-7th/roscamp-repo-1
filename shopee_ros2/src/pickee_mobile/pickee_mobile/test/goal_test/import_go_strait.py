@@ -1,15 +1,26 @@
 import time
+import rclpy
 from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_rotate import rotate
+from rclpy.node import Node
 
 def main():
-    print("🚀 0.5m 전진 시작!")
-    run(0.17)
-    wait_seconds = 2
-    print(f"⏳ {wait_seconds}초 대기...")
-    
-    time.sleep(wait_seconds)
-    print("✅ 전진 완료!")
-    run(-0.17)
+    rclpy.init()
+    node = Node("import_go_strait_runner")
 
-if __name__ == '__main__':
+    print("🚀 go -0.5m")
+    run(node, 0.5)
+
+    print("🔄 rotate +30°")
+    rotate(node, 30.0)
+
+    time.sleep(1)
+
+    print("🚀 go +0.5m")
+    run(node, -0.5)
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == "__main__":
     main()

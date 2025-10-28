@@ -4,12 +4,18 @@ import math
 from rclpy.node import Node
 from pickee_mobile.module.module_aruco_detect import ArucoPoseEstimator 
 from geometry_msgs.msg import Pose2D
-from shopee_interfaces.msg import ArucoPose
+from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
+from rclpy.executors import MultiThreadedExecutor
+import numpy as np
+from collections import Counter
+
 
 class ArucoReaderNode(Node):
     def __init__(self):
         super().__init__('aruco_reader')
         self.get_logger().info("📷 ArUco Reader Node Started")
+
+        
 
         # ArucoPoseEstimator 초기화
         self.estimator = ArucoPoseEstimator(
@@ -21,38 +27,94 @@ class ArucoReaderNode(Node):
         self.pose_publisher = self.create_publisher(ArucoPose, 
                                                     '/pickee/mobile/aruco_pose', 
                                                     10)
+        
+        self.create_subscription(PickeeMobileArrival,
+                                '/pickee/mobile/arrival',
+                                self.detect_aruco_callback,
+                                10)
+        
+    def detect_aruco_callback(self, msg: PickeeMobileArrival):
+        self.get_logger().info("🚦 Arrival detected! Starting ArUco scan...")
+        self.read_marker()
 
-        # 0.2초마다 카메라에서 마커 읽기
-        self.timer = self.create_timer(0.2, self.read_marker)
-
+        
     def read_marker(self):
-        ret, frame = self.estimator.cap.read()
-        if not ret:
-            self.get_logger().warning("❌ 프레임을 읽을 수 없습니다.")
+        values = {
+            "id": [],
+            "x": [], "y": [], "z": [],
+            "roll": [], "pitch": [], "yaw": []
+        }
+
+        for i in range(10):
+            print(f"📸 Reading marker attempt {i+1}/10")
+
+            ret, frame = self.estimator.cap.read()
+            if not ret:
+                self.get_logger().warning("❌ 프레임을 읽을 수 없습니다.")
+                return
+
+            frame_out, markers = self.estimator.process_frame(frame)
+
+            if markers:
+                m = markers[0]
+
+                values["id"].append(m["id"])
+                values["x"].append(m["x"])
+                values["y"].append(m["y"])
+                values["z"].append(m["z"])
+                values["roll"].append(m["roll"])
+                values["pitch"].append(m["pitch"])
+                values["yaw"].append(m["yaw"])
+
+                self.get_logger().info(
+                    f"🟢 {i+1}/10 | ID={m['id']} | "
+                    f"x={m['x']:.1f}, y={m['y']:.1f}, z={m['z']:.1f} | "
+                    f"roll={m['roll']:.1f}, pitch={m['pitch']:.1f}, yaw={m['yaw']:.1f}"
+                )
+            else:
+                self.get_logger().info(f"⚠️ {i+1}/10 | Marker not found")
+
+        if len(values["id"]) == 0:
+            self.get_logger().error("❌ 10회 측정 중 마커를 하나도 감지하지 못했습니다.")
             return
 
-        frame_out, markers = self.estimator.process_frame(frame)
+        # ✅ aruco_id 최빈값 Mode 계산
+        aruco_id = Counter(values["id"]).most_common(1)[0][0]
 
-        for m in markers:
-            self.get_logger().info(
-                f"🟢 ID {m['id']} | x={m['x']:.1f}mm, y={m['y']:.1f}mm, z={m['z']:.1f}mm | "
-                f"roll={m['roll']:.1f}°, pitch={m['pitch']:.1f}°, yaw={m['yaw']:.1f}°"
-            )
+        # ✅ Pose Median 계산
+        median = {k: float(np.median(v)) for k, v in values.items() if k != "id"}
 
+        self.get_logger().info(
+            f"✅ Filter 완료 (samples={len(values['id'])})\n"
+            f"ID={aruco_id}, "
+            f"x={median['x']:.1f}, y={median['y']:.1f}, z={median['z']:.1f}, "
+            f"roll={median['roll']:.1f}, pitch={median['pitch']:.1f}, yaw={median['yaw']:.1f}"
+        )
+
+        # ✅ Publish
         pose = ArucoPose()
-        pose.x = markers[0]['x']
-        pose.y = markers[0]['y']
-        pose.z = markers[0]['z']
-        pose.roll = markers[0]['roll']
-        pose.pitch = markers[0]['pitch']
-        pose.yaw = markers[0]['yaw']
+        pose.aruco_id = aruco_id
+        pose.x = median["x"]
+        pose.y = median["y"]
+        pose.z = median["z"]
+        pose.roll = median["roll"]
+        pose.pitch = median["pitch"]
+        pose.yaw = median["yaw"]
         self.pose_publisher.publish(pose)
+
+        self.get_logger().info("📤 Published MEDIAN + MODE filtered ArUco pose ✅")
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)
     node = ArucoReaderNode()
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
+
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
