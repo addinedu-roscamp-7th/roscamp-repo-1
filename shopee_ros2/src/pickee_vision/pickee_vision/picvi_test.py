@@ -48,7 +48,7 @@ class PickeeVisionNode(Node):
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
         package_share_directory = get_package_share_directory('pickee_vision')
         # 1. 상품 인식용 세그멘테이션 모델
-        product_model_path = os.path.join(package_share_directory, '20251015_1.pt')
+        product_model_path = os.path.join(package_share_directory, '20251027_v11.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
         cart_model_path = os.path.join(package_share_directory, 'cart_best_.pth')
 
