@@ -21,6 +21,10 @@ class CartSelectItemWidget(QWidget):
         super().__init__(parent)
         self.ui = Ui_cart_select_item()
         self.ui.setupUi(self)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
         self.label_image = self.ui.item_image
         self.label_name = self.ui.item_name
         self.label_progress = self.ui.item_count
@@ -47,8 +51,58 @@ class CartSelectItemWidget(QWidget):
         self.apply_image(image_path)
         self.label_image.setToolTip(f'#{index}')
         self.label_name.setText(name)
+        self.label_name.setToolTip(f'#{index} {name}')
         self.label_progress.setText(f'({picked}/{quantity})')
         self.set_status(status_text)
+
+    def sizeHint(self) -> QtCore.QSize:
+        '''레이아웃이 위젯 높이를 과도하게 키우지 않도록 권장 크기를 지정한다.'''
+        layout = self.layout()
+        spacing = layout.spacing() if layout is not None else 0
+        margins = layout.contentsMargins() if layout is not None else QtCore.QMargins()
+        text_height = (
+            self.label_name.sizeHint().height()
+            + self.label_progress.sizeHint().height()
+            + spacing
+        )
+        content_height = text_height
+        total_height = content_height + margins.top() + margins.bottom()
+        image_width = max(self.IMAGE_SIZE.width(), self.label_image.sizeHint().width())
+        status_width = max(self.STATUS_ICON_SIZE.width(), self.label_status.sizeHint().width())
+        text_width = max(
+            self.label_name.sizeHint().width(),
+            self.label_progress.sizeHint().width(),
+        )
+        spacing = layout.spacing() if layout is not None else 0
+        base_width = (
+            image_width
+            + spacing
+            + text_width
+            + spacing
+            + status_width
+            + margins.left()
+            + margins.right()
+        )
+        clamped_width = max(base_width, 160)
+        return QtCore.QSize(clamped_width, total_height)
+
+    def _configure_widgets(self) -> None:
+        image_policy = self.label_image.sizePolicy()
+        image_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
+        image_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
+        self.label_image.setSizePolicy(image_policy)
+        if self.label_image.minimumWidth() <= 0 or self.label_image.minimumHeight() <= 0:
+            self.label_image.setMinimumSize(self.IMAGE_SIZE)
+        if self.label_image.maximumWidth() <= 0 or self.label_image.maximumHeight() <= 0:
+            self.label_image.setMaximumSize(self.IMAGE_SIZE)
+        if not self.label_image.alignment() & QtCore.Qt.AlignmentFlag.AlignHCenter:
+            self.label_image.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_image.setScaledContents(False)
+
+        if not self.label_status.alignment() & QtCore.Qt.AlignmentFlag.AlignHCenter:
+            self.label_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_status.setAccessibleName('선택 상태 표시 아이콘')
+        self.label_status.setScaledContents(False)
 
     def apply_image(self, path: Path | None) -> None:
         image_path = path if path and path.exists() else self.FALLBACK_IMAGE
@@ -62,34 +116,6 @@ class CartSelectItemWidget(QWidget):
             QtCore.Qt.TransformationMode.SmoothTransformation,
         )
         self.label_image.setPixmap(scaled)
-
-    def _configure_widgets(self) -> None:
-        self.setMinimumHeight(max(self.minimumHeight(), self.IMAGE_SIZE.height()))
-
-        image_policy = self.label_image.sizePolicy()
-        image_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
-        image_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
-        self.label_image.setSizePolicy(image_policy)
-        if self.label_image.minimumWidth() <= 0 or self.label_image.minimumHeight() <= 0:
-            self.label_image.setMinimumSize(self.IMAGE_SIZE)
-        if self.label_image.maximumWidth() <= 0 or self.label_image.maximumHeight() <= 0:
-            self.label_image.setMaximumSize(self.IMAGE_SIZE)
-        if not self.label_image.alignment() & QtCore.Qt.AlignmentFlag.AlignHCenter:
-            self.label_image.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_image.setScaledContents(False)
-
-        if self.label_status.minimumWidth() <= 0 or self.label_status.minimumHeight() <= 0:
-            self.label_status.setMinimumSize(self.STATUS_ICON_SIZE)
-        if self.label_status.maximumWidth() <= 0 or self.label_status.maximumHeight() <= 0:
-            self.label_status.setMaximumSize(self.STATUS_ICON_SIZE)
-        status_policy = self.label_status.sizePolicy()
-        status_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
-        status_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
-        self.label_status.setSizePolicy(status_policy)
-        if not self.label_status.alignment() & QtCore.Qt.AlignmentFlag.AlignHCenter:
-            self.label_status.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_status.setAccessibleName('선택 상태 표시 아이콘')
-        self.label_status.setScaledContents(False)
 
     def set_status(self, status_text: str) -> None:
         '''상태에 따라 아이콘 또는 텍스트를 설정한다.'''
