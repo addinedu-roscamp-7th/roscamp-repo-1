@@ -15,6 +15,7 @@
 #include <shopee_interfaces/msg/pickee_mobile_pose.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_arrival.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_speed_control.hpp>
+#include <shopee_interfaces/msg/aruco_pose.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_move_to_location.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_update_global_path.hpp>
 
@@ -65,7 +66,13 @@ public:
         scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", 10,
             std::bind(&PickeeMobileWonhoNode::scan_callback, this, std::placeholders::_1));
+
+        aruco_pose_subscriber_ = this->create_subscription<shopee_interfaces::msg::ArucoPose>(
+            "/pickee/mobile/aruco_pose", 10,
+            std::bind(&PickeeMobileWonhoNode::aruco_pose_callback, this, std::placeholders::_1));
         
+        RCLCPP_INFO(this->get_logger(), "ArUco Pose 구독 설정 완료: /pickee/mobile/aruco_pose");
+
         // Services 초기화 (Shopee Interface - service 서버들)
         move_to_location_service_ = this->create_service<shopee_interfaces::srv::PickeeMobileMoveToLocation>(
             "/pickee/mobile/move_to_location",
@@ -116,6 +123,7 @@ private:
     rclcpp::Subscription<shopee_interfaces::msg::PickeeMobileSpeedControl>::SharedPtr speed_control_subscriber_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
+    rclcpp::Subscription<shopee_interfaces::msg::ArucoPose>::SharedPtr aruco_pose_subscriber_;
     
     // Services (Shopee Interface - service 서버들)
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_to_location_service_;
@@ -240,6 +248,47 @@ private:
     {
         current_scan_ = *msg;
         scan_received_ = true;
+    }
+
+    void aruco_pose_callback(const shopee_interfaces::msg::ArucoPose::SharedPtr msg)
+    {
+        geometry_msgs::msg::Twist cmd_vel_msg;
+        cmd_vel_msg.linear.x = 0.0;
+        cmd_vel_msg.linear.y = 0.0;
+        cmd_vel_msg.linear.z = 0.0;
+        cmd_vel_msg.angular.x = 0.0;
+        cmd_vel_msg.angular.y = 0.0;
+        cmd_vel_msg.angular.z = 0.0;
+        if (current_status_ == "idle") {
+            if (msg->z > 0.5) {
+                // 상세 ArUco 마커 정보 출력
+                RCLCPP_INFO(this->get_logger(),
+                    "ArUco 마커 수신: ID=%d, 위치=(%.3f, %.3f, %.3f), 회전=(%.3f, %.3f, %.3f)",
+                    msg->aruco_id,
+                    msg->x, msg->y, msg->z,
+                    msg->roll, msg->pitch, msg->yaw);
+
+                // 로봇의 x 속도를 0.1로 설정하는 Twist 메시지 발행
+                cmd_vel_msg.linear.x = 0.1;   // x축 속도 0.1 m/s
+
+                // /cmd_vel 토픽으로 속도 명령 발행
+                static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+                if (!cmd_vel_pub) {
+                    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                }
+                cmd_vel_pub->publish(cmd_vel_msg);
+                RCLCPP_INFO(this->get_logger(), "이동 중...");
+            } else {
+                cmd_vel_msg.linear.x = 0.0;
+                static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+                if (!cmd_vel_pub) {
+                    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                }
+                cmd_vel_pub->publish(cmd_vel_msg);
+                RCLCPP_INFO(this->get_logger(), "도착");
+            }
+        }
+
     }
     
     void move_to_location_callback(

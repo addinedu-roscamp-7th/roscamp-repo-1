@@ -4,6 +4,10 @@ import threading
 import asyncio
 import subprocess
 import os
+import cv2
+import cv2.aruco
+import numpy as np
+from .cam.camera_thread import CameraThread
 from pickee_main.state_machine import StateMachine
 from pickee_main.states import (
     InitializingState,
@@ -147,9 +151,15 @@ class PickeeMainController(Node):
         self.timer = self.create_timer(0.1, self.state_machine_callback)
         
         # 주기적으로 로봇 상태를 발행하기 위한 타이머 (1Hz)
-        self.status_timer = self.create_timer(60.0, self.publish_robot_status)
-        
-        self.get_logger().info('Pickee Main Controller started')
+        self.status_timer = self.create_timer(5.0, self.publish_robot_status)
+
+        # 주기적으로 ArUco 마커 포즈를 발행하기 위한 타이머 (1Hz) - 테스트용 더미 데이터
+
+        # self.camera_thread = CameraThread(camera_index=0)
+        # self.camera_thread.frame_ready.connect(self.update_camera_frame)
+        # self.camera_thread.marker_detected.connect(self.publish_aruco_pose)
+        # self.camera_thread.start()
+        # self.get_logger().info('Pickee Main Controller started')
     
     def setup_internal_subscribers(self):
         # 내부 컴포넌트 토픽 구독자 설정
@@ -353,6 +363,12 @@ class PickeeMainController(Node):
             '/pickee/mobile/speed_control',
             10
         )
+        # Mobile로 Aruco 마커 위치 정보 발행
+        # self.aruco_pose_pub = self.create_publisher(
+        #     ArucoPose,
+        #     '/pickee/mobile/aruco_pose',
+        #     10
+        # )
 
     def setup_external_service_servers(self):
         # Main Service로부터 명령을 수신하기 위한 Service Server 설정
@@ -919,6 +935,39 @@ class PickeeMainController(Node):
         
         self.robot_status_pub.publish(msg)
 
+    # def update_camera_frame(self, qt_image):
+    #     '''
+    #     카메라 프레임을 OpenCV 창으로 출력하는 함수
+    #     Qt를 사용하지 않고 OpenCV imshow로 실시간 영상 확인
+    #     '''
+    #     # QImage를 numpy 배열로 변환
+    #     # QImage는 RGB888 포맷이므로 변환 필요
+    #     width = qt_image.width()
+    #     height = qt_image.height()
+    #     ptr = qt_image.bits()
+    #     ptr.setsize(qt_image.byteCount())
+    #     arr = np.array(ptr).reshape(height, width, 3)
+
+    #     # OpenCV는 BGR 포맷이므로 변환
+    #     bgr_frame = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+
+    #     # OpenCV 창에 영상 출력
+    #     cv2.imshow('Pickee Camera', bgr_frame)
+    #     cv2.waitKey(1)
+
+    # def publish_aruco_pose(self, marker_id, tvec, rvec):
+    #     # Aruco 마커 위치 정보를 발행
+    #     msg = ArucoPose()
+    #     msg.aruco_id = marker_id
+    #     msg.x = tvec[0]
+    #     msg.y = tvec[1]
+    #     msg.z = tvec[2]
+    #     msg.roll = rvec[0]
+    #     msg.pitch = rvec[1]
+    #     msg.yaw = rvec[2]
+    #     self.aruco_pose_pub.publish(msg)
+    #     print(f'Aruco pose 발행: id={marker_id}, position=({tvec[0]:.2f}, {tvec[1]:.2f}, {tvec[2]:.2f})')
+
     def publish_arrival_notice(self, location_id, section_id=0):
         # 목적지 도착 알림 발행
         msg = PickeeArrival()
@@ -1341,6 +1390,8 @@ def main(args=None):
     except Exception as e:
         print(f'Error: {e}')
     finally:
+        # if hasattr(node, 'camera_thread'):
+        #     node.camera_thread.stop()
         rclpy.shutdown()
 
 

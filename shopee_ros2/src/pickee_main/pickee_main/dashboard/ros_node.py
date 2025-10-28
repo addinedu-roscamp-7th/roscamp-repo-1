@@ -2,8 +2,9 @@ import rclpy
 import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
-from shopee_interfaces.msg import PickeeRobotStatus
+from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose
 from PySide6.QtCore import QThread, Signal, QTimer
+
 
 class RosNodeThread(QThread):
     log_received = Signal(str, str, str, bool)
@@ -16,11 +17,19 @@ class RosNodeThread(QThread):
         super().__init__()
         self.node = None
         self.timer = None
+        self.aruco_pose_pub = None
         self.state_log_pattern = re.compile(r'^[A-Z_]+ 상태 (진입|탈출)$')
 
     def run(self):
         rclpy.init()
         self.node = Node("pickee_dashboard_node")
+        
+        # ArucoPose publisher 생성
+        self.aruco_pose_pub = self.node.create_publisher(
+            ArucoPose,
+            '/pickee/mobile/aruco_pose',
+            10
+        )
         
         # /rosout 토픽을 구독하여 모든 로그 메시지 수신
         self.node.create_subscription(
@@ -46,6 +55,22 @@ class RosNodeThread(QThread):
         # 스레드 종료 시 노드 정리
         self.node.destroy_node()
         rclpy.shutdown()
+
+    def publish_aruco_pose(self, marker_id, tvec, rvec):
+        """아르코 마커 포즈 발행"""
+        if self.aruco_pose_pub is None:
+            return
+
+        msg = ArucoPose()
+        msg.aruco_id = marker_id
+        msg.x = float(tvec[0])
+        msg.y = float(tvec[1])
+        msg.z = float(tvec[2])
+        msg.roll = float(rvec[0])
+        msg.pitch = float(rvec[1])
+        msg.yaw = float(rvec[2])
+
+        self.aruco_pose_pub.publish(msg)
 
     def log_callback(self, msg: Log):
         # 로그 레벨을 문자로 변환 (예: 10 -> DEBUG, 20 -> INFO)

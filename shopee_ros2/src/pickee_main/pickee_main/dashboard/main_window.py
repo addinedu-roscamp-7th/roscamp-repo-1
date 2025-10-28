@@ -2,9 +2,15 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QListWidget, QTextEdit, QTreeWidget, QDockWidget, QTreeWidgetItem, QLabel
 )
+import rclpy
+from rclpy.node import Node
+
+from shopee_interfaces.msg import ArucoPose
+
 import numpy as np 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
+
 
 from .ros_node import RosNodeThread
 from ..cam.camera_thread import CameraThread
@@ -12,9 +18,16 @@ from ..cam.camera_thread import CameraThread
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pickee Main Dashboard123123")
+        self.setWindowTitle("Pickee Main Dashboard")
         self.setGeometry(100, 100, 1400, 800)
 
+        # 3. 상태 머신 패널
+        state_dock = QDockWidget("State Machine", self)
+        self.state_label = QLabel("Initializing...")
+        self.state_label.setAlignment(Qt.AlignCenter)
+        state_dock.setWidget(self.state_label)
+        self.addDockWidget(Qt.LeftDockWidgetArea, state_dock)
+        state_dock.setFixedHeight(40)
         # 1. 노드 목록 패널
         node_dock = QDockWidget("Nodes", self)
         self.node_list_widget = QListWidget()
@@ -26,15 +39,8 @@ class MainWindow(QMainWindow):
         self.comm_tree_widget = QTreeWidget()
         self.comm_tree_widget.setHeaderLabels(["Name", "Type"])
         comm_dock.setWidget(self.comm_tree_widget)
-        comm_dock.setFixedWidth(320)
         self.addDockWidget(Qt.LeftDockWidgetArea, comm_dock)
 
-        # 3. 상태 머신 패널
-        state_dock = QDockWidget("State Machine2123", self)
-        self.state_label = QLabel("Initializing...")
-        self.state_label.setAlignment(Qt.AlignCenter)
-        state_dock.setWidget(self.state_label)
-        self.addDockWidget(Qt.TopDockWidgetArea, state_dock)
 
         # 4. 로그 출력 패널
         log_dock = QDockWidget("Logs", self)
@@ -49,6 +55,7 @@ class MainWindow(QMainWindow):
         self.camera_label.setAlignment(Qt.AlignCenter)
         self.camera_label.setMinimumSize(320, 240)
         self.camera_label.setScaledContents(True)
+        self.camera_label.setFixedWidth(320)
         camera_dock.setWidget(self.camera_label)
         self.addDockWidget(Qt.LeftDockWidgetArea, camera_dock)
 
@@ -140,12 +147,16 @@ class MainWindow(QMainWindow):
         tvec_str = f'[{tvec_flat[0]:.3f}, {tvec_flat[1]:.3f}, {tvec_flat[2]:.3f}]'
         rvec_str = f'[{rvec_flat[0]:.3f}, {rvec_flat[1]:.3f}, {rvec_flat[2]:.3f}]'
         log_msg = f'마커 ID: {marker_id}, 위치: {tvec_str}, 회전: {rvec_str}'
-        self.append_log('aruco_detector', 'INFO', log_msg, marker_id is not None)
+
+        # RosNodeThread를 통해 아르코 마커 정보 발행
+        self.ros_thread.publish_aruco_pose(marker_id, tvec_flat, rvec_flat)
+
+        self.append_log('aruco_detector', 'INFO', log_msg, False)
 
     def closeEvent(self, event):
         # 윈도우 종료 시 스레드 정리
         self.ros_thread.stop()
-        self.camera_thread.stop()
+        # self.camera_thread.stop()
         super().closeEvent(event)
 
     def update_node_list(self, nodes):
