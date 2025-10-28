@@ -21,24 +21,6 @@
                        'waypoint_follower',
                        'velocity_smoother']"/>
 
-    <!-- Map Server: 지정된 맵 파일을 로드합니다. -->
-    <node pkg="nav2_map_server" exec="map_server" name="map_server" output="screen">
-        <param name="use_sim_time" value="$(var use_sim_time)"/>
-        <param name="yaml_filename" value="$(var map)"/>
-    </node>
-
-    <!-- AMCL: 맵과 센서 데이터를 이용해 로봇 위치를 추정하고 'map' 프레임을 생성합니다. -->
-    <node pkg="nav2_amcl" exec="amcl" name="amcl" output="screen">
-        <param from="$(var params_file)"/>
-    </node>
-
-    <!-- Lifecycle Manager: map_server와 amcl 노드를 자동으로 활성화시킵니다. -->
-    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_localization" output="screen">
-        <param name="use_sim_time" value="$(var use_sim_time)"/>
-        <param name="autostart" value="true"/>
-        <param name="node_names" value="['map_server', 'amcl']"/>
-    </node>
-
     <group>
         <push-ros-namespace namespace="$(var namespace)"/>
         <node pkg="rclcpp_components" exec="component_container_isolated" name='$(var container_name)' output="screen" args="--ros-args --log-level $(var log_level)">
