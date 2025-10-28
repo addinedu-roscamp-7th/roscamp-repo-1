@@ -28,6 +28,7 @@ setup(
             'obstacle_detector = pickee_vision.obstacle_detector_node:main',
             'pickee_vision = pickee_vision.pickee_vision_node:main',
             'staff_tracker = pickee_vision.staff_tracker_node:main',
+            'picvi_test = pickee_vision.picvi_test:main',
         ],
     },
 )

@@ -43,7 +43,7 @@ class PickeeVisionNode(Node):
     # 실시간 로컬 영상 디스플레이, 서비스 요청 시 인식, 인식 이미지 로컬 및 UDP 스트리밍 기능을 모두 포함합니다.
     #
     def __init__(self):
-        super().__init__('pickee_vision_node')
+        super().__init__('picvi_test')
 
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
         package_share_directory = get_package_share_directory('pickee_vision')
@@ -129,12 +129,12 @@ class PickeeVisionNode(Node):
         # # UDP 스트리밍 처리
         # if self.streamer.is_running:
         #     if self.camera_type == "arm" and ret_arm:
-        #         if self.camera_flag == "front": # 카메라 타입 변경 시 큐 리셋
+        #         if self.camera_flag != "arm": # 카메라 타입 변경 시 큐 리셋
         #             self.streamer.queue_reset()
         #             self.camera_flag = "arm"
         #         self.streamer.queue_frame(arm_frame)
         #     elif self.camera_type == "front" and ret_front:
-        #         if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
+        #         if self.camera_flag != "front": # 카메라 타입 변경 시 큐 리셋
         #             self.streamer.queue_reset()
         #             self.camera_flag = "front"
         #         self.streamer.queue_frame(front_frame)
@@ -144,15 +144,15 @@ class PickeeVisionNode(Node):
         # UDP 스트리밍 처리 - 테스트용
         if self.streamer.is_running:
             if self.camera_type == "arm" and ret_arm:
-                if self.camera_flag == "front": # 카메라 타입 변경 시 큐 리셋
+                if self.camera_flag != "arm": # 카메라 타입 변경 시 큐 리셋
                     self.streamer.queue_reset()
                     self.camera_flag = "arm"
                 self.streamer.queue_frame(arm_frame)
-            # elif self.camera_type == "front" and ret_front:
-            #     if self.camera_flag == "arm": # 카메라 타입 변경 시 큐 리셋
-            #         self.streamer.queue_reset()
-            #         self.camera_flag = "front"
-            #     self.streamer.queue_frame(front_frame)
+            elif self.camera_type == "front": # and ret_front:
+                if self.camera_flag != "front": # 카메라 타입 변경 시 큐 리셋
+                    self.streamer.queue_reset()
+                    self.camera_flag = "front"
+                # self.streamer.queue_frame(front_frame)
             else:
                 self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
@@ -243,7 +243,7 @@ class PickeeVisionNode(Node):
 
     def video_stream_start_callback(self, request, response):
         self.get_logger().info(f'Video stream start service called for camera: {request.camera_type}.')
-        self.streaming_camera_type = request.camera_type # Use the new variable name
+        self.streaming_camera_type = request.camera_type # camera_type 반영
         self.streamer.start()
         response.success = True
         response.message = "UDP streamer started."
@@ -252,7 +252,7 @@ class PickeeVisionNode(Node):
     def video_stream_stop_callback(self, request, response):
         self.get_logger().info('Video stream stop service called.')
         self.streamer.stop()
-        self.streaming_camera_type = "" # Reset streaming camera type
+        self.streaming_camera_type = "" # camera_type 리셋
         response.success = True
         response.message = "UDP streamer stopped."
         return response
