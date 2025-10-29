@@ -1,62 +1,89 @@
-from pickee_mobile.module.module_go_strait import run
-from pickee_mobile.module.module_rotate import rotate
-
 import rclpy
 from rclpy.node import Node
 from shopee_interfaces.msg import ArucoPose
+from geometry_msgs.msg import Twist
 import math
+import time
 
-class MockArrivalAndMoveStatusSubscriber(Node):
-    '''
-    PickeeMobileArrival 및 PickeeMoveStatus 토픽을 구독하는 Mock 노드.
-    '''
+from pickee_mobile.module.module_go_strait import run   # run(node, dist)
+from pickee_mobile.module.module_rotate import rotate   # rotate(node, deg)
+from std_msgs.msg import Bool
 
+class ArucoDocking(Node):
     def __init__(self):
-        super().__init__('ArucoPose_Subscriber')
-        self.get_logger().info('ArucoPose Subscriber 노드가 시작되었습니다.')
+        super().__init__("aruco_docking")
 
-        self.arrival_subscriber = self.create_subscription(
+        self.state = "SEARCHING"
+        self.aruco_detected = False
+        self.pose = None
+        self.cmd_vel = Twist()
+
+        self.cmd_pub = self.create_publisher(
+            Twist, 
+            "/cmd_vel_modified", 
+            10)
+        self.docking_in_progress_pub = self.create_publisher(
+            bool, 
+            "/pickee/mobile/docking_in_progress", 
+            10)
+
+
+        self.sub = self.create_subscription(
             ArucoPose,
             '/pickee/mobile/aruco_pose',
             self.aruco_callback,
             10
         )
 
-    def aruco_callback(self, arrival_msg):
-        print('reading aruco message')  # 디버그 출력 추가
+        self.get_logger().info("🤖 ArUco Docking FSM Started")
+
+    def aruco_callback(self, msg: ArucoPose):
+
+        x = msg.x      # left-right mm
+        z = msg.z      # forward mm
+        yaw = msg.pitch  # deg
+
+        if x < 0 and yaw > 0:
+            self.cmd_vel.angular.z = -0.2
+        elif x > 0 and yaw > 0:
+            self.cmd_vel.angular.z = -0.1
+        elif x > 0 and yaw < 0:
+            self.cmd_vel.angular.z = 0.2
+        elif x < 0 and yaw < 0:
+            self.cmd_vel.angular.z = 0.1
+
+        if z > 200:
+            self.cmd_vel.linear.x = 0.2
+        else:
+            self.cmd_vel.linear.x = 0.0
+            self.publish_stop()
+            self.get_logger().info("도킹 완료!")
+            self.docking_in_progress_pub.publish(False)
+            return
+        
+        
+
+    def state_searching(self):
+        self.get_logger().info("🔎 Searching marker...")
+        cmd = Twist()
+        cmd.angular.z = 0.2
+        # self.cmd_pub.publish(cmd)
+
+    def state_align_yaw(self):
+        self.get_logger().info("🎯 Align yaw...")
+        self.state = "ALIGN_YAW"
+
+    def publish_stop(self):
+        self.cmd_pub.publish(Twist())
 
 
-        # Step 1: rotate(theta_pitch)
-        rotate(self, arrival_msg.pitch)
-        self.get_logger().info('첫 번째 회전 완료.')
-
-        # Step 2: run( sqrt(x^2 + z^2) / (2 * cos(theta_pitch)) )
-        distance = math.sqrt(arrival_msg.x**2 + arrival_msg.z**2) / (2 * math.cos(arrival_msg.pitch))
-        run(self, distance)
-        self.get_logger().info('직진 주행 완료.')
-        self.get_logger().info(f'이동 거리: {distance:.3f} mm')
-
-        # Step 3: rotate(-2 * theta_pitch)
-        rotate(self, -2 * arrival_msg.pitch)
-        self.get_logger().info('두 번째 회전 완료.')
-
-        self.get_logger().info(
-            f"\n📩 [도착 메시지 수신]\n"
-            f"  aruco_id      : {arrival_msg.aruco_id}\n"
-            f"  x   : {arrival_msg.x:.3f}\n"
-            f"  y   : {arrival_msg.y:.3f}\n"
-            f"  z   : {arrival_msg.z:.3f}\n"
-            f"  roll  : {arrival_msg.roll:.3f}\n"
-            f"  pitch : {arrival_msg.pitch:.3f}\n"
-            f"  yaw   : {arrival_msg.yaw:.3f}\n"
-        )
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = MockArrivalAndMoveStatusSubscriber()
+def main():
+    rclpy.init()
+    node = ArucoDocking()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

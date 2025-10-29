@@ -51,14 +51,15 @@ class ArucoDocking(Node):
             self.state_align_yaw()
         
         elif self.state == "ALIGN_YAW":
-
+            
             rotate(self, yaw)
             self.get_logger().info('첫 번째 회전 완료.')
 
-            distance = math.sqrt(x**2 + z**2) / (2 * math.cos(math.radians(yaw)))
-            run(self, distance)
-            self.get_logger().info('직진 주행 완료.')
+            distance = math.sqrt(x**2 + z**2) / (6 * math.cos(math.radians(yaw)))
             self.get_logger().info(f'이동 거리: {distance:.3f} mm')
+
+            run(self, 0.5)
+            self.get_logger().info('직진 주행 완료.')
 
             # Step 3: rotate(-2 * theta_pitch)
             rotate(self, -2 * yaw)
