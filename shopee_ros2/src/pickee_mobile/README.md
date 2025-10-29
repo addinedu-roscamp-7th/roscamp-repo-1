@@ -28,13 +28,28 @@ ros2 launch pickee_mobile mobile_controller.launch.xml # 속도값
 
 ### 2.2 실제주행
 ```bash
-#시뮬레이션
+#실제
 ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
 ros2 launch pickee_mobile nav2_bringup_launch.xml map:=map1021_modify.yaml #로봇, 맵 설정은 바꿔도 됨
 ros2 launch pickee_mobile nav2_view.launch.xml #pc
 ros2 launch pickee_mobile mobile_controller.launch.xml #pc
 
 ```
+
+상세설명
+mobile_bringup.launch.xml = PickeeMobile 시동걸기, 수업 자료에 있던거
+
+nav2_bringup_launch.xml map:=map1021_modify.yaml = nav2 실행, 해당 파일의 default map을 설정해도 된다.
+
+nav2_view.launch.xml = rviz 실행, 수업 자료에 있던거
+
+mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드 실행
+
+    mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
+
+    mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절
+
+    
 ### 2.3 Aruco marker 추적
 ```base
 ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
@@ -42,15 +57,44 @@ ros2 launch pickee_mobile nav2_bringup_launch.xml # 로봇
 ros2 run pickee_mobile mobile_aruco_pub_1 # pc
 ros2 run pickee_mobile aruco_follow_1 # pc
 ```
-mobile_aruco_pub_1 = z 누르면 pub 시작, x 누르면 pub 종료, 목적지 도착 토픽 subscribe를 동작 조건으로 하고 싶으면 관련 부분 주석 해제, 
+| 역할                            | 실행 명령                                                 | 위치        | 설명                      |
+| ----------------------------- | ----------------------------------------------------- | --------- | ----------------------- |
+| 로봇 Bringup                    | `ros2 launch pickee_mobile mobile_bringup.launch.xml` | **Robot** | 센서/TF/기본 bringup        |
+| Nav2 Bringup                  | `ros2 launch pickee_mobile nav2_bringup_launch.xml`   | **Robot** | Nav2 navigation bringup |
+| ArUco Pose Publisher          | `ros2 run pickee_mobile mobile_aruco_pub_1`           | **PC**    | Z 시작 / X 종료, 도킹 트리거 옵션  |
+| ArUco 기반 이동 (V1)              | `ros2 run pickee_mobile aruco_follow_1`               | **PC**    | 거리 근접만 함                  |
+| ArUco 기반 이동 (V2)              | `ros2 run pickee_mobile aruco_follow_2`               | **PC**    | 근접 + 각도 정렬              |
+| ArUco 기반 이동 (V3)            | `ros2 run pickee_mobile aruco_follow_3`               | **PC**    | 속도 및 거리 자동 조절 예정        |
 
-mobile_aruco_pub_2 = 위와 동일, 실행하면 실시간 영상도 나옴
 
-aruco_follow_1 = ArucoPose를 subscribe 하면 해당 위치로 이동, 각도는 안맞춤
+📡 mobile_aruco_pub_1
 
-aruco_follow_2 = 각도도 맞춰줌
+    Z 키 → ArUco publish 시작
 
-aruco_follow_3 = 만드는중, 목표와 현재위치에 따라 속도, 이동거리 변경 예정
+    X 키 → publish 중지
+
+    도킹 완료 토픽을 subscribe하여 자동 실행 가능 (관련 코드에서 주석 해제)
+
+    카메라 캘리브레이션 파일 경로는 절대경로 사용 → 환경에 맞게 수정 필요
+
+🎥 mobile_aruco_pub_2
+
+    mobile_aruco_pub_1 기능 + 실시간 카메라 영상 출력
+
+🤖 aruco_follow_1
+
+    ArucoPose subscribe → 해당 위치까지 이동
+
+    각도는 조정하지 않음
+
+🎯 aruco_follow_2
+
+    위치 + yaw(각도) 정렬까지 수행
+
+⚙️ aruco_follow_3 (개발 중)
+
+    목표/현재 거리 및 각도 기반으로
+    속도·회전·종단거리 자동 조정 예정
 
 .
 

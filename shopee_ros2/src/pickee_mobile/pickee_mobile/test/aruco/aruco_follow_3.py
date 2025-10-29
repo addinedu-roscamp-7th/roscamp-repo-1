@@ -24,13 +24,14 @@ class ArucoDocking(Node):
         super().__init__("aruco_docking")
 
         self.state = "SEARCHING"
-        self.aruco_detected = False
         self.pose = None
         self.cmd_vel = Twist()
-        self.old_x = 0.0
-        self.old_yaw = 0.0
-        self.aruco_lost_count = 0
-        self.docked = False
+        self.old_x = 0.0 # Aruco marker 재탑색시 사용
+        self.old_yaw = 0.0 # Aruco marker 재탑색시 사용
+        self.aruco_lost_count = 0 # # Aruco marker 재탑색 횟수
+        self.docking_start = False # 처음부터 Aruco 감지 안되는거 방지
+        self.Realign_yaw_scale_1 = 0.4 # Aruco marker 재탐색 중 회전 각도1
+        self.Realign_yaw_scale_2 = 0.5 # Aruco marker 재탐색 중 회전 각도2
 
 
         self.cmd_pub = self.create_publisher(
@@ -61,76 +62,86 @@ class ArucoDocking(Node):
         
         self.get_logger().info(f"📍 ArUco Detected - x: {x} mm, z: {z} mm, yaw: {yaw} deg")
 
+        if z != 0.0 and x != 0.0 and yaw != 0.0:
+            self.docking_start = True
+
         # x = 카메라 중심 기준 마커가 오른쪽에 있는 정도
         # yaw = 양수면 마커가 왼쪽에, 음수면 오른쪽에 있음
-        if abs(x) > 10:
-            self.aruco_lost_count = 0
-            if x < 0 and yaw > 0:
-                self.cmd_vel.angular.z = 0.1
-            elif x > 0 and yaw > 0:
-                self.cmd_vel.angular.z = -0.1
-            elif x > 0 and yaw < 0:
-                self.cmd_vel.angular.z = -0.1
-            elif x < 0 and yaw < 0:
-                self.cmd_vel.angular.z = 0.1
-        else:
-            self.cmd_vel.angular.z = 0.0
+        if self.docking_start:
+            if abs(x) > 5:
+                self.aruco_lost_count = 0
+                scale_yaw = max(min((abs(x) / 20) * 0.1, 0.1), 0.0)
+                if x < 0 and yaw > 0:
+                    self.cmd_vel.angular.z = scale_yaw
+                elif x > 0 and yaw > 0:
+                    self.cmd_vel.angular.z = -scale_yaw
+                elif x > 0 and yaw < 0:
+                    self.cmd_vel.angular.z = -scale_yaw
+                elif x < 0 and yaw < 0:
+                    self.cmd_vel.angular.z = scale_yaw
+            else:
+                self.cmd_vel.angular.z = 0.0
 
-        if z > 190:
-            self.aruco_lost_count = 0
-            scale = max(min((z - 200) / 1000, 0.2), 0.05)
-            self.cmd_vel.linear.x = scale
-        
-        elif z == 0.0 and x == 0.0 and yaw == 0.0:
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            self.publish_stop()
-            self.get_logger().info("❌ ArUco marker lost. Stopping.")
-            self.aruco_lost_count += 1
-            if self.aruco_lost_count <= 3:
+            if z > 190:
+                self.aruco_lost_count = 0
+                scale_z = max(min((z - 200) / 1000, 0.2), 0.05)
+                self.cmd_vel.linear.x = scale_z
+            
+            elif z == 0.0 and x == 0.0 and yaw == 0.0:
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
+                self.publish_stop()
+                self.get_logger().info("❌ ArUco marker lost. Stopping.")
+                self.aruco_lost_count += 1
+                if self.aruco_lost_count <= 2:
+                    self.Realign()
+                
+                elif self.aruco_lost_count == 3:
+                    rotate(self, -self.old_yaw)
+                
+                elif self.aruco_lost_count == 4:
+                    rotate(self, 2.5 * self.old_yaw)
+
+                else:
+                    self.get_logger().info("⚠️ ArUco marker lost for too long. Stopping docking.")
+                    self.docking_in_progress_pub.publish(Bool(data=False))
+                    self.publish_stop()
+                return
+                
+
+            elif z <= 190 and abs(yaw) > 5:
                 self.Realign()
 
             else:
-                self.get_logger().info("⚠️ ArUco marker lost for too long. Stopping docking.")
-                self.docking_in_progress_pub.publish(Bool(data=False))
+                
+                self.cmd_vel.linear.x = 0.0
+                self.cmd_vel.angular.z = 0.0
                 self.publish_stop()
-            return
+                self.get_logger().info("✅ Docking complete!")
+                self.docking_in_progress_pub.publish(Bool(data=False))
+                run(self, 0.1)
+                self.docking_start = False
+                time.sleep(5)
+                return
             
-
-        elif z <= 190 and abs(yaw) > 10:
-            self.Realign()
-
-        else:
-            
-            self.cmd_vel.linear.x = 0.0
-            self.cmd_vel.angular.z = 0.0
-            msg.x = 0
-            msg.z = 0
-            msg.yaw = 0
-            self.publish_stop()
-            self.get_logger().info("✅ Docking complete!")
-            self.docking_in_progress_pub.publish(Bool(data=False))
-            run(self, 0.05)
-            time.sleep(5)
-            return
-        
-        self.cmd_pub.publish(self.cmd_vel)
-        self.old_x = x
-        self.old_yaw = yaw
+            self.cmd_pub.publish(self.cmd_vel)
+            self.old_x = x
+            self.old_yaw = yaw
 
     def Realign(self):
         self.get_logger().info("🔄 Realigning to find ArUco marker...")
         if self.old_yaw > 0 and self.old_x > 0:
-            old_yaw_diff = 15
+            old_yaw_diff = self.old_yaw * self.Realign_yaw_scale_1
+            
 
         elif self.old_yaw > 0 and self.old_x < 0:
-            old_yaw_diff = 30
+            old_yaw_diff = self.old_yaw * self.Realign_yaw_scale_2
 
         elif self.old_yaw < 0 and self.old_x > 0:
-            old_yaw_diff = -30
+            old_yaw_diff = self.old_yaw * self.Realign_yaw_scale_2
         
         elif self.old_yaw < 0 and self.old_x < 0:
-            old_yaw_diff = -15
+            old_yaw_diff = self.old_yaw * self.Realign_yaw_scale_1
 
         rotate(self, -self.old_yaw - old_yaw_diff)
         time.sleep(0.5)
