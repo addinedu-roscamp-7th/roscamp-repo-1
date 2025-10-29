@@ -6,6 +6,8 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <limits>
+#include <cmath>
 
 // Nav2 Action 헤더
 // #include <nav2_msgs/action/navigate_to_pose.hpp> // 경유지 테스트를 위해 NavigateThroughPoses로 변경
@@ -117,6 +119,7 @@ private:
     sensor_msgs::msg::LaserScan current_scan_;
     bool odom_received_ = false;
     bool scan_received_ = false;
+    rclcpp::Time last_scan_time_;  // 마지막 스캔 시간 추적
     
     // Publishers (Shopee Interface - pub 토픽들)
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobilePose>::SharedPtr pose_publisher_;
@@ -146,6 +149,28 @@ private:
     
     // Timers
     rclcpp::TimerBase::SharedPtr pose_timer_;
+    
+    /**
+     * @brief 전방 장애물 감지 함수 (LiDAR 기반) - 개선 버전 with 디버깅
+     * @param detection_range 감지 거리 (미터)
+     * @param angle_range 감지 각도 범위 (라디안, 중심 기준 ±)
+     * @return 장애물이 있으면 true, 없으면 false
+     */
+    bool is_obstacle_ahead(double detection_range = 0.75) // 기본값: 0.5m, ±30도
+    {
+        // RCLCPP_INFO(this->get_logger(),
+        //     "레이저 스캔 데이터 수신됨: angle_min=%.2f, angle_max=%.2f, range_min=%.2f, range_max=%.2f, ranges.size=%zu",
+        //     current_scan_->angle_min, current_scan_->angle_max, current_scan_->range_min, current_scan_->range_max, current_scan_->ranges.size());
+
+        // 첫 5개 거리 값만 출력 (디버깅용)
+        for (size_t i = 0; i < std::min(current_scan_.ranges.size(), size_t(5)); ++i) {
+            if (current_scan_.ranges[i] < detection_range) {
+                return true;
+            } 
+        }
+        
+        return false;
+    }
     
     /**
      * @brief 주기적으로 로봇의 현재 위치와 상태를 발행합니다. (Shopee Interface)
@@ -252,6 +277,8 @@ private:
     {
         current_scan_ = *msg;
         scan_received_ = true;
+        last_scan_time_ = this->get_clock()->now();  // 스캔 시간 업데이트
+        
     }
 
     void aruco_pose_callback(const shopee_interfaces::msg::ArucoPose::SharedPtr msg)
@@ -304,17 +331,29 @@ private:
         cmd_vel_msg.angular.x = 0.0;
         cmd_vel_msg.angular.y = 0.0;
         cmd_vel_msg.angular.z = 0.0;
+        
         if (current_status_ == "idle") {
+            // 전방 장애물 감지 (1.0m 이내)
+            if (is_obstacle_ahead(0.75)) {  // 1.0m
+                RCLCPP_WARN(this->get_logger(), "전방에 장애물 감지! 정지합니다.");
+                cmd_vel_msg.linear.x = 0.0;
+                cmd_vel_msg.angular.z = 0.0;
+                
+                static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+                if (!cmd_vel_pub) {
+                    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                }
+                cmd_vel_pub->publish(cmd_vel_msg);
+                return;  // 장애물이 있으면 이동 명령 무시
+            }
+            
+            // 장애물이 없을 때만 이동
             if (msg->direction == "center") {
-                // 상세 ArUco 마커 정보 출력
                 RCLCPP_INFO(this->get_logger(),
                     "앞으로 이동중: dir=%s",
                     msg->direction.c_str());
 
-                // 로봇의 x 속도를 0.1로 설정하는 Twist 메시지 발행
                 cmd_vel_msg.linear.x = 0.08;   // x축 속도 0.08 m/s
-
-                // /cmd_vel 토픽으로 속도 명령 발행
                 
                 RCLCPP_INFO(this->get_logger(), "이동 중...");
             } else if (msg->direction == "left") {
@@ -337,13 +376,13 @@ private:
                 cmd_vel_msg.linear.x = 0.0;
                 RCLCPP_INFO(this->get_logger(), "도착");
             }
+            
             static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
             if (!cmd_vel_pub) {
                 cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
             }
             cmd_vel_pub->publish(cmd_vel_msg);
         }
-
     }
     
     void move_to_location_callback(

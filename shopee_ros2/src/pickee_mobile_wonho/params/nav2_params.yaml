@@ -211,8 +211,8 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 8.0
-      publish_frequency: 4.0
+      update_frequency: 10.0  # 더 빠른 업데이트
+      publish_frequency: 5.0
       global_frame: odom
       robot_base_frame: base_footprint
       # robot_base_frame: base_link
@@ -221,6 +221,7 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
+      track_unknown_space: true  # 미지 영역 추적 활성화
       footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"
       # footprint: '[[0.15, 0.2695], [0.15, -0.2695], [-0.55, -0.2695], [-0.55, 0.2695]]'
       # 반지름 설정 (Global과 동일하게)
@@ -229,7 +230,6 @@ local_costmap:
       circumscribed_radius: 0.5
       inflation_radius: 0.6
       cost_scaling_factor: 3.0
-      footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"
 
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
@@ -246,6 +246,7 @@ local_costmap:
         max_obstacle_height: 2.0
         mark_threshold: 0
         observation_sources: scan
+        combination_method: 1  # 1=Max, 0=Override - 최신 데이터로 덮어쓰기
         scan:
           topic: /scan_filtered
           max_obstacle_height: 2.0
@@ -256,6 +257,8 @@ local_costmap:
           raytrace_min_range: 0.6
           obstacle_max_range: 4.5
           obstacle_min_range: 0.6
+          min_obstacle_height: 0.0  # 바닥부터 감지
+          inf_is_valid: false  # inf 값은 무시
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
