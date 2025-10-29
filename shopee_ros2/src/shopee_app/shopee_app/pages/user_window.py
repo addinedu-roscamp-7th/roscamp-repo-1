@@ -253,7 +253,7 @@ class UserWindow(QWidget):
         "두유": IMAGE_ROOT / "product_soymilk.png",
         "카프리썬": IMAGE_ROOT / "product_caprisun.png",
         "홍사과": IMAGE_ROOT / "product_apple.png",
-        "청사과": IMAGE_ROOT / "green_apple.png",
+        "청사과": IMAGE_ROOT / "product_green_apple.png",
         "삼겹살": IMAGE_ROOT / "product_pork.png",
         "닭": IMAGE_ROOT / "product_chicken.png",
         "생선": IMAGE_ROOT / "product_mackerel.png",
@@ -381,10 +381,14 @@ class UserWindow(QWidget):
         self._init_video_views()
         self._init_map_view()
         self.select_title_label = getattr(self.ui, "label_7", None)
-        self.select_done_button = getattr(self.ui, "toolButton", None)
+        self.select_done_button = getattr(self.ui, "btn_add_product", None)
+        if self.select_done_button is None:
+            self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
             self.select_done_button.clicked.connect(self.on_select_done_clicked)
-        self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
+        self.select_cancel_button = getattr(self.ui, "btn_select_cancel", None)
+        if self.select_cancel_button is None:
+            self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
@@ -914,16 +918,16 @@ class UserWindow(QWidget):
         return normalized_allergy, bool(vegan_value)
 
     def _resolve_product_image(self, product_id: int, name: str) -> Path:
-        # 사전에 등록된 이미지가 있으면 즉시 반환한다.
-        mapped_path = self.PRODUCT_IMAGE_BY_ID.get(product_id)
-        if mapped_path and mapped_path.exists():
-            return mapped_path
-        # 이름 기반 매핑을 사용해 식별 가능한 이미지를 찾는다.
+        # 이름 기반 매핑이 있으면 우선적으로 사용한다. 상품 ID가 재사용되더라도 이름은 정확하다는 가정이다.
         normalized_name = (name or "").strip()
         if normalized_name:
             name_path = self.PRODUCT_IMAGE_BY_NAME.get(normalized_name)
             if name_path and name_path.exists():
                 return name_path
+        # 이름으로 찾지 못했다면 상품 ID 기반 매핑을 시도한다.
+        mapped_path = self.PRODUCT_IMAGE_BY_ID.get(product_id)
+        if mapped_path and mapped_path.exists():
+            return mapped_path
         # 매핑 결과가 없거나 파일이 없으면 기본 이미지를 사용한다.
         return ProductCard.FALLBACK_IMAGE
 
@@ -1146,8 +1150,12 @@ class UserWindow(QWidget):
         self.page_pick = getattr(self.ui, "page_content_pick", None)
         self.side_shop_page = getattr(self.ui, "side_pick_page", None)
         self.side_pick_filter_page = getattr(self.ui, "side_allergy_filter_page", None)
-        self.shopping_button = getattr(self.ui, "toolButton_3", None)
-        self.store_button = getattr(self.ui, "toolButton_2", None)
+        self.shopping_button = getattr(self.ui, "btn_nav_shop", None)
+        if self.shopping_button is None:
+            self.shopping_button = getattr(self.ui, "toolButton_3", None)
+        self.store_button = getattr(self.ui, "btn_nav_store", None)
+        if self.store_button is None:
+            self.store_button = getattr(self.ui, "toolButton_2", None)
 
         if self.shopping_button:
             self.shopping_button.setCheckable(True)
@@ -2813,10 +2821,11 @@ class UserWindow(QWidget):
             col = index % columns
             card = ProductCard()
             card.apply_product(product)
-            if hasattr(card.ui, "toolButton"):
-                card.ui.toolButton.clicked.connect(
-                    lambda _, p=product: self.on_add_to_cart(p)
-                )
+            button = getattr(card.ui, "btn_add_product", None)
+            if button is None:
+                button = getattr(card.ui, "toolButton", None)
+            if button is not None:
+                button.clicked.connect(lambda _, p=product: self.on_add_to_cart(p))
             self.product_grid.addWidget(card, row, col)
 
         rows = (len(products) + columns - 1) // columns if products else 0
