@@ -224,7 +224,7 @@ private:
     req->target_product.product_id = CurrentProductId();
     AssignDetectedProductPose(&req->target_product, 0.25F, 0.0F, 0.12F, 0.0F, 0.92F);
     req->target_product.bbox = CreateBBox(120, 180, 250, 320);
-    current_future_ = pick_client_->async_send_request(req);
+    current_future_ = pick_cli_->async_send_request(req);
   }
 
   void SendPlaceRequest()

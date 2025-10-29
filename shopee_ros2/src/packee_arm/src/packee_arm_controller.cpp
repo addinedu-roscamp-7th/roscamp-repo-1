@@ -9,67 +9,6 @@
 namespace packee_arm {
 
 PackeeArmController::PackeeArmController()
-namespace detail {
-
-// Pose6D가 x/y/z 필드를 사용하는지 식별한다.
-template<typename PoseT, typename = void>
-struct HasPoseXYZ : std::false_type {};
-
-template<typename PoseT>
-struct HasPoseXYZ<
-  PoseT,
-  std::void_t<
-    decltype(std::declval<PoseT>().x),
-    decltype(std::declval<PoseT>().y),
-    decltype(std::declval<PoseT>().z),
-    decltype(std::declval<PoseT>().rz)>> : std::true_type {};
-
-// Pose6D가 joint_* 필드를 사용하는지 식별한다.
-template<typename PoseT, typename = void>
-struct HasPoseJoint : std::false_type {};
-
-template<typename PoseT>
-struct HasPoseJoint<
-  PoseT,
-  std::void_t<
-    decltype(std::declval<PoseT>().joint_1),
-    decltype(std::declval<PoseT>().joint_2),
-    decltype(std::declval<PoseT>().joint_3),
-    decltype(std::declval<PoseT>().joint_4)>> : std::true_type {};
-
-// DetectedProduct.pose 필드 존재 여부를 통합적으로 확인한다.
-template<typename T, typename = void>
-struct HasPoseField : std::false_type {};
-
-template<typename T>
-struct HasPoseField<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().pose.x),
-    decltype(std::declval<T>().pose.y),
-    decltype(std::declval<T>().pose.z),
-    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
-
-}  // namespace detail
-
-namespace {
-
-constexpr double kRadiansToDegrees = 57.29577951308232;  // rad → deg 변환 계수
-
-}  // namespace
-
-using shopee_interfaces::msg::ArmPoseStatus;
-using shopee_interfaces::msg::ArmTaskStatus;
-using shopee_interfaces::srv::ArmMoveToPose;
-using shopee_interfaces::srv::ArmPickProduct;
-using shopee_interfaces::srv::ArmPlaceProduct;
-
-// ------------------------------------------------------------------
-// PackeeArmController 클래스 정의
-// ------------------------------------------------------------------
-class PackeeArmController : public rclcpp::Node {
-public:
-  PackeeArmController()
   : rclcpp::Node("packee_arm_controller"),
     valid_pose_types_({"cart_view", "standby"}),
     valid_arm_sides_({"left", "right"})
@@ -204,36 +143,6 @@ PoseEstimate PackeeArmController::ParsePoseParameter(
 
 PoseComponents PackeeArmController::ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const
 {
-  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const {
-    // Pose6D 메시지를 x, y, z, yaw_deg로 변환한다.
-    PoseComponents components{};
-    components.x = static_cast<double>(pose_msg.x);
-    components.y = static_cast<double>(pose_msg.y);
-    components.z = static_cast<double>(pose_msg.z);
-    components.yaw_deg = static_cast<double>(pose_msg.rz) * kRadiansToDegrees;
-    return components;
-  }
-
-  template<typename DetectedProductT>
-  PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const {
-    static_assert(detail::HasPoseField<DetectedProductT>::value, "DetectedProduct에 pose 필드가 필요합니다.");
-    return ExtractPoseFromPoseMsg(product.pose);
-  }
-
-  PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const {
-    // 배열 형태의 기본값을 PoseEstimate로 치환한다.
-    PoseEstimate pose{};
-    pose.x = values[0];
-    pose.y = values[1];
-    pose.z = values[2];
-    pose.yaw_deg = values[3];
-    pose.confidence = 1.0;
-    return pose;
-  }
-
-  // Pose6D 추출 (joint_* 포맷과 x/y/z 포맷을 모두 수용)
-  PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const
-  {
     return ConvertPoseGeneric(pose_msg);
 }
 
@@ -477,7 +386,6 @@ void PackeeArmController::HandlePlaceProduct(
     }
 
     PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
-    const PoseComponents place_pose = ExtractPoseFromPoseMsg(request->pose);
     if (!AreFinite(place_pose) ||
         !std::isfinite(static_cast<double>(request->pose.rx)) ||
         !std::isfinite(static_cast<double>(request->pose.ry)) ||
@@ -540,41 +448,6 @@ void PackeeArmController::HandlePlaceProduct(
     cmd.target_pose.yaw_deg = place_pose.yaw_deg;
     cmd.target_pose.confidence = 1.0;
     execution_manager_->EnqueuePlace(cmd);
-
-        "in_progress",
-        "planning",
-        0.05F,
-        "pose가 제공되지 않아 standby 프리셋을 적용했습니다.");
-    }
-
-    if (!IsWithinWorkspace(place_pose.x, place_pose.y, place_pose.z)) {
-      // 담기 위치도 안전 범위로 클램프한다.
-      ClampPoseToWorkspace(&place_pose);
-      PublishPlaceStatus(
-        request->robot_id,
-        request->order_id,
-        request->product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "pose가 myCobot 280 작업 공간을 벗어났습니다.");
-      response->success = false;
-      response->message = "pose가 작업 공간 범위를 벗어났습니다.";
-      return;
-    }
-
-    PlaceCommand command{};
-    command.robot_id = request->robot_id;
-    command.order_id = request->order_id;
-    command.product_id = request->product_id;
-    command.arm_side = request->arm_side;
-    command.target_pose.x = place_pose.x;
-    command.target_pose.y = place_pose.y;
-    command.target_pose.z = place_pose.z;
-    command.target_pose.yaw_deg = place_pose.yaw_deg;
-    command.target_pose.confidence = 1.0;
-    execution_manager_->EnqueuePlace(command);
     response->success = true;
     response->message = "상품 담기 명령을 수락했습니다.";
 }
@@ -789,49 +662,6 @@ bool PackeeArmController::IsValidBoundingBox(int32_t x1, int32_t y1, int32_t x2,
     return x2 > x1 && y2 > y1;
 }
 
-  // ------------------------------------------------------------------
-  // 멤버 변수
-  rclcpp::Publisher<ArmPoseStatus>::SharedPtr pose_status_pub_;
-  rclcpp::Publisher<ArmTaskStatus>::SharedPtr pick_status_pub_;
-  rclcpp::Publisher<ArmTaskStatus>::SharedPtr place_status_pub_;
-
-  rclcpp::Service<ArmMoveToPose>::SharedPtr move_service_;
-  rclcpp::Service<ArmPickProduct>::SharedPtr pick_service_;
-  rclcpp::Service<ArmPlaceProduct>::SharedPtr place_service_;
-
-  std::unique_ptr<VisualServoModule> visual_servo_;
-  std::unique_ptr<ArmDriverProxy> driver_;
-  std::unique_ptr<GripperController> gripper_;
-  std::unique_ptr<ExecutionManager> execution_manager_;
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
-
-  std::unordered_set<std::string> valid_pose_types_;
-  std::unordered_set<std::string> valid_arm_sides_;
-  std::unordered_map<std::string, std::string> pose_aliases_;
-
-  double servo_gain_xy_{0.02};
-  double servo_gain_z_{0.018};
-  double servo_gain_yaw_{0.04};
-  double cnn_confidence_threshold_{0.75};
-  double max_translation_speed_{0.05};
-  double max_yaw_speed_deg_{40.0};
-  double gripper_force_limit_{12.0};
-  double progress_publish_interval_sec_{0.15};
-  double command_timeout_sec_{4.0};
-  std::string left_velocity_topic_{"/packee/jetcobot/left/cmd_vel"};
-  std::string right_velocity_topic_{"/packee/jetcobot/right/cmd_vel"};
-  std::string velocity_frame_id_{"packee_base"};
-  std::string left_gripper_topic_{"/packee/jetcobot/left/gripper_cmd"};
-  std::string right_gripper_topic_{"/packee/jetcobot/right/gripper_cmd"};
-  const std::array<double, 4> default_cart_view_pose_{{0.16, 0.0, 0.18, 0.0}};  // 카트 확인 자세
-  const std::array<double, 4> default_standby_pose_{{0.10, 0.0, 0.14, 0.0}};  // 대기 자세
-  PoseEstimate cart_view_preset_{};
-  PoseEstimate standby_preset_{};
-  const std::array<double, 4> default_cart_view_pose_{{0.16, 0.0, 0.18, 0.0}};
-  const std::array<double, 4> default_standby_pose_{{0.10, 0.0, 0.14, 0.0}};
-};
-
-// ------------------------------------------------------------------
 }  // namespace packee_arm
 
 int main(int argc, char **argv)
