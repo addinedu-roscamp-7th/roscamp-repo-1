@@ -233,7 +233,7 @@ def main() -> None:
     parser.add_argument(
         '--host',
         type=str,
-        default='127.0.0.1',
+        default='192.168.0.22',
         help='Main Service 호스트 (기본값: 127.0.0.1)'
     )
     parser.add_argument(
