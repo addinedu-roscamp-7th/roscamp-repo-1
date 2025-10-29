@@ -9,11 +9,21 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 
+from shopee_interfaces.msg import PickeeRobotStatus
+
 
 class ShopeeAppNode(Node):
     def __init__(self):
-        super().__init__('shopee_app_node')
+        super().__init__("shopee_app_node")
         # TODO: docs/InterfaceSpecification/App_vs_Main.md 에 정의된 통신 인터페이스를 구현한다.
+
+        self._pickee_status_sub = self.create_subscription(
+            PickeeRobotStatus, "/pickee/robot_status", self.on_pickee_status, 10
+        )
+
+    # Pickee 로봇 상태 토픽 콜백
+    def on_pickee_status(self, msg: PickeeRobotStatus) -> None:
+        print(f"Received PickeeRobotStatus: {msg}")
 
 
 class RosNodeThread(QThread):
