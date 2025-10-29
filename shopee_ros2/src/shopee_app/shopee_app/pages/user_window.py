@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import replace
 from typing import Any
 from typing import Callable
+from typing import TYPE_CHECKING
 
 import yaml
 from PyQt6 import QtCore
@@ -28,6 +29,7 @@ from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QDialog
+from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtWidgets import QGraphicsScene
@@ -40,8 +42,6 @@ from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
 from shopee_app.services.video_stream_client import VideoStreamReceiver
-from shopee_app.services.rosbridge_client import RosbridgePoseSubscriber
-from shopee_app.services.rosbridge_client import RosbridgeConfig
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
@@ -49,6 +49,10 @@ from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
+
+if TYPE_CHECKING:
+    from shopee_app.ros_node import RosNodeThread
+    from shopee_interfaces.msg import PickeeRobotStatus
 
 _LLM_SERVICE_DIR = Path(__file__).resolve().parents[5] / "shopee_llm" / "LLM_Service"
 if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
@@ -101,9 +105,6 @@ def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
         return default
 
 
-ROSBRIDGE_HOST = os.getenv("SHOPEE_ROSBRIDGE_HOST", "127.0.0.1")
-ROSBRIDGE_PORT = _get_env_int("SHOPEE_ROSBRIDGE_PORT", 9090)
-ROSBRIDGE_TOPIC = os.getenv("SHOPEE_ROSBRIDGE_POSE_TOPIC", "/pickee/mobile/pose")
 MAP_CONFIG_PATH = Path(os.getenv("SHOPEE_APP_MAP_CONFIG", str(DEFAULT_MAP_CONFIG)))
 MAP_IMAGE_PATH = os.getenv("SHOPEE_APP_MAP_IMAGE")
 MAP_RESOLUTION_OVERRIDE = _get_env_float("SHOPEE_APP_MAP_RESOLUTION", -1.0)
@@ -223,8 +224,8 @@ class SttWorker(QtCore.QObject):
 class UserWindow(QWidget):
     IMAGE_ROOT = Path(__file__).resolve().parent / "image"
     ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
-    ROBOT_POSITION_OFFSET_X = 6.0
-    ROBOT_POSITION_OFFSET_Y = 6.0
+    ROBOT_POSITION_OFFSET_X = 14.7
+    ROBOT_POSITION_OFFSET_Y = 12.0
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
         1: IMAGE_ROOT / "product_horseradish.png",
         2: IMAGE_ROOT / "product_spicy_chicken.png",
@@ -270,6 +271,7 @@ class UserWindow(QWidget):
         *,
         user_info: dict[str, Any] | None = None,
         service_client: MainServiceClient | None = None,
+        ros_thread: "RosNodeThread | None" = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -334,6 +336,8 @@ class UserWindow(QWidget):
         )
         self.selection_options: list[dict[str, Any]] = []
         self.selection_selected_index: int | None = None
+        self.ros_thread = ros_thread
+        self.pose_tracking_active = False
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
         self.page_select_product = getattr(self.ui, "page_select_product", None)
         self.page_moving_view = getattr(self.ui, "page_moving", None)
@@ -397,6 +401,11 @@ class UserWindow(QWidget):
         self._setup_refresh_logo()
         self.setup_cart_section()
         self.setup_navigation()
+        self._setup_allergy_filter_section()
+        if self.ros_thread is not None:
+            self.ros_thread.pickee_status_received.connect(
+                self._on_pickee_status_received
+            )
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
@@ -438,6 +447,9 @@ class UserWindow(QWidget):
         self._stt_status_close_timer.setSingleShot(True)
         self._stt_status_close_timer.timeout.connect(self._close_stt_status_dialog)
         self._stt_last_microphone_name: str | None = None
+        self.allergy_toggle_button: QToolButton | None = None
+        self.allergy_sub_widget: QWidget | None = None
+        self.allergy_section_expanded = True
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
@@ -476,7 +488,6 @@ class UserWindow(QWidget):
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
-        self.pose_subscriber: RosbridgePoseSubscriber | None = None
 
     def _ensure_user_identity(self) -> str:
         # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
@@ -573,18 +584,22 @@ class UserWindow(QWidget):
             self.notification_client.stop()
         self._shutdown_speech_recognition()
         self._stop_video_stream(send_request=True)
-        if self.pose_subscriber is not None:
-            self.pose_subscriber.stop()
-            self.pose_subscriber.deleteLater()
-            self.pose_subscriber = None
+        if self.ros_thread is not None:
+            try:
+                self.ros_thread.pickee_status_received.disconnect(
+                    self._on_pickee_status_received
+                )
+            except TypeError:
+                pass
+        self.pose_tracking_active = False
         self.closed.emit()
         super().closeEvent(event)
 
     def on_pay_clicked(self):
         if self.request_create_order():
             self.set_mode("pick")
-            # 결제 후 매장 화면으로 전환되면 ROS 토픽을 구독한다.
-            self._setup_pose_subscription()
+            # 결제 후 매장 화면으로 전환되면 로봇 위치 추적을 시작한다.
+            self._enable_pose_tracking()
 
     def on_search_submitted(self) -> None:
         # 검색 위젯이 준비되지 않았다면 검색어를 읽어올 수 없어 조용히 종료한다.
@@ -1106,6 +1121,32 @@ class UserWindow(QWidget):
             self.store_button.clicked.connect(self.on_store_button_clicked)
 
         self.set_mode("shopping")
+
+    def _setup_allergy_filter_section(self) -> None:
+        self.allergy_toggle_button = getattr(self.ui, "btn_allergy", None)
+        self.allergy_sub_widget = getattr(self.ui, "widget_allergy_sub", None)
+        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+            return
+        self.allergy_section_expanded = True
+        self.allergy_toggle_button.setCheckable(False)
+        self.allergy_toggle_button.setText("")
+        self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.UpArrow)
+        self.allergy_toggle_button.setToolTip("알러지 필터 접기")
+        self.allergy_sub_widget.setVisible(True)
+        self.allergy_toggle_button.clicked.connect(self._on_allergy_toggle_clicked)
+
+    def _on_allergy_toggle_clicked(self) -> None:
+        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+            return
+        self.allergy_section_expanded = not self.allergy_section_expanded
+        if self.allergy_section_expanded:
+            self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.UpArrow)
+            self.allergy_toggle_button.setToolTip("알러지 필터 접기")
+            self.allergy_sub_widget.setVisible(True)
+            return
+        self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.DownArrow)
+        self.allergy_toggle_button.setToolTip("알러지 필터 펼치기")
+        self.allergy_sub_widget.setVisible(False)
 
     def on_cart_toggle_clicked(self):
         if self.cart_toggle_button is None:
@@ -1830,41 +1871,49 @@ class UserWindow(QWidget):
             return
         self.on_camera_button_clicked("front")
 
-    def _setup_pose_subscription(self) -> None:
-        if self.pose_subscriber is not None:
+    def _enable_pose_tracking(self) -> None:
+        if self.pose_tracking_active:
             return
-        config = RosbridgeConfig(
-            host=ROSBRIDGE_HOST,
-            port=ROSBRIDGE_PORT,
-            topic=ROSBRIDGE_TOPIC,
-        )
-        print(f"[Map] ROS 토픽 구독 시작: {config.topic}")
-        self.pose_subscriber = RosbridgePoseSubscriber(config, parent=self)
-        self.pose_subscriber.pose_received.connect(self.on_pose_message)
-        self.pose_subscriber.connection_error.connect(self.on_pose_error)
-        self.pose_subscriber.start()
+        self.pose_tracking_active = True
+        print("[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.")
 
-    def on_pose_message(self, msg: dict) -> None:
-        robot_id_value = self._extract_robot_id(msg)
+    def _on_pickee_status_received(self, msg: object) -> None:
+        if not self.pose_tracking_active:
+            return
+        robot_id_raw = getattr(msg, "robot_id", None)
+        try:
+            robot_id_value = int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            robot_id_value = None
         if (
             self.current_robot_id is not None
             and robot_id_value is not None
             and robot_id_value != self.current_robot_id
         ):
             return
-        pose = self._extract_pose(msg)
-        if pose is None:
-            print(f"[Map] 위치 정보가 없는 메시지를 수신했습니다: {msg}")
+        x_raw = getattr(msg, "position_x", None)
+        y_raw = getattr(msg, "position_y", None)
+        if x_raw is None or y_raw is None:
+            print("[Map] 위치 좌표가 없는 로봇 상태를 수신했습니다.")
             return
+        try:
+            x = float(x_raw)
+            y = float(y_raw)
+        except (TypeError, ValueError):
+            print(f"[Map] 유효하지 않은 좌표를 수신했습니다: {x_raw}, {y_raw}")
+            return
+        theta_raw = getattr(msg, "orientation_z", 0.0)
+        try:
+            theta = float(theta_raw) if theta_raw is not None else 0.0
+        except (TypeError, ValueError):
+            theta = 0.0
         if self.current_robot_id is None and robot_id_value is not None:
             self.current_robot_id = robot_id_value
             self._auto_start_front_camera_if_possible()
-        x, y, theta = pose
-        print(f"[Map] pose 업데이트 수신: x={x}, y={y}, theta={theta}")
+        print(
+            f"[Map] 로봇 상태 수신: robot_id={robot_id_value}, x={x}, y={y}, theta={theta}"
+        )
         self._update_robot_pose(x, y, theta)
-
-    def on_pose_error(self, message: str) -> None:
-        print(f"[Rosbridge] {message}")
 
     def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
         if (
@@ -1893,45 +1942,6 @@ class UserWindow(QWidget):
         angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
         self._fit_map_to_view()
-
-    def _extract_robot_id(self, msg: dict) -> int | None:
-        robot_id_raw = msg.get("robot_id")
-        try:
-            return int(robot_id_raw) if robot_id_raw is not None else None
-        except (TypeError, ValueError):
-            return None
-
-    def _extract_pose(self, msg: dict) -> tuple[float, float, float] | None:
-        pose_dict = msg.get("current_pose")
-        if isinstance(pose_dict, dict):
-            return self._parse_pose_components(
-                pose_dict.get("x"),
-                pose_dict.get("y"),
-                pose_dict.get("theta"),
-            )
-        if "position_x" in msg or "position_y" in msg:
-            return self._parse_pose_components(
-                msg.get("position_x"),
-                msg.get("position_y"),
-                msg.get("orientation_z"),
-            )
-        return None
-
-    def _parse_pose_components(
-        self,
-        x_value: object,
-        y_value: object,
-        theta_value: object,
-    ) -> tuple[float, float, float] | None:
-        try:
-            if x_value is None or y_value is None:
-                return None
-            x = float(x_value)
-            y = float(y_value)
-            theta = float(theta_value) if theta_value is not None else 0.0
-            return x, y, theta
-        except (TypeError, ValueError):
-            return None
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
@@ -2352,6 +2362,7 @@ class UserWindow(QWidget):
                 self.shopping_button.setChecked(True)
             if self.store_button:
                 self.store_button.setChecked(False)
+            self.pose_tracking_active = False
             self.show_main_page(self.page_user)
             self.show_side_page(self.side_pick_filter_page)
             return
@@ -2363,6 +2374,7 @@ class UserWindow(QWidget):
                 self.shopping_button.setChecked(False)
             self.show_main_page(self.page_pick)
             self.show_side_page(self.side_shop_page)
+            self._enable_pose_tracking()
 
     def show_main_page(self, page):
         if self.main_stack is None or page is None:

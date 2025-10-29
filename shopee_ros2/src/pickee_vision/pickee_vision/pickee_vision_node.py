@@ -2,16 +2,12 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import os
-import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from collections import Counter
 
-# ^&*()
 # --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
 from .cnn_classifier import CnnClassifier
-from .pose_detector import PoseDetector # New
-from .tracker import ByteTracker # New
 from .udp_video import UdpStreamer
 
 # --- ROS 인터페이스 ---
@@ -22,10 +18,6 @@ from shopee_interfaces.srv import (
     VisionCheckCartPresence, 
     PickeeVisionVideoStreamStart, 
     PickeeVisionVideoStreamStop,
-    PickeeVisionSetMode, # New
-    PickeeVisionRegisterStaff, # New
-    PickeeVisionTrackStaff, # New
-    PickeeTtsRequest # New
 )
 # 메시지
 from shopee_interfaces.msg import (
@@ -36,12 +28,7 @@ from shopee_interfaces.msg import (
     Point2D, 
     Pose6D, 
     PickeeVisionCartCheck,
-    PickeeVisionObstacles, # New
-    Obstacle, # New
-    PickeeVisionStaffLocation, # New
-    PickeeVisionStaffRegister # New
 )
-# ^&*()
 
 product_dic = {
     1 : "wasabi", 
@@ -72,7 +59,10 @@ class PickeeVisionNode(Node):
         super().__init__('pickee_vision_node')
 
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
-        package_share_directory = get_package_share_directory('pickee_vision')
+        package_share_directory = get_package_share_directory('pickee_vision').replace(
+                            'install/pickee_vision/share/pickee_vision', 
+                            'src/pickee_vision/resource'
+                        )
         # 1. 상품 인식용 세그멘테이션 모델
         product_model_path = os.path.join(package_share_directory, '20251027_v11.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델

@@ -9,8 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-                        ('share/' + package_name, ['package.xml', 'pickee_vision/20251015_1.pt', 'pickee_vision/cart_best_.pth', 
-                                                   'pickee_vision/20251027_v11.pt']),
+                        ('share/' + package_name, ['package.xml',]),
                     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,6 +28,7 @@ setup(
             'pickee_vision = pickee_vision.pickee_vision_node:main',
             'staff_tracker = pickee_vision.staff_tracker_node:main',
             'picvi_test = pickee_vision.picvi_test:main',
+            'pose_predictor_test_node = pickee_vision.pose_predictor_test_node:main',
         ],
     },
 )

@@ -219,9 +219,9 @@ def run(node: Node, target_distance: float):
 
     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
     cmd = Twist()
-    speed = 0.2 * (1 if target_distance > 0 else -1)
+    speed = 0.1 * (1 if target_distance > 0 else -1)
     distance = abs(target_distance)
-    duration = distance / 0.2
+    duration = distance / 0.1
 
     end = time.time() + duration
     while time.time() < end:

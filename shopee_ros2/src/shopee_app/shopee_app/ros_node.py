@@ -1,4 +1,5 @@
 import threading
+from typing import Callable
 from typing import Optional
 
 from PyQt6.QtCore import QThread
@@ -15,20 +16,37 @@ from shopee_interfaces.msg import PickeeRobotStatus
 class ShopeeAppNode(Node):
     def __init__(self):
         super().__init__("shopee_app_node")
-        # TODO: docs/InterfaceSpecification/App_vs_Main.md 에 정의된 통신 인터페이스를 구현한다.
+        self._status_listeners: list[Callable[[PickeeRobotStatus], None]] = []
 
-        self._pickee_status_sub = self.create_subscription(
+        self.create_subscription(
             PickeeRobotStatus, "/pickee/robot_status", self.on_pickee_status, 10
         )
 
     # Pickee 로봇 상태 토픽 콜백
     def on_pickee_status(self, msg: PickeeRobotStatus) -> None:
-        print(f"Received PickeeRobotStatus: {msg}")
+        for callback in list(self._status_listeners):
+            try:
+                callback(msg)
+            except Exception:
+                self.get_logger().exception("Pickee status listener 실패")
+
+    def add_status_listener(
+        self, callback: Callable[[PickeeRobotStatus], None]
+    ) -> None:
+        if callback not in self._status_listeners:
+            self._status_listeners.append(callback)
+
+    def remove_status_listener(
+        self, callback: Callable[[PickeeRobotStatus], None]
+    ) -> None:
+        if callback in self._status_listeners:
+            self._status_listeners.remove(callback)
 
 
 class RosNodeThread(QThread):
     node_ready = pyqtSignal()
     node_error = pyqtSignal(str)
+    pickee_status_received = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -52,6 +70,7 @@ class RosNodeThread(QThread):
             self._node = ShopeeAppNode()
             self._executor = SingleThreadedExecutor()
             self._executor.add_node(self._node)
+            self._node.add_status_listener(self._handle_pickee_status)
             self._ready_event.set()
             self.node_ready.emit()
             while not self._shutdown_event.is_set():
@@ -66,6 +85,7 @@ class RosNodeThread(QThread):
             if self._executor is not None and self._node is not None:
                 self._executor.remove_node(self._node)
             if self._node is not None:
+                self._node.remove_status_listener(self._handle_pickee_status)
                 self._node.destroy_node()
                 self._node = None
             if self._executor is not None:
@@ -83,3 +103,6 @@ class RosNodeThread(QThread):
 
     def shutdown(self):
         self._shutdown_event.set()
+
+    def _handle_pickee_status(self, msg: PickeeRobotStatus) -> None:
+        self.pickee_status_received.emit(msg)

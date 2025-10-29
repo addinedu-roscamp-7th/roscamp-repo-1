@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import time
 from pymycobot.mycobot280 import MyCobot280
 
@@ -25,8 +23,16 @@ class ArmControl:
         """Check if the arm is connected and powered on."""
         return self.mc and self.mc.is_power_on() == 1
 
+    def get_angles(self):
+        """현재 로봇 팔의 6축 관절 각도를 읽어옵니다."""
+        if self.is_connected():
+            return self.mc.get_angles()
+        else:
+            self.logger.error("myCobot arm is not connected. Cannot get angles.")
+            return None
+
     def move_to_joints(self, joint_angles, speed=40, timeout=5):
-        """Sends joint angles and waits for the movement to complete."""
+        """목표 관절 각도로 로봇 팔을 움직이고, 동작이 끝날 때까지 기다립니다."""
         if self.is_connected():
             self.logger.info(f"Executing sync move to: {joint_angles}")
             self.mc.sync_send_angles(joint_angles, speed, timeout)
@@ -35,7 +41,7 @@ class ArmControl:
             self.logger.error("myCobot arm is not connected. Cannot send command.")
 
     def control_gripper(self, value, speed=40):
-        """Controls the gripper. 100 for open, 0 for close."""
+        """그리퍼를 제어합니다. (100: 열기, 0: 닫기)"""
         if self.is_connected():
             action = "OPENING" if value == 100 else "CLOSING"
             self.logger.info(f"GRIPPER {action} (value: {value})")
@@ -46,7 +52,7 @@ class ArmControl:
             self.logger.error("myCobot arm is not connected. Cannot control gripper.")
 
     def release_servos(self):
-        """Releases all servos."""
+        """모든 서보의 토크를 해제합니다."""
         if self.mc:
             self.logger.info("Releasing all servos.")
             self.mc.release_all_servos()

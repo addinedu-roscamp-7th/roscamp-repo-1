@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
                 lambda: UserWindow(
                     user_info=user_info,
                     service_client=self.service_client,
+                    ros_thread=self._ros_thread,
                 )
             )
             return
