@@ -1,5 +1,8 @@
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
+
+from shopee_app.pages.models.allergy_info_data import AllergyInfoData
 
 
 @dataclass(frozen=True)
@@ -19,6 +22,7 @@ class ProductData:
     weight: int
     fragile: bool
     image_path: Path
+    allergy_info: AllergyInfoData | None = field(default=None)
 
     @property
     def discounted_price(self) -> int:
