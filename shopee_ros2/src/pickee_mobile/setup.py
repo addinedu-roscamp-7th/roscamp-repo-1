@@ -46,11 +46,16 @@ setup(
             'bringup = pickee_mobile.bringup:main',
 
             # Main Components
+            'mobile_aruco_pub = pickee_mobile.main.mobile_aruco_pub:main', # ArUco 마커 인식 및 퍼블리시 노드
             'mobile_controller = pickee_mobile.main.mobile_controller:main', # 모바일 로봇의 주요 제어 노드
-            'mobile_move_to_location = pickee_mobile.main.mobile_move_to_location:main', # 위치 이동을 처리하는 노드
-            'mobile_pose = pickee_mobile.main.mobile_pose:main', # 모바일 로봇의 위치 정보를 퍼블리시하는 노드
             'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main', # 속도 명령을 수정하는 노드
-            'mobile_go_strait = pickee_mobile.main.mobile_go_strait:main', # 직진 주행 실행 노드
+            'mobile_aruco_docking = pickee_mobile.main.mobile_aruco_docking:main', # ArUco 마커 도킹 노드
+
+            # Module Components 함수
+            'module_go_strait = pickee_mobile.module.module_go_strait:main',
+            'module_rotate = pickee_mobile.module.module_rotate:main',
+            'module_aruco_detect = pickee_mobile.module.module_aruco_detect:main',
+            'module_aruco_detect_test = pickee_mobile.module.module_aruco_detect_test:main',
             
 
             ####Test Nodes####
@@ -73,6 +78,12 @@ setup(
             'mock_update_global_path_client = pickee_mobile.test.mock_test.mock_update_global_path_client:main',
             'mock_pose_subscriber = pickee_mobile.test.mock_test.mock_pose_subscriber:main',
             'mock_arrival_subscriber = pickee_mobile.test.mock_test.mock_arrival_subscriber:main',
+            'mock_arrival_publisher = pickee_mobile.test.mock_test.mock_arrival_publisher:main',
+            'mock_aruco_sub = pickee_mobile.test.mock_test.mock_aruco_sub:main',
+
+            # Aruco Test
+            'aruco_detect = pickee_mobile.test.aruco.aruco_detect:main',
+            'aruco_follow = pickee_mobile.test.aruco.aruco_follow:main'
         ],
     }
 

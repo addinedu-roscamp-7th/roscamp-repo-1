@@ -12,7 +12,12 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_CartItemWidget(object):
     def setupUi(self, CartItemWidget):
         CartItemWidget.setObjectName("CartItemWidget")
-        CartItemWidget.resize(887, 254)
+        CartItemWidget.resize(887, 165)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(CartItemWidget.sizePolicy().hasHeightForWidth())
+        CartItemWidget.setSizePolicy(sizePolicy)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(CartItemWidget)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.chk_selected = QtWidgets.QCheckBox(parent=CartItemWidget)
@@ -20,6 +25,9 @@ class Ui_CartItemWidget(object):
         self.chk_selected.setObjectName("chk_selected")
         self.horizontalLayout_2.addWidget(self.chk_selected)
         self.label_image = QtWidgets.QLabel(parent=CartItemWidget)
+        self.label_image.setMinimumSize(QtCore.QSize(200, 156))
+        self.label_image.setMaximumSize(QtCore.QSize(200, 156))
+        self.label_image.setScaledContents(True)
         self.label_image.setObjectName("label_image")
         self.horizontalLayout_2.addWidget(self.label_image)
         self.verticalLayout = QtWidgets.QVBoxLayout()

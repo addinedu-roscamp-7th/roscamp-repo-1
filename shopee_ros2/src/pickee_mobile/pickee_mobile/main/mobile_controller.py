@@ -13,7 +13,8 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from shopee_interfaces.srv import PickeeMobileMoveToLocation
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D, PickeeMobilePose
 
-from pickee_mobile.main.mobile_go_strait import run
+from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_rotate import rotate_inline
 
 
 
@@ -54,7 +55,7 @@ class PickeeMobileController(Node):
         self.location_id = 0
         self.currnet_x = 0.0
         self.currnet_y = 0.0
-        self.current_theta = 0.0
+        self.current_radian = 0.0
         self.linear_velocity = 0.0
         self.angular_velocity = 0.0
         self.current_battery_level = 100.0  # 예시 값, 실제 배터리 레벨로 교체 필요
@@ -89,7 +90,7 @@ class PickeeMobileController(Node):
 
         return response
     
-    def send_goal(self, x, y, yaw_deg):
+    def send_goal(self, x, y, yaw_radian):
         self.working = 1  # 작업 중 상태 설정
         self.start_time = time.time()  # 목표 전송 시각 기록
         self.get_logger().info(f'⏳ Waiting for action server...')
@@ -105,12 +106,11 @@ class PickeeMobileController(Node):
         goal_msg.pose.pose.position.z = 0.0
         
         # 목표 방향 (쿼터니언 변환)
-        yaw = math.radians(yaw_deg)
-        goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
-        goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+        goal_msg.pose.pose.orientation.z = math.sin(yaw_radian / 2.0)
+        goal_msg.pose.pose.orientation.w = math.cos(yaw_radian / 2.0)
 
-        self.get_logger().info(f'🎯 Sending goal to ({x}, {y}), yaw={yaw_deg}°')
-        self.goal = [x, y, yaw_deg]# 목적지 좌표 저장 이후 도착 위치와 비교
+        self.get_logger().info(f'🎯 Sending goal to ({x}, {y}), yaw={yaw_radian} rad')
+        self.goal = [x, y, yaw_radian]# 목적지 좌표 저장 이후 도착 위치와 비교
 
         self._send_goal_future = self._action_client.send_goal_async(
             goal_msg,
@@ -139,7 +139,7 @@ class PickeeMobileController(Node):
         self.currnet_y = pose.position.y
         qz = pose.orientation.z
         qw = pose.orientation.w
-        self.current_theta = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
+        self.current_radian = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
 
     def get_result_callback(self, future):
         self.working = 0  # 작업 완료 상태 설정
@@ -148,9 +148,9 @@ class PickeeMobileController(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             # 도착 위치와 목표 위치 비교
             position_error = Pose2D()
-            position_error.x = abs(self.goal[0] - self.currnet_x)
-            position_error.y = abs(self.goal[1] - self.currnet_y)
-            position_error.theta = abs(self.goal[2] - self.current_theta)
+            position_error.x = self.goal[0] - self.currnet_x
+            position_error.y = self.goal[1] - self.currnet_y
+            position_error.theta = self.goal[2] - self.current_radian
 
             self.end_time = time.time()  # 도착 시각 기록
             travel_time = self.end_time - self.start_time  # 이동 시간 계산
@@ -167,13 +167,19 @@ class PickeeMobileController(Node):
             final_pose = Pose2D()
             final_pose.x = self.currnet_x
             final_pose.y = self.currnet_y
-            final_pose.theta = self.current_theta
+            final_pose.theta = self.current_radian
             arrival_msg.final_pose = final_pose
             arrival_msg.position_error = position_error
             arrival_msg.travel_time = travel_time
             arrival_msg.message = "Success."
 
             self.arrival_publisher.publish(arrival_msg)
+
+            # if abs(position_error.theta) > 0.01:  # 라디안 단위로 오차 확인
+            #     self.get_logger().info("⚠️ 큰 각도 오차 감지, 회전 보정 수행 중...")
+            #     self.get_logger().info(f"회전 각도: {math.degrees(-position_error.theta):.2f} 도")
+            #     rotate_inline(self, math.degrees(-position_error.theta))  # 각도 오차만큼 회전
+            #     time.sleep(1)  # 회전 후 안정화 시간
 
             if self.location_id > 10:
                 run(0.17)
@@ -197,7 +203,7 @@ class PickeeMobileController(Node):
         pose_msg.robot_id = self.robor_id
         pose_msg.current_pose.x = self.currnet_x
         pose_msg.current_pose.y = self.currnet_y
-        pose_msg.current_pose.theta = self.current_theta
+        pose_msg.current_pose.theta = self.current_radian
         pose_msg.linear_velocity = self.linear_velocity
         pose_msg.angular_velocity = self.angular_velocity
         pose_msg.battery_level = self.current_battery_level  # 예시 값, 실제 배터리 레벨로 교체 필요

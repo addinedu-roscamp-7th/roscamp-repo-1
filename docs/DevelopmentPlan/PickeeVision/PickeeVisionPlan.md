@@ -39,7 +39,7 @@
 - **토픽 발행 (Publisher)**
     - `/pickee/vision/obstacle_detected`
 
-#### 2) `product_detector_node`
+#### 2) `pickee_vision_node`
 - **서비스 제공 (Service Server)**
     - `/pickee/vision/detect_products`
     - `/pickee/vision/check_product_in_cart`
@@ -69,6 +69,7 @@
 - **내부 기능**
     - /docs/InterfaceSpecification/Main_vs_Pic_Vision_UDP.md 참고
 
+
 ## 5. 개발 단계 (초안)
 
 #### 1단계: 스켈레톤 구현 및 통신 테스트 (현재 완료)
@@ -76,14 +77,17 @@
 - `shopee_interfaces` 기반 모든 서비스/토픽 인터페이스 스켈레톤 구현
 - Mock 데이터를 사용한 인터페이스 통신 검증
 
-#### 2단계: 핵심 로직 구현
+#### 2단계: 핵심 로직 구현 (상품인식) (현재 완료)
 - 각 노드에 실제 AI 모델(yolov8s-seg.pt 사용, 객체 인식을 segment로 인식하므로 좌표 추출을 Polygon으로 할것)
 - 로컬에서와 Shopee Main UDP통신으로는 이미지가 아닌 영상으로 객체 인식 화면을 확인 및 전송하면서, Pickee Main 과의 통신에서는 detect_products 서비스 요청이 오면 해당 프레임만 detection_result 토픽으로 발행
 - detection_result 토픽으로 발행하는 이미지에는 bbox_number와 bbox 테두리와 polygon 테두리만 그려서 발행하기
 - 카메라 및 하드웨어 드라이버 연동
 - UDP 영상 스트리밍 클라이언트 상세 구현 및 `product_detector_node`와 통합
 
-#### 3단계: 통합 테스트 및 안정화
+#### 3단계: 핵심 로직 구현 (카트와 연동, 장애물 인식 후 회피 혹은 정지, 직원(사람)인식 후 등록과 추종)
+- 
+
+#### 4단계: 통합 테스트 및 안정화
 - `Pickee Main`과의 연동 테스트 수행
 - 실제 로봇 환경에서의 필드 테스트 및 성능 튜닝
 

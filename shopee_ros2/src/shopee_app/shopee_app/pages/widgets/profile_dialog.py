@@ -20,11 +20,16 @@ ALLERGY_LABELS = {
 
 
 class ProfileDialog(QtWidgets.QDialog):
+    logout_requested = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         uic.loadUi(str(UI_PATH), self)
         self.configure_window()
         self._user_info: dict[str, Any] = {}
+        logout_button = getattr(self, 'btn_logout', None)
+        if logout_button is not None:
+            logout_button.clicked.connect(self._on_logout_clicked)
 
     def configure_window(self) -> None:
         self.setWindowFlags(
@@ -74,3 +79,10 @@ class ProfileDialog(QtWidgets.QDialog):
         if isinstance(value, bool):
             return value
         return bool(value)
+
+    def closeEvent(self, event: QtCore.QEvent) -> None:
+        super().closeEvent(event)
+
+    def _on_logout_clicked(self) -> None:
+        self.logout_requested.emit()
+        self.accept()

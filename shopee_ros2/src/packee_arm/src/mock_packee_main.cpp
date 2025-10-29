@@ -236,10 +236,10 @@ private:
     req->arm_side = CurrentArmSide();
 
     // 🟢 [FIXED] 기존 req->target_pose → req->pose 로 수정
-    req->pose.joint_1 = 0.35F;
-    req->pose.joint_2 = 0.10F;
-    req->pose.joint_3 = 0.15F;
-    req->pose.joint_4 = 0.0F;
+    req->pose.x = 0.35F;
+    req->pose.y = 0.10F;
+    req->pose.z = 0.15F;
+    req->pose.rz = 0.0F;
 
     current_future_ = place_cli_->async_send_request(req);
   }
@@ -285,6 +285,15 @@ private:
   }
 
   int32_t CurrentProductId() const { return base_product_id_ + (int32_t)current_arm_index_; }
+
+  shopee_interfaces::msg::BBox CreateBBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
+      shopee_interfaces::msg::BBox bbox;
+      bbox.x1 = x1;
+      bbox.y1 = y1;
+      bbox.x2 = x2;
+      bbox.y2 = y2;
+      return bbox;
+  }
 
   // ---------- 멤버 ----------
   int robot_id_, order_id_, base_product_id_;

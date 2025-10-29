@@ -8,12 +8,14 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Nav2 Action 헤더
-#include <nav2_msgs/action/navigate_to_pose.hpp>
+// #include <nav2_msgs/action/navigate_to_pose.hpp> // 경유지 테스트를 위해 NavigateThroughPoses로 변경
+#include <nav2_msgs/action/navigate_through_poses.hpp>
 
 // Shopee Interface 메시지 및 서비스 헤더
 #include <shopee_interfaces/msg/pickee_mobile_pose.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_arrival.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_speed_control.hpp>
+#include <shopee_interfaces/msg/aruco_pose.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_move_to_location.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_update_global_path.hpp>
 
@@ -64,7 +66,13 @@ public:
         scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", 10,
             std::bind(&PickeeMobileWonhoNode::scan_callback, this, std::placeholders::_1));
+
+        aruco_pose_subscriber_ = this->create_subscription<shopee_interfaces::msg::ArucoPose>(
+            "/pickee/mobile/aruco_pose", 10,
+            std::bind(&PickeeMobileWonhoNode::aruco_pose_callback, this, std::placeholders::_1));
         
+        RCLCPP_INFO(this->get_logger(), "ArUco Pose 구독 설정 완료: /pickee/mobile/aruco_pose");
+
         // Services 초기화 (Shopee Interface - service 서버들)
         move_to_location_service_ = this->create_service<shopee_interfaces::srv::PickeeMobileMoveToLocation>(
             "/pickee/mobile/move_to_location",
@@ -77,8 +85,10 @@ public:
                      std::placeholders::_1, std::placeholders::_2));
         
         // Nav2 Action Client 초기화
-        nav2_action_client_ = rclcpp_action::create_client<NavigateToPose>(
-            this, "/navigate_to_pose");
+        // nav2_action_client_ = rclcpp_action::create_client<NavigateToPose>(
+        //     this, "/navigate_to_pose");
+        nav2_action_client_ = rclcpp_action::create_client<NavigateThroughPoses>(
+            this, "/navigate_through_poses");
             
         // Timer 초기화 - 주기적으로 위치 정보 발행
         auto timer_period = std::chrono::milliseconds(static_cast<int>(1000.0 / pose_publish_rate_));
@@ -113,14 +123,17 @@ private:
     rclcpp::Subscription<shopee_interfaces::msg::PickeeMobileSpeedControl>::SharedPtr speed_control_subscriber_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
+    rclcpp::Subscription<shopee_interfaces::msg::ArucoPose>::SharedPtr aruco_pose_subscriber_;
     
     // Services (Shopee Interface - service 서버들)
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_to_location_service_;
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath>::SharedPtr update_global_path_service_;
     
     // Nav2 Action Client
-    using NavigateToPose = nav2_msgs::action::NavigateToPose;
-    rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
+    // using NavigateToPose = nav2_msgs::action::NavigateToPose;
+    // rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
+    using NavigateThroughPoses = nav2_msgs::action::NavigateThroughPoses;
+    rclcpp_action::Client<NavigateThroughPoses>::SharedPtr nav2_action_client_;
     
     // 현재 네비게이션 상태 추적
     bool navigation_in_progress_ = false;
@@ -236,10 +249,48 @@ private:
         current_scan_ = *msg;
         scan_received_ = true;
     }
+
+    void aruco_pose_callback(const shopee_interfaces::msg::ArucoPose::SharedPtr msg)
+    {
+        geometry_msgs::msg::Twist cmd_vel_msg;
+        cmd_vel_msg.linear.x = 0.0;
+        cmd_vel_msg.linear.y = 0.0;
+        cmd_vel_msg.linear.z = 0.0;
+        cmd_vel_msg.angular.x = 0.0;
+        cmd_vel_msg.angular.y = 0.0;
+        cmd_vel_msg.angular.z = 0.0;
+        if (current_status_ == "idle") {
+            if (msg->z > 0.75) {
+                // 상세 ArUco 마커 정보 출력
+                RCLCPP_INFO(this->get_logger(),
+                    "ArUco 마커 수신: ID=%d, 위치=(%.3f, %.3f, %.3f), 회전=(%.3f, %.3f, %.3f)",
+                    msg->aruco_id,
+                    msg->x, msg->y, msg->z,
+                    msg->roll, msg->pitch, msg->yaw);
+
+                // 로봇의 x 속도를 0.1로 설정하는 Twist 메시지 발행
+                cmd_vel_msg.linear.x = 0.08;   // x축 속도 0.08 m/s
+
+                // /cmd_vel 토픽으로 속도 명령 발행
+                static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+                if (!cmd_vel_pub) {
+                    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                }
+                cmd_vel_pub->publish(cmd_vel_msg);
+                RCLCPP_INFO(this->get_logger(), "이동 중...");
+            } else {
+                cmd_vel_msg.linear.x = 0.0;
+                static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+                if (!cmd_vel_pub) {
+                    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                }
+                cmd_vel_pub->publish(cmd_vel_msg);
+                RCLCPP_INFO(this->get_logger(), "도착");
+            }
+        }
+
+    }
     
-    /**
-     * @brief 목적지 이동 명령을 처리합니다. (Shopee Interface Service)
-     */
     void move_to_location_callback(
         const std::shared_ptr<shopee_interfaces::srv::PickeeMobileMoveToLocation::Request> request,
         std::shared_ptr<shopee_interfaces::srv::PickeeMobileMoveToLocation::Response> response)
@@ -255,7 +306,7 @@ private:
         
         // Nav2 Action 서버가 사용 가능한지 확인
         if (!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))) {
-            RCLCPP_ERROR(this->get_logger(), "Nav2 Action 서버가 사용할 수 없습니다!");
+            RCLCPP_ERROR(this->get_logger(), "Nav2 Action 서버(/navigate_through_poses)가 사용할 수 없습니다!");
             response->success = false;
             response->message = "Nav2 Action 서버 연결 실패";
             return;
@@ -268,30 +319,31 @@ private:
         RCLCPP_INFO(this->get_logger(), "목표 위치: (%.2f, %.2f, %.2f)", 
                     request->target_pose.x, request->target_pose.y, request->target_pose.theta);
         
-        // Nav2 네비게이션 목표 생성
-        auto goal_msg = NavigateToPose::Goal();
+        // Nav2 네비게이션 목표 생성 (단일 목적지)
+        auto goal_msg = NavigateThroughPoses::Goal();
+        goal_msg.behavior_tree = ""; // Use default behavior tree
+
+        // 최종 목적지 생성
+        geometry_msgs::msg::PoseStamped final_pose;
+        final_pose.header.frame_id = "map";
+        final_pose.header.stamp = this->get_clock()->now();
+        final_pose.pose.position.x = request->target_pose.x;
+        final_pose.pose.position.y = request->target_pose.y;
+        final_pose.pose.position.z = 0.0;
         
-        // 목표 위치 설정 (map 프레임 기준)
-        goal_msg.pose.header.frame_id = "map";
-        goal_msg.pose.header.stamp = this->get_clock()->now();
-        goal_msg.pose.pose.position.x = request->target_pose.x;
-        goal_msg.pose.pose.position.y = request->target_pose.y;
-        goal_msg.pose.pose.position.z = 0.0;
-        
-        // theta를 quaternion으로 변환
         tf2::Quaternion q;
         q.setRPY(0, 0, request->target_pose.theta);
-        goal_msg.pose.pose.orientation.x = q.x();
-        goal_msg.pose.pose.orientation.y = q.y();
-        goal_msg.pose.pose.orientation.z = q.z();
-        goal_msg.pose.pose.orientation.w = q.w();
+        final_pose.pose.orientation = tf2::toMsg(q);
+
+        // 목표 리스트에 최종 목적지만 추가
+        goal_msg.poses.push_back(final_pose);
         
         // Nav2 Action 전송 옵션 설정
-        auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
+        auto send_goal_options = rclcpp_action::Client<NavigateThroughPoses>::SendGoalOptions();
         
         // 목표 응답 콜백
         send_goal_options.goal_response_callback = 
-            [this](rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr goal_handle) {
+            [this](rclcpp_action::ClientGoalHandle<NavigateThroughPoses>::SharedPtr goal_handle) {
                 if (!goal_handle) {
                     RCLCPP_ERROR(this->get_logger(), "Nav2 네비게이션 목표가 거부되었습니다!");
                     change_status("error", "네비게이션 목표 거부");
@@ -304,22 +356,22 @@ private:
         
         // 피드백 콜백
         send_goal_options.feedback_callback = 
-            [this](rclcpp_action::ClientGoalHandle<NavigateToPose>::SharedPtr,
-                   const std::shared_ptr<const NavigateToPose::Feedback> feedback) {
-                RCLCPP_DEBUG(this->get_logger(), "Nav2 네비게이션 진행 중... 남은 거리: %.2f m", 
-                            feedback->distance_remaining);
+            [this](rclcpp_action::ClientGoalHandle<NavigateThroughPoses>::SharedPtr,
+                   const std::shared_ptr<const NavigateThroughPoses::Feedback> feedback) {
+                // 피드백이 number_of_poses_remaining 이므로, 단일 목표일때는 크게 의미 없음.
+                RCLCPP_DEBUG(this->get_logger(), "Nav2 네비게이션 진행 중... 남은 경유지: %d", 
+                            feedback->number_of_poses_remaining);
             };
         
         // 결과 콜백
         send_goal_options.result_callback = 
-            [this](const rclcpp_action::ClientGoalHandle<NavigateToPose>::WrappedResult & result) {
+            [this](const rclcpp_action::ClientGoalHandle<NavigateThroughPoses>::WrappedResult & result) {
                 navigation_in_progress_ = false;
                 
                 switch (result.code) {
                     case rclcpp_action::ResultCode::SUCCEEDED:
                         RCLCPP_INFO(this->get_logger(), "Nav2 네비게이션 성공! 목적지에 도착했습니다.");
                         change_status("idle", "네비게이션 완료");
-                        // Shopee 인터페이스로 도착 알림 발행
                         publish_arrival_notification(current_target_location_id_, current_target_pose_);
                         break;
                     case rclcpp_action::ResultCode::ABORTED:
@@ -338,7 +390,7 @@ private:
             };
         
         // Nav2 Action 전송
-        RCLCPP_INFO(this->get_logger(), "Nav2에 네비게이션 목표 전송 중...");
+        RCLCPP_INFO(this->get_logger(), "Nav2에 네비게이션 목표(단일) 전송 중...");
         nav2_action_client_->async_send_goal(goal_msg, send_goal_options);
         
         response->success = true;

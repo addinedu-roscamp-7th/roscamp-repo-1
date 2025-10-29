@@ -75,7 +75,10 @@ source install/setup.bash
 
 - Arm 컨트롤러 단독 실행
   ```bash
-  ros2 launch packee_arm packee_arm.launch.py
+  ros2 launch packeeros2 run packee_arm jetcobot_subscriber
+
+# 터미널 2
+ros2 run packee_arm mock_packee_main_arm packee_arm.launch.py
   ```
 
 - 모의 메인 노드를 함께 실행하려면 `run_mock_main:=true` 인자를 지정합니다.

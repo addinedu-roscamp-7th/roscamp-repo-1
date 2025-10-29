@@ -39,6 +39,8 @@ public:
             std::bind(&PackingServiceServer::startPackingCallback, this, _1, _2)
         );
 
+        std::string robot_status = this->declare_parameter<std::string>("robot_status", "CHECKING_CART");
+
         // 클라이언트
         cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
         detect_products_client_ = this->create_client<DetectProductsInCart>("/packee/vision/detect_products_in_cart");
@@ -56,9 +58,7 @@ public:
         const std::shared_ptr<CheckAvailability::Request> request,
         std::shared_ptr<CheckAvailability::Response> response)
     {
-        RCLCPP_INFO(this->get_logger(),
-                    "Check availability request: robot_id=%d, order_id=%d",
-                    request->robot_id, request->order_id);
+        // robot_status = "";
         response->success = true;
         response->message = "Availability check OK";
     }
@@ -67,11 +67,15 @@ public:
         const std::shared_ptr<StartPacking::Request> request,
         std::shared_ptr<StartPacking::Response> response)
     {
-        RCLCPP_INFO(this->get_logger(),
-                    "Start packing request: robot_id=%d, order_id=%d",
-                    request->robot_id, request->order_id);
         response->success = true;
         response->message = "Packing started";
+        
+        // TODO
+        // if (robot_status == "CHECKING_CART") {
+        //     robot_status = "Detecting_Products";
+            
+        //     callDetectProducts(request->robot_id, request->order_id, request->expected_product_ids);
+        // }
     }
 
     // ================= 클라이언트 호출 함수 =================

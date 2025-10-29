@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from pathlib import Path
@@ -5,12 +6,17 @@ from dataclasses import replace
 from typing import Any
 from typing import Callable
 
+import yaml
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
 from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QTransform
 from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QImage
+from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush
+from PyQt6.QtGui import QColor
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
@@ -24,10 +30,18 @@ from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtWidgets import QGraphicsEllipseItem
+from PyQt6.QtWidgets import QGraphicsLineItem
+from PyQt6.QtWidgets import QGraphicsPixmapItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
+from shopee_app.services.video_stream_client import VideoStreamReceiver
+from shopee_app.services.rosbridge_client import RosbridgePoseSubscriber
+from shopee_app.services.rosbridge_client import RosbridgeConfig
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
@@ -41,6 +55,60 @@ if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
     sys.path.append(str(_LLM_SERVICE_DIR))
 
 from STT_module import STT_Module
+
+
+DEFAULT_MAP_CONFIG = (
+    Path(__file__).resolve().parents[5]
+    / "shopee_ros2"
+    / "src"
+    / "pickee_mobile"
+    / "map"
+    / "shopee_map.yaml"
+)
+DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
+VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
+DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+
+
+def _get_env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _get_env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        parts = [float(part.strip()) for part in value.split(",")]
+        return tuple(parts)
+    except ValueError:
+        return default
+
+
+ROSBRIDGE_HOST = os.getenv("SHOPEE_ROSBRIDGE_HOST", "127.0.0.1")
+ROSBRIDGE_PORT = _get_env_int("SHOPEE_ROSBRIDGE_PORT", 9090)
+ROSBRIDGE_TOPIC = os.getenv("SHOPEE_ROSBRIDGE_POSE_TOPIC", "/pickee/mobile/pose")
+MAP_CONFIG_PATH = Path(os.getenv("SHOPEE_APP_MAP_CONFIG", str(DEFAULT_MAP_CONFIG)))
+MAP_IMAGE_PATH = os.getenv("SHOPEE_APP_MAP_IMAGE")
+MAP_RESOLUTION_OVERRIDE = _get_env_float("SHOPEE_APP_MAP_RESOLUTION", -1.0)
+MAP_ORIGIN_OVERRIDE = _get_env_tuple("SHOPEE_APP_MAP_ORIGIN", ())
+VIDEO_STREAM_DEBUG = os.getenv("SHOPEE_APP_DEBUG_VIDEO_STREAM", "0") == "1"
 
 
 class ClickableLabel(QLabel):
@@ -153,7 +221,48 @@ class SttWorker(QtCore.QObject):
 
 
 class UserWindow(QWidget):
-
+    IMAGE_ROOT = Path(__file__).resolve().parent / "image"
+    ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
+    ROBOT_POSITION_OFFSET_X = 6.0
+    ROBOT_POSITION_OFFSET_Y = 6.0
+    PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
+        1: IMAGE_ROOT / "product_horseradish.png",
+        2: IMAGE_ROOT / "product_spicy_chicken.png",
+        4: IMAGE_ROOT / "product_richam.png",
+        5: IMAGE_ROOT / "product_soymilk.png",
+        6: IMAGE_ROOT / "product_caprisun.png",
+        7: IMAGE_ROOT / "product_apple.png",
+        8: IMAGE_ROOT / "product_green_apple.png",
+        9: IMAGE_ROOT / "product_ivy.png",
+        10: IMAGE_ROOT / "product_pork.png",
+        11: IMAGE_ROOT / "product_chicken.png",
+        12: IMAGE_ROOT / "product_mackerel.png",
+        13: IMAGE_ROOT / "product_abalone.png",
+        14: IMAGE_ROOT / "product_eclips.png",
+        16: IMAGE_ROOT / "product_pepero.png",
+        17: IMAGE_ROOT / "product_oyes.png",
+        18: IMAGE_ROOT / "product_orange.png",
+        19: IMAGE_ROOT / "product_jangjorim.png",
+    }
+    PRODUCT_IMAGE_BY_NAME: dict[str, Path] = {
+        "고추냉이": IMAGE_ROOT / "product_horseradish.png",
+        "버터캔": IMAGE_ROOT / "product_jangjorim.png",
+        "리챔": IMAGE_ROOT / "product_richam.png",
+        "두유": IMAGE_ROOT / "product_soymilk.png",
+        "카프리썬": IMAGE_ROOT / "product_caprisun.png",
+        "홍사과": IMAGE_ROOT / "product_apple.png",
+        "청사과": IMAGE_ROOT / "green_apple.png",
+        "삼겹살": IMAGE_ROOT / "product_pork.png",
+        "닭": IMAGE_ROOT / "product_chicken.png",
+        "생선": IMAGE_ROOT / "product_mackerel.png",
+        "전복": IMAGE_ROOT / "product_abalone.png",
+        "이클립스": IMAGE_ROOT / "product_eclips.png",
+        "빼빼로": IMAGE_ROOT / "product_pepero.png",
+        "오예스": IMAGE_ROOT / "product_oyes.png",
+        "아이비": IMAGE_ROOT / "product_ivy.png",
+        "오렌지": IMAGE_ROOT / "product_orange.png",
+        "불닭캔": IMAGE_ROOT / "product_spicy_chicken.png",
+    }
     closed = pyqtSignal()
 
     def __init__(
@@ -228,6 +337,33 @@ class UserWindow(QWidget):
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
         self.page_select_product = getattr(self.ui, "page_select_product", None)
         self.page_moving_view = getattr(self.ui, "page_moving", None)
+        self.page_end_pick_up = getattr(self.ui, "page_end_pick_up", None)
+        self.pick_flow_completed = False
+        self.progress_bar = getattr(self.ui, "shop_progressBar", None)
+        self.progress_text = getattr(self.ui, "text_progress", None)
+        self.front_view_button: QPushButton | None = None
+        self.arm_view_button: QPushButton | None = None
+        self.video_stack = getattr(self.ui, "stackedWidget_3", None)
+        self.page_front = getattr(self.ui, "page_front", None)
+        self.page_arm = getattr(self.ui, "page_arm", None)
+        self.gv_front = getattr(self.ui, "gv_front", None)
+        self.gv_arm = getattr(self.ui, "gv_arm", None)
+        self.map_view = getattr(self.ui, "gv_map", None)
+        self.front_scene: QGraphicsScene | None = None
+        self.arm_scene: QGraphicsScene | None = None
+        self.front_item = None
+        self.arm_item = None
+        self.map_scene: QGraphicsScene | None = None
+        self.map_pixmap_item: QGraphicsPixmapItem | None = None
+        self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
+        self.map_heading_item: QGraphicsLineItem | None = None
+        self.map_resolution: float | None = None
+        self.map_origin: tuple[float, float] | None = None
+        self.map_image_size: tuple[int, int] | None = None
+        self.video_receiver: VideoStreamReceiver | None = None
+        self.active_camera_type: str | None = None
+        self._init_video_views()
+        self._init_map_view()
         self.select_title_label = getattr(self.ui, "label_7", None)
         self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
@@ -236,6 +372,28 @@ class UserWindow(QWidget):
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
+        self.front_view_button = getattr(self.ui, "btn_view_front", None)
+        self.arm_view_button = getattr(self.ui, "btn_view_arm", None)
+        self.camera_button_group = QButtonGroup(self)
+        self.camera_button_group.setExclusive(True)
+        if self.front_view_button is not None:
+            self.front_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.front_view_button)
+            self.front_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("front")
+            )
+        if self.arm_view_button is not None:
+            self.arm_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.arm_view_button)
+            self.arm_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("arm")
+            )
+        self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
+        if self.shop_end_button is not None:
+            self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
+        self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
+        if self.shop_continue_button is not None:
+            self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
         self._setup_refresh_logo()
         self.setup_cart_section()
         self.setup_navigation()
@@ -297,6 +455,7 @@ class UserWindow(QWidget):
 
         self.profile_dialog = ProfileDialog(self)
         self.profile_dialog.set_user_info(self.user_info)
+        self.profile_dialog.logout_requested.connect(self.on_logout_requested)
         profile_button = getattr(self.ui, "btn_profile", None)
         if profile_button is not None:
             icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
@@ -317,6 +476,7 @@ class UserWindow(QWidget):
         self._update_user_header()
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
+        self.pose_subscriber: RosbridgePoseSubscriber | None = None
 
     def _ensure_user_identity(self) -> str:
         # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
@@ -412,12 +572,19 @@ class UserWindow(QWidget):
         if self.notification_client is not None:
             self.notification_client.stop()
         self._shutdown_speech_recognition()
+        self._stop_video_stream(send_request=True)
+        if self.pose_subscriber is not None:
+            self.pose_subscriber.stop()
+            self.pose_subscriber.deleteLater()
+            self.pose_subscriber = None
         self.closed.emit()
         super().closeEvent(event)
 
     def on_pay_clicked(self):
         if self.request_create_order():
             self.set_mode("pick")
+            # 결제 후 매장 화면으로 전환되면 ROS 토픽을 구독한다.
+            self._setup_pose_subscription()
 
     def on_search_submitted(self) -> None:
         # 검색 위젯이 준비되지 않았다면 검색어를 읽어올 수 없어 조용히 종료한다.
@@ -718,13 +885,26 @@ class UserWindow(QWidget):
         # bool()로 강제하지 않으면 0과 1 같은 값이 그대로 전달되어 혼란을 줄 수 있다.
         return normalized_allergy, bool(vegan_value)
 
+    def _resolve_product_image(self, product_id: int, name: str) -> Path:
+        # 사전에 등록된 이미지가 있으면 즉시 반환한다.
+        mapped_path = self.PRODUCT_IMAGE_BY_ID.get(product_id)
+        if mapped_path and mapped_path.exists():
+            return mapped_path
+        # 이름 기반 매핑을 사용해 식별 가능한 이미지를 찾는다.
+        normalized_name = (name or "").strip()
+        if normalized_name:
+            name_path = self.PRODUCT_IMAGE_BY_NAME.get(normalized_name)
+            if name_path and name_path.exists():
+                return name_path
+        # 매핑 결과가 없거나 파일이 없으면 기본 이미지를 사용한다.
+        return ProductCard.FALLBACK_IMAGE
+
     def _convert_search_results(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
-        # 이미지 경로를 미리 정해두지 않으면 각 상품마다 반복 계산해야 한다.
-        fallback_image = ProductCard.FALLBACK_IMAGE
+        # 이미지 경로 계산은 전용 헬퍼로 위임해 중복을 줄인다.
 
         # 안전한 정수 변환 함수를 정의하지 않으면 잘못된 값이 들어왔을 때 예외로 루프가 중단된다.
         def to_int(value: object, default: int = 0) -> int:
@@ -795,7 +975,7 @@ class UserWindow(QWidget):
                     height=height,
                     weight=weight,
                     fragile=fragile,
-                    image_path=fallback_image,
+                    image_path=self._resolve_product_image(product_id, name),
                 )
             except TypeError:
                 # 필수 필드가 누락된 경우 해당 상품만 건너뛰어 전체 처리를 계속한다.
@@ -810,7 +990,6 @@ class UserWindow(QWidget):
     ) -> list[ProductData]:
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
-        fallback_image = ProductCard.FALLBACK_IMAGE
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -839,7 +1018,7 @@ class UserWindow(QWidget):
                 height=int(entry.get("height") or 0),
                 weight=int(entry.get("weight") or 0),
                 fragile=bool(entry.get("fragile")),
-                image_path=fallback_image,
+                image_path=self._resolve_product_image(product_id, name),
             )
             products.append(product)
         return products
@@ -941,6 +1120,19 @@ class UserWindow(QWidget):
     def on_store_button_clicked(self):
         self.set_mode("pick")
 
+    def on_shop_end_clicked(self) -> None:
+        self.on_logout_requested()
+
+    def on_shop_continue_clicked(self) -> None:
+        self.pick_flow_completed = False
+        self.set_mode("shopping")
+        if self.order_select_stack is not None and self.page_moving_view is not None:
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+        if self.active_camera_type:
+            self._update_video_buttons(self.active_camera_type)
+        else:
+            self._auto_start_front_camera_if_possible()
+
     def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
             return False
@@ -1016,6 +1208,7 @@ class UserWindow(QWidget):
         ordered_items: list[CartItemData],
         order_data: dict,
     ) -> None:
+        self.pick_flow_completed = False
         self._ensure_notification_listener()
         auto_select_map = self._build_order_auto_select_map(order_data)
         remote_items, auto_items = self.categorize_cart_items(
@@ -1033,6 +1226,7 @@ class UserWindow(QWidget):
 
         self.current_order_id = order_data.get("order_id")
         self.current_robot_id = order_data.get("robot_id")
+        self._auto_start_front_camera_if_possible()
 
         status_label = getattr(self.ui, "label_12", None)
         if status_label is not None:
@@ -1082,20 +1276,22 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
         destination = data.get("destination")
         message_text = payload.get("message") or "로봇 이동중"
-        status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if destination:
             formatted = f"{message_text} : {destination}"
         else:
             formatted = message_text
-        if status_label is not None:
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
 
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_robot_arrived_notification(self, payload: dict) -> None:
         """로봇 도착 알림에 따라 상태 텍스트를 갱신한다."""
@@ -1110,6 +1306,7 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
 
         section_id = data.get("section_id")
         location_id = data.get("location_id")
@@ -1128,11 +1325,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_picking_complete_notification(self, payload: dict) -> None:
         """모든 상품 담기 완료 알림을 처리한다."""
@@ -1156,6 +1354,9 @@ class UserWindow(QWidget):
         if footer_label is not None:
             footer_label.setText(message_text)
         print(f"[알림] {message_text}")
+        self.pick_flow_completed = True
+        self._mark_all_selection_completed()
+        self._show_pick_complete_page()
 
     def handle_product_selection_start(self, payload: dict) -> None:
         """상품 선택 시작 알림을 처리한다."""
@@ -1295,11 +1496,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def _ensure_notification_listener(self) -> None:
         """주문 생성 시 알림 리스너를 시작한다."""
@@ -1436,6 +1638,301 @@ class UserWindow(QWidget):
         else:
             self.selection_selected_index = None
 
+    def _init_video_views(self) -> None:
+        if self.gv_front is not None:
+            self.front_scene = QGraphicsScene(self.gv_front)
+            self.gv_front.setScene(self.front_scene)
+            self.gv_front.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_front.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_front.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.front_item = self.front_scene.addPixmap(QPixmap())
+        if self.gv_arm is not None:
+            self.arm_scene = QGraphicsScene(self.gv_arm)
+            self.gv_arm.setScene(self.arm_scene)
+            self.gv_arm.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_arm.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_arm.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.arm_item = self.arm_scene.addPixmap(QPixmap())
+        if self.video_stack is not None and self.page_front is not None:
+            self.video_stack.setCurrentWidget(self.page_front)
+        self._update_video_buttons(None)
+
+    def _init_map_view(self) -> None:
+        if self.map_view is None:
+            return
+        self.map_scene = QGraphicsScene(self.map_view)
+        self.map_view.setScene(self.map_scene)
+        self.map_view.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        self.map_view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        pixmap, resolution, origin = self._load_map_pixmap()
+        self.map_pixmap_item = self.map_scene.addPixmap(pixmap)
+        self.map_pixmap_item.setZValue(0)
+        scene_rect = self.map_pixmap_item.boundingRect()
+        self.map_scene.setSceneRect(scene_rect)
+        self._fit_map_to_view()
+        self.map_resolution = resolution
+        self.map_origin = (origin[0], origin[1])
+        self.map_image_size = (pixmap.width(), pixmap.height())
+        robot_item, heading_item = self._create_robot_graphics()
+        robot_item.setZValue(10)
+        robot_item.setVisible(False)
+        self.map_scene.addItem(robot_item)
+        if heading_item is not None:
+            heading_item.setZValue(11)
+            heading_item.setVisible(False)
+        self.map_robot_item = robot_item
+        self.map_heading_item = heading_item
+        self.map_view.installEventFilter(self)
+
+    def _create_robot_graphics(
+        self,
+    ) -> tuple[QGraphicsPixmapItem | QGraphicsEllipseItem, QGraphicsLineItem | None]:
+        pixmap = self._render_robot_svg()
+        if pixmap is not None and not pixmap.isNull():
+            item = QGraphicsPixmapItem(pixmap)
+            item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
+            item.setTransformationMode(
+                QtCore.Qt.TransformationMode.SmoothTransformation
+            )
+            return item, None
+        radius = 10
+        pen = QPen(QColor("#ff4649"))
+        pen.setWidth(2)
+        brush = QBrush(QColor("#ff4649"))
+        item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
+        item.setPen(pen)
+        item.setBrush(brush)
+        heading = QGraphicsLineItem(0, 0, radius * 2, 0, item)
+        heading.setPen(pen)
+        return item, heading
+
+    def _render_robot_svg(self) -> QPixmap | None:
+        if not VECTOR_ICON_PATH.exists():
+            return None
+        renderer = QSvgRenderer(str(VECTOR_ICON_PATH))
+        if not renderer.isValid():
+            return None
+        size = renderer.defaultSize()
+        if not size.isValid() or size.width() <= 0 or size.height() <= 0:
+            size = QtCore.QSize(*DEFAULT_ROBOT_ICON_SIZE)
+        image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+        return QPixmap.fromImage(image)
+
+    def _load_map_pixmap(self) -> tuple[QPixmap, float, tuple[float, float, float]]:
+        if MAP_IMAGE_PATH:
+            pixmap = QPixmap(MAP_IMAGE_PATH)
+            if not pixmap.isNull():
+                resolution = (
+                    MAP_RESOLUTION_OVERRIDE if MAP_RESOLUTION_OVERRIDE > 0 else 0.05
+                )
+                origin_values = (
+                    MAP_ORIGIN_OVERRIDE if MAP_ORIGIN_OVERRIDE else (0.0, 0.0, 0.0)
+                )
+                origin_x = origin_values[0] if len(origin_values) > 0 else 0.0
+                origin_y = origin_values[1] if len(origin_values) > 1 else 0.0
+                origin_theta = origin_values[2] if len(origin_values) > 2 else 0.0
+                return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            print(f"[Map] 지정된 MAP_IMAGE를 불러오지 못했습니다: {MAP_IMAGE_PATH}")
+        config_path = MAP_CONFIG_PATH
+        try:
+            with config_path.open("r", encoding="utf-8") as file:
+                data = yaml.safe_load(file) or {}
+            image_name = data.get("image")
+            resolution = float(data.get("resolution", 0.05))
+            origin_raw = data.get("origin") or [0.0, 0.0, 0.0]
+            origin_x = float(origin_raw[0]) if len(origin_raw) > 0 else 0.0
+            origin_y = float(origin_raw[1]) if len(origin_raw) > 1 else 0.0
+            origin_theta = float(origin_raw[2]) if len(origin_raw) > 2 else 0.0
+            candidate_paths: list[Path] = []
+            if DEFAULT_IMAGE_FALLBACK.exists():
+                candidate_paths.append(DEFAULT_IMAGE_FALLBACK.resolve())
+            if image_name:
+                candidate_paths.append((config_path.parent / image_name).resolve())
+            for candidate in candidate_paths:
+                pixmap = QPixmap(str(candidate))
+                if not pixmap.isNull():
+                    return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            last_candidate = (
+                candidate_paths[-1] if candidate_paths else config_path.parent
+            )
+            raise FileNotFoundError(f"map image not found: {last_candidate}")
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[Map] 지도 정보를 불러오지 못했습니다: {exc}")
+        if DEFAULT_IMAGE_FALLBACK.exists():
+            pixmap = QPixmap(str(DEFAULT_IMAGE_FALLBACK))
+            if not pixmap.isNull():
+                return pixmap, 0.05, (0.0, 0.0, 0.0)
+        fallback = QPixmap(640, 480)
+        fallback.fill(QColor("#f5f5f5"))
+        painter = QPainter(fallback)
+        grid_pen = QPen(QColor("#d0d0d0"))
+        grid_pen.setWidth(1)
+        painter.setPen(grid_pen)
+        step = 40
+        for x in range(0, fallback.width(), step):
+            painter.drawLine(x, 0, x, fallback.height())
+        for y in range(0, fallback.height(), step):
+            painter.drawLine(0, y, fallback.width(), y)
+            painter.end()
+        return fallback, 0.05, (0.0, 0.0, 0.0)
+
+    def _fit_map_to_view(self) -> None:
+        if (
+            self.map_view is None
+            or self.map_scene is None
+            or self.map_pixmap_item is None
+        ):
+            return
+        rect = self.map_pixmap_item.boundingRect()
+        if rect.isNull():
+            return
+        self.map_view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def eventFilter(self, obj: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        if obj is self.map_view and event.type() == QtCore.QEvent.Type.Resize:
+            QtCore.QTimer.singleShot(0, self._fit_map_to_view)
+        return super().eventFilter(obj, event)
+
+    def _update_video_buttons(self, active: str | None) -> None:
+        if self.front_view_button is not None:
+            self.front_view_button.setChecked(active == "front")
+        if self.arm_view_button is not None:
+            self.arm_view_button.setChecked(active == "arm")
+
+    def on_camera_button_clicked(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            QMessageBox.information(self, "영상 요청", "연결된 로봇 정보가 없습니다.")
+            self._update_video_buttons(None)
+            return
+        target_page = self.page_front if camera_type == "front" else self.page_arm
+        if self.video_stack is not None and target_page is not None:
+            self.video_stack.setCurrentWidget(target_page)
+        self._start_video_stream(camera_type)
+
+    def _auto_start_front_camera_if_possible(self) -> None:
+        if self.active_camera_type is not None:
+            return
+        if self.current_robot_id is None:
+            return
+        if self.front_view_button is None:
+            return
+        self.on_camera_button_clicked("front")
+
+    def _setup_pose_subscription(self) -> None:
+        if self.pose_subscriber is not None:
+            return
+        config = RosbridgeConfig(
+            host=ROSBRIDGE_HOST,
+            port=ROSBRIDGE_PORT,
+            topic=ROSBRIDGE_TOPIC,
+        )
+        print(f"[Map] ROS 토픽 구독 시작: {config.topic}")
+        self.pose_subscriber = RosbridgePoseSubscriber(config, parent=self)
+        self.pose_subscriber.pose_received.connect(self.on_pose_message)
+        self.pose_subscriber.connection_error.connect(self.on_pose_error)
+        self.pose_subscriber.start()
+
+    def on_pose_message(self, msg: dict) -> None:
+        robot_id_value = self._extract_robot_id(msg)
+        if (
+            self.current_robot_id is not None
+            and robot_id_value is not None
+            and robot_id_value != self.current_robot_id
+        ):
+            return
+        pose = self._extract_pose(msg)
+        if pose is None:
+            print(f"[Map] 위치 정보가 없는 메시지를 수신했습니다: {msg}")
+            return
+        if self.current_robot_id is None and robot_id_value is not None:
+            self.current_robot_id = robot_id_value
+            self._auto_start_front_camera_if_possible()
+        x, y, theta = pose
+        print(f"[Map] pose 업데이트 수신: x={x}, y={y}, theta={theta}")
+        self._update_robot_pose(x, y, theta)
+
+    def on_pose_error(self, message: str) -> None:
+        print(f"[Rosbridge] {message}")
+
+    def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
+        if (
+            self.map_scene is None
+            or self.map_robot_item is None
+            or self.map_resolution is None
+            or self.map_origin is None
+            or self.map_image_size is None
+        ):
+            return
+        width, height = self.map_image_size
+        origin_x, origin_y = self.map_origin
+        adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
+        adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
+        px = (adjusted_x - origin_x) / self.map_resolution
+        py = (adjusted_y - origin_y) / self.map_resolution
+        scene_y = height - py
+        if not (math.isfinite(px) and math.isfinite(scene_y)):
+            return
+        px = max(0.0, min(px, float(width)))
+        scene_y = max(0.0, min(scene_y, float(height)))
+        self.map_robot_item.setVisible(True)
+        if self.map_heading_item is not None:
+            self.map_heading_item.setVisible(True)
+        self.map_robot_item.setPos(px, scene_y)
+        angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
+        self.map_robot_item.setRotation(angle_deg)
+        self._fit_map_to_view()
+
+    def _extract_robot_id(self, msg: dict) -> int | None:
+        robot_id_raw = msg.get("robot_id")
+        try:
+            return int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_pose(self, msg: dict) -> tuple[float, float, float] | None:
+        pose_dict = msg.get("current_pose")
+        if isinstance(pose_dict, dict):
+            return self._parse_pose_components(
+                pose_dict.get("x"),
+                pose_dict.get("y"),
+                pose_dict.get("theta"),
+            )
+        if "position_x" in msg or "position_y" in msg:
+            return self._parse_pose_components(
+                msg.get("position_x"),
+                msg.get("position_y"),
+                msg.get("orientation_z"),
+            )
+        return None
+
+    def _parse_pose_components(
+        self,
+        x_value: object,
+        y_value: object,
+        theta_value: object,
+    ) -> tuple[float, float, float] | None:
+        try:
+            if x_value is None or y_value is None:
+                return None
+            x = float(x_value)
+            y = float(y_value)
+            theta = float(theta_value) if theta_value is not None else 0.0
+            return x, y, theta
+        except (TypeError, ValueError):
+            return None
+
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
         if not checked:
@@ -1500,6 +1997,7 @@ class UserWindow(QWidget):
             QMessageBox.warning(self, "상품 선택", message)
             return
 
+        self._set_selection_status(product_id_value, "선택 진행중")
         QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         self.selection_options = []
         self.selection_selected_index = None
@@ -1511,6 +2009,108 @@ class UserWindow(QWidget):
         """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _start_video_stream(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            return
+        if self.active_camera_type == camera_type and self.video_receiver is not None:
+            if self.video_receiver.isRunning():
+                self._update_video_buttons(camera_type)
+                return
+        self._stop_video_stream(send_request=True)
+        user_type = self._current_user_type()
+        try:
+            response = self.service_client.start_video_stream(
+                user_id=self.current_user_id,
+                user_type=user_type,
+                robot_id=int(self.current_robot_id),
+                camera_type=camera_type,
+            )
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, "영상 요청 실패", str(exc))
+            self._update_video_buttons(None)
+            return
+        if not response or not response.get("result", False):
+            message = response.get("message") if isinstance(response, dict) else None
+            QMessageBox.warning(
+                self,
+                "영상 요청 실패",
+                message or "영상 스트림을 시작할 수 없습니다.",
+            )
+            self._update_video_buttons(None)
+            return
+        self.active_camera_type = camera_type
+        self.video_receiver = VideoStreamReceiver(
+            robot_id=int(self.current_robot_id),
+            camera_type=camera_type,
+            parent=self,
+        )
+        self.video_receiver.frame_received.connect(self.on_video_frame_received)
+        self.video_receiver.error_occurred.connect(self.on_video_stream_error)
+        self.video_receiver.start()
+        self._update_video_buttons(camera_type)
+
+    def _stop_video_stream(self, *, send_request: bool) -> None:
+        if self.video_receiver is not None:
+            self.video_receiver.stop()
+            self.video_receiver = None
+        if (
+            send_request
+            and self.active_camera_type is not None
+            and self.current_robot_id is not None
+        ):
+            user_type = self._current_user_type()
+            try:
+                self.service_client.stop_video_stream(
+                    user_id=self.current_user_id,
+                    user_type=user_type,
+                    robot_id=int(self.current_robot_id),
+                )
+            except MainServiceClientError:
+                pass
+        self.active_camera_type = None
+        self._update_video_buttons(None)
+
+    def _current_user_type(self) -> str:
+        if isinstance(self.user_info, dict):
+            value = self.user_info.get("user_type") or self.user_info.get("role")
+            if value:
+                return str(value)
+        return "user"
+
+    def on_video_frame_received(self, camera_type: str, image: QImage) -> None:
+        if image.isNull():
+            return
+        pixmap = QPixmap.fromImage(image)
+        scene = self.front_scene if camera_type == "front" else self.arm_scene
+        item_attr = "front_item" if camera_type == "front" else "arm_item"
+        view = self.gv_front if camera_type == "front" else self.gv_arm
+        if scene is None or view is None:
+            return
+        item = getattr(self, item_attr)
+        if item is None:
+            item = scene.addPixmap(pixmap)
+            setattr(self, item_attr, item)
+        else:
+            item.setPixmap(pixmap)
+        if VIDEO_STREAM_DEBUG:
+            print(
+                f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}"
+            )
+        self._fit_view(view, item)
+        scene.update()
+
+    def _fit_view(self, view: QGraphicsView, item) -> None:
+        if item is None:
+            return
+        rect = item.boundingRect()
+        if rect.isNull():
+            return
+        view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def on_video_stream_error(self, message: str) -> None:
+        self._stop_video_stream(send_request=False)
+        QMessageBox.warning(self, "영상 스트림 오류", message)
 
     def _build_order_auto_select_map(
         self,
@@ -1616,10 +2216,76 @@ class UserWindow(QWidget):
         if isinstance(widget, CartSelectItemWidget):
             widget.label_progress.setText(f"({picked}/{total})")
             if picked >= total:
-                widget.label_status.setText("완료")
+                widget.set_status("완료")
             else:
                 base_status = str(state.get("base_status") or "대기")
-                widget.label_status.setText(base_status)
+                widget.set_status(base_status)
+        self._refresh_selection_progress_summary()
+
+    def _show_pick_complete_page(self) -> None:
+        if self.order_select_stack is None or self.page_end_pick_up is None:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_end_pick_up)
+
+    def _set_selection_status(self, product_id: int, status_text: str) -> None:
+        """선택 항목의 상태 텍스트를 갱신한다."""
+        state = self.selection_item_states.get(product_id)
+        if state is None:
+            return
+        state["base_status"] = status_text
+        widget = state.get("widget")
+        if isinstance(widget, CartSelectItemWidget):
+            widget.set_status(status_text)
+
+    def _show_moving_page(self) -> None:
+        """선택 단계가 아니고 쇼핑이 완료되지 않았다면 이동 화면을 표시한다."""
+        if self.pick_flow_completed:
+            return
+        if self.order_select_stack is None or self.page_moving_view is None:
+            return
+        current_widget = self.order_select_stack.currentWidget()
+        if current_widget is self.page_select_product:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _mark_all_selection_completed(self) -> None:
+        """선택 항목 전체를 완료 상태로 동기화한다."""
+        if not self.selection_item_states:
+            return
+        for state in self.selection_item_states.values():
+            total = int(state.get("total", 0))
+            state["picked"] = total
+            state["base_status"] = "완료"
+            widget = state.get("widget")
+            if isinstance(widget, CartSelectItemWidget):
+                widget.label_progress.setText(f"({total}/{total})")
+                widget.set_status("완료")
+        self._refresh_selection_progress_summary()
+
+    def _refresh_selection_progress_summary(self) -> None:
+        """전체 진행률을 합산해 Progress Bar와 텍스트에 반영한다."""
+        if not self.selection_item_states:
+            if self.progress_bar is not None:
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(0)
+            if self.progress_text is not None:
+                self.progress_text.setText("0%")
+            return
+        total_required = 0
+        total_picked = 0
+        for state in self.selection_item_states.values():
+            total_required += max(0, int(state.get("total", 0)))
+            total_picked += max(0, int(state.get("picked", 0)))
+        total_required = max(total_required, 0)
+        total_picked = min(total_required, total_picked)
+        progress_ratio = 0
+        if total_required > 0:
+            progress_ratio = round((total_picked / total_required) * 100)
+        if self.progress_bar is not None:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(progress_ratio)
+        if self.progress_text is not None:
+            self.progress_text.setText(f"{progress_ratio}%")
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)
@@ -1663,6 +2329,9 @@ class UserWindow(QWidget):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def on_logout_requested(self) -> None:
+        self.close()
 
     def _update_user_header(self) -> None:
         name = str(
@@ -1994,7 +2663,6 @@ class UserWindow(QWidget):
         self.current_columns = -1
 
     def load_initial_products(self) -> list[ProductData]:
-        image_root = Path(__file__).resolve().parent.parent / "image"
         return [
             ProductData(
                 product_id=1,
@@ -2011,7 +2679,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(1, "삼겹살"),
             ),
             ProductData(
                 product_id=2,
@@ -2028,7 +2696,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=3,
@@ -2045,7 +2713,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(3, "서울우유"),
             ),
             ProductData(
                 product_id=4,
@@ -2062,7 +2730,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(4, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2079,7 +2747,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2096,7 +2764,7 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
             ProductData(
                 product_id=2,
@@ -2113,6 +2781,6 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
             ),
         ]

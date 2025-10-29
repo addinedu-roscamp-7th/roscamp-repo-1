@@ -36,7 +36,7 @@ class YoloDetector:
 
             for mask, box in zip(result.masks.xy, result.boxes):
                 class_id = match(int(box.cls))
-                class_name = result.names[class_id]
+                class_name = result.names[class_id-1]
                 bbox = box.xyxy[0].tolist()
                 detection = {
                     'class_id': class_id,
