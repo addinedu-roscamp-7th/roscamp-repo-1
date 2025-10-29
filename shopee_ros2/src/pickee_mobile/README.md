@@ -30,17 +30,47 @@ ros2 launch pickee_mobile mobile_controller.launch.xml # 속도값
 ```bash
 #시뮬레이션
 ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
-ros2 launch pickee_mobile nav2_bringup_launch.xml map:=map1021_modify.yaml #로봇
+ros2 launch pickee_mobile nav2_bringup_launch.xml map:=map1021_modify.yaml #로봇, 맵 설정은 바꿔도 됨
 ros2 launch pickee_mobile nav2_view.launch.xml #pc
 ros2 launch pickee_mobile mobile_controller.launch.xml #pc
 
 ```
+### 2.3 Aruco marker 추적
+```base
+ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
+ros2 launch pickee_mobile nav2_bringup_launch.xml # 로봇
+ros2 run pickee_mobile mobile_aruco_pub_1 # pc
+ros2 run pickee_mobile aruco_follow_1 # pc
+```
+mobile_aruco_pub_1 = z 누르면 pub 시작, x 누르면 pub 종료, 목적지 도착 토픽 subscribe를 동작 조건으로 하고 싶으면 관련 부분 주석 해제, 
+
+mobile_aruco_pub_2 = 위와 동일, 실행하면 실시간 영상도 나옴
+
+aruco_follow_1 = ArucoPose를 subscribe 하면 해당 위치로 이동, 각도는 안맞춤
+
+aruco_follow_2 = 각도도 맞춰줌
+
+aruco_follow_3 = 만드는중, 목표와 현재위치에 따라 속도, 이동거리 변경 예정
+
+.
+
+.
+
+.
+
+.
+
+.
 
 상세설명
 mobile_bringup.launch.xml = PickeeMobile 시동걸기, 수업 자료에 있던거
+
 nav2_bringup_launch.xml map:=map1021_modify.yaml = nav2 실행, 해당 파일의 default map을 설정해도 된다.
+
 nav2_view.launch.xml = rviz 실행, 수업 자료에 있던거
+
 mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드 실행
+
     mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
 
     mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절

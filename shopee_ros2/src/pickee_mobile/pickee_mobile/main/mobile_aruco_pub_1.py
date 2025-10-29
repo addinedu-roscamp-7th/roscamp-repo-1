@@ -9,6 +9,8 @@ from rclpy.executors import MultiThreadedExecutor
 import numpy as np
 from collections import Counter
 from std_msgs.msg import Bool
+import threading, sys, termios, tty
+
 
 
 class ArucoReaderNode(Node):
@@ -31,16 +33,20 @@ class ArucoReaderNode(Node):
                                                     '/pickee/mobile/aruco_pose', 
                                                     10)
         
-        self.create_subscription(PickeeMobileArrival,
-                                '/pickee/mobile/arrival',
-                                self.detect_aruco_callback,
-                                10)
+        # self.create_subscription(PickeeMobileArrival,
+        #                         '/pickee/mobile/arrival',
+        #                         self.detect_aruco_callback,
+        #                         10)
         
         self.create_subscription(Bool,
                                 '/pickee/mobile/docking_in_progress',
                                 self.docking_status_callback,
                                 10)
         
+        thread = threading.Thread(target=self.keyboard_listener, daemon=True)
+        thread.start()
+        self.get_logger().info("⌨️ Press 'z' to start ArUco detection, 'x' to stop")
+
     def detect_aruco_callback(self, msg: PickeeMobileArrival):
         self.docking_in_progress = True
         self.get_logger().info("🚦 Arrival detected! Starting ArUco scan...")
@@ -48,6 +54,8 @@ class ArucoReaderNode(Node):
 
         
     def read_marker(self):
+        self.get_logger().info(f"{self.docking_in_progress}")
+
         while self.docking_in_progress:
             values = {
                 "id": [],
@@ -56,6 +64,9 @@ class ArucoReaderNode(Node):
             }
 
             for i in range(5):
+
+                if self.docking_in_progress == False:
+                    break   
                 print(f"📸 Reading marker attempt {i+1}/5")
 
                 ret, frame = self.estimator.cap.read()
@@ -84,9 +95,24 @@ class ArucoReaderNode(Node):
                 else:
                     self.get_logger().info(f"⚠️ {i+1}/5 | Marker not found")
 
+            if self.docking_in_progress == False:
+                break
+
             if len(values["id"]) == 0:
                 self.get_logger().error("❌ 5회 측정 중 마커를 하나도 감지하지 못했습니다.")
-                return
+                pose = ArucoPose()
+                pose.aruco_id = 0
+                pose.x = 0.0
+                pose.y = 0.0
+                pose.z = 0.0
+                pose.roll = 0.0
+                pose.pitch = 0.0
+                pose.yaw = 0.0
+                self.pose_publisher.publish(pose)
+
+                self.get_logger().info("📤 Published MEDIAN + MODE filtered ArUco pose ✅")
+
+                continue
 
             # ✅ aruco_id 최빈값 Mode 계산
             aruco_id = Counter(values["id"]).most_common(1)[0][0]
@@ -118,8 +144,27 @@ class ArucoReaderNode(Node):
         self.docking_in_progress = msg.data
         if not self.docking_in_progress:
             self.get_logger().info("🛑 Docking process ended. Stopping ArUco scan.")
+            
 
+    def keyboard_listener(self):
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
 
+        try:
+            while True:
+                key = sys.stdin.read(1)
+
+                if key.lower() == 'z':
+                    self.get_logger().info("✅ Key 's' pressed → Starting ArUco scan")
+                    self.docking_in_progress = True
+                    self.read_marker()
+
+                elif key.lower() == 'x':
+                    self.get_logger().info("🛑 Key 'q' pressed → Stop ArUco scan")
+                    self.docking_in_progress = False
+
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
 def main(args=None):
