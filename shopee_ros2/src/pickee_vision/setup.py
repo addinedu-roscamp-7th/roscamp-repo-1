@@ -9,10 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-                        ('share/' + package_name, ['package.xml', 'pickee_vision/cart_best_.pth', 
-                                                   'pickee_vision/20251027_v11.pt', 'pickee_vision/product_cnn_best.pt', 
-                                                   'pickee_vision/target_img_eclipce.jpg', 'pickee_vision/target_img_fish.jpg', 'pickee_vision/target_img_wasabi.jpg', 
-                                                   ]),
+                        ('share/' + package_name, ['package.xml',]),
                     ],
     install_requires=['setuptools'],
     zip_safe=True,

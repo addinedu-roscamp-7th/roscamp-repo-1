@@ -106,7 +106,10 @@ class PickeeVisionControlNode(Node):
         # )
 
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
-        self.package_share_directory = get_package_share_directory('pickee_vision')
+        self.package_share_directory = get_package_share_directory('pickee_vision').replace(
+                            'install/pickee_vision/share/pickee_vision', 
+                            'src/pickee_vision/resource'
+                        )
         # 1. 상품 인식용 세그멘테이션 모델
         yolo_model_path = os.path.join(self.package_share_directory, '20251027_v11.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
