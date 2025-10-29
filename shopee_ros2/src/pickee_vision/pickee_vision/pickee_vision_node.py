@@ -2,16 +2,12 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import os
-import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from collections import Counter
 
-# ^&*()
 # --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
 from .cnn_classifier import CnnClassifier
-from .pose_detector import PoseDetector # New
-from .tracker import ByteTracker # New
 from .udp_video import UdpStreamer
 
 # --- ROS 인터페이스 ---
@@ -22,10 +18,6 @@ from shopee_interfaces.srv import (
     VisionCheckCartPresence, 
     PickeeVisionVideoStreamStart, 
     PickeeVisionVideoStreamStop,
-    PickeeVisionSetMode, # New
-    PickeeVisionRegisterStaff, # New
-    PickeeVisionTrackStaff, # New
-    PickeeTtsRequest # New
 )
 # 메시지
 from shopee_interfaces.msg import (
@@ -36,12 +28,7 @@ from shopee_interfaces.msg import (
     Point2D, 
     Pose6D, 
     PickeeVisionCartCheck,
-    PickeeVisionObstacles, # New
-    Obstacle, # New
-    PickeeVisionStaffLocation, # New
-    PickeeVisionStaffRegister # New
 )
-# ^&*()
 
 product_dic = {
     1 : "wasabi", 

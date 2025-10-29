@@ -16,11 +16,11 @@ CHUNK_DATA_SIZE = 1400
 JPEG_QUALITY = 90
 
 class UdpStreamer:
-    """
-    별도의 스레드에서 asyncio 이벤트 루프를 실행하여,
-    메인 스레드를 차단하지 않고 이미지 프레임을 UDP로 비동기 전송합니다.
-    큐를 사용하지 않고 'fire-and-forget' 방식으로 동작합니다.
-    """
+    #
+    # 별도의 스레드에서 asyncio 이벤트 루프를 실행하여,
+    # 메인 스레드를 차단하지 않고 이미지 프레임을 UDP로 비동기 전송합니다.
+    # 큐를 사용하지 않고 'fire-and-forget' 방식으로 동작합니다.
+    #
     def __init__(self, host: str, port: int, robot_id: int = 1):
         self._host = host
         self._port = port
@@ -59,10 +59,10 @@ class UdpStreamer:
         logging.info("UdpStreamer thread stopped.")
 
     def send_frame(self, frame):
-        """
-        메인 스레드에서 프레임의 비동기 전송을 예약합니다.
-        이 작업은 논블로킹(non-blocking) 입니다.
-        """
+        #
+        # 메인 스레드에서 프레임의 비동기 전송을 예약합니다.
+        # 이 작업은 논블로킹(non-blocking) 입니다.
+        # 
         if not self.is_running or self._loop is None or not self._loop.is_running():
             return
         
