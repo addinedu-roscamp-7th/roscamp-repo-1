@@ -29,7 +29,6 @@ from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QSpacerItem
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QDialog
-from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtWidgets import QGraphicsScene
@@ -366,6 +365,12 @@ class UserWindow(QWidget):
         self.map_image_size: tuple[int, int] | None = None
         self.video_receiver: VideoStreamReceiver | None = None
         self.active_camera_type: str | None = None
+        self.allergy_toggle_button: QPushButton | None = None
+        self.allergy_sub_widget: QWidget | None = None
+        self.allergy_filters_expanded = True
+        self._allergy_max_height = 16777215
+        self.allergy_icon_fold: QIcon | None = None
+        self.allergy_icon_fold_rotated: QIcon | None = None
         self._init_video_views()
         self._init_map_view()
         self.select_title_label = getattr(self.ui, "label_7", None)
@@ -401,7 +406,7 @@ class UserWindow(QWidget):
         self._setup_refresh_logo()
         self.setup_cart_section()
         self.setup_navigation()
-        self._setup_allergy_filter_section()
+        self._setup_allergy_toggle()
         if self.ros_thread is not None:
             self.ros_thread.pickee_status_received.connect(
                 self._on_pickee_status_received
@@ -427,7 +432,7 @@ class UserWindow(QWidget):
                 self.mic_button.setIconSize(QtCore.QSize(24, 24))
             self.mic_button.setText("")
             self.mic_button.setToolTip("음성으로 검색")
-            self.mic_button.clicked.connect(self.on_microphone_clicked)
+        self.mic_button.clicked.connect(self.on_microphone_clicked)
         self.mic_info_label = getattr(self.ui, "label_mic_info", None)
         if self.mic_info_label is not None:
             self.mic_info_label.setText("")
@@ -447,9 +452,6 @@ class UserWindow(QWidget):
         self._stt_status_close_timer.setSingleShot(True)
         self._stt_status_close_timer.timeout.connect(self._close_stt_status_dialog)
         self._stt_last_microphone_name: str | None = None
-        self.allergy_toggle_button: QToolButton | None = None
-        self.allergy_sub_widget: QWidget | None = None
-        self.allergy_section_expanded = True
         self.set_products(self.load_initial_products())
         self.update_cart_summary()
 
@@ -1122,31 +1124,67 @@ class UserWindow(QWidget):
 
         self.set_mode("shopping")
 
-    def _setup_allergy_filter_section(self) -> None:
-        self.allergy_toggle_button = getattr(self.ui, "btn_allergy", None)
+    def _setup_allergy_toggle(self) -> None:
+        button = getattr(self.ui, "btn_allergy", None)
         self.allergy_sub_widget = getattr(self.ui, "widget_allergy_sub", None)
-        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+        if button is None or self.allergy_sub_widget is None:
             return
-        self.allergy_section_expanded = True
-        self.allergy_toggle_button.setCheckable(False)
-        self.allergy_toggle_button.setText("")
-        self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.UpArrow)
-        self.allergy_toggle_button.setToolTip("알러지 필터 접기")
-        self.allergy_sub_widget.setVisible(True)
-        self.allergy_toggle_button.clicked.connect(self._on_allergy_toggle_clicked)
+        self.allergy_toggle_button = button
+        try:
+            button.clicked.disconnect()
+        except TypeError:
+            pass
+        button.setCheckable(True)
+        button.setChecked(True)
+        icon_path = Path(__file__).resolve().parent / "icons" / "fold.svg"
+        if icon_path.exists():
+            base_pixmap = QPixmap(str(icon_path))
+            if not base_pixmap.isNull():
+                self.allergy_icon_fold = QIcon(base_pixmap)
+                rotated_pixmap = base_pixmap.transformed(QTransform().rotate(180))
+                self.allergy_icon_fold_rotated = QIcon(rotated_pixmap)
+                button.setIcon(self.allergy_icon_fold_rotated)
+                button.setIconSize(QtCore.QSize(20, 20))
+        button.setFlat(True)
+        button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        button.setStyleSheet(
+            'QPushButton {background-color: transparent; border: none;}'
+            'QPushButton:checked {background-color: transparent; border: none;}'
+            'QPushButton:hover {background-color: transparent; border: none;}'
+            'QPushButton:pressed {background-color: transparent; border: none;}'
+            'QPushButton:focus {background-color: transparent; border: none; outline: 0;}'
+        )
+        self._allergy_max_height = self.allergy_sub_widget.maximumHeight()
+        if self._allergy_max_height <= 0 or self._allergy_max_height >= 16777215:
+            size_hint = self.allergy_sub_widget.sizeHint()
+            self._allergy_max_height = size_hint.height()
+        if self._allergy_max_height <= 0:
+            self._allergy_max_height = 16777215
+        self.allergy_filters_expanded = True
+        self._apply_allergy_toggle_state(expanded=self.allergy_filters_expanded)
+        button.toggled.connect(self._on_allergy_toggle_clicked)
 
-    def _on_allergy_toggle_clicked(self) -> None:
+    def _apply_allergy_toggle_state(self, *, expanded: bool) -> None:
         if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
             return
-        self.allergy_section_expanded = not self.allergy_section_expanded
-        if self.allergy_section_expanded:
-            self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.UpArrow)
+        self.allergy_filters_expanded = expanded
+        if expanded:
             self.allergy_toggle_button.setToolTip("알러지 필터 접기")
-            self.allergy_sub_widget.setVisible(True)
+            if self.allergy_icon_fold_rotated is not None:
+                self.allergy_toggle_button.setIcon(self.allergy_icon_fold_rotated)
+            self.allergy_sub_widget.setMaximumHeight(self._allergy_max_height)
+            self.allergy_sub_widget.show()
             return
-        self.allergy_toggle_button.setArrowType(QtCore.Qt.ArrowType.DownArrow)
         self.allergy_toggle_button.setToolTip("알러지 필터 펼치기")
-        self.allergy_sub_widget.setVisible(False)
+        if self.allergy_icon_fold is not None:
+            self.allergy_toggle_button.setIcon(self.allergy_icon_fold)
+        self.allergy_sub_widget.setMaximumHeight(0)
+        self.allergy_sub_widget.hide()
+
+    def _on_allergy_toggle_clicked(self, checked: bool) -> None:
+        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+            return
+        self._apply_allergy_toggle_state(expanded=checked)
 
     def on_cart_toggle_clicked(self):
         if self.cart_toggle_button is None:
