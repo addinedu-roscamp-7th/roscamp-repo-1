@@ -195,37 +195,17 @@ message: "Pose change command accepted"
 int32 robot_id
 int32 order_id
 string arm_side                 # Pickee는 "" 사용
-shopee_interfaces/msg/DetectedProduct target_product
+shopee_interfaces/msg/Pose6D pose
 ```
 
-- **DetectedProduct** (Pickee 사용 필드 강조)
-```plaintext
-int32 product_id
-int32 bbox_number
-shopee_interfaces/msg/DetectionInfo detection_info
-shopee_interfaces/msg/BBox bbox
-float32 confidence
-shopee_interfaces/msg/Pose6D pose               
-```
-
-- **DetectionInfo**
-```plaintext
-shopee_interfaces/msg/Point2D[] polygon
-shopee_interfaces/msg/BBox bbox_coords
-```
-
-- **Point2D**
+- **Pose6D**
 ```plaintext
 float32 x
 float32 y
-```
-
-- **BBox**
-```plaintext
-int32 x1
-int32 y1
-int32 x2
-int32 y2
+float32 z
+float32 rx
+float32 ry
+float32 rz
 ```
 
 #### Response:
