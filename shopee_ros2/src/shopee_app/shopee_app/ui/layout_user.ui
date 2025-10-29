@@ -443,6 +443,9 @@
                  <property name="text">
                   <string>알러지</string>
                  </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
                 </widget>
                </item>
                <item>
@@ -475,12 +478,18 @@
                   <property name="text">
                    <string>견과류</string>
                   </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QCheckBox" name="cb_milk">
                   <property name="text">
                    <string>유제품</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
@@ -489,12 +498,18 @@
                   <property name="text">
                    <string>어폐류</string>
                   </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QCheckBox" name="cb_bean">
                   <property name="text">
                    <string>대두/콩</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
@@ -503,6 +518,9 @@
                   <property name="text">
                    <string>복숭아</string>
                   </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
                  </widget>
                 </item>
                 <item>
@@ -510,12 +528,18 @@
                   <property name="text">
                    <string>밀, 글루텐</string>
                   </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QCheckBox" name="cb_egg">
                   <property name="text">
                    <string>계란</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
@@ -526,6 +550,9 @@
               <widget class="QCheckBox" name="cb_vegan">
                <property name="text">
                 <string>비건 식품</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
