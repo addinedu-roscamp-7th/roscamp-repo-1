@@ -78,7 +78,7 @@ def generate_launch_description() -> LaunchDescription:
         description='좌측 JetCobot 시리얼 포트')
     right_serial_port_arg = DeclareLaunchArgument(
         'right_serial_port',
-        default_value='',
+        default_value='/dev/ttyUSB1',
         description='우측 JetCobot 시리얼 포트 (단일 팔 환경이면 비워두세요)')
     jetcobot_move_speed_arg = DeclareLaunchArgument(
         'jetcobot_move_speed',
