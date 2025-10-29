@@ -222,6 +222,9 @@ class SttWorker(QtCore.QObject):
 
 class UserWindow(QWidget):
     IMAGE_ROOT = Path(__file__).resolve().parent / "image"
+    ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
+    ROBOT_POSITION_OFFSET_X = 6.0
+    ROBOT_POSITION_OFFSET_Y = 6.0
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
         1: IMAGE_ROOT / "product_horseradish.png",
         2: IMAGE_ROOT / "product_spicy_chicken.png",
@@ -474,7 +477,6 @@ class UserWindow(QWidget):
         self.notification_client: AppNotificationClient | None = None
         self._initialize_selection_grid()
         self.pose_subscriber: RosbridgePoseSubscriber | None = None
-        self._setup_pose_subscription()
 
     def _ensure_user_identity(self) -> str:
         # 로그인 여부와 관계없이 상품 검색을 테스트할 수 있도록 게스트 ID를 제공한다.
@@ -581,6 +583,8 @@ class UserWindow(QWidget):
     def on_pay_clicked(self):
         if self.request_create_order():
             self.set_mode("pick")
+            # 결제 후 매장 화면으로 전환되면 ROS 토픽을 구독한다.
+            self._setup_pose_subscription()
 
     def on_search_submitted(self) -> None:
         # 검색 위젯이 준비되지 않았다면 검색어를 읽어올 수 없어 조용히 종료한다.
@@ -1873,8 +1877,10 @@ class UserWindow(QWidget):
             return
         width, height = self.map_image_size
         origin_x, origin_y = self.map_origin
-        px = (x - origin_x) / self.map_resolution
-        py = (y - origin_y) / self.map_resolution
+        adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
+        adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
+        px = (adjusted_x - origin_x) / self.map_resolution
+        py = (adjusted_y - origin_y) / self.map_resolution
         scene_y = height - py
         if not (math.isfinite(px) and math.isfinite(scene_y)):
             return
@@ -1884,7 +1890,7 @@ class UserWindow(QWidget):
         if self.map_heading_item is not None:
             self.map_heading_item.setVisible(True)
         self.map_robot_item.setPos(px, scene_y)
-        angle_deg = -math.degrees(theta)
+        angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
         self._fit_map_to_view()
 
