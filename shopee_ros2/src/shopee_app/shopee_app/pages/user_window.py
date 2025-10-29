@@ -415,6 +415,9 @@ class UserWindow(QWidget):
         self.setup_navigation()
         self._setup_allergy_toggle()
         self._setup_allergy_checkboxes()
+        self._apply_main_banner_image()
+        self._style_main_banner_title()
+        self._style_do_create_label()
         if self.ros_thread is not None:
             self.ros_thread.pickee_status_received.connect(
                 self._on_pickee_status_received
@@ -934,6 +937,7 @@ class UserWindow(QWidget):
         raw_info = entry.get("allergy_info")
         if not isinstance(raw_info, dict):
             return None
+
         # bool()로 강제하지 않으면 0, 1과 같은 값이 그대로 남는다.
         def _flag(name: str) -> bool:
             return bool(raw_info.get(name))
@@ -1189,11 +1193,11 @@ class UserWindow(QWidget):
         button.setFlat(True)
         button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
         button.setStyleSheet(
-            'QPushButton {background-color: transparent; border: none;}'
-            'QPushButton:checked {background-color: transparent; border: none;}'
-            'QPushButton:hover {background-color: transparent; border: none;}'
-            'QPushButton:pressed {background-color: transparent; border: none;}'
-            'QPushButton:focus {background-color: transparent; border: none; outline: 0;}'
+            "QPushButton {background-color: transparent; border: none;}"
+            "QPushButton:checked {background-color: transparent; border: none;}"
+            "QPushButton:hover {background-color: transparent; border: none;}"
+            "QPushButton:pressed {background-color: transparent; border: none;}"
+            "QPushButton:focus {background-color: transparent; border: none; outline: 0;}"
         )
         self._allergy_max_height = self.allergy_sub_widget.maximumHeight()
         if self._allergy_max_height <= 0 or self._allergy_max_height >= 16777215:
@@ -1207,22 +1211,22 @@ class UserWindow(QWidget):
 
     def _setup_allergy_checkboxes(self) -> None:
         # 알러지 필터 체크박스를 동기화하지 않으면 상위와 하위 항목이 따로 움직인다.
-        self.allergy_total_checkbox = getattr(self.ui, 'cb_allergy_total', None)
+        self.allergy_total_checkbox = getattr(self.ui, "cb_allergy_total", None)
         checkbox_names = {
             # 견과류 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_nuts': 'nuts',
+            "cb_nuts": "nuts",
             # 유제품 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_milk': 'milk',
+            "cb_milk": "milk",
             # 어폐류 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_seafood': 'seafood',
+            "cb_seafood": "seafood",
             # 대두/콩 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_bean': 'soy',
+            "cb_bean": "soy",
             # 복숭아 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_peach': 'peach',
+            "cb_peach": "peach",
             # 글루텐 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_gluten': 'gluten',
+            "cb_gluten": "gluten",
             # 계란 알러지 여부를 제어하는 체크박스 이름과 키 쌍
-            'cb_egg': 'eggs',
+            "cb_egg": "eggs",
         }
         # 키별로 연결된 체크박스를 저장하는 매핑을 비워둔다.
         self.allergy_checkbox_map = {}
@@ -1257,7 +1261,7 @@ class UserWindow(QWidget):
             checkbox.stateChanged.connect(self._on_allergy_child_state_changed)
             # 동기화 대상 목록에 체크박스를 추가한다.
             self.allergy_checkbox_map[key] = checkbox
-        vegan_checkbox = getattr(self.ui, 'cb_vegan', None)
+        vegan_checkbox = getattr(self.ui, "cb_vegan", None)
         if isinstance(vegan_checkbox, QCheckBox):
             self.vegan_checkbox = vegan_checkbox
             try:
@@ -1265,10 +1269,7 @@ class UserWindow(QWidget):
             except TypeError:
                 pass
             vegan_checkbox.stateChanged.connect(self._on_vegan_state_changed)
-        if (
-            self.allergy_total_checkbox is not None
-            and self.allergy_checkbox_map
-        ):
+        if self.allergy_total_checkbox is not None and self.allergy_checkbox_map:
             # 하위 체크박스 상태를 기준으로 상위 상태를 재조정한다.
             self._sync_allergy_total_from_children()
         else:
@@ -1299,7 +1300,9 @@ class UserWindow(QWidget):
             return
         self._apply_allergy_toggle_state(expanded=checked)
 
-    def _on_allergy_total_state_changed(self, state: int | QtCore.Qt.CheckState) -> None:
+    def _on_allergy_total_state_changed(
+        self, state: int | QtCore.Qt.CheckState
+    ) -> None:
         # 하위 체크박스가 없으면 동기화를 진행할 수 없다.
         if not self.allergy_checkbox_map:
             return
@@ -1349,6 +1352,42 @@ class UserWindow(QWidget):
         self.allergy_total_checkbox.blockSignals(True)
         self.allergy_total_checkbox.setChecked(all_checked)
         self.allergy_total_checkbox.blockSignals(False)
+
+    def _apply_main_banner_image(self) -> None:
+        # 상단 배너 이미지를 로드해 label_main_top에 표시한다.
+        label = getattr(self.ui, "label_main_top", None)
+        if not isinstance(label, QLabel):
+            return
+        banner_path = Path(__file__).resolve().parent / "image" / "main_top.png"
+        if not banner_path.exists():
+            return
+        pixmap = QPixmap(str(banner_path))
+        if pixmap.isNull():
+            return
+        label.setPixmap(pixmap)
+        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    def _style_main_banner_title(self) -> None:
+        # 배너 제목 라벨을 굵은 빨간색 12pt로 통일한다.
+        label = getattr(self.ui, "label_let_start", None)
+        if not isinstance(label, QLabel):
+            return
+        font = label.font()
+        font.setPointSize(16)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: #ff0000;")
+
+    def _style_do_create_label(self) -> None:
+        # 주문담기 안내 라벨을 굵은 검정색 18pt로 설정한다.
+        label = getattr(self.ui, "label_do_create", None)
+        if not isinstance(label, QLabel):
+            return
+        font = label.font()
+        font.setPointSize(16)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: #000000;")
 
     def _apply_product_filters(self, *, refresh: bool = True) -> None:
         # 필터 적용 기준이 없으면 기존 상품 목록을 그대로 유지한다.
