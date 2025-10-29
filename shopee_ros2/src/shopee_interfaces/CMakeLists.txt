@@ -23,6 +23,7 @@ set(msg_files
   "msg/PackeeAvailability.msg"
   "msg/PackeePackingComplete.msg"
   "msg/PackeeRobotStatus.msg"
+  "msg/PersonDetection.msg"
   "msg/PickeeArrival.msg"
   "msg/PickeeCartHandover.msg"
   "msg/PickeeMobileArrival.msg"

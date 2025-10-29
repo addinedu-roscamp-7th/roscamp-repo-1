@@ -24,6 +24,8 @@ Pickee 로봇의 전체 워크플로우를 관장하는 메인 컨트롤러 패�
 
 0. **기본**:
 ```bash
+export PYTHONPATH=/home/wonho/venv/ros_venv/lib/python3.12/site-packages:$PYTHONPATH
+
 # 종속성 설치
 rosdep install --from-paths src --ignore-src -r -y
 cd ./ros2_ws

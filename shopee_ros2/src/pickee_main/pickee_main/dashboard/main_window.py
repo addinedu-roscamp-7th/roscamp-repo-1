@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
         self.camera_thread = CameraThread(camera_index=2)
         self.camera_thread.frame_ready.connect(self.update_camera_frame)
         self.camera_thread.marker_detected.connect(self.on_marker_detected)
+        self.camera_thread.person_detected.connect(self.on_person_detected)
         self.camera_thread.start()
 
         # 서비스/토픽 트리 초기화
@@ -152,6 +153,10 @@ class MainWindow(QMainWindow):
         self.ros_thread.publish_aruco_pose(marker_id, tvec_flat, rvec_flat)
 
         self.append_log('aruco_detector', 'INFO', log_msg, False)
+    def on_person_detected(self, x1, y1, x2, y2, confidence, direction):
+        # 사람 인식 시 로그 출력
+        print(f"사람 인식됨: {direction}")
+        self.ros_thread.publish_person_detection(x1, y1, x2, y2, confidence, direction)
 
     def closeEvent(self, event):
         # 윈도우 종료 시 스레드 정리

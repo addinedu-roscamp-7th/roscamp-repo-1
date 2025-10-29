@@ -2,7 +2,7 @@ import rclpy
 import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
-from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose
+from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose, PersonDetection
 from PySide6.QtCore import QThread, Signal, QTimer
 
 
@@ -18,6 +18,7 @@ class RosNodeThread(QThread):
         self.node = None
         self.timer = None
         self.aruco_pose_pub = None
+        self.person_detection_pub = None
         self.state_log_pattern = re.compile(r'^[A-Z_]+ 상태 (진입|탈출)$')
 
     def run(self):
@@ -30,7 +31,14 @@ class RosNodeThread(QThread):
             '/pickee/mobile/aruco_pose',
             10
         )
-        
+
+        # PersonDetection publisher 생성
+        self.person_detection_pub = self.node.create_publisher(
+            PersonDetection,
+            '/pickee/mobile/person_detection',
+            10
+        )
+
         # /rosout 토픽을 구독하여 모든 로그 메시지 수신
         self.node.create_subscription(
             Log,
@@ -71,6 +79,16 @@ class RosNodeThread(QThread):
         msg.yaw = float(rvec[2])
 
         self.aruco_pose_pub.publish(msg)
+
+    def publish_person_detection(self, x1, y1, x2, y2, confidence, direction):
+        if self.person_detection_pub is None:
+            return
+        
+        msg = PersonDetection()
+        msg.robot_id = 1  
+        msg.direction = direction
+
+        self.person_detection_pub.publish(msg)
 
     def log_callback(self, msg: Log):
         # 로그 레벨을 문자로 변환 (예: 10 -> DEBUG, 20 -> INFO)
