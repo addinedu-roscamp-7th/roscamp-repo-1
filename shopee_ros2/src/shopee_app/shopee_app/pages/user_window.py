@@ -3,9 +3,12 @@ import os
 import sys
 from pathlib import Path
 from dataclasses import replace
+from threading import Event
 from typing import Any
 from typing import Callable
 from typing import TYPE_CHECKING
+
+from shopee_app.utils.logging import ComponentLogger
 
 import yaml
 from PyQt6 import QtCore
@@ -276,8 +279,16 @@ class UserWindow(QWidget):
         parent=None,
     ):
         super().__init__(parent)
+
+        # 컴포넌트 로거 초기화
+        self.logger = ComponentLogger("user_window")
+
+        # UI 초기화
         self.ui = Ui_UserLayout()
         self.ui.setupUi(self)
+
+        # 정리 플래그
+        self._cleanup_requested = Event()
 
         self.setWindowTitle("Shopee GUI - User")
         self.products_container = getattr(self.ui, "grid_products", None)
@@ -2365,23 +2376,55 @@ class UserWindow(QWidget):
         self._update_video_buttons(camera_type)
 
     def _stop_video_stream(self, *, send_request: bool) -> None:
+        """비디오 스트림을 중지하고 관련 리소스를 정리합니다.
+
+        Args:
+            send_request: 서버에 스트리밍 중지 요청을 보낼지 여부
+        """
+        # 비디오 수신기 정리
         if self.video_receiver is not None:
-            self.video_receiver.stop()
-            self.video_receiver = None
+            try:
+                self.video_receiver.stop()
+                self.video_receiver = None
+                self.logger.debug("비디오 수신기 정지 완료")
+            except Exception as e:
+                self.logger.warning(f"비디오 수신기 정지 중 오류: {e}")
+
+        # 서버에 스트리밍 중지 요청
         if (
             send_request
             and self.active_camera_type is not None
             and self.current_robot_id is not None
+            and self.service_client is not None
         ):
             user_type = self._current_user_type()
             try:
+                self.logger.debug("서버에 비디오 스트림 중지 요청")
                 self.service_client.stop_video_stream(
                     user_id=self.current_user_id,
                     user_type=user_type,
                     robot_id=int(self.current_robot_id),
                 )
-            except MainServiceClientError:
-                pass
+                self.logger.debug("비디오 스트림 중지 요청 성공")
+            except MainServiceClientError as e:
+                self.logger.error(f"비디오 스트림 중지 요청 실패: {e}")
+
+        # 화면에서 비디오 표시 제거
+        if self.front_scene is not None and self.front_item is not None:
+            try:
+                self.front_scene.removeItem(self.front_item)
+                self.front_item = None
+            except Exception as e:
+                self.logger.warning(f"전면 비디오 화면 정리 오류: {e}")
+
+        if self.arm_scene is not None and self.arm_item is not None:
+            try:
+                self.arm_scene.removeItem(self.arm_item)
+                self.arm_item = None
+            except Exception as e:
+                self.logger.warning(f"암 카메라 화면 정리 오류: {e}")
+
+        # 상태 초기화
         self.active_camera_type = None
         self._update_video_buttons(None)
 
@@ -2645,8 +2688,14 @@ class UserWindow(QWidget):
         dialog.activateWindow()
 
     def on_logout_requested(self) -> None:
-        """로그아웃 처리를 수행합니다."""
-        # 사용자에게 확인
+        """로그아웃을 요청하고 리소스를 정리한 뒤 창을 닫습니다."""
+        self.logger.info("로그아웃 요청 수신")
+
+        # 이미 정리 중인 경우 중복 실행 방지
+        if self._cleanup_requested.is_set():
+            return
+
+        # 사용자 확인
         reply = QMessageBox.question(
             self,
             "로그아웃",
@@ -2656,45 +2705,177 @@ class UserWindow(QWidget):
         )
 
         if reply != QMessageBox.StandardButton.Yes:
+            self._cleanup_requested.clear()
             return
 
-        # UI 비활성화
-        self.setEnabled(False)
-        QtCore.QCoreApplication.processEvents()
+        self.logger.info("로그아웃 시작")
+        success = True
 
-        # 단계별 정리 작업 수행
-        cleanup_steps = [
-            (self._stop_video_stream, {"send_request": True}),
-            (self._stop_notification_client, {}),
-            (self._disconnect_ros, {}),
-            (self._cleanup_stt, {}),
-            (self._cleanup_cart, {}),
-            (self._cleanup_selection, {}),
-        ]
-
-        for cleanup_func, kwargs in cleanup_steps:
-            try:
-                cleanup_func(**kwargs)
-            except Exception as e:
-                print(f"Cleanup error in {cleanup_func.__name__}: {e}")
-
-        # 최종 창 닫기
         try:
-            self.closed.emit()
-            self.deleteLater()
-            self.close()
-        except Exception as e:
-            print(f"Close error: {e}")
-            try:
-                self.destroy()
-            except Exception as e:
-                print(f"Destroy error: {e}")
+            # UI 비활성화
+            self.setEnabled(False)
+            QtCore.QCoreApplication.processEvents()
 
-    def _stop_notification_client(self) -> None:
-        """알림 클라이언트를 정리합니다."""
-        if self.notification_client is not None:
-            self.notification_client.stop()
-            self.notification_client = None
+            # 비디오 스트림 중지
+            self.logger.debug("비디오 스트림 정리 시작")
+            self._stop_video_stream(send_request=True)
+            self.logger.debug("비디오 스트림 정리 완료")
+
+            # 알림 클라이언트 정리
+            if self.notification_client is not None:
+                self.logger.debug("알림 클라이언트 정리 시작")
+                self.notification_client.stop()
+                self.notification_client = None
+                self.logger.debug("알림 클라이언트 정리 완료")
+
+            # ROS 노드 연결 해제 및 종료
+            if self.ros_thread is not None:
+                self.logger.debug("ROS 노드 정리 시작")
+                try:
+                    # 모든 시그널 연결 해제
+                    self.ros_thread.disconnect()
+                    # ROS 노드 종료
+                    self.ros_thread.shutdown()
+                    # 스레드 종료 대기 (최대 5초)
+                    if not self.ros_thread.wait(5000):
+                        self.logger.warning("ROS 스레드 종료 타임아웃")
+                        success = False
+                    self.ros_thread = None
+                except Exception as e:
+                    self.logger.error(f"ROS 노드 정리 중 오류: {e}")
+                    success = False
+                self.logger.debug("ROS 노드 정리 완료")
+
+            # 음성 인식 리소스 정리
+            self.logger.debug("음성 인식 리소스 정리 시작")
+            self._shutdown_speech_recognition()
+            self.logger.debug("음성 인식 리소스 정리 완료")
+
+            # 위치 추적 중지
+            self.pose_tracking_active = False
+
+            # UI 상태 초기화
+            self.logger.debug("UI 상태 초기화 시작")
+            self._cleanup_cart()
+            self._cleanup_selection()
+            self._cleanup_ui_states()
+            self.logger.debug("UI 상태 초기화 완료")
+
+        except Exception as e:
+            self.logger.exception("리소스 정리 중 오류 발생")
+            success = False
+
+        finally:
+            self._cleanup_requested.clear()
+            if success:
+                self.logger.info("로그아웃 성공")
+            else:
+                self.logger.warning("일부 리소스 정리 실패")
+
+            # 결과와 관계없이 창 닫기
+            self.closed.emit()
+            self.close()
+
+    def _cleanup_cart(self) -> None:
+        """장바구니 위젯과 데이터를 정리합니다."""
+        try:
+            # 장바구니 데이터 초기화
+            self.cart_items.clear()
+            self.logger.debug("장바구니 데이터 초기화 완료")
+
+            # 장바구니 위젯 정리
+            self.cart_widgets.clear()
+            if self.cart_items_layout is not None:
+                for i in reversed(range(self.cart_items_layout.count())):
+                    item = self.cart_items_layout.itemAt(i)
+                    if item is not None:
+                        widget = item.widget()
+                        if widget is not None:
+                            widget.setParent(None)
+            self.logger.debug("장바구니 위젯 정리 완료")
+
+        except Exception as e:
+            self.logger.error(f"장바구니 정리 중 오류: {e}")
+
+    def _cleanup_ui_states(self) -> None:
+        """모든 UI 위젯의 상태를 초기화합니다."""
+        try:
+            # 검색 입력창 초기화
+            if self.search_input is not None:
+                self.search_input.clear()
+
+            # 알러지 체크박스 초기화
+            if self.allergy_total_checkbox is not None:
+                self.allergy_total_checkbox.setChecked(False)
+            for checkbox in self.allergy_checkbox_map.values():
+                checkbox.setChecked(False)
+            if self.vegan_checkbox is not None:
+                self.vegan_checkbox.setChecked(False)
+
+            # 비디오 표시 영역 초기화
+            if self.gv_front is not None:
+                self.gv_front.viewport().update()
+            if self.gv_arm is not None:
+                self.gv_arm.viewport().update()
+
+            # 지도 표시 초기화
+            if self.map_view is not None:
+                self.map_view.viewport().update()
+
+            # 카메라 버튼 상태 초기화
+            if self.front_view_button is not None:
+                self.front_view_button.setChecked(False)
+            if self.arm_view_button is not None:
+                self.arm_view_button.setChecked(False)
+
+            # 모드 상태 초기화
+            if self.shopping_button is not None:
+                self.shopping_button.setChecked(True)
+            if self.store_button is not None:
+                self.store_button.setChecked(False)
+
+            # 장바구니 UI 초기화
+            if self.cart_toggle_button is not None:
+                self.cart_toggle_button.setChecked(False)
+            self.cart_expanded = False
+            self.apply_cart_state()
+
+            # 상품 목록 초기화
+            self.products.clear()
+            self.all_products.clear()
+            self.product_index.clear()
+            self.refresh_product_grid()
+
+            self.logger.debug("UI 상태 초기화 완료")
+
+        except Exception as e:
+            self.logger.error(f"UI 상태 초기화 중 오류: {e}")
+
+    def _cleanup_selection(self) -> None:
+        """상품 선택 관련 데이터를 정리합니다."""
+        try:
+            # 선택 버튼 정리
+            for button in self.selection_buttons:
+                if isinstance(button, QPushButton):
+                    self.selection_button_group.removeButton(button)
+                    button.setParent(None)
+            self.selection_buttons.clear()
+
+            # 선택 데이터 초기화
+            self.selection_options.clear()
+            self.selection_selected_index = None
+            self.remote_selection_items.clear()
+            self.auto_selection_items.clear()
+            self.selection_item_states.clear()
+
+            # 선택 버튼 그리드 초기화
+            if self.selection_grid is not None:
+                self._initialize_selection_grid()
+
+            self.logger.debug("상품 선택 UI 정리 완료")
+
+        except Exception as e:
+            self.logger.error(f"상품 선택 정리 중 오류: {e}")
 
     def _disconnect_ros(self) -> None:
         """ROS 연결을 해제합니다."""
