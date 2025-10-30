@@ -10,7 +10,24 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 
-from shopee_interfaces.msg import PickeeRobotStatus
+ROS_INTERFACES_AVAILABLE = True
+
+try:
+    from shopee_interfaces.msg import PickeeRobotStatus
+except ModuleNotFoundError:
+    from dataclasses import dataclass
+
+    ROS_INTERFACES_AVAILABLE = False
+
+    @dataclass
+    class PickeeRobotStatus:
+        robot_id: int = 0
+        state: str = ''
+        battery_level: float = 0.0
+        current_order_id: int = 0
+        position_x: float = 0.0
+        position_y: float = 0.0
+        orientation_z: float = 0.0
 
 
 class ShopeeAppNode(Node):
@@ -61,6 +78,12 @@ class RosNodeThread(QThread):
         return self._node
 
     def run(self):
+        if not ROS_INTERFACES_AVAILABLE:
+            self.node_error.emit(
+                'ROS2 인터페이스 패키지(shopee_interfaces)가 설치되지 않았습니다. '
+                'colcon 빌드 또는 의존성 설치를 먼저 수행해주세요.'
+            )
+            return
         try:
             try:
                 rclpy.init(args=None)
