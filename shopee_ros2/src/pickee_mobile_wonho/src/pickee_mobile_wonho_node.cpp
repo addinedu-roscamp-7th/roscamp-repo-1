@@ -21,6 +21,7 @@
 #include <shopee_interfaces/msg/person_detection.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_move_to_location.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_update_global_path.hpp>
+#include <shopee_interfaces/srv/change_tracking_mode.hpp>
 
 /**
  * @brief Shopee Pickee Mobile Controller 노드
@@ -88,6 +89,11 @@ public:
             "/pickee/mobile/update_global_path",
             std::bind(&PickeeMobileWonhoNode::update_global_path_callback, this,
                      std::placeholders::_1, std::placeholders::_2));
+
+        change_tracking_mode_service_ = this->create_service<shopee_interfaces::srv::ChangeTrackingMode>(
+            "/pickee/mobile/change_tracking_mode",
+            std::bind(&PickeeMobileWonhoNode::change_tracking_mode_callback, this,
+                     std::placeholders::_1, std::placeholders::_2));
         
         // Nav2 Action Client 초기화
         // nav2_action_client_ = rclcpp_action::create_client<NavigateToPose>(
@@ -135,6 +141,7 @@ private:
     // Services (Shopee Interface - service 서버들)
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_to_location_service_;
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath>::SharedPtr update_global_path_service_;
+    rclcpp::Service<shopee_interfaces::srv::ChangeTrackingMode>::SharedPtr change_tracking_mode_service_;
     
     // Nav2 Action Client
     // using NavigateToPose = nav2_msgs::action::NavigateToPose;
@@ -332,7 +339,7 @@ private:
         cmd_vel_msg.angular.y = 0.0;
         cmd_vel_msg.angular.z = 0.0;
         
-        if (current_status_ == "idle") {
+        if (current_status_ == "tracking") {
             // 전방 장애물 감지 (1.0m 이내)
             if (is_obstacle_ahead(0.75)) {  // 1.0m
                 RCLCPP_WARN(this->get_logger(), "전방에 장애물 감지! 정지합니다.");
@@ -517,6 +524,35 @@ private:
         response->success = true;
         response->message = "전역 경로 업데이트됨";
     }
+
+    void change_tracking_mode_callback(
+        const std::shared_ptr<shopee_interfaces::srv::ChangeTrackingMode::Request> request,
+        std::shared_ptr<shopee_interfaces::srv::ChangeTrackingMode::Response> response)
+    {
+        RCLCPP_INFO(this->get_logger(), "트래킹 모드 변경 요청: 로봇=%d, 모드=%s", 
+                    request->robot_id, request->mode.c_str());
+
+        if (request->robot_id != robot_id_) {
+            response->success = false;
+            response->message = "잘못된 로봇 ID";
+            return;
+        }
+
+        response->success = true;
+        response->message = "트래킹 모드 변경됨";
+
+        if (request->mode == "idle") {
+            change_status("idle", "일반 모드로 변경");
+            return;
+        } else if (request->mode != "tracking") {
+            RCLCPP_WARN(this->get_logger(), "유효하지 않은 트래킹 모드: %s", request->mode.c_str());
+            response->success = false;
+            response->message = "유효하지 않은 트래킹 모드";
+            return;
+        } else {
+            change_status("tracking", "트래킹 모드로 변경");
+        }
+    }
     
     /**
      * @brief 도착 알림을 발행합니다. (Shopee Interface Publisher)
@@ -555,14 +591,14 @@ private:
     
     /**
      * @brief 로봇 상태를 안전하게 변경합니다.
-     * @param new_status 새로운 상태 ('idle', 'moving', 'stopped', 'charging', 'error')
+     * @param new_status 새로운 상태 ('idle', 'moving', 'stopped', 'charging', 'error', 'tracking)
      * @param reason 상태 변경 이유
      */
     void change_status(const std::string& new_status, const std::string& reason = "")
     {
         // 유효한 상태인지 확인
         if (new_status != "idle" && new_status != "moving" && new_status != "stopped" && 
-            new_status != "charging" && new_status != "error") {
+            new_status != "charging" && new_status != "error" && new_status != "tracking") {
             RCLCPP_WARN(this->get_logger(), "유효하지 않은 상태: %s", new_status.c_str());
             current_status_ = "error";
             return;

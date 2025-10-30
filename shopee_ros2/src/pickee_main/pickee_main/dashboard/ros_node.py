@@ -2,7 +2,9 @@ import rclpy
 import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
-from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose, PersonDetection
+from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose, PersonDetection, PickeeMobilePose
+from shopee_interfaces.srv import ChangeTrackingMode
+
 from PySide6.QtCore import QThread, Signal, QTimer
 
 
@@ -12,14 +14,18 @@ class RosNodeThread(QThread):
     topics_updated = Signal(list)
     services_updated = Signal(list)
     state_updated = Signal(str)
+    mobile_pose_updated = Signal(str)
 
-    def __init__(self):
+    def __init__(self, main_service_timeout=3.0):
         super().__init__()
         self.node = None
         self.timer = None
         self.aruco_pose_pub = None
         self.person_detection_pub = None
         self.state_log_pattern = re.compile(r'^[A-Z_]+ 상태 (진입|탈출)$')
+        self.tracking_mode = 'idle'
+        self.main_service_timeout = main_service_timeout
+        
 
     def run(self):
         rclpy.init()
@@ -53,6 +59,18 @@ class RosNodeThread(QThread):
             '/pickee/robot_status',
             self.status_callback,
             10
+        )
+
+        self.node.create_subscription(
+            PickeeMobilePose,
+            '/pickee/mobile/pose',
+            self.mobile_pose_callback,
+            10
+        )
+
+        self.change_tracking_mode_client = self.node.create_client(
+            ChangeTrackingMode,
+            '/pickee/mobile/change_tracking_mode'
         )
 
         # 1초마다 시스템 정보를 폴링하는 타이머 설정
@@ -101,7 +119,36 @@ class RosNodeThread(QThread):
 
     def status_callback(self, msg: PickeeRobotStatus):
         self.state_updated.emit(msg.state)
+    
+    def mobile_pose_callback(self, msg: PickeeMobilePose):
+        self.mobile_pose_updated.emit(msg.status)
+        self.tracking_mode = msg.status
 
+    async def on_change_tracking_mode(self):
+        request = ChangeTrackingMode.Request()
+        request.robot_id = 1
+        if self.tracking_mode == 'idle':
+            request.mode = 'tracking'
+        else:
+            request.mode = 'idle'
+
+        if not self.change_tracking_mode_client.wait_for_service(timeout_sec=self.main_service_timeout):
+            self.get_logger().error('Change tracking mode service not available')
+            return None
+        
+        try:
+            future = self.change_tracking_mode_client.call_async(request)
+            response = await future
+            if response.success:
+                print(f"Change tracking mode response: {response.message}")
+                self.mobile_pose_updated.emit(request.mode)
+                return response.message
+                
+            return None
+        except Exception as e:
+            self.get_logger().error(f'Change tracking mode service call failed: {str(e)}')
+            return None
+        
     def poll_system_info(self):
         if not self.node: return
 

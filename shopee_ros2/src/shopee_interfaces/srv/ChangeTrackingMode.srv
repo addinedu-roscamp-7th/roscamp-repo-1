@@ -1,0 +1,5 @@
+int32 robot_id
+string mode
+---
+bool success
+string message

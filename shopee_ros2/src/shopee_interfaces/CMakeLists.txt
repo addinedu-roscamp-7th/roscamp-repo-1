@@ -52,6 +52,7 @@ set(srv_files
   "srv/ArmMoveToPose.srv"
   "srv/ArmPickProduct.srv"
   "srv/ArmPlaceProduct.srv"
+  "srv/ChangeTrackingMode.srv"
   "srv/MainGetAvailableRobots.srv"
   "srv/MainGetProductLocation.srv"
   "srv/MainGetLocationPose.srv"

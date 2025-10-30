@@ -1,11 +1,11 @@
 import sys
+import asyncio
+
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QListWidget, QTextEdit, QTreeWidget, QDockWidget, QTreeWidgetItem, QLabel
+    QHBoxLayout, QPushButton, QWidget, QApplication, QMainWindow, QListWidget, QTextEdit, QTreeWidget, QDockWidget, QTreeWidgetItem, QLabel
 )
 import rclpy
 from rclpy.node import Node
-
-from shopee_interfaces.msg import ArucoPose
 
 import numpy as np 
 from PySide6.QtCore import Qt
@@ -20,14 +20,21 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Pickee Main Dashboard")
         self.setGeometry(100, 100, 1400, 800)
+        self.tracking_mode = 'idle'
 
         # 3. 상태 머신 패널
-        state_dock = QDockWidget("State Machine", self)
-        self.state_label = QLabel("Initializing...")
+        state_dock = QDockWidget('State Machine', self)
+        state_widget = QWidget()
+        state_layout = QHBoxLayout(state_widget)
+        self.state_label = QLabel('Initializing...')
         self.state_label.setAlignment(Qt.AlignCenter)
-        state_dock.setWidget(self.state_label)
+        self.mobile_state_change_btn = QPushButton(f"피키: {self.tracking_mode}")
+        state_layout.addWidget(self.state_label)
+        state_layout.addWidget(self.mobile_state_change_btn)
+        state_widget.setLayout(state_layout)
+        state_dock.setWidget(state_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, state_dock)
-        state_dock.setFixedHeight(40)
+        state_dock.setFixedHeight(70)
         # 1. 노드 목록 패널
         node_dock = QDockWidget("Nodes", self)
         self.node_list_widget = QListWidget()
@@ -35,7 +42,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, node_dock)
 
         # 2. 서비스/토픽 패널
-        comm_dock = QDockWidget("Services & Topics", self)
+        comm_dock = QDockWidget("Services Topics", self)
         self.comm_tree_widget = QTreeWidget()
         self.comm_tree_widget.setHeaderLabels(["Name", "Type"])
         comm_dock.setWidget(self.comm_tree_widget)
@@ -68,7 +75,9 @@ class MainWindow(QMainWindow):
         self.ros_thread.topics_updated.connect(self.update_topic_list)
         self.ros_thread.services_updated.connect(self.update_service_list)
         self.ros_thread.state_updated.connect(self.update_state)
+        self.ros_thread.mobile_pose_updated.connect(self.update_tracking_mode)
         self.ros_thread.start()
+        self.mobile_state_change_btn.clicked.connect(self.on_change_tracking_mode)
 
         # 카메라 스레드 시작
         self.camera_thread = CameraThread(camera_index=2)
@@ -80,6 +89,14 @@ class MainWindow(QMainWindow):
         # 서비스/토픽 트리 초기화
         self.topics_root = QTreeWidgetItem(self.comm_tree_widget, ["Topics"])
         self.services_root = QTreeWidgetItem(self.comm_tree_widget, ["Services"])
+
+    def on_change_tracking_mode(self):
+        asyncio.run(self.ros_thread.on_change_tracking_mode())
+        self.mobile_state_change_btn.setText(f"피키: {self.tracking_mode}")
+
+    def update_tracking_mode(self, msg):
+        # 모바일 로봇 위치 정보 수신 콜백
+        self.tracking_mode = msg
 
     def get_node_style(self, node_name):
         if node_name.startswith('pickee_main_controller'):
