@@ -1017,7 +1017,7 @@
                     <number>0</number>
                    </property>
                    <property name="rightMargin">
-                    <number>10</number>
+                    <number>20</number>
                    </property>
                    <property name="bottomMargin">
                     <number>0</number>
@@ -1642,7 +1642,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <activeon>../pages/icons/mic.svg</activeon>
+     <activeon>../../../../../../../.designer/pages/icons/mic.svg</activeon>
     </iconset>
    </property>
    <property name="text">

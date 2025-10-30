@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QWidget
 from shopee_app.pages.models.product_data import ProductData
 from shopee_app.utils.allergy_utils import get_matching_allergies, get_vegan_status
 from shopee_app.ui_gen.promoded_class import Ui_product_form as Ui_PromotionCard
+from shopee_app.styles.constants import COLORS, STYLES, FONTS
 
 
 class ProductCard(QWidget):
@@ -23,7 +24,7 @@ class ProductCard(QWidget):
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
         
         # 알러지와 비건 라벨 스타일 설정
-        label_style = "color: #999999; font-weight: bold;"
+        label_style = f"color: {COLORS['gray']}; font-weight: bold;"
         self.ui.label_5.setStyleSheet(label_style)
         self.ui.label_6.setStyleSheet(label_style)
         
@@ -41,9 +42,9 @@ class ProductCard(QWidget):
             button.setMinimumHeight(26)
             button.setMaximumHeight(26)
             button.setStyleSheet(
-                "QToolButton {background-color: transparent; border: none; "
-                "color: #FF3134; padding: 0 6px;}"
-                "QToolButton:pressed {color: #cc2829;}"
+                f"QToolButton {{background-color: transparent; border: none; "
+                f"color: {COLORS['primary']}; padding: 0 6px;}}"
+                f"QToolButton:pressed {{color: {COLORS['primary_dark']};}}"
             )
             button.setSizePolicy(
                 QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -63,7 +64,7 @@ class ProductCard(QWidget):
         self, product: ProductData, user_allergy: dict[str, bool] | None = None
     ) -> None:
         self.ui.label_prod_name.setText(product.name)
-        self.ui.label_prod_name.setStyleSheet("font-size: 12pt; font-weight: bold;")
+        self.ui.label_prod_name.setStyleSheet(f"font-size: {FONTS['normal']}; font-weight: bold;")
         self.ui.label_category.setText(product.category)
 
         # 알러지 정보 표시 (사용자 알러지와 매칭)
@@ -84,9 +85,7 @@ class ProductCard(QWidget):
                 self.ui.label_allergy_info.setStyleSheet("")
             else:
                 self.ui.label_allergy_info.setText("안전")
-                self.ui.label_allergy_info.setStyleSheet(
-                    "background-color: #EEEEEE; border-radius: 3px; padding: 2px 6px; color: #666666;"
-                )
+                self.ui.label_allergy_info.setStyleSheet(STYLES['info_tag'])
         else:
             self.ui.label_allergy_info.setText("정보 없음")
             self.ui.label_allergy_info.setStyleSheet("")
@@ -95,9 +94,7 @@ class ProductCard(QWidget):
         vegan_status = get_vegan_status(product.is_vegan_friendly)
         self.ui.label_vegan_info.setText(vegan_status)
         # 비건 정보 라벨에도 동일한 스타일 적용
-        self.ui.label_vegan_info.setStyleSheet(
-            "background-color: #EEEEEE; border-radius: 3px; padding: 2px 6px; color: #666666;"
-        )
+        self.ui.label_vegan_info.setStyleSheet(STYLES['info_tag'])
 
         # 가격 정보 표시
         self.ui.label_original_price.setText(f"{product.price:,} 원")
@@ -105,7 +102,7 @@ class ProductCard(QWidget):
         # 할인율과 가격을 같은 기준선에 맞추기
         self.ui.label_discount_rate.setText(f"{product.discount_rate}%")
         self.ui.label_discount_rate.setStyleSheet(
-            "color: #FF3134; font-size: 15pt; font-weight: 500;"
+            f"color: {COLORS['primary']}; font-size: {FONTS['large']}; font-weight: 500;"
         )
 
         self.ui.label_discounted_price.setAlignment(
@@ -113,7 +110,7 @@ class ProductCard(QWidget):
         )
         self.ui.label_discounted_price.setText(f"{product.discounted_price:,} 원")
         self.ui.label_discounted_price.setStyleSheet(
-            "font-size: 15pt; font-weight: 500;"
+            f"font-size: {FONTS['large']}; font-weight: 500;"
         )
         self.apply_image(product.image_path)
 

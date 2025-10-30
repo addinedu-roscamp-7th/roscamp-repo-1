@@ -402,7 +402,7 @@ class Ui_Form_user(object):
         self.cart_header.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
         self.cart_header.setObjectName("cart_header")
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout(self.cart_header)
-        self.horizontalLayout_4.setContentsMargins(10, 0, 10, 0)
+        self.horizontalLayout_4.setContentsMargins(10, 0, 20, 0)
         self.horizontalLayout_4.setSpacing(0)
         self.horizontalLayout_4.setObjectName("horizontalLayout_4")
         self.btn_chevron_up = QtWidgets.QPushButton(parent=self.cart_header)
@@ -679,7 +679,7 @@ class Ui_Form_user(object):
         self.icon_mic.setCheckable(True)
         self.icon_mic.setChecked(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/../pages/icons/mic.svg"), QtGui.QIcon.Mode.Active, QtGui.QIcon.State.On)
+        icon.addPixmap(QtGui.QPixmap("/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/../../../../../../../.designer/pages/icons/mic.svg"), QtGui.QIcon.Mode.Active, QtGui.QIcon.State.On)
         self.icon_mic.setIcon(icon)
         self.icon_mic.setObjectName("icon_mic")
 

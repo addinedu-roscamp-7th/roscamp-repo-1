@@ -463,6 +463,8 @@ class UserWindow(QWidget):
             self.ros_thread.pickee_status_received.connect(
                 self._on_pickee_status_received
             )
+        from shopee_app.styles.constants import STYLES
+        self.ui.btn_pay.setStyleSheet(STYLES['pay_button'])
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self._stt_feedback_timer = QtCore.QTimer(self)
         self._stt_feedback_timer.setInterval(1000)
