@@ -37,11 +37,6 @@ struct PickCommand {
   int32_t product_id;
   std::string arm_side;
   PoseEstimate target_pose;
-  double detection_confidence;
-  int32_t bbox_x1;
-  int32_t bbox_y1;
-  int32_t bbox_x2;
-  int32_t bbox_y2;
 };
 
 // PlaceCommand 구조체는 상품 담기 명령에 필요한 정보를 담는다.

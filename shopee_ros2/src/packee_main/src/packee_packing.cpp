@@ -152,26 +152,18 @@ public:
         auto request = std::make_shared<ArmPickProduct::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
+        request->product_id = product_id;
         request->arm_side = arm_side;
 
-        // DetectedProduct 생성
-        request->target_product.product_id = product_id;
-        request->target_product.confidence = 0.95f;
-
         if(target_position.size() == 6) {
-            request->target_product.pose.x = target_position[0];
-            request->target_product.pose.y = target_position[1];
-            request->target_product.pose.z = target_position[2];
-            request->target_product.pose.rx = target_position[3];
-            request->target_product.pose.ry = target_position[4];
-            request->target_product.pose.rz = target_position[5];
+            request->pose.x = target_position[0];
+            request->pose.y = target_position[1];
+            request->pose.z = target_position[2];
+            request->pose.rx = target_position[3];
+            request->pose.ry = target_position[4];
+            request->pose.rz = target_position[5];
         }
-        if(bbox.size() == 4) {
-            request->target_product.bbox.x1 = bbox[0];
-            request->target_product.bbox.y1 = bbox[1];
-            request->target_product.bbox.x2 = bbox[2];
-            request->target_product.bbox.y2 = bbox[3];
-        }
+        (void)bbox;  // bbox 정보는 ArmPickProduct 인터페이스 변경 후 사용하지 않는다.
 
         if (!pick_product_client_->wait_for_service(1s)) {
             RCLCPP_ERROR(this->get_logger(), "PickProduct service not available");

@@ -1,5 +1,4 @@
 #include "packee_arm/execution_manager.hpp"
-
 #include <algorithm>
 #include <cmath>
 
@@ -235,20 +234,6 @@ void ExecutionManager::ProcessMoveCommand(const MoveCommand & command) {
 
 void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
   const std::string & arm_side = command.arm_side;
-  const double confidence = command.detection_confidence;
-  if (confidence < visual_servo_->GetConfidenceThreshold()) {
-    pick_callback_(
-      command.robot_id,
-      command.order_id,
-      command.product_id,
-      arm_side,
-      "failed",
-      "planning",
-      0.0F,
-      "시각 서보 신뢰도가 임계값보다 낮습니다. 재탐지 요청이 필요합니다.");
-    return;
-  }
-
   pick_callback_(
     command.robot_id,
     command.order_id,
@@ -270,7 +255,10 @@ void ExecutionManager::ProcessPickCommand(const PickCommand & command) {
     "목표 물체를 향해 접근 중입니다.");
 
   PoseEstimate target_pose = command.target_pose;
-  target_pose.confidence = confidence;
+  target_pose.confidence = std::clamp(command.target_pose.confidence, 0.0, 1.0);
+  if (target_pose.confidence <= 0.0) {
+    target_pose.confidence = 1.0;
+  }
 
   std::string failure_reason;
   const bool servo_success = DriveServo(

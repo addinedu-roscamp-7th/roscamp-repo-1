@@ -5,7 +5,6 @@
 #include <vector>
 #include "rclcpp/rclcpp.hpp"
 
-#include "shopee_interfaces/msg/b_box.hpp"
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
 #include "shopee_interfaces/msg/arm_task_status.hpp"
 #include "shopee_interfaces/srv/arm_move_to_pose.hpp"
@@ -13,73 +12,6 @@
 #include "shopee_interfaces/srv/arm_place_product.hpp"
 
 using namespace std::chrono_literals;
-
-namespace detail {
-
-template<typename T, typename = void>
-struct HasPoseMember : std::false_type {};
-
-template<typename T>
-struct HasPoseMember<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().pose.x),
-    decltype(std::declval<T>().pose.y),
-    decltype(std::declval<T>().pose.z),
-    decltype(std::declval<T>().pose.rz)>> : std::true_type {};
-
-template<typename T, typename = void>
-struct HasBoxPositionMember : std::false_type {};
-
-template<typename T>
-struct HasBoxPositionMember<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().box_position.x),
-    decltype(std::declval<T>().box_position.y),
-    decltype(std::declval<T>().box_position.z)>> : std::true_type {};
-
-}  // namespace detail
-
-template<typename DetectedProductT>
-void AssignDetectedProductPose(
-  DetectedProductT * product,
-  float x,
-  float y,
-  float z,
-  float yaw_rad,
-  float confidence) {
-  product->confidence = confidence;
-  if constexpr (detail::HasPoseMember<DetectedProductT>::value) {
-    product->pose.x = x;
-    product->pose.y = y;
-    product->pose.z = z;
-    product->pose.rx = 0.0F;
-    product->pose.ry = 0.0F;
-    product->pose.rz = yaw_rad;
-  }
-}
-
-template<typename RequestT>
-void AssignPlacePose(
-  RequestT * request,
-  float x,
-  float y,
-  float z,
-  float yaw_rad) {
-  if constexpr (detail::HasPoseMember<RequestT>::value) {
-    request->pose.x = x;
-    request->pose.y = y;
-    request->pose.z = z;
-    request->pose.rx = 0.0F;
-    request->pose.ry = 0.0F;
-    request->pose.rz = yaw_rad;
-  } else if constexpr (detail::HasBoxPositionMember<RequestT>::value) {
-    request->box_position.x = x;
-    request->box_position.y = y;
-    request->box_position.z = z;
-  }
-}
 
 class MockPackeeMain : public rclcpp::Node {
 public:
@@ -220,10 +152,14 @@ private:
     auto req = std::make_shared<shopee_interfaces::srv::ArmPickProduct::Request>();
     req->robot_id = robot_id_;
     req->order_id = order_id_;
+    req->product_id = CurrentProductId();
     req->arm_side = CurrentArmSide();
-    req->target_product.product_id = CurrentProductId();
-    AssignDetectedProductPose(&req->target_product, 0.25F, 0.0F, 0.12F, 0.0F, 0.92F);
-    req->target_product.bbox = CreateBBox(120, 180, 250, 320);
+    req->pose.x = 0.25F;
+    req->pose.y = 0.0F;
+    req->pose.z = 0.12F;
+    req->pose.rx = 0.0F;
+    req->pose.ry = 0.0F;
+    req->pose.rz = 0.0F;
     current_future_ = pick_cli_->async_send_request(req);
   }
 
@@ -285,15 +221,6 @@ private:
   }
 
   int32_t CurrentProductId() const { return base_product_id_ + (int32_t)current_arm_index_; }
-
-  shopee_interfaces::msg::BBox CreateBBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
-      shopee_interfaces::msg::BBox bbox;
-      bbox.x1 = x1;
-      bbox.y1 = y1;
-      bbox.x2 = x2;
-      bbox.y2 = y2;
-      return bbox;
-  }
 
   // ---------- 멤버 ----------
   int robot_id_, order_id_, base_product_id_;

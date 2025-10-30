@@ -58,30 +58,6 @@ struct HasPoseJoint<
     decltype(std::declval<PoseT>().joint_3),
     decltype(std::declval<PoseT>().joint_4)>> : std::true_type {};
 
-// DetectedProduct.pose 필드 존재 여부를 통합적으로 확인한다.
-template<typename T, typename = void>
-struct HasPoseField : std::false_type {};
-
-template<typename T>
-struct HasPoseField<
-  T,
-  std::void_t<decltype(std::declval<T>().pose)>> : std::integral_constant<
-    bool,
-    HasPoseXYZ<decltype(std::declval<T>().pose)>::value ||
-    HasPoseJoint<decltype(std::declval<T>().pose)>::value> {};
-
-// packee_main(Mock)에서 position.x/y/z를 사용할 가능성도 대비한다.
-template<typename T, typename = void>
-struct HasPositionField : std::false_type {};
-
-template<typename T>
-struct HasPositionField<
-  T,
-  std::void_t<
-    decltype(std::declval<T>().position.x),
-    decltype(std::declval<T>().position.y),
-    decltype(std::declval<T>().position.z)>> : std::true_type {};
-
 }  // namespace detail
 
 namespace {
@@ -112,8 +88,6 @@ private:
     const std::string & parameter_name,
     const std::array<double, 4> & fallback) const;
   PoseComponents ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const;
-  template<typename DetectedProductT>
-  PoseComponents ExtractPoseFromDetectedProduct(const DetectedProductT & product) const;
   PoseEstimate MakePoseFromArray(const std::array<double, 4> & values) const;
   template<typename PoseT>
   PoseComponents ConvertPoseGeneric(const PoseT & pose) const;
@@ -148,7 +122,6 @@ private:
   bool IsZeroPose(const PoseComponents & pose) const;
   bool IsWithinWorkspace(double x, double y, double z) const;
   void ClampPoseToWorkspace(PoseComponents * pose) const;
-  bool IsValidBoundingBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) const;
 
   rclcpp::Publisher<ArmPoseStatus>::SharedPtr pose_status_pub_;
   rclcpp::Publisher<ArmTaskStatus>::SharedPtr pick_status_pub_;
