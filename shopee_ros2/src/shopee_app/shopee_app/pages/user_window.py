@@ -425,19 +425,6 @@ class UserWindow(QWidget):
         self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
         if self.shop_continue_button is not None:
             self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
-        self._setup_refresh_logo()
-        self.setup_cart_section()
-        self.setup_navigation()
-        self._setup_allergy_toggle()
-        self._setup_allergy_checkboxes()
-        self._apply_main_banner_image()
-        self._style_main_banner_title()
-        self._style_do_create_label()
-        if self.ros_thread is not None:
-            self.ros_thread.pickee_status_received.connect(
-                self._on_pickee_status_received
-            )
-        self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
         if self.search_input is None:
@@ -458,11 +445,25 @@ class UserWindow(QWidget):
                 self.mic_button.setIconSize(QtCore.QSize(24, 24))
             self.mic_button.setText("")
             self.mic_button.setToolTip("음성으로 검색")
-        self.mic_button.clicked.connect(self.on_microphone_clicked)
+            self.mic_button.clicked.connect(self.on_microphone_clicked)
         self.mic_info_label = getattr(self.ui, "label_mic_info", None)
         if self.mic_info_label is not None:
             self.mic_info_label.setText("")
             self.mic_info_label.setVisible(False)
+
+        self._setup_refresh_logo()
+        self.setup_cart_section()
+        self.setup_navigation()
+        self._setup_allergy_toggle()
+        self._setup_allergy_checkboxes()
+        self._apply_main_banner_image()
+        self._style_main_banner_title()
+        self._style_do_create_label()
+        if self.ros_thread is not None:
+            self.ros_thread.pickee_status_received.connect(
+                self._on_pickee_status_received
+            )
+        self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self._stt_feedback_timer = QtCore.QTimer(self)
         self._stt_feedback_timer.setInterval(1000)
         self._stt_feedback_timer.timeout.connect(self._on_stt_feedback_tick)
@@ -2940,6 +2941,12 @@ class UserWindow(QWidget):
             if self.store_button:
                 self.store_button.setChecked(False)
             self.pose_tracking_active = False
+            if self.search_input is not None:
+                self.search_input.show()
+            if self.search_button is not None:
+                self.search_button.show()
+            if self.mic_button is not None:
+                self.mic_button.show()
             self.show_main_page(self.page_user)
             self.show_side_page(self.side_pick_filter_page)
             return
@@ -2949,6 +2956,12 @@ class UserWindow(QWidget):
                 self.store_button.setChecked(True)
             if self.shopping_button:
                 self.shopping_button.setChecked(False)
+            if self.search_input is not None:
+                self.search_input.hide()
+            if self.search_button is not None:
+                self.search_button.hide()
+            if self.mic_button is not None:
+                self.mic_button.hide()
             self.show_main_page(self.page_pick)
             self.show_side_page(self.side_shop_page)
             self._enable_pose_tracking()
@@ -3093,7 +3106,11 @@ class UserWindow(QWidget):
             row = index // columns
             col = index % columns
             card = ProductCard()
-            card.apply_product(product)
+            # 사용자의 알러지 정보와 함께 상품 정보 적용
+            user_allergy = None
+            if self.user_info is not None and "allergy_info" in self.user_info:
+                user_allergy = self.user_info["allergy_info"]
+            card.apply_product(product, user_allergy)
             button = getattr(card.ui, "btn_add_product", None)
             if button is None:
                 button = getattr(card.ui, "toolButton", None)
