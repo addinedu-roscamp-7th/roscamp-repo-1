@@ -3,7 +3,7 @@
 int32 robot_id
 int32 order_id
 string arm_side            # Packee: left/right, Pickee: ''
-shopee_interfaces/DetectedProduct target_product
+shopee_interfaces/msg/Pose6D pose
 ---
 bool success
 string message
