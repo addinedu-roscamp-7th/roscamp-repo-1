@@ -2645,7 +2645,99 @@ class UserWindow(QWidget):
         dialog.activateWindow()
 
     def on_logout_requested(self) -> None:
-        self.close()
+        """로그아웃 처리를 수행합니다."""
+        # 사용자에게 확인
+        reply = QMessageBox.question(
+            self,
+            "로그아웃",
+            "정말 로그아웃 하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        # UI 비활성화
+        self.setEnabled(False)
+        QtCore.QCoreApplication.processEvents()
+
+        # 단계별 정리 작업 수행
+        cleanup_steps = [
+            (self._stop_video_stream, {"send_request": True}),
+            (self._stop_notification_client, {}),
+            (self._disconnect_ros, {}),
+            (self._cleanup_stt, {}),
+            (self._cleanup_cart, {}),
+            (self._cleanup_selection, {}),
+        ]
+
+        for cleanup_func, kwargs in cleanup_steps:
+            try:
+                cleanup_func(**kwargs)
+            except Exception as e:
+                print(f"Cleanup error in {cleanup_func.__name__}: {e}")
+
+        # 최종 창 닫기
+        try:
+            self.closed.emit()
+            self.deleteLater()
+            self.close()
+        except Exception as e:
+            print(f"Close error: {e}")
+            try:
+                self.destroy()
+            except Exception as e:
+                print(f"Destroy error: {e}")
+
+    def _stop_notification_client(self) -> None:
+        """알림 클라이언트를 정리합니다."""
+        if self.notification_client is not None:
+            self.notification_client.stop()
+            self.notification_client = None
+
+    def _disconnect_ros(self) -> None:
+        """ROS 연결을 해제합니다."""
+        self.pose_tracking_active = False
+        if self.ros_thread is not None:
+            try:
+                self.ros_thread.pickee_status_received.disconnect(
+                    self._on_pickee_status_received
+                )
+            except (TypeError, RuntimeError):
+                pass
+
+    def _cleanup_stt(self) -> None:
+        """음성 인식 관련 리소스를 정리합니다."""
+        if hasattr(self, "_stt_module"):
+            self._shutdown_speech_recognition()
+
+    def _cleanup_cart(self) -> None:
+        """장바구니 관련 리소스를 정리합니다."""
+        if hasattr(self, "cart_items"):
+            self.cart_items.clear()
+        if hasattr(self, "cart_widgets"):
+            for widget in self.cart_widgets.values():
+                try:
+                    if widget is not None:
+                        widget.setParent(None)
+                        widget.deleteLater()
+                except:
+                    pass
+            self.cart_widgets.clear()
+
+    def _cleanup_selection(self) -> None:
+        """선택 관련 상태를 정리합니다."""
+        if hasattr(self, "selection_item_states"):
+            for state in self.selection_item_states.values():
+                try:
+                    widget = state.get("widget")
+                    if widget is not None:
+                        widget.setParent(None)
+                        widget.deleteLater()
+                except:
+                    pass
+            self.selection_item_states.clear()
 
     def _update_user_header(self) -> None:
         name = str(
