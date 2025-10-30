@@ -28,7 +28,7 @@ setup(
             'pickee_vision = pickee_vision.pickee_vision_node:main',
             'staff_tracker = pickee_vision.staff_tracker_node:main',
             'picvi_test = pickee_vision.picvi_test:main',
-            'pose_predictor_test_node = pickee_vision.pose_predictor_test_node:main',
+            'pose_predictor_test = pickee_vision.pose_predictor_test_node:main',
         ],
     },
 )

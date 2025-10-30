@@ -128,7 +128,7 @@ class PickeeVisionControlNode(Node):
             self.get_logger().error(f"Failed to load models: {e}")
             return
 
-        self.target_object_name = "14" # 6 = eclipse
+        self.target_object_name = "1" # 6 = eclipse
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((224, 224)), 
@@ -138,6 +138,9 @@ class PickeeVisionControlNode(Node):
         self.publisher_ = self.create_publisher(Pose6D, '/pickee/arm/move_servo', 10)
         self.timer = self.create_timer(0.2, self.control_callback)
         self.get_logger().info("Pickee Vision Control Node started.")
+
+        self.txt_file = open("/home/addinedu/roscamp-repo-1/shopee_ros2/src/pickee_vision/pickee_vision/20251029.txt", "w", encoding="utf-8")
+
 
     def predict_pose(self, image):
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -151,7 +154,7 @@ class PickeeVisionControlNode(Node):
         if frame is None:
             return
 
-        results = self.yolo_model(frame, conf=0.5, device=self.device)
+        results = self.yolo_model(frame, conf=0.7, device=self.device)
 
         for result in results:
             if not hasattr(result, 'boxes'): continue
@@ -176,6 +179,14 @@ class PickeeVisionControlNode(Node):
                         
                     target_image = cv2.imread(target_image_path)
                     target_pose = self.predict_pose(target_image)
+
+
+                    
+                    self.txt_file.write('target: ' + str(target_pose) + "\n")
+                    self.txt_file.write('current: ' + str(current_pose) + "\n")
+
+
+
                     error = target_pose - current_pose
                     gain = 0.2
                     move_command = Pose6D()
@@ -196,6 +207,7 @@ class PickeeVisionControlNode(Node):
 
     def destroy_node(self):
         cv2.destroyAllWindows()
+        self.txt_file.close()
         super().destroy_node()
 
 def main(args=None):
