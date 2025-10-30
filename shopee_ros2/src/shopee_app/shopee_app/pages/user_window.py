@@ -1451,17 +1451,20 @@ class UserWindow(QWidget):
         disabled_allergies: set[str],
         vegan_exclude: bool,
     ) -> bool:
-        # 비건 필터가 해제 상태라면 비건 상품을 숨긴다.
+        # 비건 필터: 체크 해제되었을 때 비건 상품 제외
         if vegan_exclude and product.is_vegan_friendly:
             return False
-        if not disabled_allergies:
-            return True
+
+        # 알러지 정보가 없는 상품은 기본적으로 허용
         allergy_info = product.allergy_info
         if allergy_info is None:
             return True
+
+        # 해제된 알러지를 가진 상품은 제외
         for key in disabled_allergies:
             if getattr(allergy_info, key, False):
                 return False
+
         return True
 
     def on_cart_toggle_clicked(self):
