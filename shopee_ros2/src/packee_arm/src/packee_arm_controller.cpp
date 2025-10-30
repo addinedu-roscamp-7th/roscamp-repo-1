@@ -1,40 +1,56 @@
 // packee_arm_controller.cpp
 // 🟢 Pose6D 메시지를 joint_* / x,y,z 양쪽 포맷으로 대응하여 packee_main과의 연동을 담당한다.
 
+// PackeeArmController 헤더를 포함한다.
 #include "packee_arm/packee_arm_controller.hpp"
 
+// 표준 알고리즘 유틸리티를 사용한다.
 #include <algorithm>
+// 스마트 포인터 사용을 위해 메모리 헤더를 포함한다.
 #include <memory>
 
 namespace packee_arm {
 
+// PackeeArmController 생성자를 정의한다.
 PackeeArmController::PackeeArmController()
+// 노드 이름을 packee_arm_controller로 설정한다.
   : rclcpp::Node("packee_arm_controller"),
+// 허용되는 pose 유형을 cart_view와 standby로 초기화한다.
     valid_pose_types_({"cart_view", "standby"}),
+// 허용되는 팔 방향을 left와 right로 설정한다.
     valid_arm_sides_({"left", "right"})
 {
+    // 파라미터를 선언하고 초기값을 로드한다.
     DeclareAndLoadParameters();
     // packee_main이 사용하는 포즈 명칭을 미리 등록해 표준 pose_type으로 변환한다.
     pose_aliases_.emplace("ready_pose", "cart_view");
 
+    // 포즈 상태를 발행하는 퍼블리셔를 생성한다.
     pose_status_pub_ = this->create_publisher<ArmPoseStatus>("/packee/arm/pose_status", 10);
+    // 픽업 상태를 발행하는 퍼블리셔를 생성한다.
     pick_status_pub_ = this->create_publisher<ArmTaskStatus>("/packee/arm/pick_status", 10);
+    // 포장 상태를 발행하는 퍼블리셔를 생성한다.
     place_status_pub_ = this->create_publisher<ArmTaskStatus>("/packee/arm/place_status", 10);
 
+    // 자세 이동 요청을 처리하는 서비스를 등록한다.
     move_service_ = this->create_service<ArmMoveToPose>(
       "/packee/arm/move_to_pose",
       std::bind(&PackeeArmController::HandleMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
+    // 픽업 요청을 처리하는 서비스를 등록한다.
     pick_service_ = this->create_service<ArmPickProduct>(
       "/packee/arm/pick_product",
       std::bind(&PackeeArmController::HandlePickProduct, this, std::placeholders::_1, std::placeholders::_2));
+    // 포장 요청을 처리하는 서비스를 등록한다.
     place_service_ = this->create_service<ArmPlaceProduct>(
       "/packee/arm/place_product",
       std::bind(&PackeeArmController::HandlePlaceProduct, this, std::placeholders::_1, std::placeholders::_2));
 
+    // 시각 서보 모듈을 생성해 게인과 제한값을 전달한다.
     visual_servo_ = std::make_unique<VisualServoModule>(
       servo_gain_xy_, servo_gain_z_, servo_gain_yaw_,
       cnn_confidence_threshold_, max_translation_speed_, max_yaw_speed_deg_);
 
+    // Arm 드라이버 프록시를 생성해 속도 제한과 토픽 정보를 지정한다.
     driver_ = std::make_unique<ArmDriverProxy>(
       this,
       max_translation_speed_,
@@ -43,12 +59,14 @@ PackeeArmController::PackeeArmController()
       left_velocity_topic_,
       right_velocity_topic_,
       velocity_frame_id_);
+    // 그리퍼 컨트롤러를 생성해 힘 제한과 토픽을 설정한다.
     gripper_ = std::make_unique<GripperController>(
       this,
       this->get_logger(),
       gripper_force_limit_,
       left_gripper_topic_,
       right_gripper_topic_);
+    // 실행 관리자를 생성해 하위 모듈과 콜백을 연결한다.
     execution_manager_ = std::make_unique<ExecutionManager>(
       this,
       std::bind(&PackeeArmController::PublishPoseStatus, this,
@@ -70,35 +88,56 @@ PackeeArmController::PackeeArmController()
       cart_view_preset_,
       standby_preset_);
 
+    // 파라미터 변경 콜백을 등록해 동적 갱신을 처리한다.
     parameter_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&PackeeArmController::OnParametersUpdated, this, std::placeholders::_1));
 
+    // 노드 초기화 완료 로그를 출력한다.
     RCLCPP_INFO(this->get_logger(), "✅ Packee Arm Controller 노드 초기화 완료");
 }
 
+// 파라미터를 선언하고 내부 상태로 반영한다.
 void PackeeArmController::DeclareAndLoadParameters()
 {
+    // 시각 서보 X/Y 게인을 선언한다.
     servo_gain_xy_ = this->declare_parameter<double>("servo_gain_xy", 0.02);
+    // 시각 서보 Z 게인을 선언한다.
     servo_gain_z_ = this->declare_parameter<double>("servo_gain_z", 0.018);
+    // 시각 서보 yaw 게인을 선언한다.
     servo_gain_yaw_ = this->declare_parameter<double>("servo_gain_yaw", 0.04);
+    // CNN 신뢰도 임계값을 선언한다.
     cnn_confidence_threshold_ = this->declare_parameter<double>("cnn_confidence_threshold", 0.75);
+    // 최대 병진 속도를 선언한다.
     max_translation_speed_ = this->declare_parameter<double>("max_translation_speed", 0.05);
+    // 최대 yaw 속도를 선언한다.
     max_yaw_speed_deg_ = this->declare_parameter<double>("max_yaw_speed_deg", 40.0);
+    // 그리퍼 힘 제한을 선언한다.
     gripper_force_limit_ = this->declare_parameter<double>("gripper_force_limit", 12.0);
+    // 상태 발행 주기를 선언한다.
     progress_publish_interval_sec_ = this->declare_parameter<double>("progress_publish_interval", 0.15);
+    // 명령 타임아웃을 선언한다.
     command_timeout_sec_ = this->declare_parameter<double>("command_timeout_sec", 4.0);
+    // 좌측 팔 속도 토픽을 선언한다.
     left_velocity_topic_ = this->declare_parameter<std::string>("left_arm_velocity_topic", "/packee/jetcobot/left/cmd_vel");
+    // 우측 팔 속도 토픽을 선언한다.
     right_velocity_topic_ = this->declare_parameter<std::string>("right_arm_velocity_topic", "/packee/jetcobot/right/cmd_vel");
+    // 속도 메시지 프레임 아이디를 선언한다.
     velocity_frame_id_ = this->declare_parameter<std::string>("velocity_frame_id", "packee_base");
+    // 좌측 그리퍼 토픽을 선언한다.
     left_gripper_topic_ = this->declare_parameter<std::string>("left_gripper_topic", "/packee/jetcobot/left/gripper_cmd");
+    // 우측 그리퍼 토픽을 선언한다.
     right_gripper_topic_ = this->declare_parameter<std::string>("right_gripper_topic", "/packee/jetcobot/right/gripper_cmd");
 
+    // cart_view 프리셋 포즈 파라미터를 선언한다.
     const std::vector<double> cart_view_values = this->declare_parameter<std::vector<double>>(
       "preset_pose_cart_view", {0.16, 0.0, 0.18, 0.0});
+    // standby 프리셋 포즈 파라미터를 선언한다.
     const std::vector<double> standby_values = this->declare_parameter<std::vector<double>>(
       "preset_pose_standby", {0.10, 0.0, 0.14, 0.0});
 
+    // cart_view 프리셋 값을 PoseEstimate로 변환해 저장한다.
     cart_view_preset_ = ParsePoseParameter(cart_view_values, "preset_pose_cart_view", default_cart_view_pose_);
+    // standby 프리셋 값을 PoseEstimate로 변환해 저장한다.
     standby_preset_ = ParsePoseParameter(standby_values, "preset_pose_standby", default_standby_pose_);
 }
 
@@ -144,25 +183,6 @@ PoseEstimate PackeeArmController::ParsePoseParameter(
 PoseComponents PackeeArmController::ExtractPoseFromPoseMsg(const shopee_interfaces::msg::Pose6D & pose_msg) const
 {
     return ConvertPoseGeneric(pose_msg);
-}
-
-template<typename DetectedProductT>
-PoseComponents PackeeArmController::ExtractPoseFromDetectedProduct(const DetectedProductT & product) const
-{
-    static_assert(
-      detail::HasPoseField<DetectedProductT>::value || detail::HasPositionField<DetectedProductT>::value,
-      "DetectedProduct에 pose 또는 position 정보가 필요합니다.");
-
-    if constexpr (detail::HasPoseField<DetectedProductT>::value) {
-      return ConvertPoseGeneric(product.pose);
-    } else {
-      PoseComponents components{};
-      components.x = static_cast<double>(product.position.x);
-      components.y = static_cast<double>(product.position.y);
-      components.z = static_cast<double>(product.position.z);
-      components.yaw_deg = 0.0;  // position만 제공되면 yaw는 0으로 처리
-      return components;
-    }
 }
 
 PoseEstimate PackeeArmController::MakePoseFromArray(const std::array<double, 4> & values) const
@@ -243,11 +263,27 @@ void PackeeArmController::HandlePickProduct(
     const std::shared_ptr<ArmPickProduct::Request> request,
     std::shared_ptr<ArmPickProduct::Response> response)
 {
+    const int32_t product_id = request->product_id;
+    if (product_id <= 0) {
+      PublishPickStatus(
+        request->robot_id,
+        request->order_id,
+        product_id,
+        request->arm_side,
+        "failed",
+        "planning",
+        0.0F,
+        "product_id가 유효하지 않습니다.");
+      response->success = false;
+      response->message = "product_id가 유효하지 않습니다.";
+      return;
+    }
+
     if (!valid_arm_sides_.count(request->arm_side)) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->target_product.product_id,
+        product_id,
         request->arm_side,
         "failed",
         "planning",
@@ -258,73 +294,20 @@ void PackeeArmController::HandlePickProduct(
       return;
     }
 
-    if (!IsValidBoundingBox(
-        request->target_product.bbox.x1,
-        request->target_product.bbox.y1,
-        request->target_product.bbox.x2,
-        request->target_product.bbox.y2)) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "bbox 좌표가 유효하지 않습니다.");
-      response->success = false;
-      response->message = "bbox가 유효하지 않습니다.";
-      return;
-    }
-
-    const double detection_confidence =
-      static_cast<double>(request->target_product.confidence);
-    if (!std::isfinite(detection_confidence) || detection_confidence <= 0.0 ||
-        detection_confidence > 1.0) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.confidence가 유효 범위를 벗어났습니다.");
-      response->success = false;
-      response->message = "confidence 값이 잘못되었습니다.";
-      return;
-    }
-
-    if (detection_confidence < cnn_confidence_threshold_) {
-      PublishPickStatus(
-        request->robot_id,
-        request->order_id,
-        request->target_product.product_id,
-        request->arm_side,
-        "failed",
-        "planning",
-        0.0F,
-        "target_product.confidence가 cnn_confidence_threshold보다 낮습니다.");
-      response->success = false;
-      response->message = "confidence가 임계값보다 낮습니다.";
-      return;
-    }
-
-    PoseComponents pick_pose = ExtractPoseFromDetectedProduct(request->target_product);
-
+    PoseComponents pick_pose = ExtractPoseFromPoseMsg(request->pose);
     if (!AreFinite(pick_pose) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.rx)) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.ry)) ||
-        !std::isfinite(static_cast<double>(request->target_product.pose.rz))) {
+        !std::isfinite(static_cast<double>(request->pose.rx)) ||
+        !std::isfinite(static_cast<double>(request->pose.ry)) ||
+        !std::isfinite(static_cast<double>(request->pose.rz))) {
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->target_product.product_id,
+        product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
-        "target_product.pose에 유효하지 않은 값이 포함되어 있습니다.");
+        "pose에 유효하지 않은 값이 포함되어 있습니다.");
       response->success = false;
       response->message = "pose 값이 잘못되었습니다.";
       return;
@@ -335,12 +318,12 @@ void PackeeArmController::HandlePickProduct(
       PublishPickStatus(
         request->robot_id,
         request->order_id,
-        request->target_product.product_id,
+        product_id,
         request->arm_side,
         "failed",
         "planning",
         0.0F,
-        "target_product.pose가 myCobot 280 작업 공간을 벗어났습니다.");
+        "pose가 myCobot 280 작업 공간을 벗어났습니다.");
       response->success = false;
       response->message = "pose가 작업 공간 범위를 벗어났습니다.";
       return;
@@ -349,18 +332,13 @@ void PackeeArmController::HandlePickProduct(
     PickCommand command{};
     command.robot_id = request->robot_id;
     command.order_id = request->order_id;
-    command.product_id = request->target_product.product_id;
+    command.product_id = product_id;
     command.arm_side = request->arm_side;
     command.target_pose.x = pick_pose.x;
     command.target_pose.y = pick_pose.y;
     command.target_pose.z = pick_pose.z;
     command.target_pose.yaw_deg = pick_pose.yaw_deg;
-    command.target_pose.confidence = detection_confidence;
-    command.detection_confidence = detection_confidence;
-    command.bbox_x1 = request->target_product.bbox.x1;
-    command.bbox_y1 = request->target_product.bbox.y1;
-    command.bbox_x2 = request->target_product.bbox.x2;
-    command.bbox_y2 = request->target_product.bbox.y2;
+    command.target_pose.confidence = 1.0;
     execution_manager_->EnqueuePick(command);
     response->success = true;
     response->message = "상품 픽업 명령을 수락했습니다.";
@@ -655,11 +633,6 @@ void PackeeArmController::ClampPoseToWorkspace(PoseComponents * pose) const
       pose->y *= scale;
     }
     pose->z = std::clamp(pose->z, kMyCobotMinZ, kMyCobotMaxZ);
-}
-
-bool PackeeArmController::IsValidBoundingBox(int32_t x1, int32_t y1, int32_t x2, int32_t y2) const
-{
-    return x2 > x1 && y2 > y1;
 }
 
 }  // namespace packee_arm
