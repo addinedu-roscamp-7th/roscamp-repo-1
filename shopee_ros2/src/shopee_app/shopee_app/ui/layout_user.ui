@@ -1046,23 +1046,16 @@
                     </spacer>
                    </item>
                    <item>
-                    <widget class="QLabel" name="label_4">
-                     <property name="text">
-                      <string>총액 : </string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
                     <widget class="QLabel" name="label_pay_price">
+                     <property name="font">
+                      <font>
+                       <pointsize>12</pointsize>
+                       <weight>75</weight>
+                       <bold>true</bold>
+                      </font>
+                     </property>
                      <property name="text">
                       <string>19,100</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_5">
-                     <property name="text">
-                      <string>원</string>
                      </property>
                     </widget>
                    </item>

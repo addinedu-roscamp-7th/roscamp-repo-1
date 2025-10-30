@@ -464,7 +464,8 @@ class UserWindow(QWidget):
                 self._on_pickee_status_received
             )
         from shopee_app.styles.constants import STYLES
-        self.ui.btn_pay.setStyleSheet(STYLES['pay_button'])
+
+        self.ui.btn_pay.setStyleSheet(STYLES["pay_button"])
         self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self._stt_feedback_timer = QtCore.QTimer(self)
         self._stt_feedback_timer.setInterval(1000)
@@ -3265,7 +3266,13 @@ class UserWindow(QWidget):
         if label_quantity is not None:
             label_quantity.setText(f"{total_qty}")
         if label_amount is not None:
-            label_amount.setText(f"{total_price:,}")
+            font = label_amount.font()
+            font.setPointSize(15)
+            label_amount.setFont(font)
+            formatted_text = f'<span style="color: #000000; font-weight: 600;">총액 : </span><span style="font-weight: 800;">{total_price:,}</span><span style="color: #000000; font-weight: 600;">원</span>'
+            label_amount.setText(formatted_text)
+            # HTML 해석 활성화
+            label_amount.setTextFormat(QtCore.Qt.TextFormat.RichText)
 
     def set_products(self, products: list[ProductData]) -> None:
         self.all_products = list(products)

@@ -22,12 +22,12 @@ class ProductCard(QWidget):
         self.ui = Ui_PromotionCard()
         self.ui.setupUi(self)
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
-        
+
         # 알러지와 비건 라벨 스타일 설정
         label_style = f"color: {COLORS['gray']}; font-weight: bold;"
         self.ui.label_5.setStyleSheet(label_style)
         self.ui.label_6.setStyleSheet(label_style)
-        
+
         button = getattr(self.ui, "btn_add_product", None)
         if button is None:
             button = getattr(self.ui, "toolButton", None)
@@ -64,7 +64,9 @@ class ProductCard(QWidget):
         self, product: ProductData, user_allergy: dict[str, bool] | None = None
     ) -> None:
         self.ui.label_prod_name.setText(product.name)
-        self.ui.label_prod_name.setStyleSheet(f"font-size: {FONTS['normal']}; font-weight: bold;")
+        self.ui.label_prod_name.setStyleSheet(
+            f"font-size: {FONTS['normal']}; font-weight: bold;"
+        )
         self.ui.label_category.setText(product.category)
 
         # 알러지 정보 표시 (사용자 알러지와 매칭)
@@ -85,7 +87,7 @@ class ProductCard(QWidget):
                 self.ui.label_allergy_info.setStyleSheet("")
             else:
                 self.ui.label_allergy_info.setText("안전")
-                self.ui.label_allergy_info.setStyleSheet(STYLES['info_tag'])
+                self.ui.label_allergy_info.setStyleSheet(STYLES["info_tag"])
         else:
             self.ui.label_allergy_info.setText("정보 없음")
             self.ui.label_allergy_info.setStyleSheet("")
@@ -94,7 +96,7 @@ class ProductCard(QWidget):
         vegan_status = get_vegan_status(product.is_vegan_friendly)
         self.ui.label_vegan_info.setText(vegan_status)
         # 비건 정보 라벨에도 동일한 스타일 적용
-        self.ui.label_vegan_info.setStyleSheet(STYLES['info_tag'])
+        self.ui.label_vegan_info.setStyleSheet(STYLES["info_tag"])
 
         # 가격 정보 표시
         self.ui.label_original_price.setText(f"{product.price:,} 원")
