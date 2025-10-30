@@ -330,7 +330,7 @@
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <property name="spacing">
-            <number>5</number>
+            <number>0</number>
            </property>
            <property name="leftMargin">
             <number>10</number>
@@ -345,6 +345,19 @@
             <number>10</number>
            </property>
            <item>
+            <spacer name="horizontalSpacer_12">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
             <widget class="QToolButton" name="toolButton_3">
              <property name="text">
               <string>쇼핑</string>
@@ -357,6 +370,19 @@
               <string>매장</string>
              </property>
             </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_13">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
            </item>
           </layout>
          </item>
@@ -724,7 +750,7 @@
               <number>20</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="rightMargin">
               <number>20</number>
@@ -758,7 +784,7 @@
                   <x>0</x>
                   <y>0</y>
                   <width>783</width>
-                  <height>437</height>
+                  <height>417</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -1005,6 +1031,9 @@
                   </property>
                   <property name="frameShadow">
                    <enum>QFrame::Raised</enum>
+                  </property>
+                  <property name="lineWidth">
+                   <number>1</number>
                   </property>
                   <layout class="QHBoxLayout" name="horizontalLayout_4">
                    <property name="spacing">
