@@ -133,7 +133,7 @@ class RosNodeThread(QThread):
             request.mode = 'idle'
 
         if not self.change_tracking_mode_client.wait_for_service(timeout_sec=self.main_service_timeout):
-            self.get_logger().error('Change tracking mode service not available')
+            print('Change tracking mode service not available')
             return None
         
         try:
@@ -146,7 +146,7 @@ class RosNodeThread(QThread):
                 
             return None
         except Exception as e:
-            self.get_logger().error(f'Change tracking mode service call failed: {str(e)}')
+            print(f'Change tracking mode service call failed: {str(e)}')
             return None
         
     def poll_system_info(self):

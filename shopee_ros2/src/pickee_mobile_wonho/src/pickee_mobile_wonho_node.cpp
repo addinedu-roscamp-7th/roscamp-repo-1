@@ -360,7 +360,7 @@ private:
                     "앞으로 이동중: dir=%s",
                     msg->direction.c_str());
 
-                cmd_vel_msg.linear.x = 0.08;   // x축 속도 0.08 m/s
+                cmd_vel_msg.linear.x = 0.15;   // x축 속도 0.08 m/s
                 
                 RCLCPP_INFO(this->get_logger(), "이동 중...");
             } else if (msg->direction == "left") {
@@ -368,16 +368,16 @@ private:
                     "왼쪽으로 이동중: dir=%s",
                     msg->direction.c_str());
 
-                cmd_vel_msg.linear.x = 0.08;
-                cmd_vel_msg.angular.z = 0.1;   // 반시계 방향 회전
+                cmd_vel_msg.linear.x = 0.15;
+                cmd_vel_msg.angular.z = 0.15;   // 반시계 방향 회전
 
             } else if (msg->direction == "right") {
                 RCLCPP_INFO(this->get_logger(),
                     "오른쪽으로 이동중: dir=%s",
                     msg->direction.c_str());
 
-                cmd_vel_msg.linear.x = 0.08;
-                cmd_vel_msg.angular.z = -0.1;   // 시계 방향 회전
+                cmd_vel_msg.linear.x = 0.15;
+                cmd_vel_msg.angular.z = -0.15;   // 시계 방향 회전
 
             } else {
                 cmd_vel_msg.linear.x = 0.0;
@@ -389,6 +389,16 @@ private:
                 cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
             }
             cmd_vel_pub->publish(cmd_vel_msg);
+        } else if (current_status_ == "idle") {
+            cmd_vel_msg.linear.x = 0.0;
+            cmd_vel_msg.angular.z = 0.0;
+            
+            static rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub = nullptr;
+            if (!cmd_vel_pub) {
+                cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+            }
+            cmd_vel_pub->publish(cmd_vel_msg);
+            return;  // 장애물이 있으면 이동 명령 무시
         }
     }
     
