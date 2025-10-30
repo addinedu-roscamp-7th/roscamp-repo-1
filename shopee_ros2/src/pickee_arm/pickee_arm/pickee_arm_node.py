@@ -17,12 +17,13 @@ class PickeeArmNode(Node):
         self.arm = None
 
         # 실시간 시각 서보 제어(Visual Servoing) 활성화 여부를 나타내는 상태 플래그
-        self.visual_servoing_active = False
+        self.visual_servoing_active = True # for test
 
         try:
             self.arm = ArmControl(self.get_logger())
             self.arm.control_gripper(100)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
+            self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE)
         except Exception as e:
             self.get_logger().fatal(f"ArmControl initialization failed: {e}. \
 Shutting down node.")
