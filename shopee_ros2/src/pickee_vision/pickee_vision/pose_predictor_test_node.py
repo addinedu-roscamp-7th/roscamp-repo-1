@@ -12,6 +12,9 @@ import os
 from ament_index_python.packages import get_package_share_directory
 import socket
 
+### txt 파일
+from datetime import datetime
+
 class VideoReceiver:
     def __init__(self, port=6230):
         self.port = port
@@ -128,7 +131,15 @@ class PickeeVisionControlNode(Node):
             self.get_logger().error(f"Failed to load models: {e}")
             return
 
+
+        ##### 비정규화 테스트
+        self.pose_mean = np.array([101.086, -9.648, -2.771, -59.163, 15.485, -33.597], dtype=np.float32)
+        self.pose_std = np.array([9.843, 50.569, 47.862, 28.027, 4.209, 9.624], dtype=np.float32)
+
+
         self.target_object_name = "1" # 6 = eclipse
+
+
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((224, 224)), 
@@ -139,7 +150,16 @@ class PickeeVisionControlNode(Node):
         self.timer = self.create_timer(0.2, self.control_callback)
         self.get_logger().info("Pickee Vision Control Node started.")
 
-        self.txt_file = open("/home/addinedu/roscamp-repo-1/shopee_ros2/src/pickee_vision/pickee_vision/20251029.txt", "w", encoding="utf-8")
+        
+        ### txt 파일
+        self.log_dir = os.path.expanduser("/home/addinedu/roscamp-repo-1/shopee_ros2/src/pickee_vision/pickee_vision/txt_logs")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_path = os.path.join(self.log_dir, f"log_{timestamp}.txt")
+        self.txt_file = open(self.log_path, "w", encoding="utf-8")
+
+        #### 쓰레기
+        self.temp = np.array([0] * 6)
+        self.lock = False
 
 
     def predict_pose(self, image):
@@ -149,22 +169,31 @@ class PickeeVisionControlNode(Node):
             pose_pred, _ = self.cnn_model(img_tensor)
             return pose_pred.cpu().numpy().flatten()
 
+    def de_standardize_pose(self, pose_std):
+        # 표준화된 포즈 값을 실제 물리 단위로 변환 (비표준화)
+        # 실제 Pose = (표준화된 Pose * 표준편차) + 평균
+        return (pose_std * self.pose_std) + self.pose_mean
+
+
     def control_callback(self):
         frame = self.receiver.get_frame()
         if frame is None:
             return
-
         results = self.yolo_model(frame, conf=0.7, device=self.device)
 
         for result in results:
             if not hasattr(result, 'boxes'): continue
+
+            
             for box in result.boxes:
+                # if self.lock:
+                #     break
                 # cls_id = int(box.cls.cpu().numpy())
                 cls_id = int(box.cls)
                 cls_name = result.names[cls_id]
                 if cls_name == self.target_object_name:
                     current_pose = self.predict_pose(frame)
-                    target_image_path = os.path.join(self.package_share_directory, 'target_img_eclipce.jpg')
+                    target_image_path = os.path.join(self.package_share_directory, 'on_wasabi.jpg')
 
                     # 상품명으로 넣어줄 때 
                     # target_image_path = os.path.join(self.package_share_directory, 
@@ -181,25 +210,51 @@ class PickeeVisionControlNode(Node):
                     target_pose = self.predict_pose(target_image)
 
 
-                    
+                    ##### 비정규화 테스트
+                    real_current_pose = self.de_standardize_pose(current_pose)
+                    real_target_pose = self.de_standardize_pose(target_pose)
+
+
+
+                    ### txt 파일
                     self.txt_file.write('target: ' + str(target_pose) + "\n")
                     self.txt_file.write('current: ' + str(current_pose) + "\n")
+                    self.txt_file.write('real_target: ' + str(real_target_pose) + "\n")
+                    self.txt_file.write('real_current: ' + str(real_current_pose) + "\n")
+                    self.txt_file.write("---\n")
 
 
 
-                    error = target_pose - current_pose
-                    gain = 0.2
+                    error = real_target_pose - real_current_pose
+                    gain = 0.5
                     move_command = Pose6D()
                     
                     move_command.x, move_command.y, move_command.z, \
                     move_command.rx, move_command.ry, move_command.rz = (
                         float(gain * e) for e in error
                     )
-                    
+                    move_command.x += real_current_pose.tolist()[0]
+                    move_command.y += real_current_pose.tolist()[1]
+                    move_command.z += real_current_pose.tolist()[2]
+                    move_command.rx += real_current_pose.tolist()[3]
+                    move_command.ry += real_current_pose.tolist()[4]
+                    move_command.rz += real_current_pose.tolist()[5]
+
+
+                    threshold = np.array([0.3] * 6)
+                    move = np.array([move_command.x, move_command.y, move_command.z, move_command.rx, move_command.ry, move_command.rz])
+                    move_er = move-self.temp
+                    self.temp = move
+                    mask = np.abs(move_er) <= threshold
+
                     self.publisher_.publish(move_command)
                     self.get_logger().info(
                         f"Visual servoing... Error: {np.linalg.norm(error):.3f}"
                     )
+
+                    if np.all(mask):
+                        self.lock = True
+                        
                     break
 
         cv2.imshow("Pickee Vision", results[0].plot())
@@ -207,6 +262,8 @@ class PickeeVisionControlNode(Node):
 
     def destroy_node(self):
         cv2.destroyAllWindows()
+
+        ### txt 파일
         self.txt_file.close()
         super().destroy_node()
 
