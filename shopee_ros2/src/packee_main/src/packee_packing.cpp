@@ -4,12 +4,14 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "shopee_interfaces/srv/packee_packing_start.hpp"
-#include "shopee_interfaces/srv/vision_check_cart_presence.hpp"
+#include "shopee_interfaces/msg/packee_packing_complete.hpp"
 #include "shopee_interfaces/srv/packee_vision_detect_products_in_cart.hpp"
 #include "shopee_interfaces/srv/packee_vision_verify_packing_complete.hpp"
+#include "shopee_interfaces/msg/arm_pose_status.hpp"
 #include "shopee_interfaces/srv/arm_move_to_pose.hpp"
 #include "shopee_interfaces/srv/arm_pick_product.hpp"
 #include "shopee_interfaces/srv/arm_place_product.hpp"
+#include "packee_state_manager.hpp" 
 
 using namespace std::chrono_literals;
 using namespace std::placeholders;
@@ -18,25 +20,38 @@ using StartPacking = shopee_interfaces::srv::PackeePackingStart;
 using CheckCartPresence = shopee_interfaces::srv::VisionCheckCartPresence;
 using DetectProductsInCart = shopee_interfaces::srv::PackeeVisionDetectProductsInCart;
 using VerifyPackingComplete = shopee_interfaces::srv::PackeeVisionVerifyPackingComplete;
+using PoseStatus = shopee_interfaces::msg::ArmPoseStatus;
 using ArmMoveToPose = shopee_interfaces::srv::ArmMoveToPose;
 using ArmPickProduct = shopee_interfaces::srv::ArmPickProduct;
 using ArmPlaceProduct = shopee_interfaces::srv::ArmPlaceProduct;
+using ArmTaskStatus = shopee_interfaces::msg::ArmTaskStatus;
 
 class PackeePackingServer : public rclcpp::Node
 {
 public:
     PackeePackingServer() : Node("packee_packing_server")
     {
-        robot_status_ = this->declare_parameter<std::string>("robot_status", "STANBY");
+        state_manager_ = std::make_shared<PackeeStateManager>(this->shared_from_this());
 
         start_packing_service_ = this->create_service<StartPacking>(
             "/packee/packing/start",
             std::bind(&PackeePackingServer::startPackingCallback, this, _1, _2)
         );
 
+        pick_status_sub_ = this->create_subscription<ArmTaskStatus>(
+            "/packee/arm/pick_status",
+            10,
+            std::bind(&PackeePackingServer::PickStatusCallback, this, _1)
+        );
 
-        // 클라이언트
-        cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
+        place_status_sub_ = this->create_subscription<ArmTaskStatus>(
+            "/packee/arm/place_status",
+            10,
+            std::bind(&PackeePackingServer::PlaceStatusCallback, this, _1)
+        );
+
+        packing_complete_pub_ = this->create_publisher<PackingComplete>("/packee/packing_complete", 10);
+
         detect_products_client_ = this->create_client<DetectProductsInCart>("/packee/vision/detect_products_in_cart");
         verify_packing_client_ = this->create_client<VerifyPackingComplete>("/packee/vision/verify_packing_complete");
 
@@ -47,6 +62,25 @@ public:
         RCLCPP_INFO(this->get_logger(), "PackeePackingServer started");
     }
 
+    void PoseStatusCallback(const PoseStatus::SharedPtr msg)
+    {
+        robot_id_ = msg->robot_id;
+        pose_status_ = msg->status;
+    }
+
+    void PickStatusCallback(const ArmTaskStatus::SharedPtr msg)
+    {
+        pick_arm_side = msg.arm_side;
+        pick_status_ = msg.status;
+    }
+
+    void PlaceStatusCallback(const ArmTaskStatus::SharedPtr msg)
+    {
+        place_arm_side_ = msg.arm_side;
+        place_status_ = msg.status;
+    }
+
+    // 포장 시작
     void startPackingCallback(
         const std::shared_ptr<StartPacking::Request> request,
         std::shared_ptr<StartPacking::Response> response)
@@ -54,47 +88,52 @@ public:
         response->success = true;
         response->message = "Packing started";
 
-        if (robot_status_ == "CHECKING_CART") {
-            robot_status_ = "Detecting_Products";
-            
-            // callDetectProducts(request->robot_id, request->order_id, request->expected_product_ids);
+        bool result = false;
+        if (state_manager_->getStatus() == "CHECKING_CART") {
+            state_manager_->setStatus(request->robot_id, "DETECTED_PRODUCT", request->order_id, 0);
+
+            for (auto &product_id : request->expected_product_ids)
+            {
+                callMovePose(request->robot_id, request->order_id, "cart_view");
+
+                while (pose_status_ != "complete" && rclcpp::ok())
+                    rclcpp::sleep_for(100ms);
+
+                std::vector<float> pose = callDetectProducts(request->robot_id, request->order_id, product_id);
+
+                state_manager_->setStatus(request->robot_id, "PACKING_PRODUCT", request->order_id, 0);
+                callPickProduct(request->robot_id, request->order_id, product_id, "left", pose);
+
+                while (pick_status_ != "completed" && rclcpp::ok())
+                    rclcpp::sleep_for(100ms);
+
+                callPlaceProduct(request->robot_id, request->order_id, product_id, "left", pose);
+
+                while (place_status_ != "completed" && rclcpp::ok())
+                    rclcpp::sleep_for(100ms);
+
+                result = callVerifyPacking(request->robot_id, request->order_id);
+            }
+
+
+            if (result == true) {
+                publishPackingComplete(request->robot_id, request->order_id, true, request->expected_product_ids, "Sucess Packing");
+            } else {
+                publishPackingComplete(request->robot_id, request->order_id, true, request->expected_product_ids, "Failed Packing");
+            }
+
+            callMovePose(request->robot_id, request->order_id, "standby");
+
+            state_manager_->setStatus("STANDBY");
         }
     }
 
-    // ================= 클라이언트 호출 함수 =================
-    bool callCheckCartPresence(int32_t robot_id)
-    {
-        auto request = std::make_shared<CheckCartPresence::Request>();
-        request->robot_id = robot_id;
-
-        if (!cart_presence_client_->wait_for_service(1s)) {
-            RCLCPP_ERROR(this->get_logger(), "Cart presence service not available");
-            return false;
-        }
-
-        auto future = cart_presence_client_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), 
-                "Cart present: %s, confidence: %.2f, message: %s",
-                response->cart_present ? "true" : "false",
-                response->confidence,
-                response->message.c_str());
-            return response->cart_present;
-        }
-
-        RCLCPP_ERROR(this->get_logger(), "Failed to call cart presence service");
-        return false;
-    }
-
-    bool callDetectProducts(int32_t robot_id, int32_t order_id, const std::vector<int32_t>& expected_product_ids)
+    std::vector<float> callDetectProducts(int32_t robot_id, int32_t order_id, int32_t product_id)
     {
         auto request = std::make_shared<DetectProductsInCart::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
-        request->expected_product_ids = expected_product_ids;
+        request->expected_product_id = product_id;
 
         if (!detect_products_client_->wait_for_service(1s)) {
             RCLCPP_ERROR(this->get_logger(), "Detect products service not available");
@@ -107,20 +146,18 @@ public:
         {
             auto response = future.get();
             RCLCPP_INFO(this->get_logger(), 
-                "Detection success: %s, total detected: %d, message: %s",
+                "Detection success: %s, message: %s",
                 response->success ? "true" : "false",
-                response->total_detected,
                 response->message.c_str());
-            return response->success;
+            return response->pose;
         }
 
         RCLCPP_ERROR(this->get_logger(), "Failed to call detect products service");
-        return false;
+        return {0, 0, 0, 0, 0, 0};
     }
 
     bool callMovePose(int32_t robot_id, int32_t order_id, const std::string& pose_type)
     {
-        RCLCPP_INFO(this->get_logger(), "test1");
         auto request = std::make_shared<ArmMoveToPose::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
@@ -145,10 +182,8 @@ public:
     }
 
     bool callPickProduct(int32_t robot_id, int32_t order_id, int32_t product_id,
-                         const std::string& arm_side, const std::vector<float>& target_position,
-                         const std::vector<int>& bbox)
+                         const std::string& arm_side, const std::vector<float>& target_position)
     {
-        RCLCPP_INFO(this->get_logger(), "test2");
         auto request = std::make_shared<ArmPickProduct::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
@@ -163,7 +198,6 @@ public:
             request->pose.ry = target_position[4];
             request->pose.rz = target_position[5];
         }
-        (void)bbox;  // bbox 정보는 ArmPickProduct 인터페이스 변경 후 사용하지 않는다.
 
         if (!pick_product_client_->wait_for_service(1s)) {
             RCLCPP_ERROR(this->get_logger(), "PickProduct service not available");
@@ -186,7 +220,6 @@ public:
     bool callPlaceProduct(int32_t robot_id, int32_t order_id, int32_t product_id,
                           const std::string& arm_side, const std::vector<float>& box_position)
     {
-        RCLCPP_INFO(this->get_logger(), "test3");
         auto request = std::make_shared<ArmPlaceProduct::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
@@ -239,12 +272,37 @@ public:
         return false;
     }
 
+    void publishPackingComplete(int32_t robot_id, int32_t order_id, 
+                                bool success, int32_t packed_items, 
+                                const std::string& message)
+    {
+        auto msg = PackingComplete();
+        msg.robot_id = robot_id;
+        msg.order_id = order_id;
+        msg.success = success;
+        msg.packed_items = packed_items;
+        msg.message = message;
+
+        packing_complete_pub_->publish(msg);
+        
+        RCLCPP_INFO(this->get_logger(), 
+            "Published PackingComplete: robot_id=%d, order_id=%d, success=%s, packed_items=%d",
+            robot_id, order_id, success ? "true" : "false", packed_items);
+    }
+
 private:
-    std::string robot_status_;
+    int robot_id_;
+    std::string pose_status_;
+    std::string arm_side_;
+    std::string pick_status_;
+    std::string place_status_;
+    std::shared_ptr<RobotStateManager> state_manager_;
 
     rclcpp::Service<StartPacking>::SharedPtr start_packing_service_;
 
-    rclcpp::Client<CheckCartPresence>::SharedPtr cart_presence_client_;
+    rclcpp::Subscription<ArmTaskStatus>::SharedPtr pick_status_sub_;
+    rclcpp::Subscription<ArmTaskStatus>::SharedPtr place_status_sub_;
+
     rclcpp::Client<DetectProductsInCart>::SharedPtr detect_products_client_;
     rclcpp::Client<VerifyPackingComplete>::SharedPtr verify_packing_client_;
 
@@ -258,7 +316,9 @@ int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<PackeePackingServer>();
-    rclcpp::spin(node);
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+    executor.spin();
     rclcpp::shutdown();
     return 0;
 }

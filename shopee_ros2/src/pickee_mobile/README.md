@@ -50,61 +50,16 @@ mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노
     mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절
 
     
-### 2.3 Aruco marker 추적
+### 2.3 Aruco marker 도킹
 ```base
 ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
-ros2 launch pickee_mobile nav2_bringup_launch.xml # 로봇
-ros2 run pickee_mobile mobile_aruco_pub_1 # pc
-ros2 run pickee_mobile aruco_follow_1 # pc
+ros2 launch pickee_mobile nav2_bringup_launch.xml # 로봇 맵 설정은 원하는대로
+ros2 launch pickee_mobile nav2_view.launch.xml #pc
+ros2 run pickee_mobile main_aruco_pub # pc
+ros2 run pickee_mobile mobile_aruco_docking # pc
+
+TEST_GUIDE의 /pickee/mobile/move_to_location service_client 서비스 요청, 해당 위치로 이동 후 도킹함
 ```
-| 역할                            | 실행 명령                                                 | 위치        | 설명                      |
-| ----------------------------- | ----------------------------------------------------- | --------- | ----------------------- |
-| 로봇 Bringup                    | `ros2 launch pickee_mobile mobile_bringup.launch.xml` | **Robot** | 센서/TF/기본 bringup        |
-| Nav2 Bringup                  | `ros2 launch pickee_mobile nav2_bringup_launch.xml`   | **Robot** | Nav2 navigation bringup |
-| ArUco Pose Publisher          | `ros2 run pickee_mobile mobile_aruco_pub_1`           | **PC**    | Z 시작 / X 종료, 도킹 트리거 옵션  |
-| ArUco 기반 이동 (V1)              | `ros2 run pickee_mobile aruco_follow_1`               | **PC**    | 거리 근접만 함                  |
-| ArUco 기반 이동 (V2)              | `ros2 run pickee_mobile aruco_follow_2`               | **PC**    | 근접 + 각도 정렬              |
-| ArUco 기반 이동 (V3)            | `ros2 run pickee_mobile aruco_follow_3`               | **PC**    | 속도 및 거리 자동 조절 예정        |
-
-
-📡 mobile_aruco_pub_1
-
-    Z 키 → ArUco publish 시작
-
-    X 키 → publish 중지
-
-    도킹 완료 토픽을 subscribe하여 자동 실행 가능 (관련 코드에서 주석 해제)
-
-    카메라 캘리브레이션 파일 경로는 절대경로 사용 → 환경에 맞게 수정 필요
-
-🎥 mobile_aruco_pub_2
-
-    mobile_aruco_pub_1 기능 + 실시간 카메라 영상 출력
-
-🤖 aruco_follow_1
-
-    ArucoPose subscribe → 해당 위치까지 이동
-
-    각도는 조정하지 않음
-
-🎯 aruco_follow_2
-
-    위치 + yaw(각도) 정렬까지 수행
-
-⚙️ aruco_follow_3 (개발 중)
-
-    목표/현재 거리 및 각도 기반으로
-    속도·회전·종단거리 자동 조정 예정
-
-.
-
-.
-
-.
-
-.
-
-.
 
 상세설명
 mobile_bringup.launch.xml = PickeeMobile 시동걸기, 수업 자료에 있던거
@@ -115,125 +70,57 @@ nav2_view.launch.xml = rviz 실행, 수업 자료에 있던거
 
 mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드 실행
 
-    mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
+mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
 
-    mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!이하는 정리 안함!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절
 
 
-### 2.2. 서비스 (Services)
-
-| 서비스 이름                       | 서비스 타입                                       | 설명                                                              | Server/Client |
-| :-------------------------------- | :------------------------------------------------ | :---------------------------------------------------------------- | :------------ |
-| `/pickee/mobile/move_to_location` | `shopee_interfaces/srv/PickeeMobileMoveToLocation` | Pickee Main Controller로부터 특정 목적지로 이동 명령 수신         | Server        |
-| `/pickee/mobile/update_global_path` | `shopee_interfaces/srv/PickeeMobileUpdateGlobalPath` | Pickee Main Controller로부터 전역 경로 업데이트 명령 수신         | Server        |
-
-## 3. Mock 노드 (테스트 및 시뮬레이션용)
-
-`pickee_mobile` 패키지에는 `mobile_controller` 노드와의 통신을 테스트하고 시뮬레이션하기 위한 여러 Mock 노드들이 포함되어 있습니다.
-
-*   **`mock_speed_control_publisher.py`**: `/pickee/mobile/speed_control` 토픽을 **Publish**하여 `mobile_controller`의 속도 제어 기능을 테스트합니다.
-*   **`mock_move_to_location_client.py`**: `/pickee/mobile/move_to_location` 서비스에 **Request**를 보내 `mobile_controller`의 이동 명령 처리 기능을 테스트합니다.
-*   **`mock_update_global_path_client.py`**: `/pickee/mobile/update_global_path` 서비스에 **Request**를 보내 `mobile_controller`의 경로 업데이트 기능을 테스트합니다.
-*   **`mock_pose_subscriber.py`**: `/pickee/mobile/pose` 토픽을 **Subscribe**하여 `mobile_controller`가 발행하는 로봇의 위치 정보를 모니터링합니다.
-*   **`mock_arrival_and_move_status_subscriber.py`**: `/pickee/mobile/arrival` 토픽과 `/pickee/mobile/local_path` 토픽을 **Subscribe**하여 `mobile_controller`의 도착 알림 및 지역 경로 정보를 모니터링합니다.
-*   **`goal_test/` 디렉토리**: 목표 설정 및 전송 기능을 테스트하기 위한 스크립트들을 포함합니다.
-*   **`topic_test/` 디렉토리**: ROS2 토픽 통신을 테스트하기 위한 스크립트들을 포함합니다.
-
-## 4. 실행 방법
-
-### 4.1. 패키지 빌드
-
-```bash
-# shopee_interfaces 패키지 빌드 (메시지/서비스 정의)
-colcon build --packages-select shopee_interfaces
-
-# pickee_mobile 패키지 빌드
-colcon build --packages-select pickee_mobile
-```
-
-### 4.2. ROS2 환경 설정
-
-```bash
-source install/setup.bash
-```
-
-### 4.3. 프로젝트 노드 실행
-
-**메인 컨트롤러 노드:**
+| 역할                            | 실행 명령                                                 | 위치        | 설명                      |
+| ----------------------------- | ----------------------------------------------------- | --------- | ----------------------- |
+| 로봇 Bringup                    | `ros2 launch pickee_mobile mobile_bringup.launch.xml` | **Robot** | 센서/TF/기본 bringup        |
+| Nav2 Bringup                  | `ros2 launch pickee_mobile nav2_bringup_launch.xml`   | **Robot** | Nav2 navigation bringup |
+| ArUco Pose Publisher          | `ros2 run pickee_mobile mobile_aruco_pub`           | **PC**    | Aruco marker pose publish  |
+| ArUco 기반 이동 (V1)              | `ros2 run pickee_mobile aruco_follow_1`               | **PC**    | 거리 근접만 함                  |
+| ArUco 기반 이동 (V2)              | `ros2 run pickee_mobile aruco_follow_2`               | **PC**    | 근접 + 각도 정렬              |
+| ArUco 기반 이동 (V3)            | `ros2 run pickee_mobile aruco_follow_3`               | **PC**    | 속도 및 거리 자동 조절 예정        |
+| ArUco 기반 이동 최종            | `ros2 run pickee_mobile mobile_aruco_docking`               | **PC**    | 가장 성능 좋은거        |
+| ArUco 인식, publish            | `ros2 run pickee_mobile main_aruco_pub`               | **PC**    | 원래 PickeeMain에서 실행되는거        |
 
 
+📡 mobile_aruco_pub, PickeeMobileMain 에서 사용할거임
 
-```bash
-#시뮬레이션
-ros2 launch pickee_mobile gazebo_bringup.launch.xml 
-ros2 launch pickee_mobile nav2_bringup_launch.xml use_sim_time:=True
-ros2 launch pickee_mobile nav2_view.launch.xml
-# 속도 토픽 발행
-ros2 run pickee_mobile pub_cmd_vel 
-```
+    Z 키 → ArUco publish 시작
 
-```bash
-#실제 로봇
-ros2 launch pickee_mobile mobile_bringup.launch.xml #로봇
-ros2 launch pickee_mobile nav2_bringup_launch.xml #로봇
-ros2 launch pickee_mobile nav2_view.launch.xml #pc
-ros2 run pickee_mobile pub_cmd_vel
-```
+    X 키 → publish 중지
 
-기존에는 /cmd_vel 토픽을 발행해서 pickee의 속도를 제어 했는데 이제는 속도 제어를 위해 /cmd_vel_modified 토픽을 받아서 pickee의 속도를 제어 한다. 따라서 위의 3개의 launch 파일만 실행하면 로봇이 움직이지 않기 때문에 4번째 노드를 실행해야 한다.
+    도킹 완료 토픽을 subscribe하여 자동 실행 가능 (관련 코드에서 주석 해제)
 
-**Mock 노드 (각각 별도의 터미널에서 실행):**
-```bash
-ros2 run pickee_mobile mock_speed_control_publisher
-ros2 run pickee_mobile mock_move_to_location_client
-ros2 run pickee_mobile mock_update_global_path_client
-ros2 run pickee_mobile mock_pose_subscriber
-ros2 run pickee_mobile mock_arrival_and_move_status_subscriber
-```
+    카메라 캘리브레이션 파일 경로는 절대경로 사용 → 환경에 맞게 수정 필요
 
-## 5. 부분 기능 실행
+    custom 함수(ArucoPoseEstimator)를 import 할 때 경로 신경쓸것
 
-이하의 코드들은 테스트에 사용해서 버전이 업데이트된 이후로는 불완전하거나 기능을 수행하지 못할 수 있다. 언급하지 않은 코드들은 그닥 중요하지 않은 코드이다.
-기본적으로 위의 메인 컨트롤러 노드들을 실행한 이후에 rviz 창을 확인하며 사용해야 한다.
+🤖 aruco_follow_1 2 3 4
+ 적당히 aruco 마커에 도킹
 
-### 4.1. goal_test
+mobile_aruco_docking
+ 
+ 가장 성능 좋은 도킹 프로세스 사용, 
 
-지정 좌표 얻기, 목적지 지정, 현재 좌표 읽기를 하는 노드
+from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_rotate import rotate
 
-*   **`send_goal_gui.py`**: gui를 사용해서 로봇을 특정 좌표, 각도로 이동시킨다.
+위 2개의 함수 import 경로를 사용자 설정에 맞출것
 
 
-### 4.2. topic_test
+상세설명
+mobile_bringup.launch.xml = PickeeMobile 시동걸기, 수업 자료에 있던거
 
-로봇의 속도, 위치, 목적지 등의 토픽을 `subscribe`하거나 `publish` 하는 노드
+nav2_bringup_launch.xml map:=map1021_modify.yaml = nav2 실행, 해당 파일의 default map을 설정해도 된다.
 
-*   **`control_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 속도 설정에 맞게 값을 변경한 후 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드, 현재 속도 변경과 일시정지는 작동하지 않는다.
+nav2_view.launch.xml = rviz 실행, 수업 자료에 있던거
 
-*   **`pub_cmd_vel.py`**: `/cmd_vel`토픽을 **Subscribe**해서 그대로 `/cmd_vel_modified` 토픽으로 **Publish** 하는 노드. 
+mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드 실행
 
-*   **`pub_pose.py`**: 로봇의 `/cmd_vel`, `/amcl_pose` 등의 정보 토픽들을 **Subscribe** 해서 인터페이스 명세서에 맞게 **Publish**해주는 노드. 로봇이 이동중인지 도착(정지)중인지 추가해야 한다.
+mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
+
+mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절

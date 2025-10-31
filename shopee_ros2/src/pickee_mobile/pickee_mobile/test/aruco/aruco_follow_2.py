@@ -62,7 +62,7 @@ class ArucoDocking(Node):
         self.get_logger().info(f"📍 ArUco Detected - x: {x} mm, z: {z} mm, yaw: {yaw} deg")
 
         # x = 카메라 중심 기준 마커가 오른쪽에 있는 정도
-        # yaw = 양수면 마커가 왼쪽에, 음수면 오른쪽에 있음
+        # yaw = 양수면 로봇이 시계방향 회전상태
         if abs(x) > 10:
             self.aruco_lost_count = 0
             if x < 0 and yaw > 0:

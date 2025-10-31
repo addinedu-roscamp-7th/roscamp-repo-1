@@ -92,9 +92,9 @@ class OdomRotate(Node):
         self.pub = self.create_publisher(Twist, self.vel_topic, vel_qos)
         self.timer = self.create_timer(1.0 / self.rate_hz, self._step)
 
-        self.get_logger().info(
-            f"목표 회전각={target_angle_deg:.1f}°, 각속도={self.wz_mag:.2f}rad/s, 오차={self.tol_deg:.1f}°, timeout≈{self.timeout:.1f}s"
-        )
+        # self.get_logger().info(
+        #     f"목표 회전각={target_angle_deg:.1f}°, 각속도={self.wz_mag:.2f}rad/s, 오차={self.tol_deg:.1f}°, timeout≈{self.timeout:.1f}s"
+        # )
 
     def _on_odom(self, msg: Odometry):
         q = msg.pose.pose.orientation
@@ -106,7 +106,7 @@ class OdomRotate(Node):
         if self.start_yaw is None:
             self.start_yaw = yaw
             self.start_time = self.last_odom_time
-            self.get_logger().info(f"시작 각도={math.degrees(yaw):.1f}°")
+            # self.get_logger().info(f"시작 각도={math.degrees(yaw):.1f}°")
 
     def _step(self):
         if self.done:
@@ -116,12 +116,13 @@ class OdomRotate(Node):
 
         if self.current_yaw is None:
             if now - self.last_odom_time > 1000.0:
-                self.get_logger().warn('waiting /odom ...')
+                # self.get_logger().warn('waiting /odom ...')
+                pass
             return
 
         # 오도메트리 수신 중단 시 종료
         if now - self.last_odom_time > 1.0:
-            self.get_logger().error('odom lost → stop')
+            # self.get_logger().error('odom lost → stop')
             self._finish()
             return
 
@@ -129,26 +130,26 @@ class OdomRotate(Node):
         remain = abs(self.target_angle) - abs(turned)
 
         if math.degrees(remain) <= self.tol_deg:
-            self.get_logger().info(
-                f"회전 완료: {math.degrees(turned):.1f}°, 목표={math.degrees(self.target_angle):.1f}°"
-            )
+            # self.get_logger().info(
+            #     f"회전 완료: {math.degrees(turned):.1f}°, 목표={math.degrees(self.target_angle):.1f}°"
+            # )
             self._finish()
             return
 
         if now - self.start_time > self.timeout:
-            self.get_logger().warn(f"timeout {self.timeout:.1f}s")
+            # self.get_logger().warn(f"timeout {self.timeout:.1f}s")
             self._finish()
             return
 
         cmd = Twist()
-        cmd.angular.z = self.direction * self.wz_mag
+        cmd.angular.z = float(self.direction * self.wz_mag)
         self.pub.publish(cmd)
 
     def _finish(self):
         stop = Twist()
         self.pub.publish(stop)
         self.pub.publish(stop)
-        self.get_logger().info('STOP 회전 종료')
+        # self.get_logger().info('STOP 회전 종료')
         self.done = True
 
     @staticmethod
@@ -202,7 +203,7 @@ def rotate(node: Node, angle_deg: float):
 
     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
     cmd = Twist()
-    cmd.angular.z = direction * wz_mag
+    cmd.angular.z = float(direction * wz_mag)
 
     end_time = time.time() + duration
     while time.time() < end_time:
@@ -210,7 +211,7 @@ def rotate(node: Node, angle_deg: float):
         time.sleep(1.0 / rate_hz)
 
     pub.publish(Twist())
-    node.get_logger().info(f"✅ 내부 회전 완료: {angle_deg:.1f}°")
+    # node.get_logger().info(f"✅ 내부 회전 완료: {angle_deg:.1f}°")
 
 
 def main():
