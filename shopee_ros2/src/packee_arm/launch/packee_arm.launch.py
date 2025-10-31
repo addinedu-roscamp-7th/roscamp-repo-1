@@ -1,9 +1,13 @@
+import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import GroupAction
+from launch.actions import IncludeLaunchDescription
 from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -72,6 +76,10 @@ def generate_launch_description() -> LaunchDescription:
         'run_jetcobot_bridge',
         default_value='true',
         description='JetCobot 브릿지 노드 실행 여부')
+    run_packee_main_arg = DeclareLaunchArgument(
+        'run_packee_main',
+        default_value='false',
+        description='Packee Main 패키지 노드 실행')
     left_serial_port_arg = DeclareLaunchArgument(
         'left_serial_port',
         default_value='/dev/ttyUSB0',
@@ -121,6 +129,14 @@ def generate_launch_description() -> LaunchDescription:
             output='screen')
     ], condition=IfCondition(LaunchConfiguration('run_mock_main')))
 
+    packee_main_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('packee_main'),
+                'launch',
+                'packee_main_server.launch.py')),
+        condition=IfCondition(LaunchConfiguration('run_packee_main')))
+
     jetcobot_bridge_node = Node(
         package='packee_arm',
         executable='jetcobot_bridge.py',
@@ -155,11 +171,13 @@ def generate_launch_description() -> LaunchDescription:
         velocity_frame_id_arg,
         run_mock_main_arg,
         run_jetcobot_bridge_arg,
+        run_packee_main_arg,
         left_serial_port_arg,
         right_serial_port_arg,
         jetcobot_move_speed_arg,
         jetcobot_command_period_arg,
         controller_node,
         mock_main_group,
+        packee_main_launch,
         jetcobot_bridge_node
     ])
