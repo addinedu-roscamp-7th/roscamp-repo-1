@@ -1,84 +1,67 @@
 # Shopee Packee Arm Controller 구현 계획
 
-이 문서는 `PackeeArmDesign.md` 상세 설계를 바탕으로 Packee Arm Controller ROS2 노드를 구현하기 위한 단계별 계획을 정의한다. 상위 컴포넌트인 Packee Main Controller 계획(`docs/DevelopmentPlan/PackeeMain/PackeeMainPlan.md`)과 동일한 Phase 체계를 유지하며, 상·하위 컴포넌트 간 의존성을 명시한다.
+본 계획서는 Python 기반 Packee Arm 패키지(`pymycobot_dual`, `pymycobot_left`, `pymycobot_right`, `jetcobot_bridge.py`)를 구현·테스트하기 위한 단계별 절차를 정의한다. Packee Main Controller와 합의된 인터페이스와 코딩 표준(`docs/CodingStandard/standard.md`)을 준수하며, 모든 산출물은 `docs/DevelopmentPlan/PackeeArm/`에 기록한다.
 
-## Phase 1: 프로젝트 준비 및 기본 구조 확립
+## Phase 1: 환경 정비 및 기본 골격
+**목표**: Python 패키지 구조와 런치 환경을 준비하고 필수 파라미터를 정리한다.
+- **Step 1.1 패키지 구조 점검**
+  - `package.xml`을 rclpy 중심 의존성으로 정리하고, `CMakeLists.txt`에서 Python 실행 파일 설치 경로를 명확히 한다.
+  - `resource/packee_arm`의 `package_type`을 `ament_cmake`로 설정해 `ros2 run` 호환성을 확보한다.
+- **Step 1.2 코딩 표준 정비**
+  - Python 스크립트의 문자열, 들여쓰기, 주석 규칙을 표준과 비교 확인하고, 자동화 도구(pyproject, lint)는 미도입 시 수동 점검 프로세스 기록.
+- **Step 1.3 런치 인자 정의**
+  - 듀얼/단일 팔 모드 플래그(`run_pymycobot_dual`, `run_pymycobot_left/right`), `pymycobot_enabled_arms`(기본 `'left,right'`), 프리셋 자세, 시리얼 포트 등을 문서화하고 기본값을 확정한다.
 
-**목표**: 패키지 환경과 노드 뼈대를 갖추고 Packee Main과 공유되는 파라미터/코딩 표준을 정비한다.
+## Phase 2: 좌/우 팔 서비스 노드 구현
+**목표**: Packee Main이 호출하는 서비스와 상태 토픽을 Python 노드에서 처리한다.
+- **Step 2.1 서비스 파이프라인**
+  - `pymycobot_dual`에서 `/packee/arm/move_to_pose`, `/packee/arm/pick_product`, `/packee/arm/place_product` 콜백을 구현한다.
+  - Pose6D 파라미터를 `[x, y, z, rx, ry, rz]` 형식으로 변환하고, 접근/상승 오프셋을 적용한다.
+  - arm_side 기반으로 좌/우 팔을 분기하고, MoveToPose는 활성화된 모든 팔에 적용되도록 구현한다.
+- **Step 2.2 단일 팔 옵션**
+  - 필요 시 `pymycobot_left`, `pymycobot_right`를 재사용해 단일 팔 전용 노드를 제공한다.
+  - 동일한 서비스 이름을 사용하므로 듀얼 노드와 동시에 기동되지 않도록 런치 제약을 문서화한다.
+- **Step 2.3 상태 토픽 발행**
+  - 서비스 단계별 진행률과 메시지를 `/packee/arm/pose_status`, `/packee/arm/pick_status`, `/packee/arm/place_status`로 발행한다.
+  - `current_phase`와 `status` 값은 Interface Specification 문서와 동일하게 유지한다.
+- **Step 2.4 예외 처리**
+  - 하드웨어 미연결, 파라미터 형식 오류, pymycobot 예외 발생 시 로그 기록과 `success=False` 응답을 정의한다.
 
-- **Step 1.1: ROS2 패키지 정비**
-  - `packee_arm` 패키지의 `package.xml`, `CMakeLists.txt` 의존성 확인 (`rclcpp`, `shopee_interfaces`).
-  - 코딩 표준(`docs/CodingStandard/standard.md`) 적용 상태 점검, 코드 포맷 통일.
-- **Step 1.2: 노드 및 파라미터 뼈대 구현**
-  - `PackeeArmController` 클래스 구성, `main()` 진입점/노드 초기화.
-  - 설계 9장 파라미터 선언(`servo_gain_xy`, `servo_gain_z`, `servo_gain_yaw`, `cnn_confidence_threshold` 등)과 기본값 로드.
-- **Step 1.3: 실행 상태·로깅 기본 구조 마련**
-  - 내부 상태(`IDLE`, `PICKING` 등) 열거형 정의, Diagnostics/로깅 초기 훅 마련.
-  - Packee Main Controller 로그 포맷과 일관성 유지.
+## Phase 3: JetCobot 브릿지 구현
+**목표**: 상위 모듈이 발행하는 Twist/Float32 명령을 myCobot 시리얼 명령으로 변환한다.
+- **Step 3.1 파라미터 정의**
+  - `command_period_sec`, `workspace_*`, `default_pose_*`, `move_speed`, 그리퍼 파라미터를 선언한다.
+  - 문자열로 전달된 프리셋도 허용하도록 파라미터 파싱 유틸리티 작성.
+- **Step 3.2 속도 → 좌표 변환**
+  - Twist 속도를 적분해 `(x, y, z, rx, ry, rz)` 좌표를 누적하고, 라디안을 degree로 변환하여 `sync_send_coords` 호출.
+  - 작업 공간을 벗어나는 경우 자동 보정(스케일링/클램프) 로직 적용.
+- **Step 3.3 그리퍼 명령 처리**
+  - Float32 명령을 수신해 `set_gripper_value` 호출, 에러 발생 시 로그 처리.
 
-## Phase 2: ROS 인터페이스 구현
+## Phase 4: 통합 테스트 및 문서화
+**목표**: 서비스와 브릿지를 통합 검증하고 운영 가이드를 정리한다.
+- **Step 4.1 서비스/토픽 수동 검증**
+  - `ros2 service call` / `ros2 topic echo`를 사용해 표준 시나리오(자세 이동, 픽업, 담기)를 재현한다.
+- **Step 4.2 브릿지 기능 점검**
+  - `ros2 topic pub`을 이용해 Twist/Float32 명령을 주입하고, myCobot 좌표 변환 및 작업 공간 보정이 정상동작하는지 확인한다.
+- **Step 4.3 문서 업데이트**
+  - 테스트 절차를 `TEST_GUIDE.md`에 반영하고, 실제 하드웨어 사용 없이도 검증 가능한 Stub/Mock 절차를 명시한다.
 
-**목표**: Packee Main과 합의된 서비스/토픽 기반 인터페이스를 구현하고 기본적인 명령 흐름을 검증한다.
-
-- **Step 2.1: 서비스 서버 구현**
-  - `/packee/arm/move_to_pose`, `/packee/arm/pick_product`, `/packee/arm/place_product` 서비스 콜백 작성.
-  - 파라미터 유효성 검사, 표준 응답 메시지 템플릿 구성.
-- **Step 2.2: 상태 토픽 퍼블리셔 구현**
-  - `/packee/arm/pose_status`, `/packee/arm/pick_status`, `/packee/arm/place_status` 발행 로직 구현.
-  - 진행률/단계 상수 정의, Packee Main 상태 전이 조건과 조율.
-- **Step 2.3: Packee Main Mock 연동 테스트**
-  - C++ Mock 노드(`ros2 run packee_arm mock_packee_main`)를 활용하여 정상/거부 시나리오를 검증.
-  - QoS와 타임아웃 설정을 Packee Main Controller와 합의한 값으로 맞춤.
-
-## Phase 3: Visual Servo 모듈 및 하드웨어 연동
-
-**목표**: Two-stream CNN 기반 VisualServoModule을 구현하고, ExecutionManager와 하드웨어 계층에 통합한다.
-
-- **Step 3.1: VisualServoModule 뼈대 구축**
-  - 목표/현재 이미지 버퍼 관리, CNN 추론 트리거, P 제어기 틀을 구현한다.
-  - 4자유도 오차 계산(`r* - r_c`)과 게인/클리핑 적용 로직을 작성한다.
-- **Step 3.2: Two-stream CNN 통합**
-  - 학습된 ONNX/TensorRT 모델 로딩, 추론 파이프라인, 신뢰도 산출을 구현한다.
-  - 224×224 리사이즈, 정규화 등 전처리와 추론 후 포즈/신뢰도 후처리를 연결한다.
-- **Step 3.3: ExecutionManager/Hardware 연계**
-  - 명령 큐와 VisualServoModule을 연결해 서비스별 상태(`planning`, `approaching`, `grasping`, `lifting`, `moving`, `done`)를 관리한다.
-  - `ArmDriverProxy`에 속도 명령 인터페이스를 구현하고, 그리퍼 제어와 타임아웃 응답을 연동한다.
-  - JetCobot 브릿지 노드(`jetcobot_bridge.py`)를 통해 `/packee/jetcobot/<arm>/cmd_vel`, `/packee/jetcobot/<arm>/gripper_cmd` 토픽을 실제 시리얼 명령으로 변환한다.
-
-## Phase 4: 진단·예외 처리 및 파라미터 튜닝
-
-**목표**: CNN 신뢰도 기반 예외 처리와 Diagnostics를 완성하고, P 제어 파라미터를 런타임에서 조정 가능하도록 한다.
-
-- **Step 4.1: 예외 처리 로직 보강**
-  - CNN 신뢰도 저하, 시야 이탈, 그리퍼 오류에 대한 상태 메시지/재시도 정책을 구현한다.
-  - 에러 코드 체계와 상태 토픽 payload 확장을 Packee Main과 합의한다.
-- **Step 4.2: Diagnostics/알림 연계**
-  - `/diagnostics` 또는 별도 진단 토픽에 CNN 신뢰도, 수렴 스텝 수, 최종 오차를 발행한다.
-  - Shopee App 알림 요건(UR_04/SR_11)을 충족하도록 이벤트 매핑을 정의한다.
-- **Step 4.3: 파라미터 동적 조정**
-  - `servo_gain_*`, `cnn_confidence_threshold`, `max_translation_speed` 등을 ROS2 파라미터 서버로 노출한다.
-  - 변경 시 Validation 및 실행 중 반영 로직(soft restart, 게인 스무딩)을 설계한다.
-
-## Phase 5: 테스트, 문서화 및 인수
-
-**목표**: VisualServoModule 성능을 포함한 전 구간 테스트를 수행하고 산출물을 Packee Main 일정과 맞춰 인수한다.
-
-- **Step 5.1: 단위 테스트**
-  - gtest + rclcpp로 서비스 입력 검증, 상태 전이, VisualServoModule 오차 계산과 게인 적용 로직을 테스트한다.
-  - CNN 추론 모듈은 ONNXRuntime/TensorRT mock을 이용해 입력/출력 형식을 검증한다.
-- **Step 5.2: 통합/시뮬레이션 테스트**
-  - Packee Main Mock과 연동해 `SC_03_3`, `SC_03_4` 시퀀스, CNN 신뢰도 저하 시나리오를 재현한다.
-  - Gazebo/Isaac Sim에서 eye-in-hand 카메라, 금속 블록 모델, 조명 변화를 적용해 수렴 스텝과 최종 오차를 측정한다.
-- **Step 5.3: HIL 테스트 및 문서 인수**
-  - Elephant Robotics myCobot 280 듀얼 암 하드웨어로 최소 20개 시나리오(초기 오프셋, 조명 변화)를 실행해 15스텝 내 수렴을 검증한다.
-  - 테스트 리포트, 데이터 수집/라벨링 절차, 장애 대응 가이드를 업데이트한다.
-  - 완료 기준(DoD): 서비스 성공/실패 재현 가능, CNN 신뢰도/수렴 스텝 모니터링, 예외 로그 확인, 문서 최신화.
+## Phase 5: HIL 및 운영 준비
+**목표**: 실제 myCobot 280 듀얼 암을 대상으로 안정성을 확인하고 운영 체크리스트를 작성한다.
+- **Step 5.1 HIL 테스트**
+  - 좌/우 팔 각각 10회 이상 픽업/담기 반복, 안전 오프셋과 작업 공간 한계 검증.
+- **Step 5.2 장애 대응 가이드**
+  - 시리얼 연결 실패, 좌표 전송 오류, 그리퍼 오류에 대한 대응 절차와 로그 패턴을 문서화한다.
+- **Step 5.3 인수 기준(DoD)**
+  - 서비스 응답과 상태 토픽이 명세대로 발행될 것
+  - 런치 인자 조합(좌/우/브릿지) 별 기동 확인
+  - 코딩 표준 및 문서 최신화 완료
 
 ## 공통 관리 항목
-- **의존성**: Packee Main/Packee Vision 인터페이스 확정, 학습 데이터(목표/현재 이미지 페어) 수집 협조, Elephant Robotics myCobot 280 ROS2 드라이버(`mycobot_ros2`) 제공, 테스트 환경(Mock/시뮬레이터) 준비.
-- **리스크 및 대응**  
-  - 학습 데이터 부족/조명 불균일 → 데이터 수집 확대, glare 증강, 광원 제어 장치 도입  
-  - CNN 추론 지연 → TensorRT 최적화, FP16/INT8 변환, GPU 리소스 모니터링  
-  - 듀얼 암 충돌 → 시뮬레이션 검증, 충돌 영역 제한 로직  
-  - ROS 통신 지연 → QoS/타임아웃 조정, 재시도 로직  
-- **커뮤니케이션**: 주간 스탠드업(Arm SW 팀), 스프린트 리뷰(Arm/Main/Vision/HW 팀), QA 리뷰. 모든 문서/리포트는 `docs/DevelopmentPlan/PackeeArm/` 경로에 저장한다.
+- **의존성**: `pymycobot` Python 라이브러리 설치, `/packee/arm/*` 서비스 및 토픽 메시지 스키마 유지.
+- **리스크 및 대응**
+  - 하드웨어 미연결 → 모의 테스트 절차 마련, 로그 레벨 구분
+  - 좌/우 팔 충돌 및 서비스 충돌 → 작업 공간 제한 값 조정, 런치 인자 가이드로 단일 팔만 기동하도록 안내
+  - 시리얼 지연 → `move_speed`, `command_period_sec` 튜닝 및 로그 모니터링
+- **커뮤니케이션**: Packee Main/Pickee 팀과 주간 동기화, 하드웨어 팀과 포트/배선 변경 시 공유, QA 테스트 결과를 공용 문서로 갱신한다.

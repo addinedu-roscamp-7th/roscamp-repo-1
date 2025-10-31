@@ -18,12 +18,13 @@ sub /packee/robot_status [shopee_interfaces/msg/PackeeRobotStatus]
 ```
 
 `ArmPickProduct` 요청 본문은 픽업 대상의 `product_id`와 `Pose6D pose`만 전달합니다.  
-Packee Arm Controller는 전달된 Pose6D 좌표를 이용해 작업 공간 검증 및 시각 서보 제어를 수행합니다.
+Packee Arm Controller는 전달된 Pose6D 좌표를 이용해 작업 공간을 검증하고, 듀얼 모드에서는 `arm_side`에 따라 해당 팔만 동작합니다.
 
 ### Pose6D 메시지 작성 규칙
-- `shopee_interfaces/msg/Pose6D`는 직교 좌표(`x`, `y`, `z`)와 라디안 단위 회전(`rx`, `ry`, `rz`)을 포함합니다. Packee Arm 컨트롤러는 이 중 `x`, `y`, `z`, `rz`를 사용해 내부 `PoseEstimate`(x, y, z, yaw_deg)로 변환합니다. (`shopee_ros2/src/packee_arm/src/packee_arm_controller.cpp:268-274`)
-- `/packee/arm/pick_product`와 `/packee/arm/place_product` 모두 `pose` 값의 `rz`를 Yaw 축 회전(라디안)으로 사용하며, 나머지 축(`rx`, `ry`)은 현재 하드웨어 제약상 사용되지 않아 0으로 두어도 됩니다.
+- `shopee_interfaces/msg/Pose6D`는 직교 좌표(`x`, `y`, `z`)와 라디안 단위 회전(`rx`, `ry`, `rz`)을 포함합니다. Packee Arm Python 노드는 전달된 여섯 자유도 값을 그대로 보관하고, 하드웨어 명령 전송 시 각 회전값을 degree로 변환합니다.
+- `/packee/arm/pick_product`와 `/packee/arm/place_product` 모두 `pose` 값의 `rz`를 Yaw 축 회전으로 사용하며, 현재 듀얼 암 구성에서는 `rx`, `ry`를 0으로 두어도 무방합니다.
 - 값은 미터/라디안 기반 Pose6D 정의(`docs/InterfaceSpecification/Pac_Main_vs_Pac_Arm.md`)에 맞춰 설정하고, 안전 작업 공간(반경 0.28 m, Z 0.05~0.30 m)을 벗어나지 않도록 합니다.
+- 자세 상태 토픽에서 완료 신호는 `status='complete'` 로 발행되므로, 상위 노드는 해당 값을 기준으로 동기화해야 합니다.
 
 > myCobot 280의 안전 작업 공간은 수평 반경 0.28 m, Z 0.05~0.30 m 입니다. 아래 테스트 값도 이 범위 안에서 설정해야 합니다.
 
