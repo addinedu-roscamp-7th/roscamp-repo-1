@@ -1,5 +1,6 @@
 import threading
 from collections import Counter
+import termios, tty, sys
 
 import cv2
 import numpy as np
@@ -22,7 +23,7 @@ class ArucoReaderNode(Node):
         self.get_logger().info("📷 ArUco Reader Node Started")
 
         self.docking_in_progress = False         # 도킹 활성 상태 flag
-        self.target_id = 1                       # 탐지할 ArUco ID 설정
+        self.target_id = 2                       # 탐지할 ArUco ID 설정
         self.aruco_detect_rotate = 15
         self.aruco_detect_first = False
 
@@ -55,7 +56,7 @@ class ArucoReaderNode(Node):
             10
         )
 
-        # # ✅ 키보드 스레드 시작 (z: 시작, x: 정지)
+        # ✅ 키보드 스레드 시작 (z: 시작, x: 정지) 테스트용
         # thread = threading.Thread(target=self.keyboard_listener, daemon=True)
         # thread.start()
         # self.get_logger().info("⌨️ Press 'z' to start ArUco detection, 'x' to stop")
@@ -71,7 +72,7 @@ class ArucoReaderNode(Node):
         else:
             self.get_logger().info("🛑 Docking process Failed. Stopping ArUco scan.")
 
-        self.docking_in_progress = False
+        self.docking_in_progress = False # 성공이든 실패든 
 
     def pickee_arrival_callback(self, msg: PickeeMobileArrival):
         """🚦 Nav2 도착 콜백 """
@@ -158,7 +159,7 @@ class ArucoReaderNode(Node):
             self.pose_publisher.publish(pose)
 
     # --------------------------------------------------------------------
-    # ✅ 키보드 입력 스레드
+    # ✅ 키보드 입력 스레드 테스트용
     # --------------------------------------------------------------------
     # def keyboard_listener(self):
     #     """콘솔 입력으로 Z/X 제어"""

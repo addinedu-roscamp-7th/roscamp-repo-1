@@ -1,10 +1,10 @@
 # /pickee/mobile/arrival publish
 
-ros2 topic pub /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArrival "
+ros2 topic pub -1 /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArrival "
 {
   robot_id: 1,
-  order_id: 123,
-  location_id: 5,
+  order_id: 1,
+  location_id: 2,
   final_pose: {
     x: 1.2,
     y: 3.4,
@@ -18,6 +18,7 @@ ros2 topic pub /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArrival 
   travel_time: 12.5,
   message: \"Arrived at location\"
 }"
+
 
 
 

@@ -142,7 +142,7 @@ class OdomRotate(Node):
             return
 
         cmd = Twist()
-        cmd.angular.z = self.direction * self.wz_mag
+        cmd.angular.z = float(self.direction * self.wz_mag)
         self.pub.publish(cmd)
 
     def _finish(self):
@@ -203,7 +203,7 @@ def rotate(node: Node, angle_deg: float):
 
     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
     cmd = Twist()
-    cmd.angular.z = direction * wz_mag
+    cmd.angular.z = float(direction * wz_mag)
 
     end_time = time.time() + duration
     while time.time() < end_time:

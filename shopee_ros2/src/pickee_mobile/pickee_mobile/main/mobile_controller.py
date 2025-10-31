@@ -84,7 +84,7 @@ class PickeeMobileController(Node):
         self.get_logger().info(f"target_pose    : (x={target.x}, y={target.y}, theta={target.theta})")
 
         if self.old_location_id > 0:
-            run(self, -0.2)
+            run(self, -0.35)
 
         # Nav2 goal 전송
         try:

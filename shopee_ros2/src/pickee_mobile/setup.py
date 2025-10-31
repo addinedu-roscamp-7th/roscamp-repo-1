@@ -84,7 +84,9 @@ setup(
             'aruco_detect = pickee_mobile.test.aruco.aruco_detect:main',
             'aruco_follow_1 = pickee_mobile.test.aruco.aruco_follow_1:main',
             'aruco_follow_2 = pickee_mobile.test.aruco.aruco_follow_2:main',
-            'aruco_follow_3 = pickee_mobile.test.aruco.aruco_follow_3:main'
+            'aruco_follow_3 = pickee_mobile.test.aruco.aruco_follow_3:main',
+            'aruco_follow_4 = pickee_mobile.test.aruco.aruco_follow_4:main',
+            'aruco_pub = pickee_mobile.test.aruco.aruco_pub:main',
         ],
     }
 
