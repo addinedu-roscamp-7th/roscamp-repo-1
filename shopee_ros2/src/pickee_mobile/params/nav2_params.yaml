@@ -58,7 +58,7 @@ bt_navigator:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
 
     ##절대경로!!
-    # default_nav_to_pose_bt_xml: /home/vic/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/behavior_trees/navigate_to_pose_w_replanning_and_recovery_custom.xml
+    default_nav_to_pose_bt_xml: /home/vic/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/behavior_trees/navigate_to_pose_w_replanning_and_recovery_custom.xml
 
     # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
     # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml

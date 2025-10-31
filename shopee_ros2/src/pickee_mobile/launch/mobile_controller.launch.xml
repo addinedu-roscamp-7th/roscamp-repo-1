@@ -5,4 +5,7 @@
   <!-- 두 번째 노드: mobile_vel_modifier 로봇 속도 제어-->
   <node pkg="pickee_mobile" exec="mobile_vel_modifier" name="mobile_vel_modifier" output="screen"/>
 
+  <!-- 세 번째 노드: mobile_aruco_docking 로봇 정밀 도킹 -->
+  <node pkg="pickee_mobile" exec="mobile_aruco_docking" name="mobile_aruco_docking" output="screen"/>
+
 </launch>

@@ -1,15 +1,19 @@
-import rclpy
+import threading
+from collections import Counter
+
 import cv2
-import math
+import numpy as np
+
+import rclpy
 from rclpy.node import Node
-from pickee_mobile.module.module_aruco_detect import ArucoPoseEstimator 
+from rclpy.executors import MultiThreadedExecutor
+
+from std_msgs.msg import Bool
 from geometry_msgs.msg import Pose2D
 from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
-from rclpy.executors import MultiThreadedExecutor
-import numpy as np
-from collections import Counter
-from std_msgs.msg import Bool
-import threading, sys, termios, tty
+
+from pickee_mobile.module.module_aruco_detect import ArucoPoseEstimator
+
 
 
 class ArucoReaderNode(Node):
@@ -18,7 +22,9 @@ class ArucoReaderNode(Node):
         self.get_logger().info("📷 ArUco Reader Node Started")
 
         self.docking_in_progress = False         # 도킹 활성 상태 flag
-        self.target_id = 2                       # 탐지할 ArUco ID 설정 (여기선 ID = 2)
+        self.target_id = 1                       # 탐지할 ArUco ID 설정
+        self.aruco_detect_rotate = 15
+        self.aruco_detect_first = False
 
         # ✅ 카메라 + ArUco Pose Detector 초기화
         self.estimator = ArucoPoseEstimator(
@@ -27,54 +33,66 @@ class ArucoReaderNode(Node):
             calibration_file="camera_calibration.pkl"  # 카메라 보정 파일
         )
 
-        # ✅ ArUco 좌표 publish 하는 publisher
+        # 📢 ArUco 좌표 publish 하는 publisher
         self.pose_publisher = self.create_publisher(
             ArucoPose, '/pickee/mobile/aruco_pose', 10
         )
 
-        # ✅ 도킹 진행상태 subscribe (도킹이 시작/중지 되면 콜백 실행)
+        # 👂 도킹 진행상태 subscribe 도킹 종료(성공 True, 실패 False) subscribe
         self.create_subscription(
             Bool,
-            '/pickee/mobile/docking_in_progress',
-            self.docking_status_callback,
+            '/pickee/mobile/docking_result',
+            self.docking_result_callback,
             10
         )
 
 
-        # 로봇이 목적지에 도착한거 감지
-        self.create_subscription(PickeeMobileArrival,
-                                '/pickee/mobile/arrival',
-                                self.detect_aruco_callback,
-                                10)
+        # 로봇 도착 알림, 도착하면 Aruco marker 탐색 시작
+        self.create_subscription(
+            PickeeMobileArrival,
+            '/pickee/mobile/arrival',
+            self.pickee_arrival_callback,
+            10
+        )
 
-        # ✅ 키보드 스레드 시작 (z: 시작, x: 정지)
-        thread = threading.Thread(target=self.keyboard_listener, daemon=True)
-        thread.start()
-        self.get_logger().info("⌨️ Press 'z' to start ArUco detection, 'x' to stop")
+        # # ✅ 키보드 스레드 시작 (z: 시작, x: 정지)
+        # thread = threading.Thread(target=self.keyboard_listener, daemon=True)
+        # thread.start()
+        # self.get_logger().info("⌨️ Press 'z' to start ArUco detection, 'x' to stop")
 
     # --------------------------------------------------------------------
     # ✅ ROS Callbacks
     # --------------------------------------------------------------------
-    def docking_status_callback(self, msg: Bool):
-        """도킹 상태 갱신 (외부에서 True/False 들어올 때)"""
-        self.docking_in_progress = msg.data
-        if not self.docking_in_progress:
-            self.get_logger().info("🛑 Docking process ended. Stopping ArUco scan.")
+    def docking_result_callback(self, msg: Bool):
+        """도킹 결과 알림 (외부에서 True/False 들어올 때)"""
+        
+        if msg.data:
+            self.get_logger().info("🟢 Docking process Succeed. Stopping ArUco scan.")
+        else:
+            self.get_logger().info("🛑 Docking process Failed. Stopping ArUco scan.")
 
-    def detect_aruco_callback(self, msg: PickeeMobileArrival):
-        """🚦 Nav2 도착 콜백 (사용 안함 - 주석 처리됨)"""
-        self.docking_in_progress = True
-        self.get_logger().info("🚦 Arrival detected! Starting ArUco scan...")
-        self.read_marker()
+        self.docking_in_progress = False
+
+    def pickee_arrival_callback(self, msg: PickeeMobileArrival):
+        """🚦 Nav2 도착 콜백 """
+        self.get_logger().info("🚦 Arrival detected!")
+        if msg.location_id > 0: # 
+            self.target_id = msg.location_id
+            self.get_logger().info("🚦 Arrival detected! Starting ArUco scan...")
+            self.get_logger().info(f"🧭 target ID = {self.target_id}")
+            self.docking_in_progress = True
+            threading.Thread(target=self.read_marker, daemon=True).start()
+
 
     # --------------------------------------------------------------------
     # ✅ ArUco 마커 읽기 루프
     # --------------------------------------------------------------------
     def read_marker(self):
         """ArUco 데이터를 계속 읽고 publish"""
-        self.get_logger().info(f"{self.docking_in_progress}")
+        
 
         while self.docking_in_progress:
+            self.get_logger().info(f"self.docking_in_progress = {self.docking_in_progress}")
             # 측정값 저장 공간 (다회 샘플 -> noise 제거)
             values = {"id": [], "x": [], "y": [], "z": [], "roll": [], "pitch": [], "yaw": []}
 
@@ -103,11 +121,11 @@ class ArucoReaderNode(Node):
                     for k in values:
                         values[k].append(m[k])
 
-                    self.get_logger().info(
-                        f"🟢 {i+1}/5 | ID={m['id']} | "
-                        f"x={m['x']:.1f}, y={m['y']:.1f}, z={m['z']:.1f} | "
-                        f"roll={m['roll']:.1f}, pitch={m['pitch']:.1f}, yaw={m['yaw']:.1f}"
-                    )
+                    # self.get_logger().info(
+                    #     f"✅ {i+1}/5 | ID={m['id']} | "
+                    #     f"x={m['x']:.1f}, y={m['y']:.1f}, z={m['z']:.1f} | "
+                    #     f"roll={m['roll']:.1f}, pitch={m['pitch']:.1f}, yaw={m['yaw']:.1f}"
+                    # )
                 else:
                     self.get_logger().info(f"⚠️ {i+1}/5 | Marker not found")
 
@@ -142,23 +160,23 @@ class ArucoReaderNode(Node):
     # --------------------------------------------------------------------
     # ✅ 키보드 입력 스레드
     # --------------------------------------------------------------------
-    def keyboard_listener(self):
-        """콘솔 입력으로 Z/X 제어"""
-        old_settings = termios.tcgetattr(sys.stdin)
-        tty.setcbreak(sys.stdin.fileno())
+    # def keyboard_listener(self):
+    #     """콘솔 입력으로 Z/X 제어"""
+    #     old_settings = termios.tcgetattr(sys.stdin)
+    #     tty.setcbreak(sys.stdin.fileno())
 
-        try:
-            while True:
-                key = sys.stdin.read(1)
-                if key.lower() == 'z':  # 시작
-                    self.get_logger().info("✅ Z pressed → Start ArUco scan")
-                    self.docking_in_progress = True
-                    self.read_marker()
-                elif key.lower() == 'x':  # 정지
-                    self.get_logger().info("🛑 X pressed → Stop ArUco scan")
-                    self.docking_in_progress = False
-        finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    #     try:
+    #         while True:
+    #             key = sys.stdin.read(1)
+    #             if key.lower() == 'z':  # 시작
+    #                 self.get_logger().info("✅ Z pressed → Start ArUco scan")
+    #                 self.docking_in_progress = True
+    #                 self.read_marker()
+    #             elif key.lower() == 'x':  # 정지
+    #                 self.get_logger().info("🛑 X pressed → Stop ArUco scan")
+    #                 self.docking_in_progress = False
+    #     finally:
+    #         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
 # --------------------------------------------------------------------

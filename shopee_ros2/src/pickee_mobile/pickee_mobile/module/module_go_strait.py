@@ -113,11 +113,11 @@ class OdomMove(Node):
         self.timer = self.create_timer(1.0/self.rate_hz, self._step)
 
         # 초기 상태 로그 출력
-        self.get_logger().info(
-            f'현재 위치={self.odom_topic}, 이동 거리 ={self.target:.2f}m, '
-            f'선속도={self.vx_mag:.2f}m/s, 허용 오차={self.tol:.2f}m, 제어 주기={self.rate_hz}Hz, '
-            f'timeout≈{self.timeout:.1f}s'
-        )
+        # self.get_logger().info(
+        #     f'현재 위치={self.odom_topic}, 이동 거리 ={self.target:.2f}m, '
+        #     f'선속도={self.vx_mag:.2f}m/s, 허용 오차={self.tol:.2f}m, 제어 주기={self.rate_hz}Hz, '
+        #     f'timeout≈{self.timeout:.1f}s'
+        # )
 
     # 오도메트리 콜백 함수 선언
     def _on_odom(self, msg: Odometry):
@@ -135,7 +135,7 @@ class OdomMove(Node):
             self.start_time = self.last_odom_time
             # 시작 좌표를 오도메트리 좌표로 log 출력
             # log : ros에서 print 같은거
-            self.get_logger().info(f'start @ ({self.x0:.3f}, {self.y0:.3f})')
+            # self.get_logger().info(f'start @ ({self.x0:.3f}, {self.y0:.3f})')
 
     # 목표에 도달하였으면
     def _step(self):
@@ -157,7 +157,7 @@ class OdomMove(Node):
         # 오도메트리가 1.0초 동안 수신이 안되면
         if now - self.last_odom_time > 1.0:
             # 오도메트리 수신이 안되서 정지 로그 출력
-            self.get_logger().error('odom lost → stop')
+            # self.get_logger().error('odom lost → stop')
             # 코드 종료
             self._finish()
             return
@@ -167,7 +167,7 @@ class OdomMove(Node):
         # 이동한 거리 목적지 거리까지 거리가 tolerance 보다 작거나 같으면
         if abs(self.target) - moved <= self.tol:
             # 도착했다는 로그 출력
-            self.get_logger().info(f'reached: moved={moved:.3f}m')
+            # self.get_logger().info(f'reached: moved={moved:.3f}m')
             # 코드 종료
             self._finish()
             return
@@ -175,7 +175,7 @@ class OdomMove(Node):
         # timeout 초과되었다면
         if now - self.start_time > self.timeout:
             # timeout log 출력
-            self.get_logger().warn(f'timeout {self.timeout:.1f}s')
+            # self.get_logger().warn(f'timeout {self.timeout:.1f}s')
             # 코드 출력
             self._finish()
             return
@@ -196,7 +196,7 @@ class OdomMove(Node):
         # 안전을 위해 한번 더 퍼플리시
         self.pub.publish(stop)
         # STOP log 출력
-        self.get_logger().info('STOP')
+        # self.get_logger().info('STOP')
         # 종료 플래그 True로 설정
         self.done = True
 
@@ -215,7 +215,7 @@ def run_standalone(target_distance: float):
 
 # ✅ ROS Node 안에서 호출할 버전
 def run(node: Node, target_distance: float):
-    node.get_logger().info(f"🏃‍♂️ Forward {target_distance}m")
+    # node.get_logger().info(f"🏃‍♂️ Forward {target_distance}m")
 
     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
     cmd = Twist()
@@ -230,7 +230,7 @@ def run(node: Node, target_distance: float):
         time.sleep(0.02)
     
     pub.publish(Twist())
-    node.get_logger().info("✅ Forward done")
+    # node.get_logger().info("✅ Forward done")
 
 
 

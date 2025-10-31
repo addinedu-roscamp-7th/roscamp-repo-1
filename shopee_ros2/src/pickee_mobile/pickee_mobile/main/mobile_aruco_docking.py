@@ -1,108 +1,239 @@
-import rclpy
-from rclpy.node import Node
-from shopee_interfaces.msg import ArucoPose
-from geometry_msgs.msg import Twist
 import math
 import time
 
-from pickee_mobile.module.module_go_strait import run   # run(node, dist)
-from pickee_mobile.module.module_rotate import rotate   # rotate(node, deg)
+import rclpy
+from rclpy.node import Node
+
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool
+from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
+
+# Pickee 전용 이동 함수 (직선 이동, 회전)
+from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_rotate import rotate
+
 
 class ArucoDocking(Node):
     def __init__(self):
-        super().__init__("aruco_docking")
+        super().__init__("aruco_docking")   # ROS node 이름 설정
 
-        self.state = "SEARCHING"
-        self.aruco_detected = False
-        self.pose = None
+        self.cmd_vel = Twist()                              # 속도 명령 객체 생성
+        self.last_x_offset = 0.0                            # 마지막 x 값 (재탐색 시 사용)
+        self.last_yaw_offset = 0.0                          # 마지막 yaw 값 (재탐색 시 사용)
+        self.lost_count_during_docking = 0                  # 도킹 중 마커 재탐색 동작 횟수
+        self.aruco_lost_count_before_docking = 0            # 도킹 전 마커 재탐색 동작 횟수
+        self.pre_docking_search_angles = [15, -30, 45, -60] # 도킹 전 마커 재탐색 회전 동작 순서
+        self.position_error_yaw = 0                         # 목적지 도착 후 로봇의 회전 오차
+        self.is_docking_active = False                      # 도킹 시작 여부 (처음 감지 안되는 문제 방지)
+        self.realign_yaw_scale_1 = 0.4                      # 재탐색 회전 보정 scale 1
+        self.realign_yaw_scale_2 = 0.5                      # 재탐색 회전 보정 scale 2
+        self.realign_yaw_scale = 1.4                        # 재탐색 회전 보정
+        self.realign_once = False                           # 재탐색 한 번만 수행하도록 flag
+        self.limit_z = 190
+        self.search_enabled = False
 
+        # 속도 publish 설정
+        self.cmd_pub = self.create_publisher(
+            Twist, "/cmd_vel_modified", 10
+        )
+
+        # 도킹 완료 알림, False = 실패, True = 성공
+        self.docking_in_progress_pub = self.create_publisher(
+            Bool, "/pickee/mobile/docking_result", 10
+        )
+
+        # Aruco marker 위치
         self.sub = self.create_subscription(
             ArucoPose,
             '/pickee/mobile/aruco_pose',
-            self.aruco_callback,
+            self.aruco_docking_callback,
+            1
+        )
+
+        # 로봇 도착 알림, 목적지 오차만 사용
+        self.create_subscription(
+            PickeeMobileArrival,
+            '/pickee/mobile/arrival',
+            self.pickee_arrival_callback,
             10
         )
 
-        self.cmd_pub = self.create_publisher(Twist, "/cmd_vel_modified", 10)
-
-        self.timer = self.create_timer(0.2, self.fsm_step)
-
         self.get_logger().info("🤖 ArUco Docking FSM Started")
 
-    def aruco_callback(self, msg: ArucoPose):
-        self.aruco_detected = True
-        self.pose = msg
 
-    def fsm_step(self):
-        if not self.aruco_detected:
-            self.state_searching()
+    # ==========================================================
+    # ✅ ROS Callbacks
+    # ==========================================================
+
+    def pickee_arrival_callback(self, arrival_msg: PickeeMobileArrival):
+        self.get_logger().info("📦 Arrival message received")
+        self.position_error_yaw = math.degrees(arrival_msg.position_error.theta)
+        self.search_enabled = True          # ✅ 도착 이벤트가 와야만 사전탐색 허용
+        self.aruco_lost_count_before_docking = 0  # (선택) 카운터 리셋
+
+
+    def aruco_docking_callback(self, msg: ArucoPose):
+        x, z, yaw = msg.x, msg.z, msg.pitch
+
+        # If ArUco detected → start docking
+        if z != 0.0 or x != 0.0 or yaw != 0.0:
+            self.is_docking_active = True
+
+        # If Aruco not detected before docking start → search
+        elif (not self.is_docking_active) and self.search_enabled:
+            self.realign_before_docking()
+
+        # If docking in progress → process movements
+        if self.is_docking_active:
+            self.set_docking_vel(x, z, yaw)
+            self.cmd_pub.publish(self.cmd_vel)
+            self.last_x_offset, self.last_yaw_offset = x, yaw
+
+    # ==========================================================
+    # ✅ Docking Logic Functions
+    # ==========================================================
+
+    def set_docking_vel(self, x, z, yaw):
+        # ---------------------------------------
+        # 좌우 오차, 각도오차 기반 회전
+        # ---------------------------------------
+        if abs(x) > 5:
+            self.get_logger().info(" Adjust angle")
+            self.lost_count_during_docking = 0
+
+            scale_yaw = max(min((abs(x) / 20) * 0.1, 0.1), 0.0)
+            self.cmd_vel.angular.z = scale_yaw if (x < 0) ^ (yaw < 0) else -scale_yaw
+        else:
+            self.cmd_vel.angular.z = 0.0
+
+        # ---------------------------------------
+        # 전방 거리 기반 전진
+        # ---------------------------------------
+        if z > self.limit_z:
+            self.get_logger().info(" Moving forward")
+            self.lost_count_during_docking = 0
+            scale_z = max(min((z - self.limit_z) / 1000, 0.2), 0.05)
+            self.cmd_vel.linear.x = scale_z
+
+        # ---------------------------------------
+        # Lost marker during docking → recovery
+        # ---------------------------------------
+        elif z == 0.0 and x == 0.0 and yaw == 0.0:
+            self.get_logger().info("❌ Marker lost while docking")
+            self.cmd_vel.linear.x = 0.0
+            self.cmd_vel.angular.z = 0.0
+            self.publish_stop()
+            self.lost_count_during_docking += 1
+
+            if self.realign_once:
+                rotate(self, self.old_yaw_diff / 2)
+            elif self.lost_count_during_docking == 1:
+                self.realign_during_docking()
+            elif self.lost_count_during_docking == 2:
+                rotate(self, -self.last_yaw_offset)
+            elif self.lost_count_during_docking == 3:
+                rotate(self, 2.5 * self.last_yaw_offset)
+            else:
+                self.get_logger().info("⚠️ Docking failed: marker lost")
+                self.docking_in_progress_pub.publish(Bool(data=False))
+                self.publish_stop()
+                self.search_enabled = False
+
+            self.realign_once = False
             return
 
-        x = self.pose.x      # left-right mm
-        y = self.pose.y      # up-down mm (unused)
-        z = self.pose.z      # forward mm
-        yaw = self.pose.pitch  # deg
+        # ---------------------------------------
+        # Close but angle wrong → realign
+        # ---------------------------------------
+        elif z <= 190 and abs(yaw) > 5:
+            self.get_logger().info("↩️ Final angle adjust")
+            self.realign_during_docking()
 
-        self.get_logger().info(
-            f"[FSM={self.state}] x={x:.1f}mm y={y:.1f}mm z={z:.1f}mm yaw={yaw:.1f}°"
-        )
+        # ---------------------------------------
+        # Docking success
+        # ---------------------------------------
+        else:
+            self.get_logger().info("✅ Docking success!")
+            self.publish_stop()
+            run(self, 0.09)  # final push
+            time.sleep(2)
+            self.is_docking_active = False
+            self.search_enabled = False
+            self.docking_in_progress_pub.publish(Bool(data=True))
+            return
 
-        if self.state == "SEARCHING":
-            self.state_align_yaw()
-        
-        elif self.state == "ALIGN_YAW":
-            
-            rotate(self, yaw)
-            self.get_logger().info('첫 번째 회전 완료.')
+    # ---------------------------
+    # 💡 Pre-Docking Realignment
+    # ---------------------------
+    def realign_before_docking(self):
+        # ✅ 첫 번째 탐색 : Nav2로 도착 후 position_error 기반 정렬
+        if self.aruco_lost_count_before_docking == 0:
+            self.get_logger().info(
+                f"🔍 [Pre-Docking Scan #1] Using position error yaw: {self.position_error_yaw:.2f}°"
+            )
+            rotate(self, -self.position_error_yaw)
+            time.sleep(0.5)
+            self.aruco_lost_count_before_docking += 1
 
-            distance = math.sqrt(x**2 + z**2) / (6 * math.cos(math.radians(yaw)))
-            self.get_logger().info(f'이동 거리: {distance:.3f} mm')
+        # ✅ 두 번째~다섯 번째 탐색 : 지정 각도 순차 회전
+        elif self.aruco_lost_count_before_docking <= 4:
+            idx = self.aruco_lost_count_before_docking - 1
+            angle = self.pre_docking_search_angles[idx]
+            self.get_logger().info(
+                f"🔁 [Pre-Docking Scan #{self.aruco_lost_count_before_docking + 1}] "
+                f"Rotate {angle:+.2f}° (Search pattern)"
+            )
+            rotate(self, angle)
+            time.sleep(0.5)
+            self.aruco_lost_count_before_docking += 1
 
-            run(self, 0.5)
-            self.get_logger().info('직진 주행 완료.')
+        # ❌ 탐색 실패
+        else:
+            self.get_logger().warn(
+                "⚠️ ArUco not found after multiple orientation attempts. Cancelling docking."
+            )
+            self.docking_in_progress_pub.publish(Bool(data=False))
+            self.publish_stop()
 
-            # Step 3: rotate(-2 * theta_pitch)
-            rotate(self, -2 * yaw)
-            self.get_logger().info('두 번째 회전 완료.')
 
-        # elif self.state == "ALIGN_YAW":
-        #     if abs(yaw) > 5:
-        #         rotate(self, yaw)  # correct yaw
-        #     else:
-        #         self.state = "ALIGN_X"
+    # ---------------------------
+    # 💡 Docking Realignment
+    # ---------------------------
+    def realign_during_docking(self):
+        self.realign_once = True
+        self.get_logger().info("🔄 Realigning during docking...")
+        self.get_logger().info(f"last_x_offset = {self.last_x_offset}, last_yaw_offset = {self.last_yaw_offset}")
 
-        # elif self.state == "ALIGN_X":
-        #     if abs(x) > 30:
-        #         offset = x / 1000.0  # mm → m
-        #         run(self, offset)     # move sideways by turning wheels
-        #     else:
-        #         self.state = "APPROACH"
+        if self.last_yaw_offset > 0 and self.last_x_offset > 0:
+            self.old_yaw_diff = self.last_yaw_offset * self.realign_yaw_scale_1
+        elif self.last_yaw_offset > 0 and self.last_x_offset < 0:
+            self.old_yaw_diff = self.last_yaw_offset * self.realign_yaw_scale_2
+        elif self.last_yaw_offset < 0 and self.last_x_offset > 0:
+            self.old_yaw_diff = self.last_yaw_offset * self.realign_yaw_scale_2
+        elif self.last_yaw_offset < 0 and self.last_x_offset < 0:
+            self.old_yaw_diff = self.last_yaw_offset * self.realign_yaw_scale_1
+        else:
+            self.old_yaw_diff = 0
 
-        # elif self.state == "APPROACH":
-        #     if z > 60:
-        #         forward = (z - 60) / 1000.0  # leave 60mm
-        #         run(self, forward)
-        #     else:
-        #         self.state = "DOCKED"
+        realign_x_scale = max(min((self.last_x_offset) / 100, 0.6), 0.05)
 
-        # elif self.state == "DOCKED":
-        #     self.get_logger().info("✅ DOCKED SUCCESSFULLY!")
-        #     self.publish_stop()
-        #     return
+        rotate(self, -self.last_yaw_offset - self.old_yaw_diff)
+        time.sleep(0.5)
+        run(self, -0.1)
+        time.sleep(0.5)
+        rotate(self, self.old_yaw_diff)
+        time.sleep(1)
 
-    def state_searching(self):
-        self.get_logger().info("🔎 Searching marker...")
-        cmd = Twist()
-        cmd.angular.z = 0.2
-        # self.cmd_pub.publish(cmd)
-
-    def state_align_yaw(self):
-        self.get_logger().info("🎯 Align yaw...")
-        self.state = "ALIGN_YAW"
-
+    # ---------------------------
+    # 🛑 Stop Command
+    # ---------------------------
     def publish_stop(self):
         self.cmd_pub.publish(Twist())
 
+
+# ==========================================================
+# ✅ Main
+# ==========================================================
 
 def main():
     rclpy.init()

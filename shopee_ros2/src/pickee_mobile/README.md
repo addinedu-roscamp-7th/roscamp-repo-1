@@ -61,13 +61,13 @@ ros2 run pickee_mobile aruco_follow_1 # pc
 | ----------------------------- | ----------------------------------------------------- | --------- | ----------------------- |
 | 로봇 Bringup                    | `ros2 launch pickee_mobile mobile_bringup.launch.xml` | **Robot** | 센서/TF/기본 bringup        |
 | Nav2 Bringup                  | `ros2 launch pickee_mobile nav2_bringup_launch.xml`   | **Robot** | Nav2 navigation bringup |
-| ArUco Pose Publisher          | `ros2 run pickee_mobile mobile_aruco_pub_1`           | **PC**    | Z 시작 / X 종료, 도킹 트리거 옵션  |
+| ArUco Pose Publisher          | `ros2 run pickee_mobile mobile_aruco_pub`           | **PC**    | Aruco marker pose publish  |
 | ArUco 기반 이동 (V1)              | `ros2 run pickee_mobile aruco_follow_1`               | **PC**    | 거리 근접만 함                  |
 | ArUco 기반 이동 (V2)              | `ros2 run pickee_mobile aruco_follow_2`               | **PC**    | 근접 + 각도 정렬              |
 | ArUco 기반 이동 (V3)            | `ros2 run pickee_mobile aruco_follow_3`               | **PC**    | 속도 및 거리 자동 조절 예정        |
 
 
-📡 mobile_aruco_pub_1
+📡 mobile_aruco_pub, PickeeMobileMain 에서 사용할거임
 
     Z 키 → ArUco publish 시작
 
@@ -77,9 +77,7 @@ ros2 run pickee_mobile aruco_follow_1 # pc
 
     카메라 캘리브레이션 파일 경로는 절대경로 사용 → 환경에 맞게 수정 필요
 
-🎥 mobile_aruco_pub_2
-
-    mobile_aruco_pub_1 기능 + 실시간 카메라 영상 출력
+    custom 함수(ArucoPoseEstimator)를 import 할 때 경로 신경쓸것
 
 🤖 aruco_follow_1
 
@@ -96,15 +94,6 @@ ros2 run pickee_mobile aruco_follow_1 # pc
     목표/현재 거리 및 각도 기반으로
     속도·회전·종단거리 자동 조정 예정
 
-.
-
-.
-
-.
-
-.
-
-.
 
 상세설명
 mobile_bringup.launch.xml = PickeeMobile 시동걸기, 수업 자료에 있던거
