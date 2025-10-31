@@ -26,9 +26,7 @@ setup(
         'console_scripts': [
             'check_cart_presence = packee_vision.check_cart_presence:main',
             'detect_products_in_cart = packee_vision.detect_products_in_cart:main',
-            'verify_packing_complete = packee_vision.verify_packing_complete:main',
-            'data_collect_node = packee_vision.data_collect_node:main',
-            'control_node = packee_vision.control_node:main',
+            'verify_packing_complete = packee_vision.verify_packing_complete:main'
         ],
     },
 )

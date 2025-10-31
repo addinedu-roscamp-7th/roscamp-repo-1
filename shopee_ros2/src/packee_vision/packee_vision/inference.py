@@ -1,49 +1,13 @@
 import torch
 import torch.nn as nn
-from torchvision import transforms, models
+from torchvision import transforms
+from pose_cnn.model import PoseCNN
 import numpy as np
 import cv2
 import argparse
 import ast
 import pandas as pd
-import os
 
-# ==========================
-# PoseCNN 모델 정의
-# ==========================
-class PoseCNN(nn.Module):
-    def __init__(self, num_classes=3):
-        super().__init__()
-        resnet = models.resnet18(pretrained=False)
-        self.backbone = nn.Sequential(*list(resnet.children())[:-1])  # feature extractor
-        feat_dim = 512
-
-        # 6D pose head (x, y, z, roll, pitch, yaw)
-        self.pose_head = nn.Sequential(
-            nn.Linear(feat_dim, 256),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-            nn.Linear(256, 6)
-        )
-
-        # classification head
-        self.class_head = nn.Sequential(
-            nn.Linear(feat_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-            nn.Linear(128, num_classes)
-        )
-
-    def forward(self, x):
-        f = self.backbone(x).flatten(1)
-        pose_out = self.pose_head(f)
-        cls_out = self.class_head(f)
-        return pose_out, cls_out
-
-
-# ==========================
-# 모델 로드 함수
-# ==========================
 def load_model(model_path, num_classes, device):
     model = PoseCNN(num_classes=num_classes).to(device)
     checkpoint = torch.load(model_path, map_location=device)
@@ -53,9 +17,6 @@ def load_model(model_path, num_classes, device):
     return model
 
 
-# ==========================
-# pose 통계 로드 (선택사항)
-# ==========================
 def load_pose_stats(csv):
     df = pd.read_csv(csv)
     if "pose" in df.columns:
@@ -66,9 +27,6 @@ def load_pose_stats(csv):
         return None, None
 
 
-# ==========================
-# 예측 함수
-# ==========================
 def predict(model, img_path, class_names=None, device="cpu", pose_mean=None, pose_std=None):
     transform = transforms.Compose([
         transforms.ToPILImage(),
@@ -98,10 +56,6 @@ def predict(model, img_path, class_names=None, device="cpu", pose_mean=None, pos
 
     return pose_pred, cls_name
 
-
-# ==========================
-# main
-# ==========================
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="./checkpoints/packee2_cnn.pt")
