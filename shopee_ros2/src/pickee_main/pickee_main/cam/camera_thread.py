@@ -6,7 +6,6 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 from ultralytics import YOLO
 
-
 class CameraThread(QThread):
     frame_ready = Signal(QImage)
     marker_detected = Signal(int, np.ndarray, np.ndarray)
@@ -22,10 +21,8 @@ class CameraThread(QThread):
 
         # 아르코 마커 딕셔너리 및 파라미터 설정
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_50)
-        try:
-            self.aruco_params = cv2.aruco.DetectorParameters_create()
-        except AttributeError:
-            self.aruco_params = cv2.aruco.DetectorParameters()
+        self.aruco_params = cv2.aruco.DetectorParameters()
+        self.aruco_detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         # 카메라 행렬 및 왜곡 계수 (캘리브레이션 결과)
         self.camera_matrix = np.array([
             [2.07267968e+03, 0.00000000e+00, 3.87826573e+02],
@@ -37,8 +34,12 @@ class CameraThread(QThread):
 
         # YOLOv8 모델 로드 (사람 인식용)
         try:
-            self.yolo_model = YOLO('yolov8n.pt')  # nano 모델 사용 (경량화)
+            self.yolo_model = YOLO('./employee_best.pt')  # employee_best.pt 경로로 변경
             self.yolo_enabled = True
+            # 오탐지 방지를 위한 시간적 필터링 변수
+            self.employee_detect_history = []  # 최근 N 프레임의 탐지 결과 저장
+            self.HISTORY_SIZE = 10  # 최근 10 프레임 추적
+            self.DETECTION_RATIO_THRESHOLD = 0.7  # 70% 이상 탐지되어야 최종 인식
         except Exception as e:
             print(f'YOLO 모델 로드 실패: {e}')
             self.yolo_enabled = False
@@ -53,30 +54,52 @@ class CameraThread(QThread):
                 new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
                 undistorted_frame = cv2.undistort(frame, self.camera_matrix, self.dist_coeffs, None, new_camera_mtx)
 
-                # 아르코 마커 검출 (함수 기반)
-                corners, ids, rejected = cv2.aruco.detectMarkers(undistorted_frame, self.aruco_dict, parameters=self.aruco_params)
+                # 아르코 마커 검출 (ArucoDetector 기반)
+                corners, ids, rejected = self.aruco_detector.detectMarkers(undistorted_frame)
 
                 if ids is not None:
                     undistorted_frame = cv2.aruco.drawDetectedMarkers(undistorted_frame, corners, ids)
-                    rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
-                        corners, self.marker_length, self.camera_matrix, self.dist_coeffs
-                    )
+                    
+                    # OpenCV 4.7+ 호환: 각 마커의 pose 추정
+                    rvecs = []
+                    tvecs = []
+                    for corner in corners:
+                        # 마커의 3D 좌표 (마커 중심 기준)
+                        half_size = self.marker_length / 2.0
+                        obj_points = np.array([
+                            [-half_size, half_size, 0],
+                            [half_size, half_size, 0],
+                            [half_size, -half_size, 0],
+                            [-half_size, -half_size, 0]
+                        ], dtype=np.float32)
+                        
+                        # solvePnP로 pose 추정
+                        success, rvec, tvec = cv2.solvePnP(
+                            obj_points, corner[0], self.camera_matrix, self.dist_coeffs, 
+                            flags=cv2.SOLVEPNP_IPPE_SQUARE
+                        )
+                        if success:
+                            rvecs.append(rvec)
+                            tvecs.append(tvec)
 
                     current_time = time.time()
                     if current_time - self.last_marker_emit_time >= self.marker_emit_time:
                         for i, marker_id in enumerate(ids.flatten()):
-                            self.marker_detected.emit(marker_id, tvecs[i], rvecs[i])
-                            cv2.drawFrameAxes(undistorted_frame, self.camera_matrix, self.dist_coeffs, rvecs[i], tvecs[i], self.marker_length * 0.2)
+                            if i < len(tvecs):
+                                self.marker_detected.emit(marker_id, tvecs[i], rvecs[i])
+                                cv2.drawFrameAxes(undistorted_frame, self.camera_matrix, self.dist_coeffs, rvecs[i], tvecs[i], self.marker_length * 0.2)
 
                         self.last_marker_emit_time = current_time
                     else:
                         # 3초가 안 지났어도 좌표축은 표시
                         for i, marker_id in enumerate(ids.flatten()):
-                            cv2.drawFrameAxes(undistorted_frame, self.camera_matrix, self.dist_coeffs, rvecs[i], tvecs[i], self.marker_length * 0.2)
+                            if i < len(tvecs):
+                                cv2.drawFrameAxes(undistorted_frame, self.camera_matrix, self.dist_coeffs, rvecs[i], tvecs[i], self.marker_length * 0.2)
 
                 # YOLOv8로 사람 인식
                 if self.yolo_enabled:
-                    results = self.yolo_model(undistorted_frame, verbose=False, classes=[0])  # classes=[0]: person만
+                    # conf: confidence threshold, iou: NMS IoU threshold
+                    results = self.yolo_model(undistorted_frame, verbose=False, classes=[0], conf=0.75, iou=0.4)  # classes=[0]: person만
                     all_person_boxes = []
                     
                     # 프레임 크기 가져오기
@@ -91,8 +114,8 @@ class CameraThread(QThread):
                                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                 confidence = float(box.conf[0])
                                 
-                                # 신뢰도가 0.5 이상인 경우만 처리
-                                if confidence > 0.5:
+                                # 신뢰도가 0.75 이상인 경우만 처리 (높은 임계값으로 오탐지 방지)
+                                if confidence > 0.75:
                                     # 박스 크기 계산 (가까운 사람일수록 박스가 큼)
                                     box_area = (x2 - x1) * (y2 - y1)
                                     center_x = int((x1 + x2) / 2)
@@ -107,8 +130,20 @@ class CameraThread(QThread):
                                         'area': box_area
                                     })
                     
+                    # 현재 프레임 탐지 여부 기록 (시간적 필터링)
+                    current_frame_detected = len(all_person_boxes) > 0
+                    self.employee_detect_history.append(current_frame_detected)
+                    
+                    # 히스토리 크기 유지
+                    if len(self.employee_detect_history) > self.HISTORY_SIZE:
+                        self.employee_detect_history.pop(0)
+                    
+                    # 최근 N 프레임 중 70% 이상 탐지되었는지 확인
+                    detection_ratio = sum(self.employee_detect_history) / len(self.employee_detect_history)
+                    is_stable_detection = detection_ratio >= self.DETECTION_RATIO_THRESHOLD
+                    
                     # 가장 큰 박스(가장 가까운 사람) 1명만 선택
-                    if all_person_boxes:
+                    if all_person_boxes and is_stable_detection:
                         closest_person = max(all_person_boxes, key=lambda p: p['area'])
                         
                         # 위치 판단 (왼쪽/가운데/오른쪽)
@@ -132,8 +167,8 @@ class CameraThread(QThread):
                                     (closest_person['x2'], closest_person['y2']), 
                                     color, 3)
                         
-                        # 위치 정보 텍스트 표시
-                        text = f'{position.upper()} {closest_person["confidence"]:.2f}'
+                        # 위치 정보 텍스트 표시 (탐지 안정성 비율 추가)
+                        text = f'{position.upper()} {closest_person["confidence"]:.2f} ({detection_ratio:.1%})'
                         cv2.putText(undistorted_frame, text, 
                                   (closest_person['x1'], closest_person['y1'] - 10), 
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
