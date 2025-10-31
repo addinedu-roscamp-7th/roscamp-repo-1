@@ -110,91 +110,83 @@ class DetectProducts(Node):
     
     def callback_service(self, request, response):
         self.get_logger().info(
-            f"Received request -> "
-            f"robot_id: {request.robot_id},"
-            f"order_id: {request.order_id},"
-            f"expend_product_id: {list(request.expected_product_id)}"
+            f"Received request → robot_id: {request.robot_id}, order_id: {request.order_id}, expected_product_ids: {list(request.expected_product_id)}"
         )
 
-        if request.robot_id == 1:
-            ret, frame = self.packee1_cap.read()
-        elif request.robot_id == 2:
-            ret, frame = self.packee2_cap.read()
-
-        if not ret:
-            response.success = False
-            response.products = []
-            response.total_detected = 0
-            response.message = "video load failed"
-            return response
-        
-        h, w = frame.shape[:2]
-        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeff, (w, h), 1, (w, h))
-        undistorted = cv2.undistort(frame, camera_matrix, dist_coeff, None, newcameramtx)
-        x, y, w, h = roi
-        undistorted = undistorted[y:y+h, x:x+w]
-
         product_list = []
+        camera_sources = {
+            "left": (self.packee1_cap, self.packee1_cnn, 1),
+            "right": (self.packee2_cap, self.packee2_cnn, 2)
+        }
 
-        try:
-            results = self.yolo_model(undistorted, conf=0.6)
-            for result in results:
-                boxes = result.boxes
-                for box in boxes:
-                    cls_id = int(box.cls.cpu().numpy())
-                    if cls_id in request.expected_product_id:
+        for cam_side, (cap, model, cam_id) in camera_sources.items():
+            ret, frame = cap.read()
+            if not ret:
+                self.get_logger().warn(f"[WARN] {cam_side} 카메라 프레임을 읽지 못했습니다.")
+                continue
+
+            # 카메라 왜곡 보정
+            h, w = frame.shape[:2]
+            newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
+                camera_matrix, dist_coeff, (w, h), 1, (w, h))
+            undistorted = cv2.undistort(frame, camera_matrix, dist_coeff, None, newcameramtx)
+            x, y, w, h = roi
+            undistorted = undistorted[y:y + h, x:x + w]
+
+            try:
+                results = self.yolo_model(undistorted, conf=0.6)
+                for result in results:
+                    for box in result.boxes:
+                        cls_id = int(box.cls.cpu().numpy())
+                        if cls_id not in request.expected_product_id:
+                            continue
+
                         class_name = self.yolo_model.names[cls_id]
                         x1, y1, x2, y2 = map(int, box.xyxy.cpu().numpy().flatten())
 
+                        # ROI 중심으로 grid 구분
                         x_center = (x1 + x2) / 2
                         frame_center_x = undistorted.shape[1] / 2
                         offset = x_center - frame_center_x
-
                         threshold = 0.15 * undistorted.shape[1]
-
                         if offset > threshold:
                             grid_key = "grid3"
                         elif offset < -threshold:
                             grid_key = "grid2"
                         else:
                             grid_key = "grid1"
-                        
-                        target_img_path = f"./target_img/packee{request.robot_id}_{class_name}_{grid_key}.jpg"
-                        pose_mean, pose_std = self.load_pose_stats(f"./packee{request.robot_id}_datasets/labels.csv")
 
-                        if request.robot_id == 1:
-                            current_pose = self.predict(self.packee1_cnn, frame, None, pose_mean, pose_std, self.device)
-                            target_pose = self.predict(self.packee1_cnn, None, target_img_path, pose_mean, pose_std, self.device)
-                        elif request.robot_id == 2:
-                            current_pose = self.predict(self.packee2_cnn, frame, None, pose_mean, pose_std, self.device)
-                            target_pose = self.predict(self.packee2_cnn, None, target_img_path, pose_mean, pose_std, self.device)
+                        target_img_path = f"./src/packee_vision/target_img/packee{cam_id}_{class_name}_{grid_key}.jpg"
+                        pose_mean, pose_std = self.load_pose_stats(f"./packee{cam_id}_datasets/labels.csv")
 
+                        current_pose = self.predict(model, frame, None, pose_mean, pose_std, self.device)
+                        target_pose = self.predict(model, None, target_img_path, pose_mean, pose_std, self.device)
                         delta_pose = self.gain * (target_pose - current_pose)
 
                         product = DetectedProduct()
-                        product.product_id = request.expected_product_id
+                        product.product_id = cls_id
                         product.confidence = float(box.conf.item())
                         product.bbox = BBox(x1=x1, y1=y1, x2=x2, y2=y2)
-                        product.pose = Pose6D(x=float(current_pose[0] + delta_pose[0]),
-                                              y=float(current_pose[1] + delta_pose[1]),
-                                              z=float(current_pose[2] + delta_pose[2]),
-                                              rx=float(current_pose[3] + delta_pose[3]),
-                                              ry=float(current_pose[4] + delta_pose[4]),
-                                              rz=float(current_pose[5] + delta_pose[5]))
+                        product.pose = Pose6D(
+                            x=float(current_pose[0] + delta_pose[0]),
+                            y=float(current_pose[1] + delta_pose[1]),
+                            z=float(current_pose[2] + delta_pose[2]),
+                            rx=float(current_pose[3] + delta_pose[3]),
+                            ry=float(current_pose[4] + delta_pose[4]),
+                            rz=float(current_pose[5] + delta_pose[5])
+                        )
+                        product.arm_side = cam_side
 
                         product_list.append(product)
+                        self.get_logger().info(f"[{cam_side}] Detected {class_name}")
 
-            response.success = True
-            response.products = product_list
-            response.total_detected = len(product_list)
-            response.message = "Coordinate calculation successful"
+            except Exception as e:
+                self.get_logger().error(f"[{cam_side}] detection error: {e}")
 
-        except Exception as e:
-            response.success = False
-            response.products = []
-            response.total_detected = 0
-            response.message = "Coordinate calculation Failed"
-
+        response.success = len(product_list) > 0
+        response.products = product_list
+        response.total_detected = len(product_list)
+        response.message = f"Detected {len(product_list)} products from both cameras"
         return response
 
 def main(args=None):
