@@ -4,6 +4,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.actions import GroupAction
 from launch.actions import IncludeLaunchDescription
 from launch.conditions import IfCondition
+from launch.conditions import UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -40,6 +41,14 @@ def generate_launch_description() -> LaunchDescription:
         'gripper_force_limit',
         default_value='35.0',
         description='그리퍼 힘 제한 (N)')
+    preset_pose_cart_view_arg = DeclareLaunchArgument(
+        'preset_pose_cart_view',
+        default_value='[0.16, 0.0, 0.18, 0.0]',
+        description='카트 확인 자세 (x,y,z,yaw_deg)')
+    preset_pose_standby_arg = DeclareLaunchArgument(
+        'preset_pose_standby',
+        default_value='[0.10, 0.0, 0.14, 0.0]',
+        description='대기 자세 (x,y,z,yaw_deg)')
     progress_publish_interval_arg = DeclareLaunchArgument(
         'progress_publish_interval',
         default_value='0.2',
@@ -80,6 +89,10 @@ def generate_launch_description() -> LaunchDescription:
         'run_packee_main',
         default_value='false',
         description='Packee Main 패키지 노드 실행')
+    use_pymycobot_controller_arg = DeclareLaunchArgument(
+        'use_pymycobot_controller',
+        default_value='false',
+        description='pymycobot 기반 Python 컨트롤러 실행')
     left_serial_port_arg = DeclareLaunchArgument(
         'left_serial_port',
         default_value='/dev/ttyUSB0',
@@ -96,6 +109,34 @@ def generate_launch_description() -> LaunchDescription:
         'jetcobot_command_period',
         default_value='0.15',
         description='JetCobot 브릿지 적분 주기 (초)')
+    pymycobot_baud_rate_arg = DeclareLaunchArgument(
+        'pymycobot_baud_rate',
+        default_value='1000000',
+        description='pymycobot 직렬 통신 속도')
+    pymycobot_move_speed_arg = DeclareLaunchArgument(
+        'pymycobot_move_speed',
+        default_value='40',
+        description='pymycobot 좌표 명령 속도 (0~100)')
+    pymycobot_arm_sides_arg = DeclareLaunchArgument(
+        'pymycobot_arm_sides',
+        default_value='left',
+        description='사용할 팔 목록 (쉼표 구분, 예: left,right)')
+    pymycobot_approach_offset_arg = DeclareLaunchArgument(
+        'pymycobot_approach_offset',
+        default_value='0.05',
+        description='픽업/담기 접근 시 상승 높이 (m)')
+    pymycobot_lift_offset_arg = DeclareLaunchArgument(
+        'pymycobot_lift_offset',
+        default_value='0.06',
+        description='픽업 후 상승 높이 (m)')
+    pymycobot_gripper_open_arg = DeclareLaunchArgument(
+        'pymycobot_gripper_open_value',
+        default_value='100',
+        description='그리퍼 개방 값')
+    pymycobot_gripper_close_arg = DeclareLaunchArgument(
+        'pymycobot_gripper_close_value',
+        default_value='20',
+        description='그리퍼 파지 값')
 
     # Packee Arm Controller 노드 정의
     controller_node = Node(
@@ -103,6 +144,7 @@ def generate_launch_description() -> LaunchDescription:
         executable='packee_arm_controller',
         name='packee_arm_controller',
         output='screen',
+        condition=UnlessCondition(LaunchConfiguration('use_pymycobot_controller')),
         parameters=[{
             'servo_gain_xy': LaunchConfiguration('servo_gain_xy'),
             'servo_gain_z': LaunchConfiguration('servo_gain_z'),
@@ -154,6 +196,25 @@ def generate_launch_description() -> LaunchDescription:
         }],
         condition=IfCondition(LaunchConfiguration('run_jetcobot_bridge')))
 
+    pymycobot_node = Node(
+        package='packee_arm',
+        executable='pymycobot',
+        name='pymycobot_arm_node',
+        output='screen',
+        parameters=[{
+            'serial_port': LaunchConfiguration('left_serial_port'),
+            'baud_rate': LaunchConfiguration('pymycobot_baud_rate'),
+            'move_speed': LaunchConfiguration('pymycobot_move_speed'),
+            'arm_sides': LaunchConfiguration('pymycobot_arm_sides'),
+            'approach_offset_m': LaunchConfiguration('pymycobot_approach_offset'),
+            'lift_offset_m': LaunchConfiguration('pymycobot_lift_offset'),
+            'preset_pose_cart_view': LaunchConfiguration('preset_pose_cart_view'),
+            'preset_pose_standby': LaunchConfiguration('preset_pose_standby'),
+            'gripper_open_value': LaunchConfiguration('pymycobot_gripper_open_value'),
+            'gripper_close_value': LaunchConfiguration('pymycobot_gripper_close_value')
+        }],
+        condition=IfCondition(LaunchConfiguration('use_pymycobot_controller')))
+
     return LaunchDescription([
         servo_gain_xy_arg,
         servo_gain_z_arg,
@@ -164,6 +225,8 @@ def generate_launch_description() -> LaunchDescription:
         gripper_force_limit_arg,
         progress_publish_interval_arg,
         command_timeout_sec_arg,
+        preset_pose_cart_view_arg,
+        preset_pose_standby_arg,
         left_arm_velocity_topic_arg,
         right_arm_velocity_topic_arg,
         left_gripper_topic_arg,
@@ -172,12 +235,21 @@ def generate_launch_description() -> LaunchDescription:
         run_mock_main_arg,
         run_jetcobot_bridge_arg,
         run_packee_main_arg,
+        use_pymycobot_controller_arg,
         left_serial_port_arg,
         right_serial_port_arg,
         jetcobot_move_speed_arg,
         jetcobot_command_period_arg,
+        pymycobot_baud_rate_arg,
+        pymycobot_move_speed_arg,
+        pymycobot_arm_sides_arg,
+        pymycobot_approach_offset_arg,
+        pymycobot_lift_offset_arg,
+        pymycobot_gripper_open_arg,
+        pymycobot_gripper_close_arg,
         controller_node,
         mock_main_group,
         packee_main_launch,
-        jetcobot_bridge_node
+        jetcobot_bridge_node,
+        pymycobot_node
     ])
