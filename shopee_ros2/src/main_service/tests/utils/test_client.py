@@ -38,7 +38,7 @@ async def run_full_workflow(host: str, port: int, interactive: bool, speech_sele
         await wait_step(1, 'Testing Login')
         login_response = await client.send_request(
             'user_login',
-            {'user_id': 'admin', 'password': 'admin123'},
+            {'user_id': 'user1', 'password': 'pass123'},
         )
         if not login_response.get('result'):
             print('✗ Login failed, stopping test')
@@ -53,7 +53,7 @@ async def run_full_workflow(host: str, port: int, interactive: bool, speech_sele
         order_response = await client.send_request(
             'order_create',
             {
-                'user_id': 'admin',
+                'user_id': 'user1',
                 'cart_items': [
                     {'product_id': 1, 'quantity': 2},
                     {'product_id': 2, 'quantity': 1},
@@ -71,7 +71,7 @@ async def run_full_workflow(host: str, port: int, interactive: bool, speech_sele
         await wait_step(4, 'Testing Video Stream Start')
         await client.send_request(
             'video_stream_start',
-            {'robot_id': robot_id, 'user_id': 'admin', 'user_type': 'customer'},
+            {'robot_id': robot_id, 'user_id': 'user1', 'user_type': 'customer'},
         )
         await asyncio.sleep(0.5)
 
@@ -134,7 +134,7 @@ async def run_full_workflow(host: str, port: int, interactive: bool, speech_sele
         await wait_step(6, 'Testing Video Stream Stop')
         await client.send_request(
             'video_stream_stop',
-            {'robot_id': robot_id, 'user_id': 'admin', 'user_type': 'customer'},
+            {'robot_id': robot_id, 'user_id': 'user1', 'user_type': 'customer'},
         )
         print('\n✓ Full workflow completed')
     finally:

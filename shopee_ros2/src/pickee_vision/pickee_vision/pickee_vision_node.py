@@ -2,20 +2,33 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import os
-import numpy as np
 from ament_index_python.packages import get_package_share_directory
-import queue
-import threading
 from collections import Counter
 
-# 분리된 클래스들
+# --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
 from .cnn_classifier import CnnClassifier
 from .udp_video import UdpStreamer
 
-# ROS 관련
-from shopee_interfaces.srv import PickeeVisionDetectProducts, PickeeVisionCheckProductInCart, VisionCheckCartPresence, PickeeVisionVideoStreamStart, PickeeVisionVideoStreamStop
-from shopee_interfaces.msg import PickeeVisionDetection, DetectedProduct, DetectionInfo, BBox, Point2D, Pose6D, PickeeVisionCartCheck
+# --- ROS 인터페이스 ---
+# 서비스
+from shopee_interfaces.srv import (
+    PickeeVisionDetectProducts, 
+    PickeeVisionCheckProductInCart, 
+    VisionCheckCartPresence, 
+    PickeeVisionVideoStreamStart, 
+    PickeeVisionVideoStreamStop,
+)
+# 메시지
+from shopee_interfaces.msg import (
+    PickeeVisionDetection, 
+    DetectedProduct, 
+    DetectionInfo, 
+    BBox, 
+    Point2D, 
+    Pose6D, 
+    PickeeVisionCartCheck,
+)
 
 product_dic = {
     1 : "wasabi", 
@@ -46,9 +59,12 @@ class PickeeVisionNode(Node):
         super().__init__('pickee_vision_node')
 
         # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
-        package_share_directory = get_package_share_directory('pickee_vision')
+        package_share_directory = get_package_share_directory('pickee_vision').replace(
+                            'install/pickee_vision/share/pickee_vision', 
+                            'src/pickee_vision/resource'
+                        )
         # 1. 상품 인식용 세그멘테이션 모델
-        product_model_path = os.path.join(package_share_directory, '20251015_1.pt')
+        product_model_path = os.path.join(package_share_directory, '20251027_v11.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
         cart_model_path = os.path.join(package_share_directory, 'cart_best_.pth')
 
@@ -71,23 +87,23 @@ class PickeeVisionNode(Node):
         # UDP 스트리머 서버 설정
         self.streamer = UdpStreamer(host='0.0.0.0', port=6000, robot_id=self.ROBOT_ID)
         self.camera_type = ""
-        self.camera_flag = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
+        self.arm_cam = cv2.VideoCapture(0)
+        if not self.arm_cam.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
             raise IOError("Cannot open camera 0")
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.arm_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
 
         # --- 장애물 인식 용 카트정면 웹캠 (front) ---
-        """
-        
-        구현 필요
-        
-        """
+        self.front_cam = cv2.VideoCapture(2)
+        if not self.front_cam.isOpened():
+            self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
+            raise IOError("Cannot open camera 2")
+        self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         # --- 상품 인식 결과 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -107,35 +123,29 @@ class PickeeVisionNode(Node):
 
     def main_loop(self):
         # 상시 실행되는 메인 루프: 영상처리, 로컬 디스플레이, UDP 큐잉 담당
-        ret, frame = self.cap.read()
-        if not ret:
+        ret_arm, arm_frame = self.arm_cam.read()
+        ret_front, front_frame = self.front_cam.read()
+        
+        if not ret_arm and not ret_front: # 둘 다 실패하면 리턴
+            self.get_logger().warn('Failed to capture frame from both cameras.')
             return
-
-        # 항상 최신 인식 결과를 화면에 그림
-        annotated_frame = self.draw_annotations(frame.copy(), self.last_detections)
-
-        # 로컬 화면에 표시
+        
+        # 로컬 디스플레이
+        annotated_frame = self.draw_annotations(arm_frame.copy(), self.last_detections)
         cv2.imshow("Detection Result", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.get_logger().info('"q" pressed, shutting down node.')
             self.destroy_node()
             if rclpy.ok(): rclpy.get_current_context().shutdown()
 
-        # 로봇팔 프레임 전송: 스트리밍이 켜져 있으면, 원본 프레임을 스트리머의 큐에 넣음
-        if self.streamer.is_running and self.camera_type == "arm":
-            if self.camera_flag == "front":
-                self.streamer.queue_reset()
-                self.camera_flag = "arm"
-            self.streamer.queue_frame(frame)
-        # 카트정면 프레임 전송: 스트리밍이 켜져 있으면, 원본 프레임을 스트리머의 큐에 넣음
-        if self.streamer.is_running and self.camera_type == "front":
-            if self.camera_flag == "arm":
-                self.streamer.queue_reset()
-                self.camera_flag = "front"
-            self.streamer.queue_frame(frame) 
-            """ 
-            frame 대신 카트 전용 프레임 변수 넣기 
-            """
+        # UDP 스트리밍 처리 - 테스트용
+        if self.streamer.is_running:
+            if self.camera_type == "arm" and ret_arm:
+                self.streamer.send_frame(arm_frame)
+            elif self.camera_type == "front" and ret_front:
+                self.streamer.send_frame(front_frame)
+            else:
+                self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
     def draw_annotations(self, frame, detections):
         # 주어진 프레임에 감지된 객체 정보를 그립니다.
@@ -151,15 +161,15 @@ class PickeeVisionNode(Node):
     def detect_products_callback(self, request, response):
         # 서비스 요청 시 1회 인식 및 데이터 발행
         self.get_logger().info(f'Detect products request received for order_id={request.order_id}')
-        ret, frame = self.cap.read()
-        if not ret:
+        ret_arm, frame_arm = self.arm_cam.read()
+        if not ret_arm:
             self.get_logger().error('Failed to capture frame for detection.')
             response.success = False
             response.message = "Failed to capture frame"
             return response
 
         # 인식 수행 및 결과 저장 (yolo_detector.py 클래스)
-        self.last_detections = self.product_detector.detect(frame)
+        self.last_detections = self.product_detector.detect(frame_arm)
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         # 요청된 상품 ID의 필요 수량과 실제 감지된 수량을 비교 변수 설정
@@ -223,8 +233,8 @@ class PickeeVisionNode(Node):
         # self.get_logger().info(f'Published {len(detected_products)} detection data to topic.')
 
     def video_stream_start_callback(self, request, response):
-        self.get_logger().info('Video stream start service called.')
-        self.camera_type = request.camera_type
+        self.get_logger().info(f'Video stream start service called for camera: {request.camera_type}.')
+        self.camera_type = request.camera_type # camera_type 반영
         self.streamer.start()
         response.success = True
         response.message = "UDP streamer started."
@@ -233,6 +243,7 @@ class PickeeVisionNode(Node):
     def video_stream_stop_callback(self, request, response):
         self.get_logger().info('Video stream stop service called.')
         self.streamer.stop()
+        self.camera_type = "" # camera_type 리셋
         response.success = True
         response.message = "UDP streamer stopped."
         return response
@@ -240,9 +251,8 @@ class PickeeVisionNode(Node):
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Check product in cart request received for product_id: {request.product_id}')
         
-        # 1. 프레임 캡처
-        ret, frame = self.cap.read()
-        if not ret:
+        ret_arm, frame_arm = self.arm_cam.read() # 로봇팔 카메라 사용
+        if not ret_arm:
             self.get_logger().error('Failed to capture frame for product in cart check.')
             # 실패 메시지 발행
             result_msg = PickeeVisionCartCheck(
@@ -262,7 +272,7 @@ class PickeeVisionNode(Node):
             return response
 
         # 2. 프레임에서 상품 감지
-        self.last_detections = self.product_detector.detect(frame)
+        self.last_detections = self.product_detector.detect(frame_arm)
         
         # 3. 요청된 상품 개수 세기
         requested_product_id = request.product_id
@@ -296,8 +306,8 @@ class PickeeVisionNode(Node):
     def check_cart_presence_callback(self, request, response):
         # 서비스 요청 시 장바구니 존재 여부를 클래시피케이션 모델로 확인
         self.get_logger().info('Check cart presence request received.')
-        ret, frame = self.cap.read()
-        if not ret:
+        ret_arm, frame_arm = self.arm_cam.read() # 로봇팔 카메라 사용
+        if not ret_arm:
             self.get_logger().error('Failed to capture frame for cart presence check.')
             response.success = False
             response.cart_present = False
@@ -309,7 +319,7 @@ class PickeeVisionNode(Node):
         self.last_detections = []
 
         # CNN 분류 수행
-        class_id, confidence, class_name = self.cart_classifier.classify(frame)
+        class_id, confidence, class_name = self.cart_classifier.classify(frame_arm)
 
         # 'empty_cart'는 장바구니 존재, 'full_cart'는 장바구니 없음(사용 불가)으로 판단
         if class_name == 'empty_cart' and confidence >= 90:
@@ -349,7 +359,8 @@ class PickeeVisionNode(Node):
     def destroy_node(self):
         self.get_logger().info("Shutting down node.")
         self.streamer.stop()
-        if self.cap.isOpened(): self.cap.release()
+        if self.arm_cam.isOpened(): self.arm_cam.release()
+        if self.front_cam.isOpened(): self.front_cam.release()
         cv2.destroyAllWindows()
         super().destroy_node()
 

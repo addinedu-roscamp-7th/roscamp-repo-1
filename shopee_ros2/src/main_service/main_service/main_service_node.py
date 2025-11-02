@@ -301,7 +301,7 @@ class MainServiceApp:
                 "type": "user_login_response",
                 "result": success and user_info is not None,
                 "data": user_info or {},
-                "message": "Login successful" if success and user_info else "Invalid credentials",
+                "message": "Login successful" if success and user_info else "Invalid password",
                 "error_code": "" if success and user_info else "AUTH_001",
             }
 
@@ -364,7 +364,7 @@ class MainServiceApp:
                 "result": True,
                 "error_code": "",
                 "data": result,  # {"products": [...], "total_count": N}
-                "message": "ok",
+                "message": "Search completed",
             }
 
         async def handle_total_product(data, peer=None):
@@ -510,7 +510,7 @@ class MainServiceApp:
                     "product_id": product_id,
                     "bbox_number": bbox_number,
                 },
-                "message": "Product selection processed" if success else "Failed to process selection",
+                "message": "Product selection confirmed" if success else "Failed to process selection",
                 "error_code": "" if success else "ROBOT_002",
             }
 
@@ -587,7 +587,7 @@ class MainServiceApp:
                     "bbox": int(bbox_number),
                     "product_id": int(resolved_product),
                 },
-                "message": "Product selection processed" if success else "Failed to process selection",
+                "message": "Product selection confirmed" if success else "Failed to process selection",
             }
 
         async def handle_shopping_end(data, peer=None):
@@ -650,6 +650,7 @@ class MainServiceApp:
             res = await self._robot.dispatch_video_stream_start(req)
 
             success = res.success
+            detail_message = (res.message or "").strip()
             if not success:
                 # 로봇이 실패한 경우 세션 제거
                 self._streaming_service.stop_relay(robot_id, user_id)
@@ -658,8 +659,8 @@ class MainServiceApp:
                 "type": "video_stream_start_response",
                 "result": success,
                 "error_code": "" if success else "SYS_001",
-                "data": {},
-                "message": res.message if success else "Failed to start stream",
+                "data": {"detail": detail_message} if detail_message else {},
+                "message": "비디오 송출을 시작합니다." if success else "Invalid server",
             }
 
         async def handle_video_stream_stop(data, peer=None):
@@ -679,28 +680,33 @@ class MainServiceApp:
                 req = PickeeMainVideoStreamStop.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
 
                 success = False
-                message = "Failed to stop stream"
+                detail_message = "Failed to stop stream"
                 try:
                     res = await self._robot.dispatch_video_stream_stop(req)
                     success = res.success
                     if res.message:
-                        message = res.message
+                        detail_message = res.message
                     elif success:
-                        message = "Video stream stopped"
+                        detail_message = "Video stream stopped"
                     else:
-                        message = "Failed to stop stream"
+                        detail_message = "Failed to stop stream"
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Video stream stop request failed: %s", exc)
+                    detail_message = str(exc)
             else:
                 success = True
-                message = f"Session stopped (other users still watching robot {robot_id})"
+                detail_message = f"Session stopped (other users still watching robot {robot_id})"
+
+            response_data: Dict[str, object] = {}
+            if detail_message:
+                response_data["detail"] = detail_message
 
             return {
                 "type": "video_stream_stop_response",
                 "result": success,
                 "error_code": "" if success else "SYS_001",
-                "data": {},
-                "message": message,
+                "data": response_data,
+                "message": "비디오 송출을 중지합니다." if success else "Invalid server",
             }
 
         async def handle_inventory_search(data, peer=None):
@@ -717,12 +723,16 @@ class MainServiceApp:
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Inventory search failed: %s", exc)
+                detail_message = str(exc)
+                data_payload: Dict[str, object] = {"products": [], "total_count": 0}
+                if detail_message:
+                    data_payload["detail"] = detail_message
                 return {
                     "type": "inventory_search_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {"products": [], "total_count": 0},
-                    "message": "Failed to search inventory",
+                    "data": data_payload,
+                    "message": "Invalid server",
                 }
 
         async def handle_inventory_create(data, peer=None):
@@ -738,21 +748,23 @@ class MainServiceApp:
                     "message": "재고 정보를 추가하였습니다.",
                 }
             except ValueError as exc:
+                detail_message = str(exc)
                 return {
                     "type": "inventory_create_response",
                     "result": False,
                     "error_code": "PROD_003",
-                    "data": {},
-                    "message": str(exc),
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Inventory create failed: %s", exc)
+                detail_message = str(exc)
                 return {
                     "type": "inventory_create_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to create inventory",
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
 
         async def handle_inventory_update(data, peer=None):
@@ -776,21 +788,23 @@ class MainServiceApp:
                     "message": "재고 정보를 수정하였습니다.",
                 }
             except ValueError as exc:
+                detail_message = str(exc)
                 return {
                     "type": "inventory_update_response",
                     "result": False,
-                    "error_code": "SYS_001",
-                    "data": {},
-                    "message": str(exc),
+                    "error_code": "PROD_003",
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Inventory update failed: %s", exc)
+                detail_message = str(exc)
                 return {
                     "type": "inventory_update_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to update inventory",
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
 
         async def handle_inventory_delete(data, peer=None):
@@ -823,12 +837,13 @@ class MainServiceApp:
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Inventory delete failed: %s", exc)
+                detail_message = str(exc)
                 return {
                     "type": "inventory_delete_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to delete inventory",
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
 
         async def handle_robot_history_search(data, peer=None):
@@ -845,12 +860,16 @@ class MainServiceApp:
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Robot history search failed: %s", exc)
+                detail_message = str(exc)
+                data_payload: Dict[str, object] = {"histories": [], "total_count": 0}
+                if detail_message:
+                    data_payload["detail"] = detail_message
                 return {
                     "type": "robot_history_search_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {"histories": [], "total_count": 0},
-                    "message": "Failed to search robot histories",
+                    "data": data_payload,
+                    "message": "Invalid server",
                 }
 
         async def handle_robot_status_request(data, peer=None):
@@ -892,12 +911,16 @@ class MainServiceApp:
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Robot status request failed: %s", exc)
+                detail_message = str(exc)
+                data_payload: Dict[str, object] = {"robots": [], "total_count": 0}
+                if detail_message:
+                    data_payload["detail"] = detail_message
                 return {
                     "type": "robot_status_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {"robots": [], "total_count": 0},
-                    "message": "Failed to retrieve robot status",
+                    "data": data_payload,
+                    "message": "Invalid server",
                 }
 
         async def handle_robot_maintenance_mode(data, peer=None):
@@ -938,12 +961,13 @@ class MainServiceApp:
                     }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Failed to set maintenance mode: %s", exc)
+                detail_message = str(exc)
                 return {
                     "type": "robot_maintenance_mode_response",
                     "result": False,
                     "error_code": "SYS_001",
-                    "data": {},
-                    "message": "Failed to set maintenance mode",
+                    "data": {"detail": detail_message} if detail_message else {},
+                    "message": "Invalid server",
                 }
 
         async def handle_health_check(data, peer=None):

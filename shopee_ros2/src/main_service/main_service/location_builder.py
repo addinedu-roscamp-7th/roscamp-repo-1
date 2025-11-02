@@ -51,9 +51,10 @@ class ProductLocationBuilder:
                 continue
             
             shelf = product.section.shelf
+            section = product.section
             location = ProductLocation(
                 product_id=product.product_id,
-                location_id=shelf.location_id,
+                location_id=section.location_id,
                 section_id=product.section_id,
                 quantity=item.quantity,
             )
@@ -90,11 +91,12 @@ class ProductLocationBuilder:
                 continue
             
             shelf = product.section.shelf
+            section = product.section
             key = (shelf.shelf_id, product.section_id)
             if key not in plan_map:
                 plan_map[key] = {
                     'shelf_id': shelf.shelf_id,
-                    'location_id': shelf.location_id,
+                    'location_id': section.location_id,
                     'section_id': product.section_id,
                 }
         

@@ -2,8 +2,11 @@ import rclpy
 import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
-from shopee_interfaces.msg import PickeeRobotStatus
+from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose, PersonDetection, PickeeMobilePose
+from shopee_interfaces.srv import ChangeTrackingMode
+
 from PySide6.QtCore import QThread, Signal, QTimer
+
 
 class RosNodeThread(QThread):
     log_received = Signal(str, str, str, bool)
@@ -11,17 +14,37 @@ class RosNodeThread(QThread):
     topics_updated = Signal(list)
     services_updated = Signal(list)
     state_updated = Signal(str)
+    mobile_pose_updated = Signal(str)
 
-    def __init__(self):
+    def __init__(self, main_service_timeout=3.0):
         super().__init__()
         self.node = None
         self.timer = None
+        self.aruco_pose_pub = None
+        self.person_detection_pub = None
         self.state_log_pattern = re.compile(r'^[A-Z_]+ 상태 (진입|탈출)$')
+        self.tracking_mode = 'idle'
+        self.main_service_timeout = main_service_timeout
+        
 
     def run(self):
         rclpy.init()
         self.node = Node("pickee_dashboard_node")
         
+        # ArucoPose publisher 생성
+        self.aruco_pose_pub = self.node.create_publisher(
+            ArucoPose,
+            '/pickee/mobile/aruco_pose',
+            10
+        )
+
+        # PersonDetection publisher 생성
+        self.person_detection_pub = self.node.create_publisher(
+            PersonDetection,
+            '/pickee/mobile/person_detection',
+            10
+        )
+
         # /rosout 토픽을 구독하여 모든 로그 메시지 수신
         self.node.create_subscription(
             Log,
@@ -38,6 +61,18 @@ class RosNodeThread(QThread):
             10
         )
 
+        self.node.create_subscription(
+            PickeeMobilePose,
+            '/pickee/mobile/pose',
+            self.mobile_pose_callback,
+            10
+        )
+
+        self.change_tracking_mode_client = self.node.create_client(
+            ChangeTrackingMode,
+            '/pickee/mobile/change_tracking_mode'
+        )
+
         # 1초마다 시스템 정보를 폴링하는 타이머 설정
         self.timer = self.node.create_timer(1.0, self.poll_system_info)
 
@@ -46,6 +81,32 @@ class RosNodeThread(QThread):
         # 스레드 종료 시 노드 정리
         self.node.destroy_node()
         rclpy.shutdown()
+
+    def publish_aruco_pose(self, marker_id, tvec, rvec):
+        """아르코 마커 포즈 발행"""
+        if self.aruco_pose_pub is None:
+            return
+
+        msg = ArucoPose()
+        msg.aruco_id = marker_id
+        msg.x = float(tvec[0])
+        msg.y = float(tvec[1])
+        msg.z = float(tvec[2])
+        msg.roll = float(rvec[0])
+        msg.pitch = float(rvec[1])
+        msg.yaw = float(rvec[2])
+
+        self.aruco_pose_pub.publish(msg)
+
+    def publish_person_detection(self, x1, y1, x2, y2, confidence, direction):
+        if self.person_detection_pub is None:
+            return
+        
+        msg = PersonDetection()
+        msg.robot_id = 1  
+        msg.direction = direction
+
+        self.person_detection_pub.publish(msg)
 
     def log_callback(self, msg: Log):
         # 로그 레벨을 문자로 변환 (예: 10 -> DEBUG, 20 -> INFO)
@@ -58,7 +119,36 @@ class RosNodeThread(QThread):
 
     def status_callback(self, msg: PickeeRobotStatus):
         self.state_updated.emit(msg.state)
+    
+    def mobile_pose_callback(self, msg: PickeeMobilePose):
+        self.mobile_pose_updated.emit(msg.status)
+        self.tracking_mode = msg.status
 
+    async def on_change_tracking_mode(self):
+        request = ChangeTrackingMode.Request()
+        request.robot_id = 1
+        if self.tracking_mode == 'idle':
+            request.mode = 'tracking'
+        else:
+            request.mode = 'idle'
+
+        if not self.change_tracking_mode_client.wait_for_service(timeout_sec=self.main_service_timeout):
+            print('Change tracking mode service not available')
+            return None
+        
+        try:
+            future = self.change_tracking_mode_client.call_async(request)
+            response = await future
+            if response.success:
+                print(f"Change tracking mode response: {response.message}")
+                self.mobile_pose_updated.emit(request.mode)
+                return response.message
+                
+            return None
+        except Exception as e:
+            print(f'Change tracking mode service call failed: {str(e)}')
+            return None
+        
     def poll_system_info(self):
         if not self.node: return
 

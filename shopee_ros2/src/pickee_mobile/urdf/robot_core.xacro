@@ -270,6 +270,7 @@
         <parent link="${prefix}lidar_mount"/>
         <child link="${prefix}laser_link"/>
         <origin xyz="0.0 0 0.03" rpy="0 0 ${pi}"/>
+        <!-- <origin xyz="0.0 0 0.03" rpy="0 0 ${pi}"/> -->
     </joint>
 
 </robot>

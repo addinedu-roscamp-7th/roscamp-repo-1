@@ -241,16 +241,16 @@ int32 quantity
 ---
 
 ### 🚶 섹션 이동 명령
-- **Service**: `/pickee/workflow/move_to_section`  
-- **Type**: `shopee_interfaces/srv/PickeeWorkflowMoveToSection.srv`  
-- **From → To**: Main → Pic Main  
+- **Service**: `/pickee/workflow/move_to_section`
+- **Type**: `shopee_interfaces/srv/PickeeWorkflowMoveToSection.srv`
+- **From → To**: Main → Pic Main
 
 #### Request:
 ```plaintext
 int32 robot_id
 int32 order_id
-int32 location_id
-int32 section_id
+int32 location_id  # Section의 location_id (Section.location_id)
+int32 section_id   # Section의 고유 ID (Section.section_id)
 ```
 
 #### Response:
@@ -258,6 +258,12 @@ int32 section_id
 bool success
 string message
 ```
+
+#### 설명:
+- `location_id`: 해당 Section의 물리적 위치 좌표를 조회하기 위한 Location ID
+  - **중요**: Shelf의 location_id가 아닌 Section의 location_id를 전달
+  - Pickee Main은 이 location_id로 `/main/get_location_pose` 서비스를 호출하여 Section의 정확한 좌표 획득
+- `section_id`: 도착 확인 및 상품 인식을 위한 Section 식별자
 
 ---
 

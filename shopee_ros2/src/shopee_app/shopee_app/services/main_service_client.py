@@ -194,6 +194,44 @@ class MainServiceClient:
         print('[MainServiceClient] product_selection 요청:', json.dumps(payload, ensure_ascii=False))
         return self.send(payload)
 
+    def start_video_stream(
+        self,
+        *,
+        user_id: str,
+        user_type: str,
+        robot_id: int,
+        camera_type: str,
+    ) -> dict:
+        payload = {
+            "type": "video_stream_start",
+            "data": {
+                "user_type": user_type,
+                "user_id": user_id,
+                "robot_id": int(robot_id),
+                "camera_type": camera_type,
+            },
+        }
+        print('[MainServiceClient] video_stream_start 요청:', json.dumps(payload, ensure_ascii=False))
+        return self.send(payload, timeout=self.config.long_timeout)
+
+    def stop_video_stream(
+        self,
+        *,
+        user_id: str,
+        user_type: str,
+        robot_id: int,
+    ) -> dict:
+        payload = {
+            "type": "video_stream_stop",
+            "data": {
+                "user_type": user_type,
+                "user_id": user_id,
+                "robot_id": int(robot_id),
+            },
+        }
+        print('[MainServiceClient] video_stream_stop 요청:', json.dumps(payload, ensure_ascii=False))
+        return self.send(payload, timeout=self.config.timeout)
+
     def send(
         self,
         payload: dict,

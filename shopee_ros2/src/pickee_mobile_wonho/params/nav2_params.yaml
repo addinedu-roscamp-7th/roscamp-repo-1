@@ -30,7 +30,7 @@ amcl:
     save_pose_rate: 0.5
     sigma_hit: 0.2
     tf_broadcast: true
-    transform_tolerance: 1.0
+    transform_tolerance: 2.0
     update_min_a: 0.2
     update_min_d: 0.25
     z_hit: 0.5
@@ -41,6 +41,11 @@ amcl:
     set_initial_pose: true
     initial_pose: [0, 0, 0]
 
+    # initial_pose: # 맵과 동일하게 회전
+    #   x: 1.5
+    #   y: -1.3  
+    #   z: 0.0  
+    #   yaw: 1.57
 
 bt_navigator:
   ros__parameters:
@@ -90,8 +95,8 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.10
+      yaw_goal_tolerance: 0.10
 
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
@@ -99,17 +104,17 @@ controller_server:
       model_dt: 0.05
       batch_size: 2000
       vx_std: 0.2
-      vy_std: 0.0
+      vy_std: 0.2
       wz_std: 0.4
       vx_max: 0.5
       vx_min: -0.35
-      vy_max: 0.0
-      wz_max: 1.5
-      ax_max: 2.5
-      ax_min: -2.5
-      ay_min: 0.0
-      ay_max: 0.0
-      az_max: 3.0
+      vy_max: 0.5
+      wz_max: 1.9
+      ax_max: 3.0
+      ax_min: -3.0
+      ay_min: -3.0
+      ay_max: 3.0
+      az_max: 3.5
       iteration_count: 1
       prune_distance: 1.7
       transform_tolerance: 0.1
@@ -136,8 +141,8 @@ controller_server:
       GoalCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 6.0
-        threshold_to_consider: 1.2
+        cost_weight: 5.0
+        threshold_to_consider: 1.4
       GoalAngleCritic:
         enabled: true
         cost_power: 1
@@ -171,11 +176,11 @@ controller_server:
       PathAlignCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 10.0
+        cost_weight: 14.0
         max_path_occupancy_ratio: 0.05
         trajectory_point_step: 4
         threshold_to_consider: 0.5
-        offset_from_furthest: 15
+        offset_from_furthest: 20
         use_path_orientations: false
       PathFollowCritic:
         enabled: true
@@ -206,29 +211,31 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 10.0  # 더 빠른 업데이트
+      publish_frequency: 5.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
+      # robot_base_frame: base_link
       use_sim_time: False
       rolling_window: true
       width: 5
       height: 5
       resolution: 0.05
-      footprint: "[[0.3, 0.2], [0.3, -0.2], [-0.3, -0.2], [-0.3, 0.2]]"
+      track_unknown_space: true  # 미지 영역 추적 활성화
+      footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"
       # footprint: '[[0.15, 0.2695], [0.15, -0.2695], [-0.55, -0.2695], [-0.55, 0.2695]]'
       # 반지름 설정 (Global과 동일하게)
-      robot_radius: 0.37
-      inscribed_radius: 0.30
-      circumscribed_radius: 0.37
-      inflation_radius: 0.55
+      robot_radius: 0.5
+      inscribed_radius: 0.15
+      circumscribed_radius: 0.5
+      inflation_radius: 0.6
       cost_scaling_factor: 3.0
 
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.6
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -239,6 +246,7 @@ local_costmap:
         max_obstacle_height: 2.0
         mark_threshold: 0
         observation_sources: scan
+        combination_method: 1  # 1=Max, 0=Override - 최신 데이터로 덮어쓰기
         scan:
           topic: /scan_filtered
           max_obstacle_height: 2.0
@@ -249,6 +257,8 @@ local_costmap:
           raytrace_min_range: 0.6
           obstacle_max_range: 4.5
           obstacle_min_range: 0.6
+          min_obstacle_height: 0.0  # 바닥부터 감지
+          inf_is_valid: false  # inf 값은 무시
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -258,22 +268,22 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 1.0
-      publish_frequency: 1.0
+      update_frequency: 2.0
+      publish_frequency: 2.0
       global_frame: map
       robot_base_frame: base_footprint
       use_sim_time: False
-      robot_radius: 0.25
+      robot_radius: 0.42
       resolution: 0.05
       track_unknown_space: true
       # 로봇 크기 설정 (URDF base_link: 0.6 x 0.4)
-      footprint: "[[0.3, 0.2], [0.3, -0.2], [-0.3, -0.2], [-0.3, 0.2]]"
-      
+      footprint: "[[0.15, 0.2], [0.15, -0.2], [-0.45, -0.2], [-0.45, 0.2]]"   
+
       # 반지름 설정 수정 
-      robot_radius: 0.37                    # 로봇 반지름
-      inscribed_radius: 0.30               # 내접원 반지름
-      circumscribed_radius: 0.37           # 외접원 반지름
-      inflation_radius: 0.55               # 팽창 반지름 (circumscribed_radius보다 커야 함)
+      robot_radius: 0.5                    # 로봇 반지름
+      inscribed_radius: 0.15               # 내접원 반지름
+      circumscribed_radius: 0.5           # 외접원 반지름
+      inflation_radius: 0.6               # 팽창 반지름 (circumscribed_radius보다 커야 함)
       cost_scaling_factor: 3.0             # 비용 스케일링
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       obstacle_layer:
@@ -297,7 +307,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.6
       always_send_full_costmap: True
 
 map_server:
@@ -319,12 +329,47 @@ planner_server:
   ros__parameters:
     expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
-    costmap_update_timeout: 1.0
+    costmap_update_timeout: 3.0
     GridBased:
-      plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
-      use_astar: false
-      allow_unknown: true
+      plugin: "nav2_smac_planner::SmacPlannerHybrid" # In Iron and older versions, "/" was used instead of "::"
+      downsample_costmap: false           # whether or not to downsample the map
+      downsampling_factor: 1              # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
+      tolerance: 0.10                     # dist-to-goal heuristic cost (distance) for valid tolerance endpoints if exact goal cannot be found.
+      allow_unknown: true                 # allow traveling in unknown space
+      max_iterations: 1000000             # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
+      max_on_approach_iterations: 1000    # Maximum number of iterations after within tolerances to continue to try to find exact solution
+      max_planning_time: 3.0              # max time in s for planner to plan, smooth
+      motion_model_for_search: "REEDS_SHEPP"    # Hybrid-A* Dubin, Redds-Shepp
+      angle_quantization_bins: 72         # Number of angle bins for search
+      analytic_expansion_ratio: 3.5       # The ratio to attempt analytic expansions during search for final approach.
+      analytic_expansion_max_length: 3.0  # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
+      analytic_expansion_max_cost: 120.0  # 200.0 → 150.0으로 감소 (더 안전한 확장)
+      analytic_expansion_max_cost_override: false  #  Whether or not to override the maximum cost setting if within critical distance to goal (ie probably required)
+      minimum_turning_radius: 0.25        # 0.35 → 0.30으로 감소 (더 급한 회전 허용)
+      reverse_penalty: 2.0                # Penalty to apply if motion is reversing, must be => 1
+      change_penalty: 0.1                 # 0.0 → 0.1로 증가 (방향 변경 시 페널티)
+      non_straight_penalty: 1.1           # 1.2 → 1.1로 감소 (직진 선호도 완화)
+      cost_penalty: 2.5                   # 2.0 → 2.5로 증가 (고비용 영역 회피 강화)
+      retrospective_penalty: 0.015
+      lookup_table_size: 20.0             # Size of the dubin/reeds-sheep distance window to cache, in meters.
+      cache_obstacle_heuristic: True     # Cache the obstacle map dynamic programming distance expansion heuristic between subsequent replannings of the same goal location. Dramatically speeds up replanning performance (40x) if costmap is largely static.
+      debug_visualizations: false         # For Hybrid nodes: Whether to publish expansions on the /expansions topic as an array of poses (the orientation has no meaning) and the path's footprints on the /planned_footprints topic. WARNING: heavy to compute and to display, for debug only as it degrades the performance.
+      use_quadratic_cost_penalty: False
+      downsample_obstacle_heuristic: True
+      allow_primitive_interpolation: False
+      use_final_approach_orientation: true # 최종 접근 시 방향 정렬
+      allow_reverse_expansion: True          # 필요시 후진 확장 허용
+      coarse_search_resolution: 4         # Number of bins to skip when doing a coarse search for the path. Only used for all_direction goal heading mode.
+      goal_heading_mode: "ALL_DIRECTION"        # DEFAULT, BIDIRECTIONAL, ALL_DIRECTION
+      smooth_path: True                   # If true, does a simple and quick smoothing post-processing to the path
+
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
+        do_refinement: true
+        refinement_num: 2
 
 smoother_server:
   ros__parameters:
@@ -338,6 +383,7 @@ smoother_server:
 
 behavior_server:
   ros__parameters:
+    robot_base_frame: base_footprint      # base_link → base_footprint로 변경
     local_costmap_topic: local_costmap/costmap_raw
     global_costmap_topic: global_costmap/costmap_raw
     local_footprint_topic: local_costmap/published_footprint
@@ -356,13 +402,12 @@ behavior_server:
       plugin: "nav2_behaviors::AssistedTeleop"
     local_frame: odom
     global_frame: map
-    robot_base_frame: base_link
 
-    transform_tolerance: 0.1
+    transform_tolerance: 0.2
     simulate_ahead_time: 2.0
-    max_rotational_vel: 1.0
-    min_rotational_vel: 0.4
-    rotational_acc_lim: 3.2
+    max_rotational_vel: 0.6               # 1.0 → 0.6로 감소
+    min_rotational_vel: 0.3
+    rotational_acc_lim: 2.0               # 3.2 → 2.0로 감소
 
 robot_state_publisher:
   ros__parameters:
@@ -385,11 +430,10 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "CLOSED_LOOP"
-    max_velocity: [0.25, 0.0, 1.0]
-    min_velocity: [-0.25, 0.0, -1.0]
-    max_accel: [1.8, 0.0, 2.0]
+    max_velocity: [0.15, 0.0, 0.8]       # [0.2, 0.0, 1.2] → 속도 제한 (안정성 우선)
+    min_velocity: [-0.1, 0.0, -1.2]     # [-0.25, 0.0, -1.0] → 각속도 한계 완화
+    max_accel: [1.5, 0.0, 2.0]           # [2.0, 0.0, 2.5] → 가속도 제한 (급격한 변화 억제)
     max_decel: [-1.8, 0.0, -2.0]
     odom_topic: "odom"
-    odom_duration: 0.1
-    deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
+    odom_duration: 0.1                   
+    deadband_velocity: [0.02, 0.0, 0.05] # [0.0, 0.0, 0.0] → 미세 진동 억제

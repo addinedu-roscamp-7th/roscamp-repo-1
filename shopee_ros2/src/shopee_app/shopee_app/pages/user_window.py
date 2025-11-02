@@ -1,20 +1,31 @@
+import math
 import os
 import sys
 from pathlib import Path
 from dataclasses import replace
+from threading import Event
 from typing import Any
 from typing import Callable
+from typing import TYPE_CHECKING
 
+from shopee_app.utils.logging import ComponentLogger
+
+import yaml
 from PyQt6 import QtCore
 from PyQt6.QtGui import QIcon
 from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QTransform
 from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QImage
+from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush
+from PyQt6.QtGui import QColor
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QAbstractItemView
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QCheckBox
 from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QListWidgetItem
 from PyQt6.QtWidgets import QPushButton
@@ -24,23 +35,85 @@ from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtWidgets import QVBoxLayout
 from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtWidgets import QGraphicsEllipseItem
+from PyQt6.QtWidgets import QGraphicsLineItem
+from PyQt6.QtWidgets import QGraphicsPixmapItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
+from shopee_app.services.video_stream_client import VideoStreamReceiver
 from shopee_app.pages.models.cart_item_data import CartItemData
 from shopee_app.pages.models.product_data import ProductData
+from shopee_app.pages.models.allergy_info_data import AllergyInfoData
 from shopee_app.pages.widgets.cart_item import CartItemWidget
 from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
 
+if TYPE_CHECKING:
+    from shopee_app.ros_node import RosNodeThread
+    from shopee_interfaces.msg import PickeeRobotStatus
+
 _LLM_SERVICE_DIR = Path(__file__).resolve().parents[5] / "shopee_llm" / "LLM_Service"
 if _LLM_SERVICE_DIR.is_dir() and str(_LLM_SERVICE_DIR) not in sys.path:
     sys.path.append(str(_LLM_SERVICE_DIR))
 
 from STT_module import STT_Module
+
+
+DEFAULT_MAP_CONFIG = (
+    Path(__file__).resolve().parents[5]
+    / "shopee_ros2"
+    / "src"
+    / "pickee_mobile"
+    / "map"
+    / "shopee_map.yaml"
+)
+DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
+VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
+DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+
+
+def _get_env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _get_env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        parts = [float(part.strip()) for part in value.split(",")]
+        return tuple(parts)
+    except ValueError:
+        return default
+
+
+MAP_CONFIG_PATH = Path(os.getenv("SHOPEE_APP_MAP_CONFIG", str(DEFAULT_MAP_CONFIG)))
+MAP_IMAGE_PATH = os.getenv("SHOPEE_APP_MAP_IMAGE")
+MAP_RESOLUTION_OVERRIDE = _get_env_float("SHOPEE_APP_MAP_RESOLUTION", -1.0)
+MAP_ORIGIN_OVERRIDE = _get_env_tuple("SHOPEE_APP_MAP_ORIGIN", ())
+VIDEO_STREAM_DEBUG = os.getenv("SHOPEE_APP_DEBUG_VIDEO_STREAM", "0") == "1"
 
 
 class ClickableLabel(QLabel):
@@ -153,7 +226,48 @@ class SttWorker(QtCore.QObject):
 
 
 class UserWindow(QWidget):
-
+    IMAGE_ROOT = Path(__file__).resolve().parent / "image"
+    ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
+    ROBOT_POSITION_OFFSET_X = 14.7
+    ROBOT_POSITION_OFFSET_Y = 12.0
+    PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
+        1: IMAGE_ROOT / "product_horseradish.png",
+        2: IMAGE_ROOT / "product_spicy_chicken.png",
+        4: IMAGE_ROOT / "product_richam.png",
+        5: IMAGE_ROOT / "product_soymilk.png",
+        6: IMAGE_ROOT / "product_caprisun.png",
+        7: IMAGE_ROOT / "product_apple.png",
+        8: IMAGE_ROOT / "product_green_apple.png",
+        9: IMAGE_ROOT / "product_ivy.png",
+        10: IMAGE_ROOT / "product_pork.png",
+        11: IMAGE_ROOT / "product_chicken.png",
+        12: IMAGE_ROOT / "product_mackerel.png",
+        13: IMAGE_ROOT / "product_abalone.png",
+        14: IMAGE_ROOT / "product_eclips.png",
+        16: IMAGE_ROOT / "product_pepero.png",
+        17: IMAGE_ROOT / "product_oyes.png",
+        18: IMAGE_ROOT / "product_orange.png",
+        19: IMAGE_ROOT / "product_jangjorim.png",
+    }
+    PRODUCT_IMAGE_BY_NAME: dict[str, Path] = {
+        "고추냉이": IMAGE_ROOT / "product_horseradish.png",
+        "버터캔": IMAGE_ROOT / "product_jangjorim.png",
+        "리챔": IMAGE_ROOT / "product_richam.png",
+        "두유": IMAGE_ROOT / "product_soymilk.png",
+        "카프리썬": IMAGE_ROOT / "product_caprisun.png",
+        "홍사과": IMAGE_ROOT / "product_apple.png",
+        "청사과": IMAGE_ROOT / "product_green_apple.png",
+        "삼겹살": IMAGE_ROOT / "product_pork.png",
+        "닭": IMAGE_ROOT / "product_chicken.png",
+        "생선": IMAGE_ROOT / "product_mackerel.png",
+        "전복": IMAGE_ROOT / "product_abalone.png",
+        "이클립스": IMAGE_ROOT / "product_eclips.png",
+        "빼빼로": IMAGE_ROOT / "product_pepero.png",
+        "오예스": IMAGE_ROOT / "product_oyes.png",
+        "아이비": IMAGE_ROOT / "product_ivy.png",
+        "오렌지": IMAGE_ROOT / "product_orange.png",
+        "불닭캔": IMAGE_ROOT / "product_spicy_chicken.png",
+    }
     closed = pyqtSignal()
 
     def __init__(
@@ -161,19 +275,30 @@ class UserWindow(QWidget):
         *,
         user_info: dict[str, Any] | None = None,
         service_client: MainServiceClient | None = None,
+        ros_thread: "RosNodeThread | None" = None,
         parent=None,
     ):
         super().__init__(parent)
+
+        # 컴포넌트 로거 초기화
+        self.logger = ComponentLogger("user_window")
+
+        # UI 초기화
         self.ui = Ui_UserLayout()
         self.ui.setupUi(self)
+
+        # 정리 플래그
+        self._cleanup_requested = Event()
 
         self.setWindowTitle("Shopee GUI - User")
         self.products_container = getattr(self.ui, "grid_products", None)
         self.product_grid = getattr(self.ui, "gridLayout_2", None)
         self.products: list[ProductData] = []
+        self.all_products: list[ProductData] = []
         self.product_index: dict[int, ProductData] = {}
         self.default_empty_products_message = "표시할 상품이 없습니다."
         self.empty_products_message = self.default_empty_products_message
+        self.filtered_empty_message = "선택한 필터 조건에 맞는 상품이 없습니다."
 
         self.cart_items: dict[int, CartItemData] = {}
         self.cart_widgets: dict[int, CartItemWidget] = {}
@@ -225,21 +350,81 @@ class UserWindow(QWidget):
         )
         self.selection_options: list[dict[str, Any]] = []
         self.selection_selected_index: int | None = None
+        self.ros_thread = ros_thread
+        self.pose_tracking_active = False
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
         self.page_select_product = getattr(self.ui, "page_select_product", None)
         self.page_moving_view = getattr(self.ui, "page_moving", None)
+        self.page_end_pick_up = getattr(self.ui, "page_end_pick_up", None)
+        self.pick_flow_completed = False
+        self.progress_bar = getattr(self.ui, "shop_progressBar", None)
+        self.progress_text = getattr(self.ui, "text_progress", None)
+        self.front_view_button: QPushButton | None = None
+        self.arm_view_button: QPushButton | None = None
+        self.video_stack = getattr(self.ui, "stackedWidget_3", None)
+        self.page_front = getattr(self.ui, "page_front", None)
+        self.page_arm = getattr(self.ui, "page_arm", None)
+        self.gv_front = getattr(self.ui, "gv_front", None)
+        self.gv_arm = getattr(self.ui, "gv_arm", None)
+        self.map_view = getattr(self.ui, "gv_map", None)
+        self.front_scene: QGraphicsScene | None = None
+        self.arm_scene: QGraphicsScene | None = None
+        self.front_item = None
+        self.arm_item = None
+        self.map_scene: QGraphicsScene | None = None
+        self.map_pixmap_item: QGraphicsPixmapItem | None = None
+        self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
+        self.map_heading_item: QGraphicsLineItem | None = None
+        self.map_resolution: float | None = None
+        self.map_origin: tuple[float, float] | None = None
+        self.map_image_size: tuple[int, int] | None = None
+        self.video_receiver: VideoStreamReceiver | None = None
+        self.active_camera_type: str | None = None
+        self.allergy_toggle_button: QPushButton | None = None
+        self.allergy_sub_widget: QWidget | None = None
+        self.allergy_filters_expanded = True
+        self._allergy_max_height = 16777215
+        self.allergy_icon_fold: QIcon | None = None
+        self.allergy_icon_fold_rotated: QIcon | None = None
+        self.allergy_total_checkbox: QCheckBox | None = None
+        self.allergy_checkbox_map: dict[str, QCheckBox] = {}
+        self.vegan_checkbox: QCheckBox | None = None
+        self._init_video_views()
+        self._init_map_view()
         self.select_title_label = getattr(self.ui, "label_7", None)
-        self.select_done_button = getattr(self.ui, "toolButton", None)
+        self.select_done_button = getattr(self.ui, "btn_add_product", None)
+        if self.select_done_button is None:
+            self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
             self.select_done_button.clicked.connect(self.on_select_done_clicked)
-        self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
+        self.select_cancel_button = getattr(self.ui, "btn_select_cancel", None)
+        if self.select_cancel_button is None:
+            self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
         if self.select_cancel_button is not None:
             self.select_cancel_button.setText("선택 취소")
             self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
-        self._setup_refresh_logo()
-        self.setup_cart_section()
-        self.setup_navigation()
-        self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
+        self.front_view_button = getattr(self.ui, "btn_view_front", None)
+        self.arm_view_button = getattr(self.ui, "btn_view_arm", None)
+        self.camera_button_group = QButtonGroup(self)
+        self.camera_button_group.setExclusive(True)
+        if self.front_view_button is not None:
+            self.front_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.front_view_button)
+            self.front_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("front")
+            )
+        if self.arm_view_button is not None:
+            self.arm_view_button.setCheckable(True)
+            self.camera_button_group.addButton(self.arm_view_button)
+            self.arm_view_button.clicked.connect(
+                lambda: self.on_camera_button_clicked("arm")
+            )
+        self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
+        if self.shop_end_button is not None:
+            self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
+        self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
+        if self.shop_continue_button is not None:
+            self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
         if self.search_input is None:
@@ -265,6 +450,23 @@ class UserWindow(QWidget):
         if self.mic_info_label is not None:
             self.mic_info_label.setText("")
             self.mic_info_label.setVisible(False)
+
+        self._setup_refresh_logo()
+        self.setup_cart_section()
+        self.setup_navigation()
+        self._setup_allergy_toggle()
+        self._setup_allergy_checkboxes()
+        self._apply_main_banner_image()
+        self._style_main_banner_title()
+        self._style_do_create_label()
+        if self.ros_thread is not None:
+            self.ros_thread.pickee_status_received.connect(
+                self._on_pickee_status_received
+            )
+        from shopee_app.styles.constants import STYLES
+
+        self.ui.btn_pay.setStyleSheet(STYLES["pay_button"])
+        self.ui.btn_pay.clicked.connect(self.on_pay_clicked)
         self._stt_feedback_timer = QtCore.QTimer(self)
         self._stt_feedback_timer.setInterval(1000)
         self._stt_feedback_timer.timeout.connect(self._on_stt_feedback_tick)
@@ -297,6 +499,7 @@ class UserWindow(QWidget):
 
         self.profile_dialog = ProfileDialog(self)
         self.profile_dialog.set_user_info(self.user_info)
+        self.profile_dialog.logout_requested.connect(self.on_logout_requested)
         profile_button = getattr(self.ui, "btn_profile", None)
         if profile_button is not None:
             icon_path = Path(__file__).resolve().parent / "icons" / "user.svg"
@@ -412,12 +615,23 @@ class UserWindow(QWidget):
         if self.notification_client is not None:
             self.notification_client.stop()
         self._shutdown_speech_recognition()
+        self._stop_video_stream(send_request=True)
+        if self.ros_thread is not None:
+            try:
+                self.ros_thread.pickee_status_received.disconnect(
+                    self._on_pickee_status_received
+                )
+            except TypeError:
+                pass
+        self.pose_tracking_active = False
         self.closed.emit()
         super().closeEvent(event)
 
     def on_pay_clicked(self):
         if self.request_create_order():
             self.set_mode("pick")
+            # 결제 후 매장 화면으로 전환되면 로봇 위치 추적을 시작한다.
+            self._enable_pose_tracking()
 
     def on_search_submitted(self) -> None:
         # 검색 위젯이 준비되지 않았다면 검색어를 읽어올 수 없어 조용히 종료한다.
@@ -718,13 +932,52 @@ class UserWindow(QWidget):
         # bool()로 강제하지 않으면 0과 1 같은 값이 그대로 전달되어 혼란을 줄 수 있다.
         return normalized_allergy, bool(vegan_value)
 
+    def _resolve_product_image(self, product_id: int, name: str) -> Path:
+        # 이름 기반 매핑이 있으면 우선적으로 사용한다. 상품 ID가 재사용되더라도 이름은 정확하다는 가정이다.
+        normalized_name = (name or "").strip()
+        if normalized_name:
+            name_path = self.PRODUCT_IMAGE_BY_NAME.get(normalized_name)
+            if name_path and name_path.exists():
+                return name_path
+        # 이름으로 찾지 못했다면 상품 ID 기반 매핑을 시도한다.
+        mapped_path = self.PRODUCT_IMAGE_BY_ID.get(product_id)
+        if mapped_path and mapped_path.exists():
+            return mapped_path
+        # 매핑 결과가 없거나 파일이 없으면 기본 이미지를 사용한다.
+        return ProductCard.FALLBACK_IMAGE
+
+    def _parse_allergy_info(
+        self,
+        entry: dict[str, object],
+        *,
+        allergy_info_id: int,
+    ) -> AllergyInfoData | None:
+        # 알러지 정보가 딕셔너리 형태가 아니라면 안전하게 None으로 처리한다.
+        raw_info = entry.get("allergy_info")
+        if not isinstance(raw_info, dict):
+            return None
+
+        # bool()로 강제하지 않으면 0, 1과 같은 값이 그대로 남는다.
+        def _flag(name: str) -> bool:
+            return bool(raw_info.get(name))
+
+        return AllergyInfoData(
+            allergy_info_id=allergy_info_id,
+            nuts=_flag("nuts"),
+            milk=_flag("milk"),
+            seafood=_flag("seafood"),
+            soy=_flag("soy"),
+            peach=_flag("peach"),
+            gluten=_flag("gluten"),
+            eggs=_flag("eggs"),
+        )
+
     def _convert_search_results(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
-        # 이미지 경로를 미리 정해두지 않으면 각 상품마다 반복 계산해야 한다.
-        fallback_image = ProductCard.FALLBACK_IMAGE
+        # 이미지 경로 계산은 전용 헬퍼로 위임해 중복을 줄인다.
 
         # 안전한 정수 변환 함수를 정의하지 않으면 잘못된 값이 들어왔을 때 예외로 루프가 중단된다.
         def to_int(value: object, default: int = 0) -> int:
@@ -795,7 +1048,11 @@ class UserWindow(QWidget):
                     height=height,
                     weight=weight,
                     fragile=fragile,
-                    image_path=fallback_image,
+                    image_path=self._resolve_product_image(product_id, name),
+                    allergy_info=self._parse_allergy_info(
+                        entry,
+                        allergy_info_id=allergy_info_id,
+                    ),
                 )
             except TypeError:
                 # 필수 필드가 누락된 경우 해당 상품만 건너뛰어 전체 처리를 계속한다.
@@ -810,7 +1067,6 @@ class UserWindow(QWidget):
     ) -> list[ProductData]:
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
-        fallback_image = ProductCard.FALLBACK_IMAGE
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -839,7 +1095,11 @@ class UserWindow(QWidget):
                 height=int(entry.get("height") or 0),
                 weight=int(entry.get("weight") or 0),
                 fragile=bool(entry.get("fragile")),
-                image_path=fallback_image,
+                image_path=self._resolve_product_image(product_id, name),
+                allergy_info=self._parse_allergy_info(
+                    entry,
+                    allergy_info_id=0,
+                ),
             )
             products.append(product)
         return products
@@ -905,13 +1165,74 @@ class UserWindow(QWidget):
         self.page_pick = getattr(self.ui, "page_content_pick", None)
         self.side_shop_page = getattr(self.ui, "side_pick_page", None)
         self.side_pick_filter_page = getattr(self.ui, "side_allergy_filter_page", None)
-        self.shopping_button = getattr(self.ui, "toolButton_3", None)
-        self.store_button = getattr(self.ui, "toolButton_2", None)
+        self.shopping_button = getattr(self.ui, "btn_nav_shop", None)
+        if self.shopping_button is None:
+            self.shopping_button = getattr(self.ui, "toolButton_3", None)
+        self.store_button = getattr(self.ui, "btn_nav_store", None)
+        if self.store_button is None:
+            self.store_button = getattr(self.ui, "toolButton_2", None)
+
+        # QSS 스타일시트를 적용하여 세그먼트 버튼 디자인을 구현합니다.
+        # 이 스타일은 'seg' 속성을 사용하여 각 버튼(왼쪽, 오른쪽)을 식별하고
+        # :checked 상태에 따라 모양과 색상을 변경합니다.
+        qss = '''
+        /* 공통 베이스: 회색 테두리, 글자 회색, 약간의 패딩 */
+        QToolButton[seg="left"], QToolButton[seg="right"] {
+            border: 1px solid #D3D3D3;         /* 회색 보더 */
+            background: #F2F2F2;               /* 비활성 회색 */
+            color: #9AA0A6;                    /* 비활성 글자색 */
+            padding: 2px 14px;
+            font-weight: 600;
+        }
+
+        /* 왼쪽 캡슐 */
+        QToolButton[seg="left"] {
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+            border-right: 0;                   /* 가운데 라인 제거 */
+        }
+
+        /* 오른쪽 캡슐 */
+        QToolButton[seg="right"] {
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        /* 체크(선택) 상태: 흰 배경 + 빨강 글자, 빨강 테두리 */
+        QToolButton[seg="left"]:checked,
+        QToolButton[seg="right"]:checked {
+            background: #FFFFFF;
+            color: #FF3B30;
+            border-color: #FF3B30; /* 클릭된 버튼 테두리 빨강으로 변경 */
+        }
+
+        /* hover 시 살짝 밝게 */
+        QToolButton[seg="left"]:hover,
+        QToolButton[seg="right"]:hover {
+            background: #FAFAFA;
+        }
+
+        /* 포커스 윤곽선 없애기(원하면) */
+        QToolButton[seg="left"]:focus,
+        QToolButton[seg="right"]:focus {
+            outline: none;
+        }
+        '''
+        self.setStyleSheet(qss)
 
         if self.shopping_button:
+            self.shopping_button.setProperty("seg", "left")
+            self.shopping_button.setText("쇼핑")
             self.shopping_button.setCheckable(True)
+            self.shopping_button.setAutoRaise(False)
+            self.shopping_button.setMinimumHeight(24)
+
         if self.store_button:
+            self.store_button.setProperty("seg", "right")
+            self.store_button.setText("매장")
             self.store_button.setCheckable(True)
+            self.store_button.setAutoRaise(False)
+            self.store_button.setMinimumHeight(24)
 
         if self.shopping_button or self.store_button:
             self.nav_group = QButtonGroup(self)
@@ -928,6 +1249,284 @@ class UserWindow(QWidget):
 
         self.set_mode("shopping")
 
+    def _setup_allergy_toggle(self) -> None:
+        button = getattr(self.ui, "btn_allergy", None)
+        self.allergy_sub_widget = getattr(self.ui, "widget_allergy_sub", None)
+        if button is None or self.allergy_sub_widget is None:
+            return
+        self.allergy_toggle_button = button
+        try:
+            button.clicked.disconnect()
+        except TypeError:
+            pass
+        button.setCheckable(True)
+        button.setChecked(True)
+        icon_path = Path(__file__).resolve().parent / "icons" / "fold.svg"
+        if icon_path.exists():
+            base_pixmap = QPixmap(str(icon_path))
+            if not base_pixmap.isNull():
+                self.allergy_icon_fold = QIcon(base_pixmap)
+                rotated_pixmap = base_pixmap.transformed(QTransform().rotate(180))
+                self.allergy_icon_fold_rotated = QIcon(rotated_pixmap)
+                button.setIcon(self.allergy_icon_fold_rotated)
+                button.setIconSize(QtCore.QSize(20, 20))
+        button.setFlat(True)
+        button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        button.setStyleSheet(
+            "QPushButton {background-color: transparent; border: none;}"
+            "QPushButton:checked {background-color: transparent; border: none;}"
+            "QPushButton:hover {background-color: transparent; border: none;}"
+            "QPushButton:pressed {background-color: transparent; border: none;}"
+            "QPushButton:focus {background-color: transparent; border: none; outline: 0;}"
+        )
+        self._allergy_max_height = self.allergy_sub_widget.maximumHeight()
+        if self._allergy_max_height <= 0 or self._allergy_max_height >= 16777215:
+            size_hint = self.allergy_sub_widget.sizeHint()
+            self._allergy_max_height = size_hint.height()
+        if self._allergy_max_height <= 0:
+            self._allergy_max_height = 16777215
+        self.allergy_filters_expanded = True
+        self._apply_allergy_toggle_state(expanded=self.allergy_filters_expanded)
+        button.toggled.connect(self._on_allergy_toggle_clicked)
+
+    def _setup_allergy_checkboxes(self) -> None:
+        # 알러지 필터 체크박스를 동기화하지 않으면 상위와 하위 항목이 따로 움직인다.
+        self.allergy_total_checkbox = getattr(self.ui, "cb_allergy_total", None)
+        checkbox_names = {
+            # 견과류 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_nuts": "nuts",
+            # 유제품 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_milk": "milk",
+            # 어폐류 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_seafood": "seafood",
+            # 대두/콩 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_bean": "soy",
+            # 복숭아 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_peach": "peach",
+            # 글루텐 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_gluten": "gluten",
+            # 계란 알러지 여부를 제어하는 체크박스 이름과 키 쌍
+            "cb_egg": "eggs",
+        }
+        # 키별로 연결된 체크박스를 저장하는 매핑을 비워둔다.
+        self.allergy_checkbox_map = {}
+        if self.allergy_total_checkbox is not None:
+            try:
+                # 기존에 연결된 신호가 있다면 제거해 중복 연결을 방지한다.
+                self.allergy_total_checkbox.stateChanged.disconnect(
+                    self._on_allergy_total_state_changed
+                )
+            except TypeError:
+                # 연결이 없으면 예외가 발생하므로 무시한다.
+                pass
+            # 상위 체크박스를 이진 상태로만 사용하도록 설정한다.
+            self.allergy_total_checkbox.setTristate(False)
+            # 상위 체크박스 상태가 변할 때 하위 항목을 동기화하기 위해 신호를 연결한다.
+            self.allergy_total_checkbox.stateChanged.connect(
+                self._on_allergy_total_state_changed
+            )
+        for name, key in checkbox_names.items():
+            # 각 이름에 해당하는 체크박스를 UI에서 가져온다.
+            checkbox = getattr(self.ui, name, None)
+            if not isinstance(checkbox, QCheckBox):
+                # 체크박스가 아니면 목록에 포함시키지 않는다.
+                continue
+            try:
+                # 기존 신호 연결이 있다면 제거한다.
+                checkbox.stateChanged.disconnect(self._on_allergy_child_state_changed)
+            except TypeError:
+                # 연결이 없으면 예외가 발생하므로 무시한다.
+                pass
+            # 하위 체크박스 상태 변화 시 상위 체크박스를 업데이트하도록 신호를 연결한다.
+            checkbox.stateChanged.connect(self._on_allergy_child_state_changed)
+            # 동기화 대상 목록에 체크박스를 추가한다.
+            self.allergy_checkbox_map[key] = checkbox
+        vegan_checkbox = getattr(self.ui, "cb_vegan", None)
+        if isinstance(vegan_checkbox, QCheckBox):
+            self.vegan_checkbox = vegan_checkbox
+            try:
+                vegan_checkbox.stateChanged.disconnect(self._on_vegan_state_changed)
+            except TypeError:
+                pass
+            vegan_checkbox.stateChanged.connect(self._on_vegan_state_changed)
+        if self.allergy_total_checkbox is not None and self.allergy_checkbox_map:
+            # 하위 체크박스 상태를 기준으로 상위 상태를 재조정한다.
+            self._sync_allergy_total_from_children()
+        else:
+            # 상위 또는 하위 체크박스가 없으면 기본 상태를 유지한다.
+            self._sync_allergy_total_from_children()
+        # 현재 체크 상태에 맞춰 초기 필터를 적용하지 않으면 UI와 목록이 불일치한다.
+        self._apply_product_filters(refresh=False)
+
+    def _apply_allergy_toggle_state(self, *, expanded: bool) -> None:
+        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+            return
+        self.allergy_filters_expanded = expanded
+        if expanded:
+            self.allergy_toggle_button.setToolTip("알러지 필터 접기")
+            if self.allergy_icon_fold_rotated is not None:
+                self.allergy_toggle_button.setIcon(self.allergy_icon_fold_rotated)
+            self.allergy_sub_widget.setMaximumHeight(self._allergy_max_height)
+            self.allergy_sub_widget.show()
+            return
+        self.allergy_toggle_button.setToolTip("알러지 필터 펼치기")
+        if self.allergy_icon_fold is not None:
+            self.allergy_toggle_button.setIcon(self.allergy_icon_fold)
+        self.allergy_sub_widget.setMaximumHeight(0)
+        self.allergy_sub_widget.hide()
+
+    def _on_allergy_toggle_clicked(self, checked: bool) -> None:
+        if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
+            return
+        self._apply_allergy_toggle_state(expanded=checked)
+
+    def _on_allergy_total_state_changed(
+        self, state: int | QtCore.Qt.CheckState
+    ) -> None:
+        # 하위 체크박스가 없으면 동기화를 진행할 수 없다.
+        if not self.allergy_checkbox_map:
+            return
+        try:
+            # PyQt 신호는 정수 또는 CheckState 열거형을 넘길 수 있으므로 공통 enum으로 변환한다.
+            state_enum = QtCore.Qt.CheckState(state)
+        except (ValueError, TypeError):
+            # 변환에 실패하면 해제 상태로 취급해 불필요한 예외를 막는다.
+            state_enum = QtCore.Qt.CheckState.Unchecked
+        # 상위 체크박스가 체크 상태인지 확인한다.
+        checked = state_enum == QtCore.Qt.CheckState.Checked
+        # 상위 상태에 맞춰 모든 하위 체크박스를 일괄 설정한다.
+        self._set_allergy_children_checked(checked=checked)
+        # 하위 상태를 다시 읽어 상위 체크박스를 일관성 있게 유지한다.
+        self._sync_allergy_total_from_children()
+        # 상위 필터가 바뀌면 상품 목록도 즉시 갱신해야 한다.
+        self._apply_product_filters()
+
+    def _on_allergy_child_state_changed(self, _state: int) -> None:
+        # 상위 체크박스가 없거나 하위 목록이 비어 있으면 처리하지 않는다.
+        if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
+            return
+        # 어느 하위 항목이든 변경되면 상위 체크박스 상태를 다시 계산한다.
+        self._sync_allergy_total_from_children()
+        # 하위 필터가 바뀌었으므로 상품 목록을 재평가한다.
+        self._apply_product_filters()
+
+    def _on_vegan_state_changed(self, _state: int) -> None:
+        # 비건 필터만 변경되어도 상품 목록을 다시 계산해야 한다.
+        self._apply_product_filters()
+
+    def _set_allergy_children_checked(self, *, checked: bool) -> None:
+        # 신호 루프를 막기 위해 블록하면서 모든 하위 체크박스를 설정한다.
+        for checkbox in self.allergy_checkbox_map.values():
+            checkbox.blockSignals(True)
+            checkbox.setChecked(checked)
+            checkbox.blockSignals(False)
+
+    def _sync_allergy_total_from_children(self) -> None:
+        # 상위 체크박스나 하위 목록이 없으면 더 이상 동기화를 진행하지 않는다.
+        if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
+            return
+        # 모든 하위 체크박스가 선택된 경우에만 상위 체크박스를 체크한다.
+        all_checked = all(
+            checkbox.isChecked() for checkbox in self.allergy_checkbox_map.values()
+        )
+        self.allergy_total_checkbox.blockSignals(True)
+        self.allergy_total_checkbox.setChecked(all_checked)
+        self.allergy_total_checkbox.blockSignals(False)
+
+    def _apply_main_banner_image(self) -> None:
+        # 상단 배너 이미지를 로드해 label_main_top에 표시한다.
+        label = getattr(self.ui, "label_main_top", None)
+        if not isinstance(label, QLabel):
+            return
+        banner_path = Path(__file__).resolve().parent / "image" / "main_top.png"
+        if not banner_path.exists():
+            return
+        pixmap = QPixmap(str(banner_path))
+        if pixmap.isNull():
+            return
+        label.setPixmap(pixmap)
+        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+    def _style_main_banner_title(self) -> None:
+        # 배너 제목 라벨을 굵은 빨간색 12pt로 통일한다.
+        label = getattr(self.ui, "label_let_start", None)
+        if not isinstance(label, QLabel):
+            return
+        font = label.font()
+        font.setPointSize(16)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: #ff0000;")
+
+    def _style_do_create_label(self) -> None:
+        # 주문담기 안내 라벨을 굵은 검정색 18pt로 설정한다.
+        label = getattr(self.ui, "label_do_create", None)
+        if not isinstance(label, QLabel):
+            return
+        font = label.font()
+        font.setPointSize(16)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: #000000;")
+
+    def _apply_product_filters(self, *, refresh: bool = True) -> None:
+        # 필터 적용 기준이 없으면 기존 상품 목록을 그대로 유지한다.
+        base_products = list(self.all_products)
+        vegan_checkbox = self.vegan_checkbox
+        vegan_exclude = (
+            isinstance(vegan_checkbox, QCheckBox) and not vegan_checkbox.isChecked()
+        )
+        disabled_allergies = {
+            key
+            for key, checkbox in self.allergy_checkbox_map.items()
+            if isinstance(checkbox, QCheckBox) and not checkbox.isChecked()
+        }
+        filtered_products: list[ProductData] = []
+        for product in base_products:
+            if not self._product_matches_filters(
+                product,
+                disabled_allergies=disabled_allergies,
+                vegan_exclude=vegan_exclude,
+            ):
+                continue
+            filtered_products.append(product)
+        self.products = filtered_products
+        self.product_index = {
+            product.product_id: product for product in filtered_products
+        }
+        if filtered_products:
+            self.empty_products_message = self.default_empty_products_message
+        elif base_products:
+            self.empty_products_message = self.filtered_empty_message
+        else:
+            self.empty_products_message = self.default_empty_products_message
+        self.current_columns = -1
+        if refresh:
+            self.refresh_product_grid()
+
+    def _product_matches_filters(
+        self,
+        product: ProductData,
+        *,
+        disabled_allergies: set[str],
+        vegan_exclude: bool,
+    ) -> bool:
+        # 비건 필터: 체크 해제되었을 때 비건 상품 제외
+        if vegan_exclude and product.is_vegan_friendly:
+            return False
+
+        # 알러지 정보가 없는 상품은 기본적으로 허용
+        allergy_info = product.allergy_info
+        if allergy_info is None:
+            return True
+
+        # 해제된 알러지를 가진 상품은 제외
+        for key in disabled_allergies:
+            if getattr(allergy_info, key, False):
+                return False
+
+        return True
+
     def on_cart_toggle_clicked(self):
         if self.cart_toggle_button is None:
             return
@@ -940,6 +1539,19 @@ class UserWindow(QWidget):
 
     def on_store_button_clicked(self):
         self.set_mode("pick")
+
+    def on_shop_end_clicked(self) -> None:
+        self.on_logout_requested()
+
+    def on_shop_continue_clicked(self) -> None:
+        self.pick_flow_completed = False
+        self.set_mode("shopping")
+        if self.order_select_stack is not None and self.page_moving_view is not None:
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+        if self.active_camera_type:
+            self._update_video_buttons(self.active_camera_type)
+        else:
+            self._auto_start_front_camera_if_possible()
 
     def request_create_order(self) -> bool:
         if not getattr(self, "service_client", None):
@@ -1016,6 +1628,7 @@ class UserWindow(QWidget):
         ordered_items: list[CartItemData],
         order_data: dict,
     ) -> None:
+        self.pick_flow_completed = False
         self._ensure_notification_listener()
         auto_select_map = self._build_order_auto_select_map(order_data)
         remote_items, auto_items = self.categorize_cart_items(
@@ -1033,6 +1646,7 @@ class UserWindow(QWidget):
 
         self.current_order_id = order_data.get("order_id")
         self.current_robot_id = order_data.get("robot_id")
+        self._auto_start_front_camera_if_possible()
 
         status_label = getattr(self.ui, "label_12", None)
         if status_label is not None:
@@ -1082,20 +1696,22 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
         destination = data.get("destination")
         message_text = payload.get("message") or "로봇 이동중"
-        status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if destination:
             formatted = f"{message_text} : {destination}"
         else:
             formatted = message_text
-        if status_label is not None:
+        status_label = getattr(self.ui, "label_12", None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
 
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_robot_arrived_notification(self, payload: dict) -> None:
         """로봇 도착 알림에 따라 상태 텍스트를 갱신한다."""
@@ -1110,6 +1726,7 @@ class UserWindow(QWidget):
         robot_id = data.get("robot_id")
         if robot_id is not None:
             self.current_robot_id = robot_id
+            self._auto_start_front_camera_if_possible()
 
         section_id = data.get("section_id")
         location_id = data.get("location_id")
@@ -1128,11 +1745,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def handle_picking_complete_notification(self, payload: dict) -> None:
         """모든 상품 담기 완료 알림을 처리한다."""
@@ -1156,6 +1774,9 @@ class UserWindow(QWidget):
         if footer_label is not None:
             footer_label.setText(message_text)
         print(f"[알림] {message_text}")
+        self.pick_flow_completed = True
+        self._mark_all_selection_completed()
+        self._show_pick_complete_page()
 
     def handle_product_selection_start(self, payload: dict) -> None:
         """상품 선택 시작 알림을 처리한다."""
@@ -1295,11 +1916,12 @@ class UserWindow(QWidget):
 
         status_label = getattr(self.ui, "label_12", None)
         footer_label = getattr(self.ui, "label_robot_notification", None)
-        if status_label is not None:
+        if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
         if footer_label is not None:
             footer_label.setText(formatted)
         print(f"[알림] {formatted}")
+        self._show_moving_page()
 
     def _ensure_notification_listener(self) -> None:
         """주문 생성 시 알림 리스너를 시작한다."""
@@ -1436,6 +2058,270 @@ class UserWindow(QWidget):
         else:
             self.selection_selected_index = None
 
+    def _init_video_views(self) -> None:
+        if self.gv_front is not None:
+            self.front_scene = QGraphicsScene(self.gv_front)
+            self.gv_front.setScene(self.front_scene)
+            self.gv_front.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_front.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_front.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.front_item = self.front_scene.addPixmap(QPixmap())
+        if self.gv_arm is not None:
+            self.arm_scene = QGraphicsScene(self.gv_arm)
+            self.gv_arm.setScene(self.arm_scene)
+            self.gv_arm.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            self.gv_arm.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.gv_arm.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            self.arm_item = self.arm_scene.addPixmap(QPixmap())
+        if self.video_stack is not None and self.page_front is not None:
+            self.video_stack.setCurrentWidget(self.page_front)
+        self._update_video_buttons(None)
+
+    def _init_map_view(self) -> None:
+        if self.map_view is None:
+            return
+        self.map_scene = QGraphicsScene(self.map_view)
+        self.map_view.setScene(self.map_scene)
+        self.map_view.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        self.map_view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        pixmap, resolution, origin = self._load_map_pixmap()
+        self.map_pixmap_item = self.map_scene.addPixmap(pixmap)
+        self.map_pixmap_item.setZValue(0)
+        scene_rect = self.map_pixmap_item.boundingRect()
+        self.map_scene.setSceneRect(scene_rect)
+        self._fit_map_to_view()
+        self.map_resolution = resolution
+        self.map_origin = (origin[0], origin[1])
+        self.map_image_size = (pixmap.width(), pixmap.height())
+        robot_item, heading_item = self._create_robot_graphics()
+        robot_item.setZValue(10)
+        robot_item.setVisible(False)
+        self.map_scene.addItem(robot_item)
+        if heading_item is not None:
+            heading_item.setZValue(11)
+            heading_item.setVisible(False)
+        self.map_robot_item = robot_item
+        self.map_heading_item = heading_item
+        self.map_view.installEventFilter(self)
+
+    def _create_robot_graphics(
+        self,
+    ) -> tuple[QGraphicsPixmapItem | QGraphicsEllipseItem, QGraphicsLineItem | None]:
+        pixmap = self._render_robot_svg()
+        if pixmap is not None and not pixmap.isNull():
+            item = QGraphicsPixmapItem(pixmap)
+            item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
+            item.setTransformationMode(
+                QtCore.Qt.TransformationMode.SmoothTransformation
+            )
+            return item, None
+        radius = 10
+        pen = QPen(QColor("#ff4649"))
+        pen.setWidth(2)
+        brush = QBrush(QColor("#ff4649"))
+        item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
+        item.setPen(pen)
+        item.setBrush(brush)
+        heading = QGraphicsLineItem(0, 0, radius * 2, 0, item)
+        heading.setPen(pen)
+        return item, heading
+
+    def _render_robot_svg(self) -> QPixmap | None:
+        if not VECTOR_ICON_PATH.exists():
+            return None
+        renderer = QSvgRenderer(str(VECTOR_ICON_PATH))
+        if not renderer.isValid():
+            return None
+        size = renderer.defaultSize()
+        if not size.isValid() or size.width() <= 0 or size.height() <= 0:
+            size = QtCore.QSize(*DEFAULT_ROBOT_ICON_SIZE)
+        image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+        return QPixmap.fromImage(image)
+
+    def _load_map_pixmap(self) -> tuple[QPixmap, float, tuple[float, float, float]]:
+        if MAP_IMAGE_PATH:
+            pixmap = QPixmap(MAP_IMAGE_PATH)
+            if not pixmap.isNull():
+                resolution = (
+                    MAP_RESOLUTION_OVERRIDE if MAP_RESOLUTION_OVERRIDE > 0 else 0.05
+                )
+                origin_values = (
+                    MAP_ORIGIN_OVERRIDE if MAP_ORIGIN_OVERRIDE else (0.0, 0.0, 0.0)
+                )
+                origin_x = origin_values[0] if len(origin_values) > 0 else 0.0
+                origin_y = origin_values[1] if len(origin_values) > 1 else 0.0
+                origin_theta = origin_values[2] if len(origin_values) > 2 else 0.0
+                return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            print(f"[Map] 지정된 MAP_IMAGE를 불러오지 못했습니다: {MAP_IMAGE_PATH}")
+        config_path = MAP_CONFIG_PATH
+        try:
+            with config_path.open("r", encoding="utf-8") as file:
+                data = yaml.safe_load(file) or {}
+            image_name = data.get("image")
+            resolution = float(data.get("resolution", 0.05))
+            origin_raw = data.get("origin") or [0.0, 0.0, 0.0]
+            origin_x = float(origin_raw[0]) if len(origin_raw) > 0 else 0.0
+            origin_y = float(origin_raw[1]) if len(origin_raw) > 1 else 0.0
+            origin_theta = float(origin_raw[2]) if len(origin_raw) > 2 else 0.0
+            candidate_paths: list[Path] = []
+            if DEFAULT_IMAGE_FALLBACK.exists():
+                candidate_paths.append(DEFAULT_IMAGE_FALLBACK.resolve())
+            if image_name:
+                candidate_paths.append((config_path.parent / image_name).resolve())
+            for candidate in candidate_paths:
+                pixmap = QPixmap(str(candidate))
+                if not pixmap.isNull():
+                    return pixmap, resolution, (origin_x, origin_y, origin_theta)
+            last_candidate = (
+                candidate_paths[-1] if candidate_paths else config_path.parent
+            )
+            raise FileNotFoundError(f"map image not found: {last_candidate}")
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[Map] 지도 정보를 불러오지 못했습니다: {exc}")
+        if DEFAULT_IMAGE_FALLBACK.exists():
+            pixmap = QPixmap(str(DEFAULT_IMAGE_FALLBACK))
+            if not pixmap.isNull():
+                return pixmap, 0.05, (0.0, 0.0, 0.0)
+        fallback = QPixmap(640, 480)
+        fallback.fill(QColor("#f5f5f5"))
+        painter = QPainter(fallback)
+        grid_pen = QPen(QColor("#d0d0d0"))
+        grid_pen.setWidth(1)
+        painter.setPen(grid_pen)
+        step = 40
+        for x in range(0, fallback.width(), step):
+            painter.drawLine(x, 0, x, fallback.height())
+        for y in range(0, fallback.height(), step):
+            painter.drawLine(0, y, fallback.width(), y)
+            painter.end()
+        return fallback, 0.05, (0.0, 0.0, 0.0)
+
+    def _fit_map_to_view(self) -> None:
+        if (
+            self.map_view is None
+            or self.map_scene is None
+            or self.map_pixmap_item is None
+        ):
+            return
+        rect = self.map_pixmap_item.boundingRect()
+        if rect.isNull():
+            return
+        self.map_view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def eventFilter(self, obj: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        if obj is self.map_view and event.type() == QtCore.QEvent.Type.Resize:
+            QtCore.QTimer.singleShot(0, self._fit_map_to_view)
+        return super().eventFilter(obj, event)
+
+    def _update_video_buttons(self, active: str | None) -> None:
+        if self.front_view_button is not None:
+            self.front_view_button.setChecked(active == "front")
+        if self.arm_view_button is not None:
+            self.arm_view_button.setChecked(active == "arm")
+
+    def on_camera_button_clicked(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            QMessageBox.information(self, "영상 요청", "연결된 로봇 정보가 없습니다.")
+            self._update_video_buttons(None)
+            return
+        target_page = self.page_front if camera_type == "front" else self.page_arm
+        if self.video_stack is not None and target_page is not None:
+            self.video_stack.setCurrentWidget(target_page)
+        self._start_video_stream(camera_type)
+
+    def _auto_start_front_camera_if_possible(self) -> None:
+        if self.active_camera_type is not None:
+            return
+        if self.current_robot_id is None:
+            return
+        if self.front_view_button is None:
+            return
+        self.on_camera_button_clicked("front")
+
+    def _enable_pose_tracking(self) -> None:
+        if self.pose_tracking_active:
+            return
+        self.pose_tracking_active = True
+        print("[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.")
+
+    def _on_pickee_status_received(self, msg: object) -> None:
+        if not self.pose_tracking_active:
+            return
+        robot_id_raw = getattr(msg, "robot_id", None)
+        try:
+            robot_id_value = int(robot_id_raw) if robot_id_raw is not None else None
+        except (TypeError, ValueError):
+            robot_id_value = None
+        if (
+            self.current_robot_id is not None
+            and robot_id_value is not None
+            and robot_id_value != self.current_robot_id
+        ):
+            return
+        x_raw = getattr(msg, "position_x", None)
+        y_raw = getattr(msg, "position_y", None)
+        if x_raw is None or y_raw is None:
+            print("[Map] 위치 좌표가 없는 로봇 상태를 수신했습니다.")
+            return
+        try:
+            x = float(x_raw)
+            y = float(y_raw)
+        except (TypeError, ValueError):
+            print(f"[Map] 유효하지 않은 좌표를 수신했습니다: {x_raw}, {y_raw}")
+            return
+        theta_raw = getattr(msg, "orientation_z", 0.0)
+        try:
+            theta = float(theta_raw) if theta_raw is not None else 0.0
+        except (TypeError, ValueError):
+            theta = 0.0
+        if self.current_robot_id is None and robot_id_value is not None:
+            self.current_robot_id = robot_id_value
+            self._auto_start_front_camera_if_possible()
+        print(
+            f"[Map] 로봇 상태 수신: robot_id={robot_id_value}, x={x}, y={y}, theta={theta}"
+        )
+        self._update_robot_pose(x, y, theta)
+
+    def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
+        if (
+            self.map_scene is None
+            or self.map_robot_item is None
+            or self.map_resolution is None
+            or self.map_origin is None
+            or self.map_image_size is None
+        ):
+            return
+        width, height = self.map_image_size
+        origin_x, origin_y = self.map_origin
+        adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
+        adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
+        px = (adjusted_x - origin_x) / self.map_resolution
+        py = (adjusted_y - origin_y) / self.map_resolution
+        scene_y = height - py
+        if not (math.isfinite(px) and math.isfinite(scene_y)):
+            return
+        px = max(0.0, min(px, float(width)))
+        scene_y = max(0.0, min(scene_y, float(height)))
+        self.map_robot_item.setVisible(True)
+        if self.map_heading_item is not None:
+            self.map_heading_item.setVisible(True)
+        self.map_robot_item.setPos(px, scene_y)
+        angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
+        self.map_robot_item.setRotation(angle_deg)
+        self._fit_map_to_view()
+
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
         if not checked:
@@ -1500,6 +2386,7 @@ class UserWindow(QWidget):
             QMessageBox.warning(self, "상품 선택", message)
             return
 
+        self._set_selection_status(product_id_value, "선택 진행중")
         QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         self.selection_options = []
         self.selection_selected_index = None
@@ -1511,6 +2398,140 @@ class UserWindow(QWidget):
         """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _start_video_stream(self, camera_type: str) -> None:
+        if self.current_robot_id is None:
+            return
+        if self.active_camera_type == camera_type and self.video_receiver is not None:
+            if self.video_receiver.isRunning():
+                self._update_video_buttons(camera_type)
+                return
+        self._stop_video_stream(send_request=True)
+        user_type = self._current_user_type()
+        try:
+            response = self.service_client.start_video_stream(
+                user_id=self.current_user_id,
+                user_type=user_type,
+                robot_id=int(self.current_robot_id),
+                camera_type=camera_type,
+            )
+        except MainServiceClientError as exc:
+            QMessageBox.warning(self, "영상 요청 실패", str(exc))
+            self._update_video_buttons(None)
+            return
+        if not response or not response.get("result", False):
+            message = response.get("message") if isinstance(response, dict) else None
+            QMessageBox.warning(
+                self,
+                "영상 요청 실패",
+                message or "영상 스트림을 시작할 수 없습니다.",
+            )
+            self._update_video_buttons(None)
+            return
+        self.active_camera_type = camera_type
+        self.video_receiver = VideoStreamReceiver(
+            robot_id=int(self.current_robot_id),
+            camera_type=camera_type,
+            parent=self,
+        )
+        self.video_receiver.frame_received.connect(self.on_video_frame_received)
+        self.video_receiver.error_occurred.connect(self.on_video_stream_error)
+        self.video_receiver.start()
+        self._update_video_buttons(camera_type)
+
+    def _stop_video_stream(self, *, send_request: bool) -> None:
+        """비디오 스트림을 중지하고 관련 리소스를 정리합니다.
+
+        Args:
+            send_request: 서버에 스트리밍 중지 요청을 보낼지 여부
+        """
+        # 비디오 수신기 정리
+        if self.video_receiver is not None:
+            try:
+                self.video_receiver.stop()
+                self.video_receiver = None
+                self.logger.debug("비디오 수신기 정지 완료")
+            except Exception as e:
+                self.logger.warning(f"비디오 수신기 정지 중 오류: {e}")
+
+        # 서버에 스트리밍 중지 요청
+        if (
+            send_request
+            and self.active_camera_type is not None
+            and self.current_robot_id is not None
+            and self.service_client is not None
+        ):
+            user_type = self._current_user_type()
+            try:
+                self.logger.debug("서버에 비디오 스트림 중지 요청")
+                self.service_client.stop_video_stream(
+                    user_id=self.current_user_id,
+                    user_type=user_type,
+                    robot_id=int(self.current_robot_id),
+                )
+                self.logger.debug("비디오 스트림 중지 요청 성공")
+            except MainServiceClientError as e:
+                self.logger.error(f"비디오 스트림 중지 요청 실패: {e}")
+
+        # 화면에서 비디오 표시 제거
+        if self.front_scene is not None and self.front_item is not None:
+            try:
+                self.front_scene.removeItem(self.front_item)
+                self.front_item = None
+            except Exception as e:
+                self.logger.warning(f"전면 비디오 화면 정리 오류: {e}")
+
+        if self.arm_scene is not None and self.arm_item is not None:
+            try:
+                self.arm_scene.removeItem(self.arm_item)
+                self.arm_item = None
+            except Exception as e:
+                self.logger.warning(f"암 카메라 화면 정리 오류: {e}")
+
+        # 상태 초기화
+        self.active_camera_type = None
+        self._update_video_buttons(None)
+
+    def _current_user_type(self) -> str:
+        if isinstance(self.user_info, dict):
+            value = self.user_info.get("user_type") or self.user_info.get("role")
+            if value:
+                return str(value)
+        return "user"
+
+    def on_video_frame_received(self, camera_type: str, image: QImage) -> None:
+        if image.isNull():
+            return
+        pixmap = QPixmap.fromImage(image)
+        scene = self.front_scene if camera_type == "front" else self.arm_scene
+        item_attr = "front_item" if camera_type == "front" else "arm_item"
+        view = self.gv_front if camera_type == "front" else self.gv_arm
+        if scene is None or view is None:
+            return
+        item = getattr(self, item_attr)
+        if item is None:
+            item = scene.addPixmap(pixmap)
+            setattr(self, item_attr, item)
+        else:
+            item.setPixmap(pixmap)
+        if VIDEO_STREAM_DEBUG:
+            print(
+                f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}"
+            )
+        self._fit_view(view, item)
+        scene.update()
+
+    def _fit_view(self, view: QGraphicsView, item) -> None:
+        if item is None:
+            return
+        rect = item.boundingRect()
+        if rect.isNull():
+            return
+        view.fitInView(rect, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+
+    def on_video_stream_error(self, message: str) -> None:
+        self._stop_video_stream(send_request=False)
+        QMessageBox.warning(self, "영상 스트림 오류", message)
 
     def _build_order_auto_select_map(
         self,
@@ -1616,10 +2637,76 @@ class UserWindow(QWidget):
         if isinstance(widget, CartSelectItemWidget):
             widget.label_progress.setText(f"({picked}/{total})")
             if picked >= total:
-                widget.label_status.setText("완료")
+                widget.set_status("완료")
             else:
                 base_status = str(state.get("base_status") or "대기")
-                widget.label_status.setText(base_status)
+                widget.set_status(base_status)
+        self._refresh_selection_progress_summary()
+
+    def _show_pick_complete_page(self) -> None:
+        if self.order_select_stack is None or self.page_end_pick_up is None:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_end_pick_up)
+
+    def _set_selection_status(self, product_id: int, status_text: str) -> None:
+        """선택 항목의 상태 텍스트를 갱신한다."""
+        state = self.selection_item_states.get(product_id)
+        if state is None:
+            return
+        state["base_status"] = status_text
+        widget = state.get("widget")
+        if isinstance(widget, CartSelectItemWidget):
+            widget.set_status(status_text)
+
+    def _show_moving_page(self) -> None:
+        """선택 단계가 아니고 쇼핑이 완료되지 않았다면 이동 화면을 표시한다."""
+        if self.pick_flow_completed:
+            return
+        if self.order_select_stack is None or self.page_moving_view is None:
+            return
+        current_widget = self.order_select_stack.currentWidget()
+        if current_widget is self.page_select_product:
+            return
+        self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _mark_all_selection_completed(self) -> None:
+        """선택 항목 전체를 완료 상태로 동기화한다."""
+        if not self.selection_item_states:
+            return
+        for state in self.selection_item_states.values():
+            total = int(state.get("total", 0))
+            state["picked"] = total
+            state["base_status"] = "완료"
+            widget = state.get("widget")
+            if isinstance(widget, CartSelectItemWidget):
+                widget.label_progress.setText(f"({total}/{total})")
+                widget.set_status("완료")
+        self._refresh_selection_progress_summary()
+
+    def _refresh_selection_progress_summary(self) -> None:
+        """전체 진행률을 합산해 Progress Bar와 텍스트에 반영한다."""
+        if not self.selection_item_states:
+            if self.progress_bar is not None:
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(0)
+            if self.progress_text is not None:
+                self.progress_text.setText("0%")
+            return
+        total_required = 0
+        total_picked = 0
+        for state in self.selection_item_states.values():
+            total_required += max(0, int(state.get("total", 0)))
+            total_picked += max(0, int(state.get("picked", 0)))
+        total_required = max(total_required, 0)
+        total_picked = min(total_required, total_picked)
+        progress_ratio = 0
+        if total_required > 0:
+            progress_ratio = round((total_picked / total_required) * 100)
+        if self.progress_bar is not None:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(progress_ratio)
+        if self.progress_text is not None:
+            self.progress_text.setText(f"{progress_ratio}%")
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)
@@ -1664,6 +2751,239 @@ class UserWindow(QWidget):
         dialog.raise_()
         dialog.activateWindow()
 
+    def on_logout_requested(self) -> None:
+        """로그아웃을 요청하고 리소스를 정리한 뒤 창을 닫습니다."""
+        self.logger.info("로그아웃 요청 수신")
+
+        # 이미 정리 중인 경우 중복 실행 방지
+        if self._cleanup_requested.is_set():
+            return
+
+        # 사용자 확인
+        reply = QMessageBox.question(
+            self,
+            "로그아웃",
+            "정말 로그아웃 하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            self._cleanup_requested.clear()
+            return
+
+        self.logger.info("로그아웃 시작")
+        success = True
+
+        try:
+            # UI 비활성화
+            self.setEnabled(False)
+            QtCore.QCoreApplication.processEvents()
+
+            # 비디오 스트림 중지
+            self.logger.debug("비디오 스트림 정리 시작")
+            self._stop_video_stream(send_request=True)
+            self.logger.debug("비디오 스트림 정리 완료")
+
+            # 알림 클라이언트 정리
+            if self.notification_client is not None:
+                self.logger.debug("알림 클라이언트 정리 시작")
+                self.notification_client.stop()
+                self.notification_client = None
+                self.logger.debug("알림 클라이언트 정리 완료")
+
+            # ROS 노드 연결 해제 및 종료
+            if self.ros_thread is not None:
+                self.logger.debug("ROS 노드 정리 시작")
+                try:
+                    # 모든 시그널 연결 해제
+                    self.ros_thread.disconnect()
+                    # ROS 노드 종료
+                    self.ros_thread.shutdown()
+                    # 스레드 종료 대기 (최대 5초)
+                    if not self.ros_thread.wait(5000):
+                        self.logger.warning("ROS 스레드 종료 타임아웃")
+                        success = False
+                    self.ros_thread = None
+                except Exception as e:
+                    self.logger.error(f"ROS 노드 정리 중 오류: {e}")
+                    success = False
+                self.logger.debug("ROS 노드 정리 완료")
+
+            # 음성 인식 리소스 정리
+            self.logger.debug("음성 인식 리소스 정리 시작")
+            self._shutdown_speech_recognition()
+            self.logger.debug("음성 인식 리소스 정리 완료")
+
+            # 위치 추적 중지
+            self.pose_tracking_active = False
+
+            # UI 상태 초기화
+            self.logger.debug("UI 상태 초기화 시작")
+            self._cleanup_cart()
+            self._cleanup_selection()
+            self._cleanup_ui_states()
+            self.logger.debug("UI 상태 초기화 완료")
+
+        except Exception as e:
+            self.logger.exception("리소스 정리 중 오류 발생")
+            success = False
+
+        finally:
+            self._cleanup_requested.clear()
+            if success:
+                self.logger.info("로그아웃 성공")
+            else:
+                self.logger.warning("일부 리소스 정리 실패")
+
+            # 결과와 관계없이 창 닫기
+            self.closed.emit()
+            self.close()
+
+    def _cleanup_cart(self) -> None:
+        """장바구니 위젯과 데이터를 정리합니다."""
+        try:
+            # 장바구니 데이터 초기화
+            self.cart_items.clear()
+            self.logger.debug("장바구니 데이터 초기화 완료")
+
+            # 장바구니 위젯 정리
+            self.cart_widgets.clear()
+            if self.cart_items_layout is not None:
+                for i in reversed(range(self.cart_items_layout.count())):
+                    item = self.cart_items_layout.itemAt(i)
+                    if item is not None:
+                        widget = item.widget()
+                        if widget is not None:
+                            widget.setParent(None)
+            self.logger.debug("장바구니 위젯 정리 완료")
+
+        except Exception as e:
+            self.logger.error(f"장바구니 정리 중 오류: {e}")
+
+    def _cleanup_ui_states(self) -> None:
+        """모든 UI 위젯의 상태를 초기화합니다."""
+        try:
+            # 검색 입력창 초기화
+            if self.search_input is not None:
+                self.search_input.clear()
+
+            # 알러지 체크박스 초기화
+            if self.allergy_total_checkbox is not None:
+                self.allergy_total_checkbox.setChecked(False)
+            for checkbox in self.allergy_checkbox_map.values():
+                checkbox.setChecked(False)
+            if self.vegan_checkbox is not None:
+                self.vegan_checkbox.setChecked(False)
+
+            # 비디오 표시 영역 초기화
+            if self.gv_front is not None:
+                self.gv_front.viewport().update()
+            if self.gv_arm is not None:
+                self.gv_arm.viewport().update()
+
+            # 지도 표시 초기화
+            if self.map_view is not None:
+                self.map_view.viewport().update()
+
+            # 카메라 버튼 상태 초기화
+            if self.front_view_button is not None:
+                self.front_view_button.setChecked(False)
+            if self.arm_view_button is not None:
+                self.arm_view_button.setChecked(False)
+
+            # 모드 상태 초기화
+            if self.shopping_button is not None:
+                self.shopping_button.setChecked(True)
+            if self.store_button is not None:
+                self.store_button.setChecked(False)
+
+            # 장바구니 UI 초기화
+            if self.cart_toggle_button is not None:
+                self.cart_toggle_button.setChecked(False)
+            self.cart_expanded = False
+            self.apply_cart_state()
+
+            # 상품 목록 초기화
+            self.products.clear()
+            self.all_products.clear()
+            self.product_index.clear()
+            self.refresh_product_grid()
+
+            self.logger.debug("UI 상태 초기화 완료")
+
+        except Exception as e:
+            self.logger.error(f"UI 상태 초기화 중 오류: {e}")
+
+    def _cleanup_selection(self) -> None:
+        """상품 선택 관련 데이터를 정리합니다."""
+        try:
+            # 선택 버튼 정리
+            for button in self.selection_buttons:
+                if isinstance(button, QPushButton):
+                    self.selection_button_group.removeButton(button)
+                    button.setParent(None)
+            self.selection_buttons.clear()
+
+            # 선택 데이터 초기화
+            self.selection_options.clear()
+            self.selection_selected_index = None
+            self.remote_selection_items.clear()
+            self.auto_selection_items.clear()
+            self.selection_item_states.clear()
+
+            # 선택 버튼 그리드 초기화
+            if self.selection_grid is not None:
+                self._initialize_selection_grid()
+
+            self.logger.debug("상품 선택 UI 정리 완료")
+
+        except Exception as e:
+            self.logger.error(f"상품 선택 정리 중 오류: {e}")
+
+    def _disconnect_ros(self) -> None:
+        """ROS 연결을 해제합니다."""
+        self.pose_tracking_active = False
+        if self.ros_thread is not None:
+            try:
+                self.ros_thread.pickee_status_received.disconnect(
+                    self._on_pickee_status_received
+                )
+            except (TypeError, RuntimeError):
+                pass
+
+    def _cleanup_stt(self) -> None:
+        """음성 인식 관련 리소스를 정리합니다."""
+        if hasattr(self, "_stt_module"):
+            self._shutdown_speech_recognition()
+
+    def _cleanup_cart(self) -> None:
+        """장바구니 관련 리소스를 정리합니다."""
+        if hasattr(self, "cart_items"):
+            self.cart_items.clear()
+        if hasattr(self, "cart_widgets"):
+            for widget in self.cart_widgets.values():
+                try:
+                    if widget is not None:
+                        widget.setParent(None)
+                        widget.deleteLater()
+                except:
+                    pass
+            self.cart_widgets.clear()
+
+    def _cleanup_selection(self) -> None:
+        """선택 관련 상태를 정리합니다."""
+        if hasattr(self, "selection_item_states"):
+            for state in self.selection_item_states.values():
+                try:
+                    widget = state.get("widget")
+                    if widget is not None:
+                        widget.setParent(None)
+                        widget.deleteLater()
+                except:
+                    pass
+            self.selection_item_states.clear()
+
     def _update_user_header(self) -> None:
         name = str(
             self.user_info.get("name") or self.user_info.get("user_id") or "사용자"
@@ -1683,6 +3003,13 @@ class UserWindow(QWidget):
                 self.shopping_button.setChecked(True)
             if self.store_button:
                 self.store_button.setChecked(False)
+            self.pose_tracking_active = False
+            if self.search_input is not None:
+                self.search_input.show()
+            if self.search_button is not None:
+                self.search_button.show()
+            if self.mic_button is not None:
+                self.mic_button.show()
             self.show_main_page(self.page_user)
             self.show_side_page(self.side_pick_filter_page)
             return
@@ -1692,8 +3019,15 @@ class UserWindow(QWidget):
                 self.store_button.setChecked(True)
             if self.shopping_button:
                 self.shopping_button.setChecked(False)
+            if self.search_input is not None:
+                self.search_input.hide()
+            if self.search_button is not None:
+                self.search_button.hide()
+            if self.mic_button is not None:
+                self.mic_button.hide()
             self.show_main_page(self.page_pick)
             self.show_side_page(self.side_shop_page)
+            self._enable_pose_tracking()
 
     def show_main_page(self, page):
         if self.main_stack is None or page is None:
@@ -1835,11 +3169,16 @@ class UserWindow(QWidget):
             row = index // columns
             col = index % columns
             card = ProductCard()
-            card.apply_product(product)
-            if hasattr(card.ui, "toolButton"):
-                card.ui.toolButton.clicked.connect(
-                    lambda _, p=product: self.on_add_to_cart(p)
-                )
+            # 사용자의 알러지 정보와 함께 상품 정보 적용
+            user_allergy = None
+            if self.user_info is not None and "allergy_info" in self.user_info:
+                user_allergy = self.user_info["allergy_info"]
+            card.apply_product(product, user_allergy)
+            button = getattr(card.ui, "btn_add_product", None)
+            if button is None:
+                button = getattr(card.ui, "toolButton", None)
+            if button is not None:
+                button.clicked.connect(lambda _, p=product: self.on_add_to_cart(p))
             self.product_grid.addWidget(card, row, col)
 
         rows = (len(products) + columns - 1) // columns if products else 0
@@ -1984,17 +3323,19 @@ class UserWindow(QWidget):
         if label_quantity is not None:
             label_quantity.setText(f"{total_qty}")
         if label_amount is not None:
-            label_amount.setText(f"{total_price:,}")
+            font = label_amount.font()
+            font.setPointSize(15)
+            label_amount.setFont(font)
+            formatted_text = f'<span style="color: #000000; font-weight: 600;">총액 : </span><span style="font-weight: 800;">{total_price:,}</span><span style="color: #000000; font-weight: 600;">원</span>'
+            label_amount.setText(formatted_text)
+            # HTML 해석 활성화
+            label_amount.setTextFormat(QtCore.Qt.TextFormat.RichText)
 
     def set_products(self, products: list[ProductData]) -> None:
-        self.products = products
-        self.product_index = {product.product_id: product for product in products}
-        if products:
-            self.empty_products_message = self.default_empty_products_message
-        self.current_columns = -1
+        self.all_products = list(products)
+        self._apply_product_filters(refresh=False)
 
     def load_initial_products(self) -> list[ProductData]:
-        image_root = Path(__file__).resolve().parent.parent / "image"
         return [
             ProductData(
                 product_id=1,
@@ -2011,7 +3352,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(1, "삼겹살"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=101,
+                    nuts=False,
+                    milk=False,
+                    seafood=False,
+                    soy=False,
+                    peach=False,
+                    gluten=False,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=2,
@@ -2028,7 +3379,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=102,
+                    nuts=False,
+                    milk=True,
+                    seafood=False,
+                    soy=False,
+                    peach=False,
+                    gluten=False,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=3,
@@ -2045,7 +3406,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(3, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=103,
+                    nuts=False,
+                    milk=True,
+                    seafood=False,
+                    soy=False,
+                    peach=False,
+                    gluten=True,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=4,
@@ -2062,7 +3433,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(4, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=104,
+                    nuts=True,
+                    milk=False,
+                    seafood=False,
+                    soy=False,
+                    peach=False,
+                    gluten=False,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=2,
@@ -2079,7 +3460,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=105,
+                    nuts=False,
+                    milk=True,
+                    seafood=False,
+                    soy=True,
+                    peach=False,
+                    gluten=False,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=2,
@@ -2096,7 +3487,17 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=106,
+                    nuts=False,
+                    milk=False,
+                    seafood=True,
+                    soy=False,
+                    peach=False,
+                    gluten=False,
+                    eggs=False,
+                ),
             ),
             ProductData(
                 product_id=2,
@@ -2113,6 +3514,16 @@ class UserWindow(QWidget):
                 height=5,
                 weight=300,
                 fragile=False,
-                image_path=image_root / "product_no_image.png",
+                image_path=self._resolve_product_image(2, "서울우유"),
+                allergy_info=AllergyInfoData(
+                    allergy_info_id=107,
+                    nuts=False,
+                    milk=False,
+                    seafood=False,
+                    soy=False,
+                    peach=True,
+                    gluten=False,
+                    eggs=True,
+                ),
             ),
         ]

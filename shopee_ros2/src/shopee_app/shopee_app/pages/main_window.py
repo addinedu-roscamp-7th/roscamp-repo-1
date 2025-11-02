@@ -37,6 +37,10 @@ class MainWindow(QMainWindow):
         self.setup_role_toggle()
         self.child_window = None
         self.ui.btn_login.clicked.connect(self.on_login_clicked)
+        self.ui.btn_login.setAutoDefault(True)
+        self.ui.btn_login.setDefault(True)
+        self.ui.et_id.returnPressed.connect(self.on_id_return_pressed)
+        self.ui.et_password.returnPressed.connect(self.on_login_clicked)
 
     def setup_role_toggle(self):
         self.ui.btn_user.setCheckable(True)
@@ -87,6 +91,7 @@ class MainWindow(QMainWindow):
                 lambda: UserWindow(
                     user_info=user_info,
                     service_client=self.service_client,
+                    ros_thread=self._ros_thread,
                 )
             )
             return
@@ -94,6 +99,13 @@ class MainWindow(QMainWindow):
         if self.ui.btn_admin.isChecked():
             self.launch_role_window(lambda: AdminWindow())
             return
+
+    def on_id_return_pressed(self) -> None:
+        password_text = self.ui.et_password.text().strip()
+        if password_text:
+            self.on_login_clicked()
+            return
+        self.ui.et_password.setFocus()
 
     def launch_role_window(self, factory):
         if self.child_window:

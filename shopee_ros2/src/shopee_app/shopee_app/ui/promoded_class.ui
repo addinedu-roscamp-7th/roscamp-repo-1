@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>230</width>
-    <height>367</height>
+    <height>324</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,8 +24,8 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>230</width>
-    <height>367</height>
+    <width>248</width>
+    <height>324</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -34,7 +34,22 @@
   <property name="styleSheet">
    <string notr="true">#product_form { border: 1px solid #b0b0b0; }</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="20,4,2,2,1,0">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="20,0,4,2,2,0,0">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
    <item>
     <widget class="QLabel" name="label_prod_image">
      <property name="sizePolicy">
@@ -45,24 +60,30 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>160</width>
-       <height>160</height>
+       <width>230</width>
+       <height>180</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>16777211</width>
-       <height>16777215</height>
+       <width>230</width>
+       <height>180</height>
       </size>
      </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="lineWidth">
+      <number>0</number>
+     </property>
+     <property name="midLineWidth">
+      <number>0</number>
      </property>
      <property name="text">
       <string/>
      </property>
      <property name="pixmap">
-      <pixmap>../image/product_no_image.png</pixmap>
+      <pixmap>../../../../../../../.designer/image/product_no_image.png</pixmap>
      </property>
      <property name="scaledContents">
       <bool>false</bool>
@@ -73,15 +94,44 @@
     </widget>
    </item>
    <item>
+    <spacer name="verticalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Fixed</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>5</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
-     <property name="topMargin">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
       <number>10</number>
      </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
      <property name="rightMargin">
-      <number>5</number>
+      <number>10</number>
      </property>
      <item>
       <widget class="QLabel" name="label_prod_name">
+       <property name="font">
+        <font>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
        <property name="text">
         <string>제품명</string>
        </property>
@@ -102,8 +152,19 @@
      </item>
      <item>
       <widget class="QLabel" name="label_category">
+       <property name="font">
+        <font>
+         <pointsize>8</pointsize>
+        </font>
+       </property>
        <property name="frameShape">
         <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="lineWidth">
+        <number>10</number>
+       </property>
+       <property name="midLineWidth">
+        <number>10</number>
        </property>
        <property name="text">
         <string>우유</string>
@@ -117,8 +178,28 @@
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <property name="leftMargin">
+      <number>10</number>
+     </property>
+     <property name="topMargin">
+      <number>3</number>
+     </property>
+     <property name="rightMargin">
+      <number>10</number>
+     </property>
      <item>
       <widget class="QLabel" name="label_5">
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
        <property name="text">
         <string>알러지 정보</string>
        </property>
@@ -126,17 +207,55 @@
      </item>
      <item>
       <widget class="QLabel" name="label_allergy_info">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
        <property name="text">
         <string>안전</string>
        </property>
       </widget>
      </item>
+     <item>
+      <spacer name="horizontalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
     </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <property name="leftMargin">
+      <number>10</number>
+     </property>
+     <property name="topMargin">
+      <number>3</number>
+     </property>
+     <property name="rightMargin">
+      <number>10</number>
+     </property>
      <item>
       <widget class="QLabel" name="label_6">
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
        <property name="text">
         <string>비건 유무</string>
        </property>
@@ -144,39 +263,57 @@
      </item>
      <item>
       <widget class="QLabel" name="label_vegan_info">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
        <property name="text">
         <string>비건 음식</string>
        </property>
       </widget>
      </item>
+     <item>
+      <spacer name="horizontalSpacer_4">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
     </layout>
    </item>
    <item>
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>10</number>
+     </property>
      <property name="topMargin">
       <number>0</number>
      </property>
+     <property name="rightMargin">
+      <number>10</number>
+     </property>
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>0</number>
+       </property>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_5">
          <item>
           <widget class="QLabel" name="label_original_price">
            <property name="font">
             <font>
+             <pointsize>10</pointsize>
              <strikeout>true</strikeout>
             </font>
            </property>
@@ -191,13 +328,43 @@
         <layout class="QHBoxLayout" name="horizontalLayout_6">
          <item>
           <widget class="QLabel" name="label_discount_rate">
+           <property name="font">
+            <font>
+             <pointsize>15</pointsize>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
            <property name="text">
             <string>50%</string>
            </property>
           </widget>
          </item>
          <item>
+          <spacer name="horizontalSpacer_5">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
           <widget class="QLabel" name="label_discounted_price">
+           <property name="font">
+            <font>
+             <pointsize>15</pointsize>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
            <property name="text">
             <string>10,350</string>
            </property>
@@ -221,13 +388,32 @@
       </layout>
      </item>
      <item>
-      <widget class="QToolButton" name="toolButton">
+      <widget class="QToolButton" name="btn_add_product">
        <property name="text">
         <string>담기</string>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>20</width>
+         <height>20</height>
+        </size>
        </property>
       </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>

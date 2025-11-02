@@ -56,6 +56,10 @@ bt_navigator:
       plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
     navigate_through_poses:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+
+    ##절대경로!!
+    default_nav_to_pose_bt_xml: /home/vic/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/behavior_trees/navigate_to_pose_w_replanning_and_recovery_custom.xml
+
     # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
     # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
     # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
@@ -72,6 +76,17 @@ bt_navigator:
 controller_server:
   ros__parameters:
     controller_frequency: 30.0
+
+    ####
+    goal_checker_plugins: ["goal_checker"]
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.20       # 10 cm 위치 오차 허용
+      yaw_goal_tolerance: 0.2      # 약 1.1° 회전 오차 허용
+      stateful: True                # 도착 후 약간 움직여도 SUCCESS 유지
+    ####
+
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 56
@@ -116,12 +131,12 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 5.0
-        threshold_to_consider: 1.4
+        threshold_to_consider: 1.4 # 목적지 직선 오차, 원본 : 1.4
       GoalAngleCritic:
         enabled: true
-        cost_power: 1
+        cost_power: 1 # 목적지 각도 오차에 민감하게 반응
         cost_weight: 3.0
-        threshold_to_consider: 0.5
+        threshold_to_consider: 0.5 # 목적지 각도 오차, 원본 : 0.5
       PreferForwardCritic:
         enabled: true
         cost_power: 1
@@ -199,7 +214,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.37
+        inflation_radius: 0.37 # 길시간 회피 반경, 원본 : 0.37
       voxel_layer: # 실시간 장애물 인식을 위한 Voxel Layer 설정
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -220,9 +235,9 @@ local_costmap:
           marking: True
           data_type: "LaserScan"
           raytrace_max_range: 5.0
-          raytrace_min_range: 0.6
+          raytrace_min_range: 0.05 #### 장애물 제거 최소거리, 원본 : 0.6   !!!
           obstacle_max_range: 4.5
-          obstacle_min_range: 0.24 #### 장애물 인식 최소 거리, 원본 : 0.6
+          obstacle_min_range: 0.05 #### 장애물 인식 최소 거리, 원본 : 0.6 ->0.24
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -262,7 +277,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.37
+        inflation_radius: 0.37 # 전역경로 회피 반경, 원본 : 0.37
       always_send_full_costmap: True
 
 map_server:
@@ -280,14 +295,14 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: True
 
-planner_server:
+planner_server: #전역 경로 계획
   ros__parameters:
     expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 1.0
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
+      tolerance: 0.5 #### 전역 경로 기준 정밀도, 원본 : 0.5
       use_astar: false
       allow_unknown: true
 

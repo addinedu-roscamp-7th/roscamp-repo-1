@@ -15,6 +15,7 @@ find_package(rosidl_default_generators REQUIRED)
 set(msg_files
   "msg/ArmPoseStatus.msg"
   "msg/ArmTaskStatus.msg"
+  "msg/ArucoPose.msg"
   "msg/BBox.msg"
   "msg/DetectedProduct.msg"
   "msg/DetectionInfo.msg"
@@ -22,6 +23,7 @@ set(msg_files
   "msg/PackeeAvailability.msg"
   "msg/PackeePackingComplete.msg"
   "msg/PackeeRobotStatus.msg"
+  "msg/PersonDetection.msg"
   "msg/PickeeArrival.msg"
   "msg/PickeeCartHandover.msg"
   "msg/PickeeMobileArrival.msg"
@@ -50,6 +52,7 @@ set(srv_files
   "srv/ArmMoveToPose.srv"
   "srv/ArmPickProduct.srv"
   "srv/ArmPlaceProduct.srv"
+  "srv/ChangeTrackingMode.srv"
   "srv/MainGetAvailableRobots.srv"
   "srv/MainGetProductLocation.srv"
   "srv/MainGetLocationPose.srv"

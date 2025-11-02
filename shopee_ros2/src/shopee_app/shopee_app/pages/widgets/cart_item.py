@@ -1,6 +1,8 @@
 from pathlib import Path
+from PyQt6 import QtCore
 from PyQt6 import QtGui
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QStyle
 from PyQt6.QtWidgets import QWidget
 
 from shopee_app.pages.models.cart_item_data import CartItemData
@@ -15,6 +17,7 @@ class CartItemWidget(QWidget):
     FALLBACK_IMAGE = (
         Path(__file__).resolve().parent.parent / 'image' / 'product_no_image.png'
     )
+    DELETE_ICON = Path(__file__).resolve().parent.parent / 'icons' / 'trash.svg'
     MIN_QUANTITY = 1
     MAX_QUANTITY = 99
 
@@ -22,6 +25,7 @@ class CartItemWidget(QWidget):
         super().__init__(parent)
         self.ui = Ui_CartItemWidget()
         self.ui.setupUi(self)
+        self.configure_delete_button()
         self.data: CartItemData | None = None
         self.ui.btn_decrease.clicked.connect(self.on_decrease_clicked)
         self.ui.btn_increase.clicked.connect(self.on_increase_clicked)
@@ -49,6 +53,19 @@ class CartItemWidget(QWidget):
         image_path = path if path and path.exists() else self.FALLBACK_IMAGE
         pixmap = QtGui.QPixmap(str(image_path))
         self.ui.label_image.setPixmap(pixmap)
+
+    def configure_delete_button(self) -> None:
+        if self.DELETE_ICON.exists():
+            icon = QtGui.QIcon(str(self.DELETE_ICON))
+        else:
+            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        if icon.isNull():
+            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        self.ui.btn_delete.setIcon(icon)
+        self.ui.btn_delete.setIconSize(QtCore.QSize(20, 20))
+        self.ui.btn_delete.setText('')
+        self.ui.btn_delete.setToolTip('삭제')
+        self.ui.btn_delete.setAccessibleName('장바구니 항목 삭제 버튼')
 
     def on_decrease_clicked(self) -> None:
         if self.data is None:

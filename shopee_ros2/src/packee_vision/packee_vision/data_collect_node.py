@@ -76,8 +76,8 @@ class DataCollector(Node):
         self.receiver = video_receiver
         self.object_dict = {1: "wasabi", 10: "fish", 12: "eclipse"}
 
-        self.object_id = 12
-        self.target_pose = [42.2, -39.0, 289.8, -153.04, 21.75, -85.67]
+        self.object_id = 10
+        self.target_pose = [172.7, -110.5, 218.8, 176.42, -8.73, -89.25]
         self.save_dir = "./datasets"
 
         # 현재 관절 상태
@@ -90,14 +90,13 @@ class DataCollector(Node):
 
         # 데이터 저장
         self.datasets = {"images":[], "class": [], "pose":[]}
-        self.count = 0
-        self.current_pose_index = 0
+        self.count = 800
 
         # ROS2 통신
-        self.publisher = self.create_publisher(Pose6D, '/packee1/move', 10)
+        self.publisher = self.create_publisher(Pose6D, '/packee2/move', 10)
         self.subscriber = self.create_subscription(
             Pose6D,
-            '/packee1/pose',
+            '/packee2/pose',
             self.AngleCallback,
             10
         )
@@ -143,16 +142,16 @@ class DataCollector(Node):
         x, y, w, h = roi
         undistorted = undistorted[y:y+h, x:x+w]
 
-        if self.count >= 400:
+        if self.count >= 1200:
             self.get_logger().info(f"{self.object_id} 데이터 수집 완료")
             df = pd.DataFrame(self.datasets)
-            df.to_csv(f"{self.save_dir}/{self.object_dict[self.object_id]}/datasets.csv", index=False)
+            df.to_csv(f"{self.save_dir}/{self.object_dict[self.object_id]}/grid2.csv", index=False)
             return
 
         # target_pose 주변에서 랜덤 오프셋 생성
-        dx = random.uniform(-20, 20)
-        dy = random.uniform(-20, 20)
-        dz = random.uniform(-20, 20)
+        dx = random.uniform(-15, 15)
+        dy = random.uniform(-15, 15)
+        dz = random.uniform(-15, 15)
         drz = random.uniform(-10, 10)
 
         pose = [

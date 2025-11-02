@@ -52,7 +52,7 @@
      <property name="minimumSize">
       <size>
        <width>0</width>
-       <height>40</height>
+       <height>60</height>
       </size>
      </property>
      <property name="frameShape">
@@ -93,7 +93,7 @@
          <enum>Qt::Horizontal</enum>
         </property>
         <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
+         <enum>QSizePolicy::Expanding</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -330,7 +330,7 @@
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <property name="spacing">
-            <number>5</number>
+            <number>0</number>
            </property>
            <property name="leftMargin">
             <number>10</number>
@@ -345,6 +345,19 @@
             <number>10</number>
            </property>
            <item>
+            <spacer name="horizontalSpacer_12">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
             <widget class="QToolButton" name="toolButton_3">
              <property name="text">
               <string>쇼핑</string>
@@ -357,6 +370,19 @@
               <string>매장</string>
              </property>
             </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_13">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
            </item>
           </layout>
          </item>
@@ -375,7 +401,7 @@
             </size>
            </property>
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="QWidget" name="side_allergy_filter_page">
             <property name="sizePolicy">
@@ -384,15 +410,15 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
-            <layout class="QVBoxLayout" name="verticalLayout_6" stretch="0,0,10">
+            <layout class="QVBoxLayout" name="verticalLayout_6" stretch="0,0,0,0,0,0,0">
              <property name="spacing">
               <number>0</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>10</number>
              </property>
              <property name="topMargin">
-              <number>20</number>
+              <number>10</number>
              </property>
              <property name="rightMargin">
               <number>0</number>
@@ -405,6 +431,9 @@
                <property name="text">
                 <string>필터</string>
                </property>
+               <property name="margin">
+                <number>2</number>
+               </property>
               </widget>
              </item>
              <item>
@@ -415,11 +444,156 @@
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="label_6">
+              <spacer name="verticalSpacer_4">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Fixed</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>5</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_12">
+               <property name="rightMargin">
+                <number>10</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="cb_allergy_total">
+                 <property name="text">
+                  <string>알러지</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_11">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btn_allergy">
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QWidget" name="widget_allergy_sub" native="true">
+               <layout class="QVBoxLayout" name="verticalLayout_23">
+                <item>
+                 <widget class="QCheckBox" name="cb_nuts">
+                  <property name="text">
+                   <string>견과류</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_milk">
+                  <property name="text">
+                   <string>유제품</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_seafood">
+                  <property name="text">
+                   <string>어폐류</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_bean">
+                  <property name="text">
+                   <string>대두/콩</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_peach">
+                  <property name="text">
+                   <string>복숭아</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_gluten">
+                  <property name="text">
+                   <string>밀, 글루텐</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="cb_egg">
+                  <property name="text">
+                   <string>계란</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="cb_vegan">
                <property name="text">
-                <string>TextLabel</string>
+                <string>비건 식품</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_3">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
              </item>
             </layout>
            </widget>
@@ -450,8 +624,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>198</width>
-                  <height>591</height>
+                  <width>113</width>
+                  <height>288</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -470,7 +644,7 @@
                    <item>
                     <widget class="QLabel" name="text_progress">
                      <property name="text">
-                      <string>80%</string>
+                      <string>0%</string>
                      </property>
                     </widget>
                    </item>
@@ -479,7 +653,7 @@
                  <item>
                   <widget class="QProgressBar" name="shop_progressBar">
                    <property name="value">
-                    <number>24</number>
+                    <number>0</number>
                    </property>
                   </widget>
                  </item>
@@ -491,7 +665,11 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="widget_remote_select_list"/>
+                  <widget class="QListWidget" name="widget_remote_select_list">
+                   <property name="frameShape">
+                    <enum>QFrame::NoFrame</enum>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <widget class="QLabel" name="label_14">
@@ -501,7 +679,11 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QListWidget" name="widget_auto_select_list"/>
+                  <widget class="QListWidget" name="widget_auto_select_list">
+                   <property name="frameShape">
+                    <enum>QFrame::NoFrame</enum>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <spacer name="verticalSpacer">
@@ -568,7 +750,7 @@
               <number>20</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="rightMargin">
               <number>20</number>
@@ -602,7 +784,7 @@
                   <x>0</x>
                   <y>0</y>
                   <width>783</width>
-                  <height>452</height>
+                  <height>417</height>
                  </rect>
                 </property>
                 <property name="sizePolicy">
@@ -611,7 +793,7 @@
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,5">
+                <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,1,5">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -628,36 +810,59 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <widget class="QLabel" name="label_16">
-                   <property name="text">
-                    <string>LET's START</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_17">
-                   <property name="text">
-                    <string>원격 쇼핑 전 상품을 주문해주세요</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_18">
-                   <property name="layoutDirection">
-                    <enum>Qt::LeftToRight</enum>
-                   </property>
-                   <property name="text">
-                    <string>주문담기를 통해 쇼핑리스트를 생성해 보세요</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignCenter</set>
-                   </property>
+                  <widget class="QWidget" name="widget_user_banner" native="true">
+                   <layout class="QVBoxLayout" name="verticalLayout_24">
+                    <item>
+                     <widget class="QLabel" name="label_let_start">
+                      <property name="font">
+                       <font>
+                        <pointsize>12</pointsize>
+                        <weight>75</weight>
+                        <bold>true</bold>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>LET's START</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLabel" name="label_main_top">
+                      <property name="text">
+                       <string>원격 쇼핑 전 상품을 주문해주세요</string>
+                      </property>
+                      <property name="scaledContents">
+                       <bool>false</bool>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLabel" name="label_do_create">
+                      <property name="font">
+                       <font>
+                        <pointsize>12</pointsize>
+                        <weight>75</weight>
+                        <bold>true</bold>
+                       </font>
+                      </property>
+                      <property name="layoutDirection">
+                       <enum>Qt::LeftToRight</enum>
+                      </property>
+                      <property name="text">
+                       <string>주문담기를 통해 쇼핑리스트를 생성해 보세요</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
                   </widget>
                  </item>
                  <item>
@@ -749,6 +954,9 @@
                      <property name="widgetResizable">
                       <bool>true</bool>
                      </property>
+                     <property name="alignment">
+                      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                     </property>
                      <widget class="QWidget" name="cart_items_container">
                       <property name="geometry">
                        <rect>
@@ -824,6 +1032,9 @@
                   <property name="frameShadow">
                    <enum>QFrame::Raised</enum>
                   </property>
+                  <property name="lineWidth">
+                   <number>1</number>
+                  </property>
                   <layout class="QHBoxLayout" name="horizontalLayout_4">
                    <property name="spacing">
                     <number>0</number>
@@ -835,7 +1046,7 @@
                     <number>0</number>
                    </property>
                    <property name="rightMargin">
-                    <number>10</number>
+                    <number>20</number>
                    </property>
                    <property name="bottomMargin">
                     <number>0</number>
@@ -864,23 +1075,16 @@
                     </spacer>
                    </item>
                    <item>
-                    <widget class="QLabel" name="label_4">
-                     <property name="text">
-                      <string>총액 : </string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
                     <widget class="QLabel" name="label_pay_price">
+                     <property name="font">
+                      <font>
+                       <pointsize>12</pointsize>
+                       <weight>75</weight>
+                       <bold>true</bold>
+                      </font>
+                     </property>
                      <property name="text">
                       <string>19,100</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_5">
-                     <property name="text">
-                      <string>원</string>
                      </property>
                     </widget>
                    </item>
@@ -982,7 +1186,7 @@
                 </property>
                 <item>
                  <widget class="QWidget" name="map_area" native="true">
-                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,17">
+                  <layout class="QVBoxLayout" name="verticalLayout_12" stretch="1,18">
                    <property name="spacing">
                     <number>0</number>
                    </property>
@@ -1006,12 +1210,9 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QLabel" name="label_13">
+                    <widget class="QGraphicsView" name="gv_map">
                      <property name="frameShape">
-                      <enum>QFrame::Panel</enum>
-                     </property>
-                     <property name="text">
-                      <string>지도</string>
+                      <enum>QFrame::NoFrame</enum>
                      </property>
                     </widget>
                    </item>
@@ -1083,13 +1284,58 @@
                        </layout>
                       </item>
                       <item>
-                       <widget class="QLabel" name="label_9">
-                        <property name="frameShape">
-                         <enum>QFrame::Box</enum>
+                       <widget class="QStackedWidget" name="stackedWidget_3">
+                        <property name="currentIndex">
+                         <number>0</number>
                         </property>
-                        <property name="text">
-                         <string>로봇 영상</string>
-                        </property>
+                        <widget class="QWidget" name="page_front">
+                         <layout class="QVBoxLayout" name="verticalLayout_20">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QGraphicsView" name="gv_front">
+                            <property name="frameShape">
+                             <enum>QFrame::NoFrame</enum>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
+                        <widget class="QWidget" name="page_arm">
+                         <layout class="QVBoxLayout" name="verticalLayout_22">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QGraphicsView" name="gv_arm"/>
+                          </item>
+                         </layout>
+                        </widget>
                        </widget>
                       </item>
                      </layout>
@@ -1123,7 +1369,7 @@
                       <item>
                        <widget class="QStackedWidget" name="stackedWidget">
                         <property name="currentIndex">
-                         <number>1</number>
+                         <number>2</number>
                         </property>
                         <widget class="QWidget" name="page_moving">
                          <layout class="QVBoxLayout" name="verticalLayout_16">
@@ -1251,7 +1497,84 @@
                           </item>
                          </layout>
                         </widget>
-                        <widget class="QWidget" name="page_end_pick_up"/>
+                        <widget class="QWidget" name="page_end_pick_up">
+                         <layout class="QVBoxLayout" name="verticalLayout_18">
+                          <property name="spacing">
+                           <number>0</number>
+                          </property>
+                          <property name="leftMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="topMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="rightMargin">
+                           <number>0</number>
+                          </property>
+                          <property name="bottomMargin">
+                           <number>0</number>
+                          </property>
+                          <item>
+                           <widget class="QWidget" name="widget_2" native="true">
+                            <layout class="QVBoxLayout" name="verticalLayout_21">
+                             <property name="spacing">
+                              <number>0</number>
+                             </property>
+                             <property name="leftMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="topMargin">
+                              <number>20</number>
+                             </property>
+                             <property name="rightMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="bottomMargin">
+                              <number>0</number>
+                             </property>
+                             <item>
+                              <widget class="QLabel" name="label_19">
+                               <property name="text">
+                                <string>쇼핑을 종료하시겠습니까? </string>
+                               </property>
+                               <property name="alignment">
+                                <set>Qt::AlignCenter</set>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QLabel" name="label_12">
+                               <property name="text">
+                                <string>쇼핑리스트의 모든 상품을 담았습니다.</string>
+                               </property>
+                               <property name="alignment">
+                                <set>Qt::AlignCenter</set>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_11">
+                               <item>
+                                <widget class="QPushButton" name="btn_shop_end">
+                                 <property name="text">
+                                  <string>쇼핑 종료하기</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QPushButton" name="btn_shop_continue">
+                                 <property name="text">
+                                  <string>쇼핑 더하기</string>
+                                 </property>
+                                </widget>
+                               </item>
+                              </layout>
+                             </item>
+                            </layout>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
                        </widget>
                       </item>
                      </layout>
@@ -1294,7 +1617,7 @@
                 <item>
                  <widget class="QLabel" name="label_robot_notification">
                   <property name="text">
-                   <string>현재 쇼피패키 감자칩 60g 으로 이동중</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
@@ -1341,7 +1664,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <activeon>../pages/icons/mic.svg</activeon>
+     <activeon>../../../../../../../.designer/pages/icons/mic.svg</activeon>
     </iconset>
    </property>
    <property name="text">

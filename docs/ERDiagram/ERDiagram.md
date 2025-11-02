@@ -185,4 +185,12 @@ note right of robot_history {
   5. error
 }
 
+note right of section {
+  Section과 Shelf의 location_id:
+  - Shelf: 선반 전체의 물리적 위치
+  - Section: 선반 내 구역의 개별 위치
+  - Section.location_id ≠ Shelf.location_id
+  - 로봇은 Section.location_id로 이동
+}
+
 @enduml

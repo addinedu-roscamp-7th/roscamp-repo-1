@@ -46,7 +46,7 @@
 
 #### Service Clients.
 - **vs. Arm**
-  - `/packee/arm/move_to_pose` (`ArmMoveToPose.srv`): 'checking_cart', 'standby' 등 특정 자세로 변경을 명령.
+  - `/packee/arm/move_to_pose` (`ArmMoveToPose.srv`): 'cart_view', 'standby' 등 특정 자세로 변경을 명령.
   - `/packee/arm/pick_product` (`ArmPickProduct.srv`): '좌측 팔' 또는 '우측 팔'에 특정 위치의 상품을 피킹하도록 명령.
   - `/packee/arm/place_product` (`ArmPlaceProduct.srv`): '좌측 팔' 또는 '우측 팔'에 피킹한 상품을 장바구니에 담도록 명령.
 - **vs. Vision**

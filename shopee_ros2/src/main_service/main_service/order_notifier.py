@@ -8,8 +8,19 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
+from .config import settings
 from .constants import EventTopic
-from .database_models import Customer, Order, OrderItem, Product, RobotHistory
+from .database_models import (
+    Customer,
+    Location,
+    Order,
+    OrderItem,
+    Product,
+    RobotHistory,
+    Section,
+    Shelf,
+    Warehouse,
+)
 
 if TYPE_CHECKING:
     from .database_manager import DatabaseManager
@@ -51,6 +62,7 @@ class OrderNotifier:
             "packing_success": "포장을 완료했습니다",
             "packing_fail": "포장에 실패했습니다",
         }
+        self._location_cache: Dict[int, Dict[str, str]] = {}
 
     def register_order_user(self, order_id: int, user_id: str) -> None:
         """order_id와 user_id 연관 정보를 저장합니다."""
@@ -86,7 +98,9 @@ class OrderNotifier:
 
     async def notify_robot_moving(self, msg: "PickeeMoveStatus") -> None:
         """Pickee 이동 상태를 알립니다."""
-        destination_text = f"LOCATION_{msg.location_id}"
+        location_info = self._resolve_location_info(msg.location_id)
+        destination_text = location_info["label"]
+        message_text = location_info["message"]
         await self._push_to_user(
             {
                 "type": "robot_moving_notification",
@@ -98,7 +112,7 @@ class OrderNotifier:
                     "destination": destination_text,
                     "location_id": msg.location_id,
                 },
-                "message": self._default_locale_messages["robot_moving"],
+                "message": message_text,
             },
             order_id=msg.order_id,
         )
@@ -211,7 +225,7 @@ class OrderNotifier:
                     "order_id": order_id,
                     "robot_id": robot_id,
                 },
-                "message": "모든 상품을 장바구니에 담았습니다. 포장 스테이션으로 이동합니다.",
+                "message": "모든 상품을 장바구니에 담았습니다.",
             },
             order_id=order_id,
         )
@@ -367,3 +381,50 @@ class OrderNotifier:
             },
             order_id=order_id,
         )
+
+    def _resolve_location_info(self, location_id: int) -> Dict[str, str]:
+        """이동 목적지 ID를 기반으로 사용자 메시지와 라벨을 생성한다."""
+        if location_id in self._location_cache:
+            return self._location_cache[location_id]
+
+        label = f"LOCATION_{location_id}"
+        message = self._default_locale_messages["robot_moving"]
+
+        with self._db.session_scope() as session:
+            location = session.query(Location).filter(Location.location_id == location_id).first()
+            location_name = (location.location_name or "").strip() if location else ""
+
+            if location_id == settings.PICKEE_PACKING_LOCATION_ID:
+                label = settings.DESTINATION_PACKING_NAME or (location_name or label)
+                message = "포장 구역으로 이동 중입니다."
+            elif location_id == settings.PICKEE_HOME_LOCATION_ID:
+                label = location_name or "ROBOT_HOME"
+                message = "대기 구역으로 이동 중입니다."
+            else:
+                section = session.query(Section).filter(Section.location_id == location_id).first()
+                if section:
+                    shelf_name = section.shelf.shelf_name if section.shelf else ""
+                    label = section.section_name or location_name or label
+                    if shelf_name:
+                        message = f"섹션 {label}({shelf_name})으로 이동 중입니다."
+                    else:
+                        message = f"섹션 {label}로 이동 중입니다."
+                else:
+                    shelf = session.query(Shelf).filter(Shelf.location_id == location_id).first()
+                    if shelf:
+                        label = shelf.shelf_name or location_name or label
+                        message = f"선반 {label}으로 이동 중입니다."
+                    else:
+                        warehouse = session.query(Warehouse).filter(Warehouse.location_id == location_id).first()
+                        if warehouse:
+                            label = warehouse.warehouse_name or location_name or label
+                            message = f"창고 {label}으로 이동 중입니다."
+                        elif location_name:
+                            label = location_name
+                            message = f"{location_name}로 이동 중입니다."
+                        else:
+                            message = f"지정된 위치({location_id})로 이동 중입니다."
+
+        info = {"label": label, "message": message}
+        self._location_cache[location_id] = info
+        return info

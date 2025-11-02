@@ -1,5 +1,5 @@
 # 실행 
-# python3 train.py --csv /home/addinedu/dev_ws/shopee/src/DataCollector/DataCollector/datasets/labels.csv --outdir ./checkpoints --epochs 60 --batch 32 --lr 1e-4
+# python3 train.py --csv /home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/packee_vision/packee_vision/datasets/labels.csv --outdir ./checkpoints --epochs 60 --batch 32 --lr 1e-4
 
 import os, ast, argparse
 from pathlib import Path
@@ -10,7 +10,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchvision import transforms, models
+from torchvision import transforms
+from pose_cnn.model import PoseCNN
 import cv2
 
 class PoseDataset(torch.utils.data.Dataset):
@@ -68,33 +69,6 @@ class PoseDataset(torch.utils.data.Dataset):
             label = 0
 
         return img, torch.tensor(pose), torch.tensor(label)
-
-
-class PoseCNN(nn.Module):
-    def __init__(self,num_classes=3):
-        super().__init__()
-        resnet=models.resnet18(pretrained=True)
-        self.backbone=nn.Sequential(*list(resnet.children())[:-1])
-        feat_dim=512
-        self.pose_head=nn.Sequential(
-            nn.Linear(feat_dim,256),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-            nn.Linear(256,6)
-        )
-        self.class_head=nn.Sequential(
-            nn.Linear(feat_dim,128),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-            nn.Linear(128,num_classes)
-        )
-
-    def forward(self,x):
-        f=self.backbone(x).flatten(1)
-        pose_out=self.pose_head(f)
-        cls_out=self.class_head(f)
-        return pose_out,cls_out
-
 
 def compute_pose_stats(csv):
     df=pd.read_csv(csv)

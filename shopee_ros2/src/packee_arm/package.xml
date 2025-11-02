@@ -11,19 +11,11 @@
   <!-- Build system -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- Core ROS 2 dependencies -->
-  <depend>rclcpp</depend>
-  <depend>rosidl_runtime_cpp</depend>
+  <!-- Runtime dependencies (Python 노드) -->
+  <depend>rclpy</depend>
   <depend>shopee_interfaces</depend>
-
-  <!-- Message/Service utilities -->
-  <depend>trajectory_msgs</depend>
-  <depend>sensor_msgs</depend>
-  <depend>std_msgs</depend>
-
-  <!-- Optional utilities -->
   <depend>geometry_msgs</depend>
-  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
 
   <!-- Build type -->
   <export>
