@@ -401,13 +401,13 @@ class UserWindow(QWidget):
         if self.select_done_button is not None:
             self.select_done_button.clicked.connect(self.on_select_done_clicked)
             self.select_done_button.setStyleSheet(
-                f'''
+                f"""
                     background-color: {COLORS['primary']};
                     color: white;
                     border: none;
                     border-radius: 10px;
                     padding: 10px 24px;
-                '''
+                """
             )
         self.selection_state_label = getattr(self.ui, "label_selecting_state", None)
         if self.selection_state_label is not None:
@@ -431,14 +431,14 @@ class UserWindow(QWidget):
                 self.selection_voice_button.setSizePolicy(
                     QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
                 )
-            primary_color = COLORS['primary']
-            neutral_color = '#666666'
+            primary_color = COLORS["primary"]
+            neutral_color = "#666666"
             self.selection_voice_button.setStyleSheet(
-                f'QToolButton {{ text-align: center; padding: 6px 16px; min-height: 40px; border-radius: 10px; '
-                f'background-color: transparent; color: {neutral_color}; border: 1px solid {neutral_color}; '
-                f'margin-right: 12px; }} '
-                f'QToolButton:checked {{ background-color: {primary_color}; color: white; border-color: {primary_color}; }} '
-                f'QToolButton::icon {{ margin-right: 3px; }}'
+                f"QToolButton {{ text-align: center; padding: 6px 16px; min-height: 40px; border-radius: 10px; "
+                f"background-color: transparent; color: {neutral_color}; border: 1px solid {neutral_color}; "
+                f"margin-right: 12px; }} "
+                f"QToolButton:checked {{ background-color: {primary_color}; color: white; border-color: {primary_color}; }} "
+                f"QToolButton::icon {{ margin-right: 3px; }}"
             )
             self._update_selection_voice_button(False)
             self.selection_voice_button.clicked.connect(
@@ -2189,10 +2189,10 @@ class UserWindow(QWidget):
 
     def _apply_selection_button_style(self, button: QPushButton) -> None:
         # 선택 토글 버튼은 상태별 색상을 명확히 구분한다.
-        primary_color = COLORS['primary']
-        neutral_background = COLORS['gray_light']
+        primary_color = COLORS["primary"]
+        neutral_background = COLORS["gray_light"]
         button.setStyleSheet(
-            f'''
+            f"""
                 QPushButton {{
                     background-color: {neutral_background};
                     color: #000000;
@@ -2205,7 +2205,7 @@ class UserWindow(QWidget):
                     color: {primary_color};
                     border: 1px solid {primary_color};
                 }}
-            '''
+            """
         )
 
     def _apply_pick_bottom_sheet_frame_style(self, frame: QWidget) -> None:
@@ -2213,7 +2213,7 @@ class UserWindow(QWidget):
         object_name = frame.objectName() or "frame_pick_bottom_sheet"
         frame.setObjectName(object_name)
         frame.setStyleSheet(
-            f'''
+            f"""
                 QFrame#{object_name} {{
                     background-color: #ffffff;
                     border: 1px solid #000000;
@@ -2222,14 +2222,14 @@ class UserWindow(QWidget):
                     border-bottom-left-radius: 0px;
                     border-bottom-right-radius: 0px;
                 }}
-            '''
+            """
         )
 
     def _apply_shop_end_button_style(self, button: QPushButton) -> None:
         # 쇼핑 종료 버튼은 강조 색상 테두리와 텍스트 대비를 유지한다.
-        primary_color = COLORS['primary']
+        primary_color = COLORS["primary"]
         button.setStyleSheet(
-            f'''
+            f"""
                 QPushButton {{
                     background-color: #ffffff;
                     color: {primary_color};
@@ -2240,15 +2240,15 @@ class UserWindow(QWidget):
                 QPushButton:pressed {{
                     background-color: #ffffff;
                 }}
-            '''
+            """
         )
 
     def _apply_shop_continue_button_style(self, button: QPushButton) -> None:
         # 쇼핑 계속 버튼은 기본 색상으로 강조한다.
-        primary_color = COLORS['primary']
-        primary_dark = COLORS.get('primary_dark', primary_color)
+        primary_color = COLORS["primary"]
+        primary_dark = COLORS.get("primary_dark", primary_color)
         button.setStyleSheet(
-            f'''
+            f"""
                 QPushButton {{
                     background-color: {primary_color};
                     color: #ffffff;
@@ -2259,7 +2259,7 @@ class UserWindow(QWidget):
                 QPushButton:pressed {{
                     background-color: {primary_dark};
                 }}
-            '''
+            """
         )
 
     def _init_video_views(self) -> None:
@@ -3332,7 +3332,10 @@ class UserWindow(QWidget):
                     pass
             self.selection_item_states.clear()
             self._update_selection_state_label()
-        if hasattr(self, "selection_state_label") and self.selection_state_label is not None:
+        if (
+            hasattr(self, "selection_state_label")
+            and self.selection_state_label is not None
+        ):
             self.selection_state_label.setText("선택 대기 중")
 
     def _update_user_header(self) -> None:
