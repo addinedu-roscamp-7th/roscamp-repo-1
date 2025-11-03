@@ -2,6 +2,7 @@
 COLORS = {
     "primary": "#FF3134",
     "primary_dark": "#cc2829",
+    "primary_light": "#FF4649",
     "gray_light": "#EEEEEE",
     "gray": "#999999",
     "gray_dark": "#666666",

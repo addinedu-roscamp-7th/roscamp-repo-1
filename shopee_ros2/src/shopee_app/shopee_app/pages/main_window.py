@@ -17,6 +17,7 @@ from shopee_app.pages.user_window import UserWindow
 from shopee_app.ui_gen.main_window import Ui_MainWindow
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
+from shopee_app.styles.constants import COLORS
 
 if TYPE_CHECKING:
     from shopee_app.ros_node import RosNodeThread
@@ -30,6 +31,7 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
         self.setWindowTitle("Shopee GUI (PyQt6)")
         self.ui.et_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self._apply_login_button_style()
         self.service_client = MainServiceClient()
         self._user_info: dict[str, Any] | None = None
         self._pixmap_helpers: list[_AspectRatioPixmapHelper] = []
@@ -56,33 +58,32 @@ class MainWindow(QMainWindow):
         password = self.ui.et_password.text().strip()
 
         if not user_id or not password:
-            QMessageBox.warning(self, '로그인 실패', '아이디와 비밀번호를 모두 입력해주세요.')
+            QMessageBox.warning(
+                self, "로그인 실패", "아이디와 비밀번호를 모두 입력해주세요."
+            )
             return
 
         self.ui.btn_login.setEnabled(False)
         try:
             response = self.service_client.login(user_id, password)
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '서버 연결 실패', f'{exc}\\n임시 계정으로 계속 진행합니다.')
-            response = {
-                'result': True,
-                'data': {
-                    'user_id': user_id,
-                    'name': user_id or '임시 사용자',
-                },
-            }
+            QMessageBox.warning(
+                self, "서버 연결 실패", f"로그인 서버에 연결할 수 없습니다.\\n{exc}"
+            )
+            self.ui.btn_login.setEnabled(True)
+            return
 
         self.ui.btn_login.setEnabled(True)
 
-        if not response or not response.get('result'):
-            message = response.get('message') or '로그인에 실패했습니다.'
-            QMessageBox.warning(self, '로그인 실패', message)
+        if not response or not response.get("result"):
+            message = response.get("message") or "로그인에 실패했습니다."
+            QMessageBox.warning(self, "로그인 실패", message)
             return
 
-        user_info = response.get('data') or {}
-        user_info.setdefault('user_id', user_id)
+        user_info = response.get("data") or {}
+        user_info.setdefault("user_id", user_id)
         # 알림 전용 연결에서도 재인증할 수 있도록 비밀번호를 보관한다.
-        user_info.setdefault('password', password)
+        user_info.setdefault("password", password)
         self._user_info = user_info
         self.ui.et_password.clear()
 
@@ -202,6 +203,17 @@ class MainWindow(QMainWindow):
             return
 
         self._register_pixmap_helper(label, pixmap, forced_size)
+
+    def _apply_login_button_style(self) -> None:
+        """로그인 버튼에 브랜드 스타일을 적용한다."""
+        primary_light_color = COLORS["primary_light"]
+        self.ui.btn_login.setStyleSheet(
+            f"background-color: {primary_light_color}; "
+            f"color: white; "
+            f"border: none; "
+            f"border-radius: 3px; "
+            f"padding: 8px 16px;"
+        )
 
     def _register_pixmap_helper(
         self,
