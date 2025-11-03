@@ -342,7 +342,7 @@ class PymycobotLeftArmNode(Node):
             pose['z'],
             pose['rx'],
             pose['ry'],
-            ose['rz'],
+            pose['rz'],
         ]
         try:
             self._robot.sync_send_coords(coords_mm, self._move_speed, 0)
