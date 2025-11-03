@@ -63,14 +63,9 @@ class MainWindow(QMainWindow):
         try:
             response = self.service_client.login(user_id, password)
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '서버 연결 실패', f'{exc}\\n임시 계정으로 계속 진행합니다.')
-            response = {
-                'result': True,
-                'data': {
-                    'user_id': user_id,
-                    'name': user_id or '임시 사용자',
-                },
-            }
+            QMessageBox.warning(self, '서버 연결 실패', f'로그인 서버에 연결할 수 없습니다.\\n{exc}')
+            self.ui.btn_login.setEnabled(True)
+            return
 
         self.ui.btn_login.setEnabled(True)
 

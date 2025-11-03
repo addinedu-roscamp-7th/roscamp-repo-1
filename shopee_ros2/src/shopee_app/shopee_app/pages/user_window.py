@@ -529,7 +529,8 @@ class UserWindow(QWidget):
         self._stt_status_close_timer.timeout.connect(self._close_stt_status_dialog)
         self._stt_last_microphone_name: str | None = None
         self._stt_context: str | None = None
-        self.set_products(self.load_initial_products())
+        self.empty_products_message = self.default_empty_products_message
+        self.set_products([])
         self.update_cart_summary()
 
         self.user_info: dict[str, Any] = dict(user_info or {})
@@ -561,7 +562,7 @@ class UserWindow(QWidget):
             profile_button.setToolTip("프로필 보기")
             profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
-        # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 더미 데이터가 그대로 남는다.
+        # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 빈 상태가 유지된다.
         QtCore.QTimer.singleShot(0, self.request_total_products)
 
         self._update_user_header()
@@ -903,34 +904,40 @@ class UserWindow(QWidget):
     def request_total_products(self) -> None:
         # 전체 목록을 가져오지 않으면 쇼핑 첫 화면에 표시할 데이터가 부족하다.
         if self.service_client is None:
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(
+                self, '상품 로드 실패', '상품 서비스를 사용할 수 없습니다.'
+            )
+            self.set_products([])
             self.refresh_product_grid()
             return
         user_id = self._ensure_user_identity()
         if not user_id:
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(
+                self, '상품 로드 실패', '사용자 정보를 확인할 수 없어 상품을 불러올 수 없습니다.'
+            )
+            self.set_products([])
             self.refresh_product_grid()
             return
         try:
             response = self.service_client.fetch_total_products(user_id)
         except MainServiceClientError as exc:
             QMessageBox.warning(
-                self, "상품 로드 실패", f"전체 상품을 불러오지 못했습니다.\n{exc}"
+                self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}'
             )
-            self.set_products(self.load_initial_products())
+            self.set_products([])
             self.refresh_product_grid()
             return
         if not response:
             QMessageBox.warning(
-                self, "상품 로드 실패", "서버에서 전체 상품 응답을 받지 못했습니다."
+                self, '상품 로드 실패', '서버에서 전체 상품 응답을 받지 못했습니다.'
             )
-            self.set_products(self.load_initial_products())
+            self.set_products([])
             self.refresh_product_grid()
             return
         if not response.get("result"):
-            message = response.get("message") or "전체 상품을 가져오지 못했습니다."
-            QMessageBox.warning(self, "상품 로드 실패", message)
-            self.set_products(self.load_initial_products())
+            message = response.get("message") or '전체 상품을 가져오지 못했습니다.'
+            QMessageBox.warning(self, '상품 로드 실패', message)
+            self.set_products([])
             self.refresh_product_grid()
             return
         data = response.get("data") or {}
@@ -938,11 +945,13 @@ class UserWindow(QWidget):
         products = self._convert_total_products(entries)
         if not products:
             QMessageBox.information(
-                self, "상품 로드 안내", "표시할 상품이 없어 기본 목록을 사용합니다."
+                self, '상품 로드 안내', '표시할 상품이 없습니다.'
             )
-            self.set_products(self.load_initial_products())
+            self.empty_products_message = '표시할 상품이 없습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
+        self.empty_products_message = self.default_empty_products_message
         self.set_products(products)
         self.refresh_product_grid()
 
@@ -985,10 +994,11 @@ class UserWindow(QWidget):
             self._close_stt_status_dialog()
             # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
             QMessageBox.warning(
-                self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}"
+                self, '검색 실패', f'상품 검색 중 오류가 발생했습니다.\n{exc}'
             )
-            # 실패 시 기본 상품을 채워 넣지 않으면 화면이 비어 보이게 된다.
-            self.set_products(self.load_initial_products())
+            # 실패 시 목록을 초기화하지 않으면 사용자가 최신 상태를 확인하기 어렵다.
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             # 상품 목록을 다시 그리지 않으면 기존 화면이 갱신되지 않는다.
             self.refresh_product_grid()
             return
@@ -1002,16 +1012,18 @@ class UserWindow(QWidget):
         self._close_stt_status_dialog()
         # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
         if not response:
-            QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(self, '검색 실패', '서버에서 응답을 받지 못했습니다.')
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
         # result 플래그를 확인하지 않으면 서버가 실패를 알린 경우에도 잘못된 데이터를 사용할 수 있다.
         if not response.get("result"):
             # 서버가 전달한 메시지를 표시하지 않으면 사용자가 실패 이유를 확인할 수 없다.
-            message = response.get("message") or "상품을 불러오지 못했습니다."
-            QMessageBox.warning(self, "검색 실패", message)
-            self.set_products(self.load_initial_products())
+            message = response.get("message") or '상품을 불러오지 못했습니다.'
+            QMessageBox.warning(self, '검색 실패', message)
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
         # 데이터 섹션을 추출하지 않으면 실제 상품 목록에 접근할 수 없다.
@@ -1022,7 +1034,7 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            self.empty_products_message = "조건에 맞는 상품이 없습니다."
+            self.empty_products_message = '조건에 맞는 상품이 없습니다.'
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -1705,12 +1717,12 @@ class UserWindow(QWidget):
                 total_amount=total_amount,
             )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, "주문 생성 실패", str(exc))
-            return self.handle_fake_order(selected_snapshot, selected_items)
+            QMessageBox.warning(self, '주문 생성 실패', str(exc))
+            return False
 
         if not response:
-            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
-            return self.handle_fake_order(selected_snapshot, selected_items)
+            QMessageBox.warning(self, '주문 생성 실패', '서버 응답이 없습니다.')
+            return False
 
         if response.get("result"):
             order_data = response.get("data") or {}
@@ -1725,10 +1737,10 @@ class UserWindow(QWidget):
 
         QMessageBox.warning(
             self,
-            "주문 생성 실패",
-            response.get("message") or "주문 생성에 실패했습니다.",
+            '주문 생성 실패',
+            response.get("message") or '주문 생성에 실패했습니다.',
         )
-        return self.handle_fake_order(selected_snapshot, selected_items)
+        return False
 
     def on_notification_received(self, payload: dict) -> None:
         """푸시 알림 수신 시 처리."""
@@ -1789,26 +1801,6 @@ class UserWindow(QWidget):
             self.remove_cart_widget(item.product_id)
         self.update_cart_summary()
         self.sync_select_all_state()
-
-    def handle_fake_order(
-        self,
-        ordered_snapshot: list[CartItemData],
-        original_items: list[CartItemData],
-    ) -> bool:
-        QMessageBox.information(
-            self,
-            "임시 주문 진행",
-            "Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.",
-        )
-        self.handle_order_created(
-            ordered_snapshot,
-            {
-                "order_id": -1,
-                "robot_id": None,
-            },
-        )
-        self.clear_ordered_cart_items(original_items)
-        return True
 
     def handle_robot_moving_notification(self, payload: dict) -> None:
         """로봇 이동 알림에 따라 상태 텍스트를 갱신한다."""
@@ -3688,196 +3680,3 @@ class UserWindow(QWidget):
     def set_products(self, products: list[ProductData]) -> None:
         self.all_products = list(products)
         self._apply_product_filters(refresh=False)
-
-    def load_initial_products(self) -> list[ProductData]:
-        return [
-            ProductData(
-                product_id=1,
-                name="삼겹살",
-                category="고기",
-                price=15000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=True,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(1, "삼겹살"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=101,
-                    nuts=False,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=102,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=3,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(3, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=103,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=True,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=4,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(4, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=104,
-                    nuts=True,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=105,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=True,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=106,
-                    nuts=False,
-                    milk=False,
-                    seafood=True,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=107,
-                    nuts=False,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=True,
-                    gluten=False,
-                    eggs=True,
-                ),
-            ),
-        ]
