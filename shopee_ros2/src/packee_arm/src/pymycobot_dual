@@ -32,14 +32,14 @@ class PymycobotDualArmNode(Node):
     def __init__(self) -> None:
         super().__init__('pymycobot_arm_node')
         self.declare_parameter('enabled_arms', 'left,right')
-        self.declare_parameter('serial_port_left', '/dev/ttyUSB0')
-        self.declare_parameter('serial_port_right', '/dev/ttyUSB1')
+        self.declare_parameter('serial_port_left', '/dev/ttyUSB1')
+        self.declare_parameter('serial_port_right', '/dev/ttyUSB0')
         self.declare_parameter('baud_rate', 1000000)
         self.declare_parameter('move_speed', 40)
         self.declare_parameter('approach_offset_m', 0.05)
         self.declare_parameter('lift_offset_m', 0.06)
-        self.declare_parameter('preset_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
-        self.declare_parameter('preset_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
+        self.declare_parameter('preset_pose_cart_view', [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
+        self.declare_parameter('preset_pose_standby', [106.8, -55.2, 306.3, -166.79, 9.58, -88.57])
         self.declare_parameter('gripper_open_value', 100)
         self.declare_parameter('gripper_close_value', 20)
         self.declare_parameter('pose_status_topic', '/packee/arm/pose_status')
@@ -362,12 +362,12 @@ class PymycobotDualArmNode(Node):
             self.get_logger().error(f'{arm_side} 팔 myCobot 인스턴스가 초기화되지 않았습니다.')
             return False
         coords_mm = [
-            pose['x'] * 1000.0,
-            pose['y'] * 1000.0,
-            pose['z'] * 1000.0,
-            math.degrees(pose['rx']),
-            math.degrees(pose['ry']),
-            math.degrees(pose['rz'])
+            pose['x'],
+            pose['y'],
+            pose['z'],
+            pose['rx'],
+            pose['ry'],
+            pose['rz'],
         ]
         try:
             robot.sync_send_coords(coords_mm, self._move_speed, 0)

@@ -57,7 +57,7 @@ def generate_launch_description() -> LaunchDescription:
         description='그리퍼 개방 값')
     pymycobot_gripper_close_arg = DeclareLaunchArgument(
         'pymycobot_gripper_close_value',
-        default_value='20',
+        default_value='0',
         description='그리퍼 파지 값')
     pymycobot_enabled_arms_arg = DeclareLaunchArgument(
         'pymycobot_enabled_arms',
@@ -79,11 +79,11 @@ def generate_launch_description() -> LaunchDescription:
     # 좌/우 팔 별 시리얼 포트
     left_serial_port_arg = DeclareLaunchArgument(
         'left_serial_port',
-        default_value='/dev/ttyUSB0',
+        default_value='/dev/ttyUSB1',
         description='좌측 myCobot 시리얼 포트')
     right_serial_port_arg = DeclareLaunchArgument(
         'right_serial_port',
-        default_value='/dev/ttyUSB1',
+        default_value='/dev/ttyUSB0',
         description='우측 myCobot 시리얼 포트')
 
     # JetCobot 브릿지 토픽/파라미터

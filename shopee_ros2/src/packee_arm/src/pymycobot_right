@@ -29,16 +29,16 @@ class PymycobotRightArmNode(Node):
 
     def __init__(self) -> None:
         super().__init__('pymycobot_right_arm_node')
-        self.declare_parameter('serial_port', '/dev/ttyUSB1')
+        self.declare_parameter('serial_port', '/dev/ttyUSB0')
         self.declare_parameter('baud_rate', 1000000)
         self.declare_parameter('move_speed', 40)
         self.declare_parameter('arm_sides', 'right')
         self.declare_parameter('approach_offset_m', 0.05)
         self.declare_parameter('lift_offset_m', 0.06)
-        self.declare_parameter('preset_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
-        self.declare_parameter('preset_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
+        self.declare_parameter('preset_pose_cart_view', [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
+        self.declare_parameter('preset_pose_standby', [106.8, -55.2, 306.3, -166.79, 9.58, -88.57])
         self.declare_parameter('gripper_open_value', 100)
-        self.declare_parameter('gripper_close_value', 20)
+        self.declare_parameter('gripper_close_value', 0)
         self.declare_parameter('pose_status_topic', '/packee/arm/pose_status')
         self.declare_parameter('pick_status_topic', '/packee/arm/pick_status')
         self.declare_parameter('place_status_topic', '/packee/arm/place_status')
@@ -47,9 +47,11 @@ class PymycobotRightArmNode(Node):
         self._baud_rate: int = int(self.get_parameter('baud_rate').value)
         self._move_speed: int = int(self.get_parameter('move_speed').value)
         sides_param = str(self.get_parameter('arm_sides').value)
-        self._arm_sides: List[str] = [
-            side.strip() for side in sides_param.split(',') if side.strip()
-        ] or ['right']
+        # self._arm_sides: List[str] = [
+        #     side.strip() for side in sides_param.split(',') if side.strip()
+        # ] or ['right']
+        self._arm_sides: List[str] = ['right']
+
         self._approach_offset: float = float(self.get_parameter('approach_offset_m').value)
         self._lift_offset: float = float(self.get_parameter('lift_offset_m').value)
         self._gripper_open_value: int = int(self.get_parameter('gripper_open_value').value)
@@ -69,9 +71,9 @@ class PymycobotRightArmNode(Node):
         self._pick_status_pub = self.create_publisher(ArmTaskStatus, pick_status_topic, 10)
         self._place_status_pub = self.create_publisher(ArmTaskStatus, place_status_topic, 10)
 
-        self._move_service = self.create_service(ArmMoveToPose, '/packee/arm/move_to_pose', self._handle_move_to_pose)
-        self._pick_service = self.create_service(ArmPickProduct, '/packee/arm/pick_product', self._handle_pick_product)
-        self._place_service = self.create_service(ArmPlaceProduct, '/packee/arm/place_product', self._handle_place_product)
+        self._move_service = self.create_service(ArmMoveToPose, '/packee1/arm/move_to_pose', self._handle_move_to_pose)
+        self._pick_service = self.create_service(ArmPickProduct, '/packee1/arm/pick_product', self._handle_pick_product)
+        self._place_service = self.create_service(ArmPlaceProduct, '/packee1/arm/place_product', self._handle_place_product)
 
         self._lock = threading.Lock()
         self._robot: Optional[MyCobot280] = None
@@ -103,15 +105,15 @@ class PymycobotRightArmNode(Node):
         if len(values) != 6:
             self.get_logger().warn(f'{name} 파라미터가 6개 항목을 갖지 않아 기본값을 사용합니다.')
             if 'cart_view' in name:
-                return {'x': 0.16, 'y': 0.0, 'z': 0.18, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
-            return {'x': 0.10, 'y': 0.0, 'z': 0.14, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
+                return {'x': 0.0, 'y': 0.0, 'z': 0.0, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
+            return {'x': 0.0, 'y': 0.0, 'z': 0.0, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
         return {
             'x': float(values[0]),
             'y': float(values[1]),
             'z': float(values[2]),
             'rx': float(values[3]),
             'ry': float(values[4]),
-            'rz': float(values[5])
+            'rz': float(values[5]),
         }
 
     def _connect_robot(self) -> None:
@@ -170,17 +172,20 @@ class PymycobotRightArmNode(Node):
         response: ArmPickProduct.Response
     ) -> ArmPickProduct.Response:
         '''Packee Main의 픽업 명령을 수행한다.'''
-        arm_side = request.arm_side or 'right'
+        # arm_side = request.arm_side or 'right'
+        arm_side = 'right'
+
         if arm_side not in self._arm_sides:
             response.success = False
             response.message = f'팔 정보가 올바르지 않습니다: {arm_side}'
             self.get_logger().warn(response.message)
             return response
-        if not self._robot:
+        if not self._robot: 
             response.success = False
             response.message = 'myCobot 연결이 활성화되지 않았습니다.'
             self.get_logger().error(response.message)
             return response
+
 
         pose = self._pose_from_msg(request.pose)
         self._publish_pick_status(request.robot_id, request.order_id, request.product_id, arm_side, 'in_progress', 'planning', 0.05, '픽업 경로를 계획합니다.')
@@ -242,7 +247,7 @@ class PymycobotRightArmNode(Node):
                 arm_side,
                 approach_pose,
                 pose):
-                response.success = False
+                response.success = False_pose_from_msg
                 response.message = '담기 시퀀스가 실패했습니다.'
                 self._publish_place_status(request.robot_id, request.order_id, request.product_id, arm_side, 'failed', 'approaching', 0.4, response.message)
                 return response
@@ -262,6 +267,7 @@ class PymycobotRightArmNode(Node):
         approach_pose: Dict[str, float],
         grasp_pose: Dict[str, float]
     ) -> bool:
+
         '''접근 → 하강 → 파지 → 상승 순으로 픽업을 수행한다.'''
         self._publish_pick_status(robot_id, order_id, product_id, arm_side, 'in_progress', 'approaching', 0.2, '목표 위치로 접근합니다.')
         if not self._send_pose(approach_pose):
@@ -329,7 +335,7 @@ class PymycobotRightArmNode(Node):
             'z': float(pose.z),
             'rx': float(pose.rx),
             'ry': float(pose.ry),
-            'rz': float(pose.rz)
+            'rz': float(pose.rz),
         }
 
     def _send_pose(self, pose: Dict[str, float]) -> bool:
@@ -337,15 +343,20 @@ class PymycobotRightArmNode(Node):
         if not self._robot:
             return False
         coords_mm = [
-            pose['x'] * 1000.0,
-            pose['y'] * 1000.0,
-            pose['z'] * 1000.0,
-            math.degrees(pose['rx']),
-            math.degrees(pose['ry']),
-            math.degrees(pose['rz'])
-        ]
+            pose['x'],  
+            pose['y'], 
+            pose['z'],
+            pose['rx'],
+            pose['ry'],
+            pose['rz'],
+        ]        
+        
+        
         try:
-            self._robot.sync_send_coords(coords_mm, self._move_speed, 0)
+            # print(coords_mm, "debug1111111111111111!!!!!!!!!!!!!!!!") ### ham
+            # self._robot.sync_send_coords(coords_mm, self._move_speed, 0) ### ham
+            self._robot.send_coords(coords_mm, self._move_speed, 0)
+
             return True
         except Exception as exc:  # pragma: no cover
             self.get_logger().error(f'좌표 전송 실패: {exc}')
