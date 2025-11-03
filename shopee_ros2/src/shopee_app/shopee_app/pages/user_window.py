@@ -3203,10 +3203,15 @@ class UserWindow(QWidget):
                 for i in reversed(range(self.cart_items_layout.count())):
                     item = self.cart_items_layout.itemAt(i)
                     if item is not None:
+                        spacer = item.spacerItem()
+                        if spacer is not None and spacer is self.cart_spacer:
+                            continue
                         widget = item.widget()
-                        if widget is not None:
-                            widget.setParent(None)
+                        if widget is None or widget is self.cart_empty_label:
+                            continue
+                        widget.setParent(None)
             self.logger.debug("장바구니 위젯 정리 완료")
+            self.update_cart_empty_state()
 
         except Exception as e:
             self.logger.error(f"장바구니 정리 중 오류: {e}")
