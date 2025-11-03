@@ -460,12 +460,17 @@ class UserWindow(QWidget):
             self.arm_view_button.clicked.connect(
                 lambda: self.on_camera_button_clicked("arm")
             )
+        self.pick_bottom_sheet_frame = getattr(self.ui, "frame_pick_bottom_sheet", None)
+        if self.pick_bottom_sheet_frame is not None:
+            self._apply_pick_bottom_sheet_frame_style(self.pick_bottom_sheet_frame)
         self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
         if self.shop_end_button is not None:
             self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
+            self._apply_shop_end_button_style(self.shop_end_button)
         self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
         if self.shop_continue_button is not None:
             self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
+            self._apply_shop_continue_button_style(self.shop_continue_button)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
         if self.search_input is None:
@@ -2199,6 +2204,60 @@ class UserWindow(QWidget):
                     background-color: #ffffff;
                     color: {primary_color};
                     border: 1px solid {primary_color};
+                }}
+            '''
+        )
+
+    def _apply_pick_bottom_sheet_frame_style(self, frame: QWidget) -> None:
+        # 픽업 바텀시트 프레임의 상단 모서리를 둥글게 처리한다.
+        object_name = frame.objectName() or "frame_pick_bottom_sheet"
+        frame.setObjectName(object_name)
+        frame.setStyleSheet(
+            f'''
+                QFrame#{object_name} {{
+                    background-color: #ffffff;
+                    border: 1px solid #000000;
+                    border-top-left-radius: 15px;
+                    border-top-right-radius: 15px;
+                    border-bottom-left-radius: 0px;
+                    border-bottom-right-radius: 0px;
+                }}
+            '''
+        )
+
+    def _apply_shop_end_button_style(self, button: QPushButton) -> None:
+        # 쇼핑 종료 버튼은 강조 색상 테두리와 텍스트 대비를 유지한다.
+        primary_color = COLORS['primary']
+        button.setStyleSheet(
+            f'''
+                QPushButton {{
+                    background-color: #ffffff;
+                    color: {primary_color};
+                    border: 1px solid {primary_color};
+                    border-radius: 3px;
+                    padding: 8px 20px;
+                }}
+                QPushButton:pressed {{
+                    background-color: #ffffff;
+                }}
+            '''
+        )
+
+    def _apply_shop_continue_button_style(self, button: QPushButton) -> None:
+        # 쇼핑 계속 버튼은 기본 색상으로 강조한다.
+        primary_color = COLORS['primary']
+        primary_dark = COLORS.get('primary_dark', primary_color)
+        button.setStyleSheet(
+            f'''
+                QPushButton {{
+                    background-color: {primary_color};
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 3px;
+                    padding: 8px 20px;
+                }}
+                QPushButton:pressed {{
+                    background-color: {primary_dark};
                 }}
             '''
         )
