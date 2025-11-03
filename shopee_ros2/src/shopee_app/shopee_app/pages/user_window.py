@@ -307,7 +307,19 @@ class UserWindow(QWidget):
         self.cart_widgets: dict[int, CartItemWidget] = {}
         self.cart_items_layout = getattr(self.ui, "cart_items_layout", None)
         self.cart_spacer = None
+        self.cart_empty_label: QLabel | None = None
         if self.cart_items_layout is not None:
+            # 장바구니가 비었을 때 표시할 안내 문구를 준비한다.
+            self.cart_empty_label = QLabel('장바구니에 담긴 상품이 없습니다.')
+            self.cart_empty_label.setAlignment(
+                QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignVCenter
+            )
+            self.cart_empty_label.setStyleSheet(
+                'color: #9AA0A6; font-size: 12pt; font-weight: 500;'
+            )
+            self.cart_empty_label.setWordWrap(True)
+            self.cart_empty_label.hide()
+            self.cart_items_layout.insertWidget(0, self.cart_empty_label)
             self.cart_spacer = QSpacerItem(
                 0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
             )
@@ -1295,6 +1307,7 @@ class UserWindow(QWidget):
             self.product_scroll.show()
 
         self.apply_cart_state()
+        self.update_cart_empty_state()
 
     def setup_navigation(self):
         self.main_stack = getattr(self.ui, "stacked_content", None)
@@ -3676,6 +3689,13 @@ class UserWindow(QWidget):
             label_amount.setText(formatted_text)
             # HTML 해석 활성화
             label_amount.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.update_cart_empty_state()
+
+    def update_cart_empty_state(self) -> None:
+        if self.cart_empty_label is None:
+            return
+        is_empty = not self.cart_items
+        self.cart_empty_label.setVisible(is_empty)
 
     def set_products(self, products: list[ProductData]) -> None:
         self.all_products = list(products)
