@@ -12,6 +12,7 @@
 // Nav2 Action 헤더
 // #include <nav2_msgs/action/navigate_to_pose.hpp> // 경유지 테스트를 위해 NavigateThroughPoses로 변경
 #include <nav2_msgs/action/navigate_through_poses.hpp>
+#include <std_srvs/srv/trigger.hpp> 
 
 // Shopee Interface 메시지 및 서비스 헤더
 #include <shopee_interfaces/msg/pickee_mobile_pose.hpp>
@@ -57,7 +58,11 @@ public:
             
         arrival_publisher_ = this->create_publisher<shopee_interfaces::msg::PickeeMobileArrival>(
             "/pickee/mobile/arrival", 10);
-            
+        
+        // custom_planner reset 서비스 클라이언트 초기화
+        reset_planner_client_ = this->create_client<std_srvs::srv::Trigger>(
+            "custom_planner/reset");
+
         // Subscribers 초기화 (Shopee Interface - sub 토픽들 + Nav2 토픽들)
         speed_control_subscriber_ = this->create_subscription<shopee_interfaces::msg::PickeeMobileSpeedControl>(
             "/pickee/mobile/speed_control", 10,
@@ -148,7 +153,8 @@ private:
     // rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     using NavigateThroughPoses = nav2_msgs::action::NavigateThroughPoses;
     rclcpp_action::Client<NavigateThroughPoses>::SharedPtr nav2_action_client_;
-    
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr reset_planner_client_;
+
     // 현재 네비게이션 상태 추적
     bool navigation_in_progress_ = false;
     int current_target_location_id_ = 0;
@@ -416,12 +422,14 @@ private:
         }
         
         // Nav2 Action 서버가 사용 가능한지 확인
-        if (!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))) {
-            RCLCPP_ERROR(this->get_logger(), "Nav2 Action 서버(/navigate_through_poses)가 사용할 수 없습니다!");
+        RCLCPP_INFO(this->get_logger(), "Nav2 Action 서버 연결 대기 중...");
+        if (!nav2_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+            RCLCPP_ERROR(this->get_logger(), "Nav2 Action 서버(/navigate_through_poses)가 사용할 수 없습니다! (10초 대기 후 타임아웃)");
             response->success = false;
             response->message = "Nav2 Action 서버 연결 실패";
             return;
         }
+        RCLCPP_INFO(this->get_logger(), "Nav2 Action 서버 연결 성공!");
         
         current_order_id_ = request->order_id;
         current_target_location_id_ = request->location_id;
@@ -484,6 +492,30 @@ private:
                         RCLCPP_INFO(this->get_logger(), "Nav2 네비게이션 성공! 목적지에 도착했습니다.");
                         change_status("idle", "네비게이션 완료");
                         publish_arrival_notification(current_target_location_id_, current_target_pose_);
+
+                        // CustomPlanner 초기화 서비스 호출
+                        RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
+                        if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
+                            RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
+                            auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+                            reset_planner_client_->async_send_request(request,
+                                [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+                                    try {
+                                        auto response = future.get();
+                                        if (response->success) {
+                                            RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
+                                                response->message.c_str());
+                                        } else {
+                                            RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
+                                                response->message.c_str());
+                                        }
+                                    } catch (const std::exception& e) {
+                                        RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
+                                    }
+                                });
+                        } else {
+                            RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
+                        }
                         break;
                     case rclcpp_action::ResultCode::ABORTED:
                         RCLCPP_ERROR(this->get_logger(), "Nav2 네비게이션이 중단되었습니다.");

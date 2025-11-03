@@ -1,0 +1,5 @@
+<library path="pickee_mobile_wonho__custom_planner">
+    <class name="custom_planner::CustomPlanner" type="custom_planner::CustomPlanner" base_class_type="nav2_core::GlobalPlanner">  
+        <description>Shopee 로봇 쇼핑 시스템용 커스텀 글로벌 플래너</description>    
+    </class>
+</library>
