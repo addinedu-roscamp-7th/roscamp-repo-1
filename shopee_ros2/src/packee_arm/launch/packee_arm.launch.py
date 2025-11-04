@@ -33,7 +33,7 @@ def generate_launch_description() -> LaunchDescription:
         description='카트 확인 자세 (x,y,z,rx,ry,rz)')
     preset_pose_standby_arg = DeclareLaunchArgument(
         'preset_pose_standby',
-        default_value='[106.8, -55.2, 306.3, -166.79, 9.58, -88.57]',
+        default_value='[142.0, -23.5, 291.5, -174.67, 5.73, -93.55]',
         description='대기 자세 (x,y,z,rx,ry,rz)')
     pymycobot_baud_rate_arg = DeclareLaunchArgument(
         'pymycobot_baud_rate',

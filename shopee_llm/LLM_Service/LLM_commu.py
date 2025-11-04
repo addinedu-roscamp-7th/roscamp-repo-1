@@ -3,7 +3,7 @@ from langgraph.prebuilt import create_react_agent
 # langchain에서 ollama 사용을 위한 ChatOllama 라이브러리 import
 from langchain_ollama import ChatOllama
 # langchain tool 사용을 위한 tool 라이브러리 import
-from langchain.tools import Tool
+from langchain_core.tools import Tool
 # 툴 사용 여부 판별을 위한 ToolMessage, AIMessage 라이브러리 import
 from langchain_core.messages import ToolMessage, AIMessage
 # ----------------------- tool calling 관련 라이브러리 선언 -----------------------

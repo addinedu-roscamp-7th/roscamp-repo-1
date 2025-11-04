@@ -11,6 +11,7 @@ from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
 import socket
+from std_msgs.msg import Bool
 
 ### txt 파일
 from datetime import datetime
@@ -114,14 +115,14 @@ class PickeeVisionControlNode(Node):
                             'src/pickee_vision/resource'
                         )
         # 1. 상품 인식용 세그멘테이션 모델
-        yolo_model_path = os.path.join(self.package_share_directory, '20251027_v11.pt')
+        yolo_model_path = os.path.join(self.package_share_directory, '20251103_v11_ver1_ioudefault.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
         cnn_model_path = os.path.join(self.package_share_directory, 'product_cnn_best.pt')
 
 
         try:
             self.yolo_model = YOLO(yolo_model_path).to(self.device)
-            self.cnn_model = PoseCNN(num_classes=2).to(self.device)
+            self.cnn_model = PoseCNN(num_classes=3).to(self.device)
             self.cnn_model.load_state_dict(
                 torch.load(cnn_model_path, map_location=self.device)
             )
@@ -133,11 +134,11 @@ class PickeeVisionControlNode(Node):
 
 
         ##### 비정규화 테스트
-        self.pose_mean = np.array([101.086, -9.648, -2.771, -59.163, 15.485, -33.597], dtype=np.float32)
-        self.pose_std = np.array([9.843, 50.569, 47.862, 28.027, 4.209, 9.624], dtype=np.float32)
+        self.pose_mean = np.array([101.83254, -5.495607, -17.48855, -51.927643, 15.7234745, -32.664993], dtype=np.float32)
+        self.pose_std = np.array([9.889868, 44.882977, 44.291027, 26.125616, 4.711149, 9.533664], dtype=np.float32)
 
 
-        self.target_object_name = "1" # 6 = eclipse
+        self.target_object_name = "14" # 6 = eclipse
 
 
         self.transform = transforms.Compose([
@@ -148,6 +149,9 @@ class PickeeVisionControlNode(Node):
 
         self.publisher_ = self.create_publisher(Pose6D, '/pickee/arm/move_servo', 10)
         self.timer = self.create_timer(0.2, self.control_callback)
+
+        self.test_sub = self.create_subscription(Bool, '/testtest/move_lock', self.test_lock_callback, 10)
+
         self.get_logger().info("Pickee Vision Control Node started.")
 
         
@@ -159,7 +163,7 @@ class PickeeVisionControlNode(Node):
 
         #### 쓰레기
         self.temp = np.array([0] * 6)
-        self.lock = False
+        self.move_angle_lock = False  ###########
 
 
     def predict_pose(self, image):
@@ -174,26 +178,33 @@ class PickeeVisionControlNode(Node):
         # 실제 Pose = (표준화된 Pose * 표준편차) + 평균
         return (pose_std * self.pose_std) + self.pose_mean
 
+    def test_lock_callback(self, msg):
+        print(self.move_angle_lock)
+        self.move_angle_lock = msg.data
+
 
     def control_callback(self):
         frame = self.receiver.get_frame()
         if frame is None:
             return
-        results = self.yolo_model(frame, conf=0.7, device=self.device)
-
+        results = self.yolo_model(frame, conf=0.8, device=self.device)
+        print(self.move_angle_lock)
         for result in results:
             if not hasattr(result, 'boxes'): continue
 
             
             for box in result.boxes:
-                # if self.lock:
-                #     break
-                # cls_id = int(box.cls.cpu().numpy())
+                
+                if self.move_angle_lock:
+                    print("move angle lock!!!!!!!!!!!!")
+                    break
+                cls_id = int(box.cls.cpu().numpy())
                 cls_id = int(box.cls)
                 cls_name = result.names[cls_id]
+
                 if cls_name == self.target_object_name:
                     current_pose = self.predict_pose(frame)
-                    target_image_path = os.path.join(self.package_share_directory, 'on_wasabi.jpg')
+                    target_image_path = os.path.join(self.package_share_directory, 'on_eclipse.jpg')
 
                     # 상품명으로 넣어줄 때 
                     # target_image_path = os.path.join(self.package_share_directory, 
@@ -213,7 +224,8 @@ class PickeeVisionControlNode(Node):
                     ##### 비정규화 테스트
                     real_current_pose = self.de_standardize_pose(current_pose)
                     real_target_pose = self.de_standardize_pose(target_pose)
-
+                    print(real_target_pose)
+                    print(real_current_pose)
 
 
                     ### txt 파일
@@ -226,7 +238,7 @@ class PickeeVisionControlNode(Node):
 
 
                     error = real_target_pose - real_current_pose
-                    gain = 0.5
+                    gain = 0.8
                     move_command = Pose6D()
                     
                     move_command.x, move_command.y, move_command.z, \
@@ -241,19 +253,23 @@ class PickeeVisionControlNode(Node):
                     move_command.rz += real_current_pose.tolist()[5]
 
 
-                    threshold = np.array([0.3] * 6)
-                    move = np.array([move_command.x, move_command.y, move_command.z, move_command.rx, move_command.ry, move_command.rz])
-                    move_er = move-self.temp
-                    self.temp = move
-                    mask = np.abs(move_er) <= threshold
+                    # threshold = np.array([0.03] * 6)
+                    # print(threshold)
+                    # move = np.array([move_command.x, move_command.y, move_command.z, move_command.rx, move_command.ry, move_command.rz])
+                    # move_er = move-self.temp
+                    # self.temp = move
+                    # mask = np.abs(move_er) <= threshold
+
+                    # mask = np.linalg.norm(error) <= 35.0
+                    # print(mask)
 
                     self.publisher_.publish(move_command)
                     self.get_logger().info(
                         f"Visual servoing... Error: {np.linalg.norm(error):.3f}"
                     )
 
-                    if np.all(mask):
-                        self.lock = True
+                    # if np.all(mask):
+                    #     self.move_angle_lock = True
                         
                     break
 
