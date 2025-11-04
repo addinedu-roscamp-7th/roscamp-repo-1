@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pickee_arm_node = pickee_arm.pickee_arm_node:main',
+            'pickee_arm_node_for_basket = pickee_arm.pickee_arm_node_for_basket:main',
         ],
     },
 )
