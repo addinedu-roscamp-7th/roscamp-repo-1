@@ -29,7 +29,7 @@ def generate_launch_description() -> LaunchDescription:
     # 공통 팔 동작 파라미터
     preset_pose_cart_view_arg = DeclareLaunchArgument(
         'preset_pose_cart_view',
-        default_value='[57.6, -63.4, 407.7, -93.33, 0.83, -88.72]',
+        default_value='[52.9, -64.1, 408.7, -92.37, 0.81, -89.5]',
         description='카트 확인 자세 (x,y,z,rx,ry,rz)')
     preset_pose_standby_arg = DeclareLaunchArgument(
         'preset_pose_standby',
