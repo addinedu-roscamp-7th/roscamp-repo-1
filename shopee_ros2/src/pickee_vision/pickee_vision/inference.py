@@ -105,8 +105,8 @@ def predict(model, img_path, class_names=None, device="cpu", pose_mean=None, pos
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="../resource/product_cnn_best.pt")
-    parser.add_argument("--csv", type=str, default="../resource/labels.csv")
-    parser.add_argument("--image", type=str, required=True)
+    parser.add_argument("--csv", type=str, default="../resource/pickee_labels.csv")
+    parser.add_argument("--image", type=str, default="../resource/on_eclipse.jpg")
     args = parser.parse_args()
 
     # 장치 설정
@@ -136,6 +136,8 @@ def main():
 
     # 출력
     print("\n[결과]")
+    print(f"평균: {pose_mean}")
+    print(f"표준편차: {pose_std}")
     print(f"상품 클래스: {cls_name}")
     print(f"예측된 포즈: {np.round(pose, 3)}")
 

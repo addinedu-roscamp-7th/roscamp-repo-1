@@ -64,7 +64,7 @@ class PickeeVisionNode(Node):
                             'src/pickee_vision/resource'
                         )
         # 1. 상품 인식용 세그멘테이션 모델
-        product_model_path = os.path.join(package_share_directory, '20251027_v11.pt')
+        product_model_path = os.path.join(package_share_directory, '20251103_v11_ver1_ioudefault.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
         cart_model_path = os.path.join(package_share_directory, 'cart_best_.pth')
 
@@ -212,6 +212,13 @@ class PickeeVisionNode(Node):
             bbox_msg = BBox(x1=bbox_data[0], y1=bbox_data[1], x2=bbox_data[2], y2=bbox_data[3])
             detection_info_msg = DetectionInfo(polygon=contour_points, bbox_coords=bbox_msg)
             pose6d_msg = Pose6D()
+
+            '''
+            pose6d_msg 계산하기
+            
+            '''
+
+
             product = DetectedProduct(
                 product_id=det['class_id'],
                 confidence=det['confidence'],
