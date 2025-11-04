@@ -312,7 +312,7 @@ class PymycobotRightArmNode(Node):
                     arm_side,
                     approach_pose,
                     pose):
-                response.success = False_pose_from_msg
+                response.success = False
                 response.message = '담기 시퀀스가 실패했습니다.'
                 self._publish_place_status(
                     request.robot_id,
