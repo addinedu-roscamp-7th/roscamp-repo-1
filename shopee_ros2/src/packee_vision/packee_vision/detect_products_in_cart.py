@@ -175,7 +175,7 @@ class DetectProducts(Node):
                             ry=float(current_pose[4] + delta_pose[4]),
                             rz=float(current_pose[5] + delta_pose[5])
                         )
-                        product.arm_side = cam_side
+                        product.arm_side = "left" if cam_side == 1 else "right"
 
                         product_list.append(product)
                         self.get_logger().info(f"[{cam_side}] Detected {class_name}")

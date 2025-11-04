@@ -7,8 +7,9 @@
 #include "shopee_interfaces/srv/vision_check_cart_presence.hpp"
 #include "shopee_interfaces/srv/arm_move_to_pose.hpp"
 #include "shopee_interfaces/msg/arm_pose_status.hpp"
+#include "shopee_interfaces/msg/arm_task_status.hpp"
 #include "shopee_interfaces/msg/packee_availability.hpp"
-#include "packee_state_manager.hpp" 
+#include "shopee_interfaces/msg/packee_robot_status.hpp"
 
 using namespace std::chrono_literals;
 using namespace std::placeholders;
@@ -18,13 +19,16 @@ using CheckCartPresence = shopee_interfaces::srv::VisionCheckCartPresence;
 using ArmMoveToPose = shopee_interfaces::srv::ArmMoveToPose;
 using PoseStatus = shopee_interfaces::msg::ArmPoseStatus;
 using AvailabilityResult = shopee_interfaces::msg::PackeeAvailability;
+using robotStatus = shopee_interfaces::msg::PackeeRobotStatus;
 
 class PackeePackingCheckAvailability : public rclcpp::Node
 {
 public:
     PackeePackingCheckAvailability() : Node("packee_packing_check_availability_server")
     {
-        state_manager_ = std::make_shared<PackeeStateManager>(this->shared_from_this());
+        robot_id_ = 0;
+        pose_status_ = "";
+        robot_status_ = "";
 
         check_avail_service_ = this->create_service<CheckAvailability>(
             "/packee/packing/check_availability",
@@ -39,16 +43,29 @@ public:
             std::bind(&PackeePackingCheckAvailability::PoseStatusCallback, this, _1)
         );
 
+        robot_status_pub_ = this->create_publisher<robotStatus>("/packee/robot_status", 10);
+
         cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
-        move_pose_client_ = this->create_client<ArmMoveToPose>("/packee/arm/move_to_pose");
+        move_pose_client_ = this->create_client<ArmMoveToPose>("/packee1/arm/move_to_pose");
 
         RCLCPP_INFO(this->get_logger(), "packee_packing_check_availability_server started");
     }
 
     void PoseStatusCallback(const PoseStatus::SharedPtr msg)
     {
-        if (msg->robot_id == robot_id_)
-            pose_status_ = msg->status;
+        robot_id_ = msg->robot_id;
+        pose_status_ = msg->status;
+    }
+
+    void publishRobotStatus(int id, const std::string &state, int order_id, int items_in_cart)
+    {
+        robot_status_ = state;
+        auto msg = robotStatus();
+        msg.robot_id = id;
+        msg.state = state;
+        msg.current_order_id = order_id;
+        msg.items_in_cart = items_in_cart;
+        robot_status_pub_->publish(msg);
     }
 
     void checkAvailabilityCallback(
@@ -58,50 +75,59 @@ public:
         int32_t robot_id = request->robot_id;
         int32_t order_id = request->order_id;
 
+        pose_status_.clear();
+
         response->success = true;
         response->message = "Checking packee availability...";
 
-        state_manager_->setStatus(robot_id, "CHECKING_CART", order_id, 0);
+        publishRobotStatus(request->robot_id, "CHECKING_CART", request->order_id, 0);
 
         // 1. 카트 뷰 위치로 이동
         if (!callMovePose(robot_id, order_id, "cart_view")) {
             RCLCPP_ERROR(this->get_logger(), "MovePose(cart_view) failed");
             response->success = false;
             response->message = "MovePose(cart_view) failed";
-            state_manager_->setStatus(robot_id, "ERROR", order_id, 0);
             return;
         }
 
         // 2. Pose 완료 대기
-        while (pose_status_ != "complete" && rclcpp::ok())
-            rclcpp::sleep_for(100ms);
+        rclcpp::Rate rate(10);
+        while (rclcpp::ok()) {
+            if (pose_status_ == "complete") break;
+            rate.sleep();
+        }
 
         // 3. 카트 감지 반복 시도
         bool cart_present = false;
         int retry = 0;
-        while (retry < 5 && rclcpp::ok()) {
+        while (!cart_present && retry < 5 && rclcpp::ok()) {
             cart_present = callCheckCartPresence(robot_id);
-            if (cart_present) break;
+            RCLCPP_INFO(this->get_logger(), "Cart check retry %d/5", retry + 1);
             rclcpp::sleep_for(1s);
             retry++;
         }
 
         // 4. standby 위치로 복귀
         if (!callMovePose(robot_id, order_id, "standby")) {
-            RCLCPP_WARN(this->get_logger(), "MovePose(standby) failed");
-        } else {
-            while (pose_status_ != "complete" && rclcpp::ok())
-                rclcpp::sleep_for(100ms);
+            RCLCPP_ERROR(this->get_logger(), "MovePose(standby) failed");
+            response->success = false;
+            response->message = "MovePose(cart_view) failed";
+            return;
+        }
+
+        while (rclcpp::ok()) {
+            if (pose_status_ == "complete") break;
+            rate.sleep();
         }
 
         // 5. 상태 변경
-        state_manager_->setStatus(robot_id, "STANDBY", order_id, 0);
+        publishRobotStatus(request->robot_id, "STANDBY", request->order_id, 0);
 
         // 6. 결과 Publish
         auto msg = AvailabilityResult();
         msg.robot_id = robot_id;
         msg.order_id = order_id;
-        msg.available = true;
+        msg.available = cart_present;
         msg.cart_detected = cart_present;
         msg.message = cart_present ? "Packee availability OK (cart detected)" : "No cart detected";
         check_avail_pub_->publish(msg);
@@ -114,17 +140,21 @@ public:
 
     bool callCheckCartPresence(int32_t robot_id)
     {
-        if (!cart_presence_client_->wait_for_service(2s)) {
-            RCLCPP_ERROR(this->get_logger(), "CheckCartPresence service unavailable");
-            return false;
-        }
-
         auto request = std::make_shared<CheckCartPresence::Request>();
         request->robot_id = robot_id;
 
+        while (!cart_presence_client_->wait_for_service(1s)) 
+        {
+            if (!rclcpp::ok())
+            {
+                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
+            }
+            RCLCPP_INFO(this->get_logger(), "CheckCartPresence service unavailable, waiting again...");
+
+        }
+
         auto future = cart_presence_client_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future)
-            == rclcpp::FutureReturnCode::SUCCESS)
+        if (future.wait_for(5s) == std::future_status::ready)
         {
             auto response = future.get();
             RCLCPP_INFO(this->get_logger(),
@@ -141,19 +171,23 @@ public:
 
     bool callMovePose(int32_t robot_id, int32_t order_id, const std::string &pose_type)
     {
-        if (!move_pose_client_->wait_for_service(2s)) {
-            RCLCPP_ERROR(this->get_logger(), "MovePose service unavailable");
-            return false;
-        }
-
         auto request = std::make_shared<ArmMoveToPose::Request>();
         request->robot_id = robot_id;
         request->order_id = order_id;
         request->pose_type = pose_type;
 
+        while (!move_pose_client_->wait_for_service(1s)) 
+        {
+            if (!rclcpp::ok())
+            {
+                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
+            }
+            RCLCPP_INFO(this->get_logger(), "MovePose service unavailable, waiting again...");
+
+        }
+
         auto future = move_pose_client_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future)
-            == rclcpp::FutureReturnCode::SUCCESS)
+        if (future.wait_for(5s) == std::future_status::ready)
         {
             auto response = future.get();
             RCLCPP_INFO(this->get_logger(),
@@ -161,6 +195,7 @@ public:
                 pose_type.c_str(),
                 response->success ? "true" : "false",
                 response->message.c_str());
+
             return response->success;
         }
 
@@ -169,15 +204,17 @@ public:
     }
 
 private:
-    int robot_id_{0};
+    int robot_id_;
     std::string pose_status_;
+    std::string robot_status_;
 
-    std::shared_ptr<PackeeStateManager> state_manager_;
     rclcpp::Service<CheckAvailability>::SharedPtr check_avail_service_;
     rclcpp::Subscription<PoseStatus>::SharedPtr pose_status_sub_;
     rclcpp::Client<CheckCartPresence>::SharedPtr cart_presence_client_;
     rclcpp::Client<ArmMoveToPose>::SharedPtr move_pose_client_;
     rclcpp::Publisher<AvailabilityResult>::SharedPtr check_avail_pub_;
+    rclcpp::Publisher<robotStatus>::SharedPtr robot_status_pub_;
+    rclcpp::Subscription<robotStatus>::SharedPtr robot_status_sub_;
 };
 
 int main(int argc, char **argv)
