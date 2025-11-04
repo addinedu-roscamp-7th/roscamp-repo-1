@@ -283,7 +283,7 @@ ros2 service call /pickee/workflow/return_to_staff shopee_interfaces/srv/PickeeW
 ros2 service call /pickee/product/detect shopee_interfaces/srv/PickeeProductDetect "{
   robot_id: 1,
   order_id: 123,
-  product_ids: [1, 2, 3]
+  product_ids: [1, 1]
 }"
 
 # 제품 선택 처리
