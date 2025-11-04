@@ -13,7 +13,7 @@ from std_msgs.msg import Bool
 from geometry_msgs.msg import Pose2D
 from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
 
-from pickee_mobile.module.module_aruco_detect import ArucoPoseEstimator
+from pickee_mobile.pickee_mobile.main.main_aruco_detect import ArucoPoseEstimator
 
 
 

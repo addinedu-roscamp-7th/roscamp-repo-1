@@ -165,7 +165,7 @@ class PickeeMobileController(Node):
         self.current_radian = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
 
         self.get_logger().info(
-            f'🔄 Feedback: x={self.currnet_x:.2f}, y={self.currnet_y:.2f}'
+            f'🔄 Feedback: x={self.currnet_x:.2f}, y={self.currnet_y:.2f}, yaw_rad = {self.current_radian}'
         )
 
 

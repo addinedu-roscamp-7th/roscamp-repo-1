@@ -29,11 +29,11 @@ def generate_launch_description() -> LaunchDescription:
     # 공통 팔 동작 파라미터
     preset_pose_cart_view_arg = DeclareLaunchArgument(
         'preset_pose_cart_view',
-        default_value='[0.16, 0.0, 0.18, 0.0, 0.0, 0.0]',
+        default_value='[57.6, -63.4, 407.7, -93.33, 0.83, -88.72]',
         description='카트 확인 자세 (x,y,z,rx,ry,rz)')
     preset_pose_standby_arg = DeclareLaunchArgument(
         'preset_pose_standby',
-        default_value='[0.10, 0.0, 0.14, 0.0, 0.0, 0.0]',
+        default_value='[106.8, -55.2, 306.3, -166.79, 9.58, -88.57]',
         description='대기 자세 (x,y,z,rx,ry,rz)')
     pymycobot_baud_rate_arg = DeclareLaunchArgument(
         'pymycobot_baud_rate',

@@ -2,9 +2,9 @@
 '''Packee Arm JetCobot 브릿지 노드.'''
 
 
-import math
 from typing import Dict, List, Optional, Sequence
 
+import math
 import rclpy
 from geometry_msgs.msg import TwistStamped
 from rclpy.node import Node
@@ -95,7 +95,9 @@ class JetCobotArm:
             scale = self._workspace['radial'] / max(radial, 1e-6)
             self._pose['x'] *= scale
             self._pose['y'] *= scale
-        self._pose['z'] = min(self._workspace['z_max'], max(self._workspace['z_min'], self._pose['z']))
+        self._pose['z'] = min(
+            self._workspace['z_max'], max(
+                self._workspace['z_min'], self._pose['z']))
 
         if not self._robot:
             return
@@ -104,9 +106,9 @@ class JetCobotArm:
             self._pose['x'] * 1000.0,
             self._pose['y'] * 1000.0,
             self._pose['z'] * 1000.0,
-            math.degrees(self._pose['rx']),
-            math.degrees(self._pose['ry']),
-            math.degrees(self._pose['rz'])
+            self._pose['rx'],
+            self._pose['ry'],
+            self._pose['rz']
         ]
         try:
             self._robot.sync_send_coords(coords_mm, self._move_speed, 0)
@@ -129,8 +131,8 @@ class JetCobotBridge(Node):
 
     def __init__(self) -> None:
         super().__init__('jetcobot_bridge')
-        self.declare_parameter('left_serial_port', '/dev/ttyUSB0')
-        self.declare_parameter('right_serial_port', '/dev/ttyUSB1')
+        self.declare_parameter('left_serial_port', '/dev/ttyUSB1')
+        self.declare_parameter('right_serial_port', '/dev/ttyUSB0')
         self.declare_parameter('left_velocity_topic', '/packee/jetcobot/left/cmd_vel')
         self.declare_parameter('right_velocity_topic', '/packee/jetcobot/right/cmd_vel')
         self.declare_parameter('left_gripper_topic', '/packee/jetcobot/left/gripper_cmd')
@@ -140,10 +142,10 @@ class JetCobotBridge(Node):
         self.declare_parameter('workspace_radial', 0.28)
         self.declare_parameter('workspace_z_min', 0.05)
         self.declare_parameter('workspace_z_max', 0.30)
-        self.declare_parameter('default_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
-        self.declare_parameter('default_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
+        self.declare_parameter('default_pose_cart_view', [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
+        self.declare_parameter('default_pose_standby', [106.8, -55.2, 306.3, -166.79, 9.58, -88.57])
         self.declare_parameter('gripper_open_value', 100)
-        self.declare_parameter('gripper_close_value', 10)
+        self.declare_parameter('gripper_close_value', 0)
 
         workspace = {
             'radial': float(self.get_parameter('workspace_radial').value),
@@ -176,7 +178,9 @@ class JetCobotBridge(Node):
                 return list(fallback)
             return [float(item) for item in values]
 
-        cart_view_pose = parse_pose_param('default_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
+        cart_view_pose = parse_pose_param(
+            'default_pose_cart_view', [
+                0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
         standby_pose = parse_pose_param('default_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
 
         self._left_arm = JetCobotArm(

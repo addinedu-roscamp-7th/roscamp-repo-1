@@ -236,7 +236,7 @@ def run(node: Node, target_distance: float):
 
 def main():
     # 앞으로 1.5m 이동
-    run_standalone(-0.3)
+    run_standalone(1.0)
 
 
 if __name__ == '__main__':
