@@ -6,8 +6,9 @@ from shopee_interfaces.msg import (
     PickeeVisionStaffLocation,
     PickeeVisionStaffRegister,
     PickeeVisionCartCheck,
-    PickeeDetectedProduct,
-    BBox
+    DetectedProduct,
+    BBox,
+    Point2D
 )
 from shopee_interfaces.srv import (
     PickeeVisionDetectProducts,
@@ -204,20 +205,35 @@ class MockVisionNode(Node):
         
         # product_ids를 PickeeDetectedProduct 배열로 변환
         for i, product_id in enumerate(product_ids):
-            detected_product = PickeeDetectedProduct()
+            detected_product = DetectedProduct()
             detected_product.product_id = product_id
             detected_product.bbox_number = i + 1
             
             # BBox 좌표 설정 (모의 값)
             bbox = BBox()
-            bbox.x1 = 100 + i * 50
-            bbox.y1 = 100 + i * 30
-            bbox.x2 = 200 + i * 50
-            bbox.y2 = 200 + i * 30
-            detected_product.bbox_coords = bbox
-            
-            detected_product.confidence = 0.85 + (i * 0.05)  # 0.85, 0.90, 0.95...
-            
+            bbox.x1 = 100
+            bbox.y1 = 100
+            bbox.x2 = 200
+            bbox.y2 = 200
+            detected_product.bbox = bbox
+            detected_product.detection_info.polygon = []
+            for pt in [(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)]:
+                p = Point2D()
+                p.x = pt[0]
+                p.y = pt[1]
+                detected_product.detection_info.polygon.append(p)
+            detected_product.detection_info.bbox_coords.x1 = 100
+            detected_product.detection_info.bbox_coords.y1 = 100
+            detected_product.detection_info.bbox_coords.x2 = 200
+            detected_product.detection_info.bbox_coords.y2 = 200
+            detected_product.pose.x = 0.5
+            detected_product.pose.y = 0.5
+            detected_product.pose.z = 0.0
+            detected_product.pose.rx = 0.5
+            detected_product.pose.ry = 0.5
+            detected_product.pose.rz = 0.0
+            detected_product.arm_side= 'left'
+
             msg.products.append(detected_product)
         
         msg.message = f'Detected {len(product_ids)} products'

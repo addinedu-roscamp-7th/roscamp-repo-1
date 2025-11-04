@@ -30,7 +30,7 @@ namespace custom_planner
 
         // 웨이포인트 map 상수 초기화
         waypoints_ = {
-            {"x1y2", {waypoints_y_[0], waypoints_x_[0]}},
+            {"x1y1", {waypoints_y_[0], waypoints_x_[0]}},
             {"x1y2", {waypoints_y_[0], waypoints_x_[1]}},
             {"x1y3", {waypoints_y_[0], waypoints_x_[2]}},
             {"x1y4", {waypoints_y_[0], waypoints_x_[3]}},
@@ -116,6 +116,20 @@ namespace custom_planner
         RCLCPP_INFO(logger_, "CustomPlanner가 deactivate되었습니다.");
     }
 
+    // void CustomPlanner::GetNearestWaypoint(
+    //     const geometry_msgs::msg::PoseStamped &start, 
+    //     const geometry_msgs::msg::PoseStamped &goal)
+    // {
+
+    // }
+
+    // 1. 출발지에서 가까운 웨이포인트 좌표 찾기
+    // 2. 목적지에서 가까운 웨이포인트 좌표 찾기
+    // 3. 1과 2 좌표 사이의 웨이포인트 모든 값 찾기
+    // 4. 현재 로봇 방향에 맞게 x/y 좌표 인덱스 증가/감소 시키기
+    //   -  x/y 좌표 모두 증감 가능한 경우 turnable_index로 좌표 기억해두기
+    //   -  이미 turnable_index가 있는 경우 최신 값으로 갱신
+    // 5. 4번 반복하면서 경로 생성하다가 x/y 
     nav_msgs::msg::Path CustomPlanner::createPlan(
         const geometry_msgs::msg::PoseStamped &start,
         const geometry_msgs::msg::PoseStamped &goal,

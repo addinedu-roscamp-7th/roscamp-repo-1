@@ -84,27 +84,27 @@ class MockArmNode(Node):
     
     def pick_product_callback(self, request, response):
         """제품 픽업 서비스 요청 처리"""
-        self.get_logger().info(f'Received pick request: product_id={request.target_product.product_id}')
+        self.get_logger().info(f'Received pick request: product_id={request.product_id}')
         
-        if self.is_busy:
-            response.accepted = False
-            response.message = 'Arm is currently busy'
-            return response
+        # if self.is_busy:
+        #     response.accepted = False
+        #     response.message = 'Arm is currently busy'
+        #     return response
         
-        if self.current_pose != 'pick':
-            response.accepted = False
-            response.message = 'Arm is not in pick pose'
-            return response
+        # if self.current_pose != 'pick':
+        #     response.accepted = False
+        #     response.message = 'Arm is not in pick pose'
+        #     return response
         
-        self.is_busy = True
+        # self.is_busy = True
         
-        # 비동기적으로 픽업 시뮬레이션
-        threading.Thread(
-            target=self.simulate_pick_operation,
-            args=(request.target_product.product_id, request.target_position)
-        ).start()
+        # # 비동기적으로 픽업 시뮬레이션
+        # threading.Thread(
+        #     target=self.simulate_pick_operation,
+        #     args=(request.product_id)
+        # ).start()
         
-        response.accepted = True
+        response.success = True
         response.message = 'Pick operation started'
         return response
     
@@ -148,7 +148,7 @@ class MockArmNode(Node):
         self.is_busy = False
         self.get_logger().info(f'Moved to {pose_type} pose')
     
-    def simulate_pick_operation(self, product_id, target_position):
+    def simulate_pick_operation(self, product_id):
         """픽업 동작 시뮬레이션"""
         # 진행 상황 발행
         self.publish_pick_status(product_id, 'in_progress')
@@ -160,7 +160,7 @@ class MockArmNode(Node):
         
         self.current_pose = 'transport'
         self.is_busy = False
-        self.get_logger().info(f'Pick operation completed: product_id={product_id}, target_position=({target_position.x:.2f}, {target_position.y:.2f}, {target_position.z:.2f})')
+        self.get_logger().info(f'Pick operation completed: product_id={product_id}')
     
     def simulate_place_operation(self, product_id):
         """놓기 동작 시뮬레이션"""
@@ -186,7 +186,8 @@ class MockArmNode(Node):
         msg.current_phase = 'pick_operation'
         msg.progress = 1.0 if status == 'completed' else 0.5
         msg.message = f'Pick {status}'
-        
+        msg.arm_side = 'left'  
+
         self.pick_status_pub.publish(msg)
         self.get_logger().info(f'Published pick status: {product_id} - {status}')
     
