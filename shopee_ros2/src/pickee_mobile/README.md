@@ -55,8 +55,9 @@ mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노
 ros2 launch pickee_mobile mobile_bringup.launch.xml # 로봇
 ros2 launch pickee_mobile nav2_bringup_launch.xml # 로봇 맵 설정은 원하는대로
 ros2 launch pickee_mobile nav2_view.launch.xml #pc
+ros2 launch pickee_mobile mobile_controller # pc
 ros2 run pickee_mobile main_aruco_pub # pc
-ros2 run pickee_mobile mobile_aruco_docking # pc
+
 
 TEST_GUIDE의 /pickee/mobile/move_to_location service_client 서비스 요청, 해당 위치로 이동 후 도킹함
 ```
@@ -68,11 +69,11 @@ nav2_bringup_launch.xml map:=map1021_modify.yaml = nav2 실행, 해당 파일의
 
 nav2_view.launch.xml = rviz 실행, 수업 자료에 있던거
 
-mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드 실행
+mobile_controller.launch.xml = mobile_controller 노드, mobile_vel_modifier 노드, mobile_aruco_docking 실행
 
-mobile_controller 기능 =  목적지 지정 service server, 목적지로 주행 명령 action client, 현재PickeeMobile정보 publish, 도착정보 publish
+mobile_aruco_docking = aruco 마커 위치 토픽 subscribe 해서 도킹 프로세스 실행, module_go_straite.py, module_rotate.py 함수 import, 내부 코드에서 각도는 전부 rad단위, 로그에 뜨는건 degree 단위
 
-mobile_vel_modifier 기능 = cmd_vel subscribe, 설정에 맞게 속도 변경, cmd_vel_modified publish, 주행속도 조절
+main_aruco_pub = aruco 마커 위치 토픽 publish, module_aruco_detect.py 함수 import
 
 
 | 역할                            | 실행 명령                                                 | 위치        | 설명                      |
