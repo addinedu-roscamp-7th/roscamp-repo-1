@@ -127,10 +127,6 @@ class RosNodeThread(QThread):
     async def on_change_tracking_mode(self):
         request = ChangeTrackingMode.Request()
         request.robot_id = 1
-        if self.tracking_mode == 'idle':
-            request.mode = 'tracking'
-        else:
-            request.mode = 'idle'
 
         if not self.change_tracking_mode_client.wait_for_service(timeout_sec=self.main_service_timeout):
             print('Change tracking mode service not available')
@@ -141,6 +137,10 @@ class RosNodeThread(QThread):
             response = await future
             if response.success:
                 print(f"Change tracking mode response: {response.message}")
+                if self.tracking_mode == 'idle':
+                    request.mode = 'tracking'
+                else:
+                    request.mode = 'idle'
                 self.mobile_pose_updated.emit(request.mode)
                 return response.message
                 

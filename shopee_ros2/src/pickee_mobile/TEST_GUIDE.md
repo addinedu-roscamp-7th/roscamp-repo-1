@@ -20,6 +20,11 @@ ros2 topic pub -1 /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArriv
 }"
 
 
+# /pickee/mobile/change_tracking_mode 
+ros2 service call /pickee/mobile/change_tracking_mode shopee_interfaces/srv/ChangeTrackingMode "{
+  robot_id: 1,
+  mode: 'tracking'
+}"
 
 
 # /pickee/mobile/move_to_location service_client
