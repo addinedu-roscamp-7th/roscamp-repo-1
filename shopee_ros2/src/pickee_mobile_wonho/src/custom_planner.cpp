@@ -1,353 +1,199 @@
 #include "pickee_mobile_wonho/custom_planner.hpp"
-
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <queue>
-#include <utility>
-
 #include <pluginlib/class_list_macros.hpp>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/utils.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace custom_planner
 {
 
-namespace
-{
-constexpr double kCachePositionTolerance = 0.05;  // metres
-constexpr double kCacheYawTolerance = 0.10;        // radians
-constexpr double kPoseMergeTolerance = 1e-3;
-}
-
-CustomPlanner::CustomPlanner()
-{
-    initialise_waypoints();
-}
-
-void CustomPlanner::configure(
-    const rclcpp_lifecycle::LifecycleNode::WeakPtr &parent,
-    std::string name,
-    std::shared_ptr<tf2_ros::Buffer> tf,
-    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
-{
-    node_ = parent;
-    name_ = std::move(name);
-    tf_ = std::move(tf);
-    costmap_ros_ = std::move(costmap_ros);
-
-    if (auto node = node_.lock())
+    CustomPlanner::CustomPlanner()
     {
-        logger_ = node->get_logger();
-        RCLCPP_INFO(logger_, "CustomPlanner configured with %zu waypoint crossings.",
-            waypoint_graph_.size());
+        global_path = nav_msgs::msg::Path();
 
-        reset_service_ = node->create_service<std_srvs::srv::Trigger>(
-            "custom_planner/reset",
-            std::bind(&CustomPlanner::ResetCallback, this,
-                std::placeholders::_1, std::placeholders::_2));
+        path_logged = false;
+
+        // 각 좌표 x,y 상수 초기화
+        x1_ = -3.5;
+        x2_ = -2.0;
+        x3_ = -1.1;
+        x4_ = -0.195;
+        x5_ = 0.98;
+        x6_ = 2.25;
+        x7_ = 3.13;
+
+        y1_ = 1.6;
+        y2_ = 0.83;
+        y3_ = 0.16;
+        y4_ = -1.0;
+        y5_ = -4.95;
+
+        waypoints_x_ = {x1_, x2_, x3_, x4_, x5_, x6_, x7_};
+        waypoints_y_ = {y1_, y2_, y3_, y4_, y5_};
+
+        // 웨이포인트 map 상수 초기화
+        waypoints_ = {
+            {"x1y2", {waypoints_y_[0], waypoints_x_[0]}},
+            {"x1y2", {waypoints_y_[0], waypoints_x_[1]}},
+            {"x1y3", {waypoints_y_[0], waypoints_x_[2]}},
+            {"x1y4", {waypoints_y_[0], waypoints_x_[3]}},
+            {"x1y5", {waypoints_y_[0], waypoints_x_[4]}},
+            {"x1y6", {waypoints_y_[0], waypoints_x_[5]}}, // 1행
+            {"x2y1", {waypoints_y_[1], waypoints_x_[0]}},
+            {"x2y2", {waypoints_y_[1], waypoints_x_[1]}},
+            {"x2y3", {waypoints_y_[1], waypoints_x_[2]}},
+            {"x2y5", {waypoints_y_[1], waypoints_x_[4]}},
+            {"x2y6", {waypoints_y_[1], waypoints_x_[5]}},
+            {"x2y7", {waypoints_y_[1], waypoints_x_[6]}}, // 2행
+            {"x3y1", {waypoints_y_[2], waypoints_x_[0]}},
+            {"x3y3", {waypoints_y_[2], waypoints_x_[2]}},
+            {"x3y4", {waypoints_y_[2], waypoints_x_[3]}},
+            {"x3y5", {waypoints_y_[2], waypoints_x_[4]}},
+            {"x3y7", {waypoints_y_[2], waypoints_x_[6]}}, // 3행
+            {"x4y1", {waypoints_y_[3], waypoints_x_[0]}},
+            {"x4y2", {waypoints_y_[3], waypoints_x_[1]}},
+            {"x4y3", {waypoints_y_[3], waypoints_x_[2]}},
+            {"x4y4", {waypoints_y_[3], waypoints_x_[3]}},
+            {"x4y5", {waypoints_y_[3], waypoints_x_[4]}},
+            {"x4y6", {waypoints_y_[3], waypoints_x_[5]}},
+            {"x4y7", {waypoints_y_[3], waypoints_x_[6]}}, // 4행
+            {"x5y1", {waypoints_y_[4], waypoints_x_[0]}},
+            {"x5y4", {waypoints_y_[4], waypoints_x_[3]}},
+            {"x5y7", {waypoints_y_[4], waypoints_x_[6]}} // 5행
+        };
     }
 
-    has_cached_path_ = false;
-    cached_path_.poses.clear();
-}
-
-void CustomPlanner::ResetCallback(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> response)
-{
-    (void)request;
-
-    has_cached_path_ = false;
-    cached_path_.poses.clear();
-
-    response->success = true;
-    response->message = "CustomPlanner cache cleared";
-
-    RCLCPP_INFO(logger_, "CustomPlanner cache reset via trigger service.");
-}
-
-void CustomPlanner::cleanup()
-{
-    RCLCPP_INFO(logger_, "CustomPlanner cleanup invoked.");
-}
-
-void CustomPlanner::activate()
-{
-    RCLCPP_INFO(logger_, "CustomPlanner activated.");
-}
-
-void CustomPlanner::deactivate()
-{
-    RCLCPP_INFO(logger_, "CustomPlanner deactivated.");
-}
-
-nav_msgs::msg::Path CustomPlanner::createPlan(
-    const geometry_msgs::msg::PoseStamped &start,
-    const geometry_msgs::msg::PoseStamped &goal,
-    std::function<bool()> cancel_checker)
-{
-    (void)cancel_checker;
-
-    nav_msgs::msg::Path plan;
-    plan.header.frame_id = costmap_ros_->getGlobalFrameID();
-    if (auto node = node_.lock())
+    void CustomPlanner::configure(
+        const rclcpp_lifecycle::LifecycleNode::WeakPtr &parent,
+        std::string name,
+        std::shared_ptr<tf2_ros::Buffer> tf,
+        std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
     {
-        plan.header.stamp = node->now();
-    }
-    else
-    {
-        plan.header.stamp = rclcpp::Time();
-    }
+        node_ = parent;
+        name_ = name;
+        tf_ = tf;
+        costmap_ros_ = costmap_ros;
 
-    if (has_cached_path_ &&
-        poses_are_close(start, cached_start_, kCachePositionTolerance, kCacheYawTolerance) &&
-        poses_are_close(goal, cached_goal_, kCachePositionTolerance, kCacheYawTolerance))
-    {
-        RCLCPP_DEBUG(logger_, "CustomPlanner returning cached path.");
-        return cached_path_;
-    }
-
-    plan.poses.reserve(8);
-    plan.poses.push_back(start);
-
-    std::string start_wp_id;
-    std::string goal_wp_id;
-    const auto *start_wp = find_closest_waypoint(start, start_wp_id);
-    const auto *goal_wp = find_closest_waypoint(goal, goal_wp_id);
-
-    std::vector<std::string> route;
-
-    if (start_wp && goal_wp)
-    {
-        route = compute_route(start_wp_id, goal_wp_id);
-    }
-
-    auto append_if_distinct = [this, &plan](double x, double y)
-    {
-        const auto &last_pose = plan.poses.back();
-        const double dx = last_pose.pose.position.x - x;
-        const double dy = last_pose.pose.position.y - y;
-        if (std::fabs(dx) < kPoseMergeTolerance && std::fabs(dy) < kPoseMergeTolerance)
+        auto node = node_.lock();
+        if (node)
         {
-            return;
+            logger_ = node->get_logger();
+            RCLCPP_INFO(logger_, "CustomPlanner가 구성되었습니다.");
+
+            // 초기화 서비스 생성
+            reset_service_ =  node->create_service<std_srvs::srv::Trigger>(
+                "custom_planner/reset",
+                std::bind(&CustomPlanner::ResetCallback, this, std::placeholders::_1, std::placeholders::_2)
+            );
         }
-        plan.poses.emplace_back(build_pose(plan.header.frame_id, plan.header.stamp, x, y));
-    };
-
-    if (!route.empty())
-    {
-        const auto &first_wp = waypoint_graph_.at(route.front());
-        append_if_distinct(first_wp.x, start.pose.position.y);
-        append_if_distinct(first_wp.x, first_wp.y);
-
-        for (size_t i = 1; i + 1 < route.size(); ++i)
-        {
-            const auto &mid_wp = waypoint_graph_.at(route[i]);
-            append_if_distinct(mid_wp.x, mid_wp.y);
-        }
-
-        const auto &last_wp = waypoint_graph_.at(route.back());
-        append_if_distinct(last_wp.x, last_wp.y);
-        append_if_distinct(last_wp.x, goal.pose.position.y);
-    }
-    else if (start_wp)
-    {
-        append_if_distinct(start_wp->x, start.pose.position.y);
-        append_if_distinct(start_wp->x, start_wp->y);
-        append_if_distinct(start_wp->x, goal.pose.position.y);
     }
 
-    plan.poses.push_back(goal);
-
-    attach_headings(plan, goal);
-
-    cached_path_ = plan;
-    cached_start_ = start;
-    cached_goal_ = goal;
-    has_cached_path_ = true;
-
-    RCLCPP_INFO(logger_, "CustomPlanner created path with %zu poses.", plan.poses.size());
-
-    return plan;
-}
-
-void CustomPlanner::initialise_waypoints()
-{
-    waypoint_graph_.clear();
-
-    const std::vector<double> xs = {-3.5, -2.0, -1.1, -0.195, 0.98, 2.25, 3.13};
-    const std::vector<double> ys = {1.6, 0.83, 0.16, -1.0, -4.95};
-
-    for (size_t row = 0; row < ys.size(); ++row)
+    void CustomPlanner::ResetCallback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
-        for (size_t col = 0; col < xs.size(); ++col)
-        {
-            Waypoint wp;
-            wp.id = "wp_" + std::to_string(row) + "_" + std::to_string(col);
-            wp.x = xs[col];
-            wp.y = ys[row];
+        (void)request;
+        
+        // 초기화
+        path_logged = false;
+        global_path.poses.clear();
+        
+        response->success = true;
+        response->message = "CustomPlanner 초기화 완료";
+        RCLCPP_INFO(logger_, "CustomPlanner가 초기화되었습니다.");
+    }
 
-            if (row > 0)
+
+    void CustomPlanner::cleanup()
+    {
+        RCLCPP_INFO(logger_, "CustomPlanner가 cleanup되었습니다.");
+    }
+
+    void CustomPlanner::activate()
+    {
+        RCLCPP_INFO(logger_, "CustomPlanner가 activate되었습니다.");
+    }
+
+    void CustomPlanner::deactivate()
+    {
+        RCLCPP_INFO(logger_, "CustomPlanner가 deactivate되었습니다.");
+    }
+
+    nav_msgs::msg::Path CustomPlanner::createPlan(
+        const geometry_msgs::msg::PoseStamped &start,
+        const geometry_msgs::msg::PoseStamped &goal,
+        std::function<bool()> cancel_checker)
+    {
+        (void)cancel_checker;
+        global_path.header.frame_id = "map";
+        global_path.header.stamp = rclcpp::Clock().now();
+        
+        if (!path_logged) {
+            double diff_x = 10.0;
+            double diff_y = 10.0;
+            size_t x_index = 0;
+            size_t y_index = 0;
+    
+            
+            // 간단한 직선 경로 생성
+            global_path.poses.push_back(start);
+            // waypoints_ 순서대로 경유
+            for (size_t i = 0; i < waypoints_x_.size(); ++i)
             {
-                wp.neighbours.emplace_back("wp_" + std::to_string(row - 1) + "_" + std::to_string(col));
+                if (start.pose.position.x < goal.pose.position.x) {
+                    if (waypoints_x_[i] > start.pose.position.x && waypoints_x_[i] < goal.pose.position.x) {
+                        double current_diff_x = std::abs(start.pose.position.x - waypoints_x_[i]); // x
+                        if (current_diff_x < diff_x) {
+                            diff_x = current_diff_x;
+                            x_index = i;
+                        }
+                    }
+                } else if (start.pose.position.x > goal.pose.position.x) {
+                    if (waypoints_x_[i] < start.pose.position.x && waypoints_x_[i] > goal.pose.position.x) {
+                        double current_diff_x = std::abs(start.pose.position.x - waypoints_x_[i]); // x
+                        if (current_diff_x < diff_x) {
+                            diff_x = current_diff_x;
+                            x_index = i;
+                        }
+                    }
+                } else if (start.pose.position.x == goal.pose.position.x) {
+                    continue;
+                }
             }
-            if (row + 1 < ys.size())
+            for (size_t i = 0; i < waypoints_y_.size(); ++i)
             {
-                wp.neighbours.emplace_back("wp_" + std::to_string(row + 1) + "_" + std::to_string(col));
+                if (start.pose.position.y < goal.pose.position.y) {
+                    if (waypoints_y_[i] > start.pose.position.y && waypoints_y_[i] < goal.pose.position.y) {
+                        double current_diff_y = std::abs(start.pose.position.y - waypoints_y_[i]); // y
+                        if (current_diff_y < diff_y) {
+                            diff_y = current_diff_y;
+                            y_index = i;
+                        }
+                    }
+                } else if (start.pose.position.y > goal.pose.position.y) {
+                    if (waypoints_y_[i] < start.pose.position.y && waypoints_y_[i] > goal.pose.position.y) {
+                        double current_diff_y = std::abs(start.pose.position.y - waypoints_y_[i]); // y
+                        if (current_diff_y < diff_y) {
+                            diff_y = current_diff_y;
+                            y_index = i;
+                        }
+                    }
+                } else if (start.pose.position.y == goal.pose.position.y) {
+                    continue;
+                }
             }
-            if (col > 0)
-            {
-                wp.neighbours.emplace_back("wp_" + std::to_string(row) + "_" + std::to_string(col - 1));
-            }
-            if (col + 1 < xs.size())
-            {
-                wp.neighbours.emplace_back("wp_" + std::to_string(row) + "_" + std::to_string(col + 1));
-            }
-
-            waypoint_graph_.emplace(wp.id, std::move(wp));
+            geometry_msgs::msg::PoseStamped waypoint;
+            waypoint.pose.position.x = waypoints_x_[x_index];
+            waypoint.pose.position.y = waypoints_y_[y_index];
+            // waypoint.pose.orientation = goal.pose.orientation;
+            global_path.poses.push_back(waypoint);
+            global_path.poses.push_back(goal);
+    
+            RCLCPP_INFO(logger_, "CustomPlanner의 createPlan이 호출되었습니다.");
+            path_logged = true;
+            return global_path;
         }
+        return global_path;
     }
-}
-
-const CustomPlanner::Waypoint *CustomPlanner::find_closest_waypoint(
-    const geometry_msgs::msg::PoseStamped &pose,
-    std::string &waypoint_id) const
-{
-    const Waypoint *closest = nullptr;
-    double best_distance = std::numeric_limits<double>::max();
-    waypoint_id.clear();
-
-    for (const auto &entry : waypoint_graph_)
-    {
-        const auto &candidate = entry.second;
-        const double dx = pose.pose.position.x - candidate.x;
-        const double dy = pose.pose.position.y - candidate.y;
-        const double distance = std::hypot(dx, dy);
-        if (distance < best_distance)
-        {
-            best_distance = distance;
-            closest = &candidate;
-            waypoint_id = entry.first;
-        }
-    }
-
-    return closest;
-}
-
-std::vector<std::string> CustomPlanner::compute_route(const std::string &from,
-    const std::string &to) const
-{
-    if (from == to)
-    {
-        return {from};
-    }
-
-    std::queue<std::string> queue;
-    std::unordered_map<std::string, std::string> parent;
-
-    queue.push(from);
-    parent[from] = {};
-
-    while (!queue.empty())
-    {
-        const auto current = queue.front();
-        queue.pop();
-
-        if (current == to)
-        {
-            break;
-        }
-
-        const auto &node = waypoint_graph_.at(current);
-        for (const auto &neighbour_id : node.neighbours)
-        {
-            if (!waypoint_graph_.count(neighbour_id) || parent.count(neighbour_id))
-            {
-                continue;
-            }
-            parent[neighbour_id] = current;
-            queue.push(neighbour_id);
-        }
-    }
-
-    if (!parent.count(to))
-    {
-        return {};
-    }
-
-    std::vector<std::string> route;
-    for (std::string current = to; !current.empty(); current = parent[current])
-    {
-        route.push_back(current);
-    }
-    std::reverse(route.begin(), route.end());
-    return route;
-}
-
-geometry_msgs::msg::PoseStamped CustomPlanner::build_pose(const std::string &frame,
-    const rclcpp::Time &stamp, double x, double y) const
-{
-    geometry_msgs::msg::PoseStamped pose;
-    pose.header.frame_id = frame;
-    pose.header.stamp = stamp;
-    pose.pose.position.x = x;
-    pose.pose.position.y = y;
-    pose.pose.position.z = 0.0;
-
-    tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, 0.0);
-    pose.pose.orientation = tf2::toMsg(q);
-    return pose;
-}
-
-void CustomPlanner::attach_headings(nav_msgs::msg::Path &path,
-    const geometry_msgs::msg::PoseStamped &goal) const
-{
-    if (path.poses.size() < 2)
-    {
-        return;
-    }
-
-    path.poses.back().pose.orientation = goal.pose.orientation;
-
-    for (size_t i = 1; i + 1 < path.poses.size(); ++i)
-    {
-        auto &current = path.poses[i];
-        const auto &next = path.poses[i + 1];
-        const double dx = next.pose.position.x - current.pose.position.x;
-        const double dy = next.pose.position.y - current.pose.position.y;
-        if (std::fabs(dx) < kPoseMergeTolerance && std::fabs(dy) < kPoseMergeTolerance)
-        {
-            continue;
-        }
-        tf2::Quaternion q;
-        q.setRPY(0.0, 0.0, std::atan2(dy, dx));
-        current.pose.orientation = tf2::toMsg(q);
-    }
-}
-
-bool CustomPlanner::poses_are_close(const geometry_msgs::msg::PoseStamped &lhs,
-    const geometry_msgs::msg::PoseStamped &rhs, double position_tol,
-    double yaw_tol) const
-{
-    const double dx = lhs.pose.position.x - rhs.pose.position.x;
-    const double dy = lhs.pose.position.y - rhs.pose.position.y;
-    const double distance = std::hypot(dx, dy);
-    if (distance > position_tol)
-    {
-        return false;
-    }
-
-    const double lhs_yaw = tf2::getYaw(lhs.pose.orientation);
-    const double rhs_yaw = tf2::getYaw(rhs.pose.orientation);
-    const double yaw_diff = std::fabs(std::atan2(std::sin(lhs_yaw - rhs_yaw),
-        std::cos(lhs_yaw - rhs_yaw)));
-
-    return yaw_diff <= yaw_tol;
-}
 
 } // namespace custom_planner
 
+// 플러그인 등록
 PLUGINLIB_EXPORT_CLASS(custom_planner::CustomPlanner, nav2_core::GlobalPlanner)
