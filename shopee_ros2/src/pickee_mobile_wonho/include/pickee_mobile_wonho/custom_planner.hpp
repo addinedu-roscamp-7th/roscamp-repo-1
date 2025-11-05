@@ -16,6 +16,11 @@
 namespace custom_planner
 {
 
+    struct WaypointResult {
+        geometry_msgs::msg::PoseStamped waypoint;
+        size_t x_index;
+        size_t y_index;
+    };
     class CustomPlanner : public nav2_core::GlobalPlanner
     {
     public:
@@ -33,14 +38,17 @@ namespace custom_planner
         void activate() override;
 
         void deactivate() override;
-
-        std::optional<geometry_msgs::msg::PoseStamped> GetStartWaypoint(
+        
+        std::optional<WaypointResult> GetStartEndWaypoint(
             const geometry_msgs::msg::PoseStamped &start,
-            const geometry_msgs::msg::PoseStamped &goal);
+            const geometry_msgs::msg::PoseStamped &goal,
+            const bool is_start);
 
-        std::optional<geometry_msgs::msg::PoseStamped> GetEndWaypoint(
-            const geometry_msgs::msg::PoseStamped &start,
-            const geometry_msgs::msg::PoseStamped &goal);
+        std::optional<std::vector<geometry_msgs::msg::PoseStamped>> GetBetweenWaypoints(
+            const geometry_msgs::msg::PoseStamped &start, 
+            const geometry_msgs::msg::PoseStamped &goal,
+            const std::string &startKey,
+            const std::string &endKey);
 
         nav_msgs::msg::Path createPlan(
             const geometry_msgs::msg::PoseStamped &start,

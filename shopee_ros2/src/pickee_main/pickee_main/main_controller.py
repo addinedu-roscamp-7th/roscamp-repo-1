@@ -926,16 +926,20 @@ class PickeeMainController(Node):
     # Publisher 메소드들
     def publish_robot_status(self):
         # 로봇 상태를 주기적으로 발행
-        msg = PickeeRobotStatus()
-        msg.robot_id = self.robot_id
-        msg.state = self.state_machine.get_current_state_name()
-        msg.battery_level = self.current_battery_level
-        msg.current_order_id = self.current_order_id
-        msg.position_x = self.current_position_x
-        msg.position_y = self.current_position_y
-        msg.orientation_z = self.current_orientation_z
-        
-        self.robot_status_pub.publish(msg)
+        try: 
+            msg = PickeeRobotStatus()
+            msg.robot_id = self.robot_id
+            msg.state = self.state_machine.get_current_state_name()
+            msg.battery_level = self.current_battery_level
+            msg.current_order_id = self.current_order_id
+            msg.position_x = self.current_position_x
+            msg.position_y = self.current_position_y
+            msg.orientation_z = self.current_orientation_z
+            
+            self.robot_status_pub.publish(msg)
+            self.get_logger().info(f'로봇 상태 발행: state={msg.state}, battery={msg.battery_level:.1%}, position=({msg.position_x:.2f}, {msg.position_y:.2f})')
+        except Exception as e:
+            self.get_logger().error(f'Failed to publish robot status: {str(e)}')
 
     # def update_camera_frame(self, qt_image):
     #     '''

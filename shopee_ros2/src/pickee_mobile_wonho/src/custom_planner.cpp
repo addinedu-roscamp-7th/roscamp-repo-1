@@ -14,7 +14,7 @@ namespace custom_planner
         x1_ = -3.5;
         x2_ = -2.0;
         x3_ = -1.1;
-        x4_ = -0.195;
+        x4_ = -0.2;
         x5_ = 0.98;
         x6_ = 2.25;
         x7_ = 3.13;
@@ -31,32 +31,33 @@ namespace custom_planner
         // 웨이포인트 map 상수 초기화
         waypoints_ = {
             {"x1y1", {waypoints_y_[0], waypoints_x_[0]}},
-            {"x1y2", {waypoints_y_[0], waypoints_x_[1]}},
-            {"x1y3", {waypoints_y_[0], waypoints_x_[2]}},
-            {"x1y4", {waypoints_y_[0], waypoints_x_[3]}},
-            {"x1y5", {waypoints_y_[0], waypoints_x_[4]}},
-            {"x1y6", {waypoints_y_[0], waypoints_x_[5]}}, // 1행
-            {"x2y1", {waypoints_y_[1], waypoints_x_[0]}},
+            {"x2y1", {waypoints_y_[0], waypoints_x_[1]}},
+            {"x3y1", {waypoints_y_[0], waypoints_x_[2]}},
+            {"x4y1", {waypoints_y_[0], waypoints_x_[3]}},
+            {"x5y1", {waypoints_y_[0], waypoints_x_[4]}},
+            {"x6y1", {waypoints_y_[0], waypoints_x_[5]}}, 
+            {"x7y1", {waypoints_y_[0], waypoints_x_[6]}}, // 1행
+            {"x1y2", {waypoints_y_[1], waypoints_x_[0]}},
             {"x2y2", {waypoints_y_[1], waypoints_x_[1]}},
-            {"x2y3", {waypoints_y_[1], waypoints_x_[2]}},
-            {"x2y5", {waypoints_y_[1], waypoints_x_[4]}},
-            {"x2y6", {waypoints_y_[1], waypoints_x_[5]}},
-            {"x2y7", {waypoints_y_[1], waypoints_x_[6]}}, // 2행
-            {"x3y1", {waypoints_y_[2], waypoints_x_[0]}},
+            {"x3y2", {waypoints_y_[1], waypoints_x_[2]}},
+            {"x5y2", {waypoints_y_[1], waypoints_x_[4]}},
+            {"x6y2", {waypoints_y_[1], waypoints_x_[5]}},
+            {"x7y2", {waypoints_y_[1], waypoints_x_[6]}}, // 2행
+            {"x1y3", {waypoints_y_[2], waypoints_x_[0]}},
             {"x3y3", {waypoints_y_[2], waypoints_x_[2]}},
-            {"x3y4", {waypoints_y_[2], waypoints_x_[3]}},
-            {"x3y5", {waypoints_y_[2], waypoints_x_[4]}},
-            {"x3y7", {waypoints_y_[2], waypoints_x_[6]}}, // 3행
-            {"x4y1", {waypoints_y_[3], waypoints_x_[0]}},
-            {"x4y2", {waypoints_y_[3], waypoints_x_[1]}},
-            {"x4y3", {waypoints_y_[3], waypoints_x_[2]}},
+            {"x4y3", {waypoints_y_[2], waypoints_x_[3]}},
+            {"x5y3", {waypoints_y_[2], waypoints_x_[4]}},
+            {"x7y3", {waypoints_y_[2], waypoints_x_[6]}}, // 3행
+            {"x1y4", {waypoints_y_[3], waypoints_x_[0]}},
+            {"x2y4", {waypoints_y_[3], waypoints_x_[1]}},
+            {"x3y4", {waypoints_y_[3], waypoints_x_[2]}},
             {"x4y4", {waypoints_y_[3], waypoints_x_[3]}},
-            {"x4y5", {waypoints_y_[3], waypoints_x_[4]}},
-            {"x4y6", {waypoints_y_[3], waypoints_x_[5]}},
-            {"x4y7", {waypoints_y_[3], waypoints_x_[6]}}, // 4행
-            {"x5y1", {waypoints_y_[4], waypoints_x_[0]}},
-            {"x5y4", {waypoints_y_[4], waypoints_x_[3]}},
-            {"x5y7", {waypoints_y_[4], waypoints_x_[6]}} // 5행
+            {"x5y4", {waypoints_y_[3], waypoints_x_[4]}},
+            {"x6y4", {waypoints_y_[3], waypoints_x_[5]}},
+            {"x7y4", {waypoints_y_[3], waypoints_x_[6]}}, // 4행
+            {"x1y5", {waypoints_y_[4], waypoints_x_[0]}},
+            {"x4y5", {waypoints_y_[4], waypoints_x_[3]}},
+            {"x7y5", {waypoints_y_[4], waypoints_x_[6]}} // 5행
         };
     }
 
@@ -116,10 +117,11 @@ namespace custom_planner
         RCLCPP_INFO(logger_, "CustomPlanner가 deactivate되었습니다.");
     }
 
-    // 1. 출발지 좌표 찾기 함수
-    std::optional<geometry_msgs::msg::PoseStamped> CustomPlanner::GetStartWaypoint(
+    // 1. 출발지 좌표 찾기 함수 & 2. 도착지 좌표 찾기 함수 통합
+    std::optional<WaypointResult> CustomPlanner::GetStartEndWaypoint(
         const geometry_msgs::msg::PoseStamped &start, 
-        const geometry_msgs::msg::PoseStamped &goal)
+        const geometry_msgs::msg::PoseStamped &goal,
+        const bool is_start)
     {
         double diff_x = 10.0;
         double diff_y = 10.0;
@@ -127,11 +129,20 @@ namespace custom_planner
         size_t y_index = 10;
 
         // waypoints_ 순서대로 경유
-        RCLCPP_INFO(logger_, "[GetStartWaypoint 시작]start x: %.2f, goal x: %.2f", 
-                    start.pose.position.x, goal.pose.position.x);
-        RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
-                    start.pose.position.y, goal.pose.position.y);
-        RCLCPP_INFO(logger_, "[for1] waypoints_y_");
+        // waypoints_y_ 순서대로 경유
+        if (is_start) {
+            RCLCPP_INFO(logger_, "[GetStartWaypoint 시작]start x: %.2f, goal x: %.2f", 
+                        start.pose.position.x, goal.pose.position.x);
+            RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
+                        start.pose.position.y, goal.pose.position.y);
+            RCLCPP_INFO(logger_, "[for1] waypoints_y_");
+        } else {
+            RCLCPP_INFO(logger_, "[GetEndWaypoint 시작]start x: %.2f, goal x: %.2f", 
+                        start.pose.position.x, goal.pose.position.x);
+            RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
+                        start.pose.position.y, goal.pose.position.y);
+            RCLCPP_INFO(logger_, "[for2] waypoints_y_");
+        }
         for (size_t i = 0; i < waypoints_y_.size(); ++i)
         {   
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -139,8 +150,13 @@ namespace custom_planner
             if (start.pose.position.x < goal.pose.position.x) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 if (waypoints_y_[i] > start.pose.position.x && waypoints_y_[i] <= goal.pose.position.x) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                    RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
+                    double current_diff_y;
+                    if (is_start) {
+                        current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                    } else {
+                        current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
+                    }
                     if (current_diff_y < diff_y) {
                         diff_y = current_diff_y;
                         y_index = i;
@@ -152,8 +168,13 @@ namespace custom_planner
             } else if (start.pose.position.x > goal.pose.position.x) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 if (waypoints_y_[i] < start.pose.position.x && waypoints_y_[i] >= goal.pose.position.x) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                    RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
+                    double current_diff_y;
+                    if (is_start) {
+                        current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                    } else {
+                        current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
+                    }
                     if (current_diff_y < diff_y) {
                         diff_y = current_diff_y;
                         y_index = i;
@@ -169,6 +190,7 @@ namespace custom_planner
         }
         // 잠시 0.5초 대기 (필요 시 상단에 <thread>와 <chrono> 포함)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // waypoints_x_ 순서대로 경유
         RCLCPP_INFO(logger_, "[for2] waypoints_x_");
         for (size_t i = 0; i < waypoints_x_.size(); ++i)
         {
@@ -177,8 +199,13 @@ namespace custom_planner
             if (start.pose.position.y < goal.pose.position.y) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 if (waypoints_x_[i] > start.pose.position.y && waypoints_x_[i] <= goal.pose.position.y) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                    RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
+                    double current_diff_x;
+                    if (is_start) {
+                        current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                    } else {
+                        current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
+                    }
                     if (current_diff_x < diff_x) {
                         diff_x = current_diff_x;
                         x_index = i;
@@ -190,8 +217,13 @@ namespace custom_planner
             } else if (start.pose.position.y > goal.pose.position.y) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 if (waypoints_x_[i] < start.pose.position.y && waypoints_x_[i] >= goal.pose.position.y) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                    RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
+                    double current_diff_x;
+                    if (is_start) {
+                        current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                    } else {
+                        current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
+                    }
                     if (current_diff_x < diff_x) {
                         diff_x = current_diff_x;
                         x_index = i;
@@ -209,116 +241,60 @@ namespace custom_planner
             RCLCPP_WARN(logger_, "적절한 웨이포인트를 찾지 못했습니다. 기본 경로를 사용합니다.");
             return std::nullopt;
         } else {
-            geometry_msgs::msg::PoseStamped waypoint;
-            waypoint.pose.position.x = waypoints_y_[y_index];
-            waypoint.pose.position.y = waypoints_x_[x_index];
-            // waypoint.pose.orientation = goal.pose.orientation;
-            RCLCPP_INFO(logger_, "추가된 웨이포인트: (%.2f, %.2f)", 
-                waypoint.pose.position.x, waypoint.pose.position.y);
-            return waypoint;
+            char key[20];
+            snprintf(key, sizeof(key), "x%zuy%zu", x_index + 1, y_index + 1);
+            if (waypoints_.find(key) != waypoints_.end()) {
+                WaypointResult result;
+                geometry_msgs::msg::PoseStamped waypoint;
+                waypoint.pose.position.x = waypoints_y_[y_index];
+                waypoint.pose.position.y = waypoints_x_[x_index];
+                // waypoint.pose.orientation = goal.pose.orientation;
+                RCLCPP_INFO(logger_, "추가된 웨이포인트: (%.2f, %.2f)", 
+                    waypoint.pose.position.x, waypoint.pose.position.y);
+                result.waypoint = waypoint;
+                result.x_index = x_index;
+                result.y_index = y_index;
+                return result;
+            } else {
+                RCLCPP_WARN(logger_, "웨이포인트 키가 없습니다.");
+                return std::nullopt;
+            }
+            return std::nullopt;
         }
+        return std::nullopt;
     }
 
-    std::optional<geometry_msgs::msg::PoseStamped> CustomPlanner::GetEndWaypoint(
+    // 3. start에서 goal 사이 경로 생성 함수
+    std::optional<std::vector<geometry_msgs::msg::PoseStamped>> CustomPlanner::GetBetweenWaypoints(
         const geometry_msgs::msg::PoseStamped &start, 
-        const geometry_msgs::msg::PoseStamped &goal)
+        const geometry_msgs::msg::PoseStamped &goal,
+        const std::string &startKey,
+        const std::string &endKey)
     {
-        double diff_x = 10.0;
-        double diff_y = 10.0;
-        size_t x_index = 10;
-        size_t y_index = 10;
+        std::vector<geometry_msgs::msg::PoseStamped> betweenWaypoints;
+        double min_x = std::min(start.pose.position.x, goal.pose.position.x);
+        double max_x = std::max(start.pose.position.x, goal.pose.position.x);
+        double min_y = std::min(start.pose.position.y, goal.pose.position.y);
+        double max_y = std::max(start.pose.position.y, goal.pose.position.y);
+        for (const auto &wp : waypoints_) {
+            if (wp.first == startKey || wp.first == endKey) continue;
 
-        // waypoints_ 순서대로 경유
-        RCLCPP_INFO(logger_, "[GetEndWaypoint 시작] start x: %.2f, goal x: %.2f", 
-                    start.pose.position.x, goal.pose.position.x);
-        RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
-                    start.pose.position.y, goal.pose.position.y);
-        RCLCPP_INFO(logger_, "[for1] waypoints_y_");
-        for (size_t i = 0; i < waypoints_y_.size(); ++i)
-        {   
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            RCLCPP_INFO(logger_, "--%zu번째", i);
-            if (start.pose.position.x < goal.pose.position.x) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_y_[i] > start.pose.position.x && waypoints_y_[i] <= goal.pose.position.x) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
-                    if (current_diff_y < diff_y) {
-                        diff_y = current_diff_y;
-                        y_index = i;
-                        RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
-                    }
-                } else {
-                    RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
-                }
-            } else if (start.pose.position.x > goal.pose.position.x) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_y_[i] < start.pose.position.x && waypoints_y_[i] >= goal.pose.position.x) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
-                    if (current_diff_y < diff_y) {
-                        diff_y = current_diff_y;
-                        y_index = i;
-                        RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
-                    }
-                } else {
-                    RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
-                }
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
+            double wp_x = wp.second.second;
+            double wp_y = wp.second.first;
+
+            if (wp_x >= min_x && wp_x <= max_x &&
+                wp_y >= min_y && wp_y <= max_y) {
+                geometry_msgs::msg::PoseStamped pose;
+                pose.pose.position.x = wp_y;
+                pose.pose.position.y = wp_x;
+                betweenWaypoints.push_back(pose);
             }
         }
-        // 잠시 0.5초 대기 (필요 시 상단에 <thread>와 <chrono> 포함)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        RCLCPP_INFO(logger_, "[for2] waypoints_x_");
-        for (size_t i = 0; i < waypoints_x_.size(); ++i)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            RCLCPP_INFO(logger_, "--%zu번째", i);
-            if (start.pose.position.y < goal.pose.position.y) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_x_[i] > start.pose.position.y && waypoints_x_[i] <= goal.pose.position.y) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
-                    if (current_diff_x < diff_x) {
-                        diff_x = current_diff_x;
-                        x_index = i;
-                        RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
-                    }
-                } else {
-                    RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
-                }
-            } else if (start.pose.position.y > goal.pose.position.y) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_x_[i] < start.pose.position.y && waypoints_x_[i] >= goal.pose.position.y) {
-                    RCLCPP_INFO(logger_, "----검토 중인 waypoint_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
-                    if (current_diff_x < diff_x) {
-                        diff_x = current_diff_x;
-                        x_index = i;
-                        RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
-                    }
-                } else {
-                    RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
-                }
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
-            }
+        if (!betweenWaypoints.empty()) {
+            RCLCPP_INFO(logger_, "중간 웨이포인트 %zu개 발견", betweenWaypoints.size());
+            return betweenWaypoints;
         }
-        if (x_index == 10 || y_index == 10) {
-            RCLCPP_WARN(logger_, "적절한 웨이포인트를 찾지 못했습니다. 기본 경로를 사용합니다.");
-            return std::nullopt;
-        } else {
-            geometry_msgs::msg::PoseStamped waypoint;
-            waypoint.pose.position.x = waypoints_y_[y_index];
-            waypoint.pose.position.y = waypoints_x_[x_index];
-            // waypoint.pose.orientation = goal.pose.orientation;
-            RCLCPP_INFO(logger_, "추가된 웨이포인트: (%.2f, %.2f)", 
-                waypoint.pose.position.x, waypoint.pose.position.y);
-            return waypoint;
-        }
+        return std::nullopt;
     }
 
     // 1. 출발지에서 가까운 웨이포인트 좌표 찾기
@@ -342,19 +318,52 @@ namespace custom_planner
         if (!path_logged) {
             // 경로 생성
             global_path.poses.push_back(start);
-            
+
+            struct waypointIndex {
+                size_t x_idx;
+                size_t y_idx;
+            };
+            waypointIndex startWaypointIndex;
+            waypointIndex endWaypointIndex;
+
             // 1. 출발지 좌표 찾기
-            if (GetStartWaypoint(start, goal) != std::nullopt) {
-                global_path.poses.push_back(*GetStartWaypoint(start, goal));
+            std::optional<WaypointResult> startResult = GetStartEndWaypoint(start, goal, true);
+            if (startResult != std::nullopt) {
+                startWaypointIndex.x_idx = startResult->x_index;
+                startWaypointIndex.y_idx = startResult->y_index;
+                global_path.poses.push_back(startResult->waypoint);
             }
             // 2. 목적지 좌표 찾기
-            if (GetEndWaypoint(start, goal) != std::nullopt) {
-                global_path.poses.push_back(*GetEndWaypoint(start, goal));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::optional<WaypointResult> endResult = GetStartEndWaypoint(start, goal, false);
+            if (endResult != std::nullopt) {
+                endWaypointIndex.x_idx = endResult->x_index;
+                endWaypointIndex.y_idx = endResult->y_index;
+                global_path.poses.push_back(endResult->waypoint);
             }
+            // 3. 중간 웨이포인트 좌표 찾기
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::string startKey = 
+                "x" + std::to_string(startWaypointIndex.x_idx + 1) + 
+                "y" + std::to_string(startWaypointIndex.y_idx + 1);
+            std::string endKey = 
+                "x" + std::to_string(endWaypointIndex.x_idx + 1) + 
+                "y" + std::to_string(endWaypointIndex.y_idx + 1);
 
-            global_path.poses.push_back(goal);
+            std::optional<std::vector<geometry_msgs::msg::PoseStamped>> betweenWaypoints = GetBetweenWaypoints(start, goal, startKey, endKey);
+            if (betweenWaypoints != std::nullopt) {
+                for (const auto &wp : *betweenWaypoints) {
+                    global_path.poses.push_back(wp);
+                }
+            }
     
-            RCLCPP_INFO(logger_, "CustomPlanner의 createPlan이 호출되었습니다.");
+            RCLCPP_INFO(logger_, "Create Plan 호출. 경로 생성됨 (총 %zu 개의 포즈)", global_path.poses.size());
+            RCLCPP_INFO(logger_, "생성된 경로: ");
+            for (const auto &pose : global_path.poses) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                RCLCPP_INFO(logger_, "-> (x: %.2f, y: %.2f)", 
+                            pose.pose.position.x, pose.pose.position.y);
+            }
             path_logged = true;
             return global_path;
         }
