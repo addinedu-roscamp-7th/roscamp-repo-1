@@ -43,12 +43,19 @@ public:
             std::bind(&PackeePackingCheckAvailability::PoseStatusCallback, this, _1)
         );
 
-        robot_status_pub_ = this->create_publisher<robotStatus>("/packee/robot_status", 10);
+        robot_status_sub_ = this->create_subscription<robotStatus>("/packee/robot_status", 10, std::bind(&PackeePackingCheckAvailability::StatusCallback, this, _1));
+
+        robot_status_pub_ = this->create_publisher<robotStatus>("/packee/set_robot_status", 10);
 
         cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
         move_pose_client_ = this->create_client<ArmMoveToPose>("/packee1/arm/move_to_pose");
 
         RCLCPP_INFO(this->get_logger(), "packee_packing_check_availability_server started");
+    }
+
+    void StatusCallback(const robotStatus::SharedPtr msg)
+    {
+        robot_status_ = msg->state;
     }
 
     void PoseStatusCallback(const PoseStatus::SharedPtr msg)
@@ -59,7 +66,6 @@ public:
 
     void publishRobotStatus(int id, const std::string &state, int order_id, int items_in_cart)
     {
-        robot_status_ = state;
         auto msg = robotStatus();
         msg.robot_id = id;
         msg.state = state;
@@ -75,67 +81,76 @@ public:
         int32_t robot_id = request->robot_id;
         int32_t order_id = request->order_id;
 
-        pose_status_.clear();
+        if (robot_status_ == "STANDBY") {
+            response->success = true;
+            response->message = "Checking packee availability...";
 
-        response->success = true;
-        response->message = "Checking packee availability...";
+            publishRobotStatus(request->robot_id, "CHECKING_CART", request->order_id, 0);
 
-        publishRobotStatus(request->robot_id, "CHECKING_CART", request->order_id, 0);
+            // 1. 카트 뷰 위치로 이동
+            if (!callMovePose(robot_id, order_id, "cart_view")) {
+                RCLCPP_ERROR(this->get_logger(), "MovePose(cart_view) failed");
+                response->success = false;
+                response->message = "MovePose(cart_view) failed";
+                return;
+            }
 
-        // 1. 카트 뷰 위치로 이동
-        if (!callMovePose(robot_id, order_id, "cart_view")) {
-            RCLCPP_ERROR(this->get_logger(), "MovePose(cart_view) failed");
+            // 2. Pose 완료 대기
+            rclcpp::Rate rate(10);
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
+            }
+
+            // 3. 카트 감지 반복 시도
+            bool cart_present = false;
+            int retry = 0;
+            while (!cart_present && retry < 5 && rclcpp::ok()) {
+                cart_present = callCheckCartPresence(robot_id);
+                RCLCPP_INFO(this->get_logger(), "Cart check retry %d/5", retry + 1);
+                rclcpp::sleep_for(1s);
+                retry++;
+            }
+
+            // 4. standby 위치로 복귀
+            if (!callMovePose(robot_id, order_id, "standby")) {
+                RCLCPP_ERROR(this->get_logger(), "MovePose(standby) failed");
+                response->success = false;
+                response->message = "MovePose(cart_view) failed";
+                return;
+            }
+
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
+            }
+
+            // 5. 상태 변경
+            publishRobotStatus(request->robot_id, "STANDBY", request->order_id, 0);
+
+            // 6. 결과 Publish
+            auto msg = AvailabilityResult();
+            msg.robot_id = robot_id;
+            msg.order_id = order_id;
+            msg.available = cart_present;
+            msg.cart_detected = cart_present;
+            msg.message = cart_present ? "Packee availability OK (cart detected)" : "No cart detected";
+            check_avail_pub_->publish(msg);
+
+            RCLCPP_INFO(this->get_logger(),
+                "Availability Result → detected=%s, message=%s",
+                cart_present ? "true" : "false",
+                msg.message.c_str());
+
+        }
+        else
+        {
+            RCLCPP_ERROR(this->get_logger(), "로봇 상태가 올바르지 않습니다.");
             response->success = false;
-            response->message = "MovePose(cart_view) failed";
-            return;
+            response->message = "check availability failed";
         }
 
-        // 2. Pose 완료 대기
-        rclcpp::Rate rate(10);
-        while (rclcpp::ok()) {
-            if (pose_status_ == "complete") break;
-            rate.sleep();
-        }
-
-        // 3. 카트 감지 반복 시도
-        bool cart_present = false;
-        int retry = 0;
-        while (!cart_present && retry < 5 && rclcpp::ok()) {
-            cart_present = callCheckCartPresence(robot_id);
-            RCLCPP_INFO(this->get_logger(), "Cart check retry %d/5", retry + 1);
-            rclcpp::sleep_for(1s);
-            retry++;
-        }
-
-        // 4. standby 위치로 복귀
-        if (!callMovePose(robot_id, order_id, "standby")) {
-            RCLCPP_ERROR(this->get_logger(), "MovePose(standby) failed");
-            response->success = false;
-            response->message = "MovePose(cart_view) failed";
-            return;
-        }
-
-        while (rclcpp::ok()) {
-            if (pose_status_ == "complete") break;
-            rate.sleep();
-        }
-
-        // 5. 상태 변경
-        publishRobotStatus(request->robot_id, "STANDBY", request->order_id, 0);
-
-        // 6. 결과 Publish
-        auto msg = AvailabilityResult();
-        msg.robot_id = robot_id;
-        msg.order_id = order_id;
-        msg.available = cart_present;
-        msg.cart_detected = cart_present;
-        msg.message = cart_present ? "Packee availability OK (cart detected)" : "No cart detected";
-        check_avail_pub_->publish(msg);
-
-        RCLCPP_INFO(this->get_logger(),
-            "Availability Result → detected=%s, message=%s",
-            cart_present ? "true" : "false",
-            msg.message.c_str());
+        
     }
 
     bool callCheckCartPresence(int32_t robot_id)

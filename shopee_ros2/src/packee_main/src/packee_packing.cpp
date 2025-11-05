@@ -35,27 +35,11 @@ public:
     {
         robot_id_ = 0;
         pose_status_ = "";
-        pick_arm_side_ = "";
-        pick_status_ = "";
-        place_arm_side_ = "";
-        place_status_ = "";
         robot_status_ = "";
 
         start_packing_service_ = this->create_service<StartPacking>(
             "/packee/packing/start",
             std::bind(&PackeePackingServer::startPackingCallback, this, _1, _2)
-        );
-
-        pick_status_sub_ = this->create_subscription<ArmTaskStatus>(
-            "/packee/arm/pick_status",
-            10,
-            std::bind(&PackeePackingServer::PickStatusCallback, this, _1)
-        );
-
-        place_status_sub_ = this->create_subscription<ArmTaskStatus>(
-            "/packee/arm/place_status",
-            10,
-            std::bind(&PackeePackingServer::PlaceStatusCallback, this, _1)
         );
 
         pose_status_sub_ = this->create_subscription<PoseStatus>(
@@ -64,28 +48,28 @@ public:
             std::bind(&PackeePackingServer::PoseStatusCallback, this, _1)
         );
 
+        robot_status_sub_ = this->create_subscription<robotStatus>(
+            "/packee/set_robot_status", 
+            10, 
+            std::bind(&PackeePackingServer::StatusCallback, this, _1)
+        );
+
         robot_status_pub_ = this->create_publisher<robotStatus>("/packee/robot_status", 10);
 
         packing_complete_pub_ = this->create_publisher<PackingComplete>("/packee/packing_complete", 10);
 
-        detect_products_client_ = this->create_client<DetectProductsInCart>("/packee/vision/detect_products_in_cart");
         verify_packing_client_ = this->create_client<VerifyPackingComplete>("/packee/vision/verify_packing_complete");
 
         move_pose_client1_ = this->create_client<ArmMoveToPose>("/packee1/arm/move_to_pose");
         move_pose_client2_ = this->create_client<ArmMoveToPose>("/packee2/arm/move_to_pose");
-        pick_product_client1_ = this->create_client<ArmPickProduct>("/packee1/arm/pick_product");
-        pick_product_client2_ = this->create_client<ArmPickProduct>("/packee2/arm/pick_product");
-        place_product_client1_ = this->create_client<ArmPlaceProduct>("/packee1/arm/place_product");
-        place_product_client2_ = this->create_client<ArmPlaceProduct>("/packee2/arm/place_product");
 
         RCLCPP_INFO(this->get_logger(), "PackeePackingServer started");
     }
 
-    struct DetectionResult
+    void StatusCallback(const robotStatus::SharedPtr msg)
     {
-        std::string arm_side;
-        std::vector<float> pose;
-    };
+        robot_status_ = msg->state;
+    }
 
     void PoseStatusCallback(const PoseStatus::SharedPtr msg)
     {
@@ -93,36 +77,14 @@ public:
         pose_status_ = msg->status;
     }
 
-    void PickStatusCallback(const ArmTaskStatus::SharedPtr msg)
-    {
-        pick_arm_side_ = msg->arm_side;
-        pick_status_ = msg->status;
-    }
-
-    void PlaceStatusCallback(const ArmTaskStatus::SharedPtr msg)
-    {
-        place_arm_side_ = msg->arm_side;
-        place_status_ = msg->status;
-    }
-
     void publishRobotStatus(int id, const std::string &state, int order_id, int items_in_cart)
     {
-        robot_status_ = state;
         auto msg = robotStatus();
         msg.robot_id = id;
         msg.state = state;
         msg.current_order_id = order_id;
         msg.items_in_cart = items_in_cart;
         robot_status_pub_->publish(msg);
-    }
-
-    float pose_diff_norm(const std::vector<float> &a, const std::vector<float> &b)
-    {
-        if (a.size() != b.size() || a.empty()) return 1e9f;
-        float sum = 0.f;
-        for (size_t i = 0; i < a.size(); ++i)
-            sum += std::pow(a[i] - b[i], 2);
-        return std::sqrt(sum);
     }
 
     // 포장 시작
@@ -133,82 +95,45 @@ public:
         response->success = true;
         response->message = "Packing started";
 
-        bool result = false;
-        bool complete_flag = false;
-        std::string arm_side;
-        std::vector<float> current_pose;
-        std::vector<float> prev_pose;
         rclcpp::Rate rate(10);
+        bool result = false;
+        std::string arm_side = "";
+        int32_t index = 1;
 
         if (robot_status_ == "CHECKING_CART") {
-            publishRobotStatus(request->robot_id, "DETECTED_PRODUCT", request->order_id, 0);
+            RCLCPP_INFO(this->get_logger(), "장바구니 확인자세 이동");
+
+            callMovePoseLeft(request->robot_id, request->order_id, "cart_view");
+
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
+            }
+
+            callMovePoseRight(request->robot_id, request->order_id, "cart_view");
+
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
+            }
 
             for (auto &product : request->products)
             {
+                RCLCPP_INFO(this->get_logger(), "상품 pick & place");
+
                 int32_t product_id = product.product_id;
-                
-                callMovePoseLeft(request->robot_id, request->order_id, "cart_view");
+                publishRobotStatus(request->robot_id, "DETECTED_PRODUCT", request->order_id, 0);
 
-                while (rclcpp::ok()) {
-                    if (pose_status_ == "complete") break;
-                    rate.sleep();
-                }
-
-                callMovePoseRight(request->robot_id, request->order_id, "cart_view");
-
-                while (rclcpp::ok()) {
-                    if (pose_status_ == "complete") break;
-                    rate.sleep();
+                if (index % 2 == 0) {
+                    arm_side = "right";
+                } else {
+                    arm_side = "left";
                 }
 
                 publishRobotStatus(request->robot_id, "PACKING_PRODUCT", request->order_id, 0);
-
-                while (true)
-                {
-                    DetectionResult results = callDetectProducts(request->robot_id, request->order_id, product_id);
-
-                    arm_side = results.arm_side;
-                    current_pose = results.pose;
-
-                    if (!prev_pose.empty()) {
-                        float diff = pose_diff_norm(current_pose, prev_pose);
-
-                        if (diff < 10.0f) {
-                            complete_flag = true;
-                            current_pose[2] -= 40;
-                        }
-                    }
-
-                    if (arm_side == "left") {
-                        callPickProductLeft(request->robot_id, request->order_id, product_id, "left", current_pose);
-
-                        while (rclcpp::ok()) {
-                            if (pick_status_ == "complete") break;
-                            rate.sleep();
-                        }
-                    }
-                    else if (arm_side == "right")
-                    {
-                        callPickProductRight(request->robot_id, request->order_id, product_id, "right", current_pose);
-
-                        while (rclcpp::ok()) {
-                            if (pick_status_ == "complete") break;
-                            rate.sleep();
-                        }
-                    }
-                    else
-                    {
-                        RCLCPP_ERROR(this->get_logger(), "유효하지 않은 정보입니다.");
-                    }
-
-                    prev_pose = current_pose;
-
-                    if (complete_flag) break;
-                }
                 
-                // place 코드
-
                 result = callVerifyPacking(request->robot_id, request->order_id);
+                index++;
             }
 
             if (result == true) {
@@ -217,79 +142,30 @@ public:
                 publishPackingComplete(request->robot_id, request->order_id, false, request->products.size(), "Failed Packing");
             }
 
-            if (arm_side == "left")
-            {
-                callMovePoseLeft(request->robot_id, request->order_id, "standby");
+            RCLCPP_INFO(this->get_logger(), "상품 완료 포장완료");
 
-                while (rclcpp::ok()) {
-                    if (pose_status_ == "complete") break;
-                    rate.sleep();
-                }
-            }
-            else if (arm_side == "right")
-            {
-                callMovePoseRight(request->robot_id, request->order_id, "standby");
+            callMovePoseLeft(request->robot_id, request->order_id, "standby");
 
-                while (rclcpp::ok()) {
-                    if (pose_status_ == "complete") break;
-                    rate.sleep();
-                }
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
             }
-            else
-            {
-                RCLCPP_ERROR(this->get_logger(), "유효하지 않은 정보입니다.");
+
+            callMovePoseRight(request->robot_id, request->order_id, "standby");
+
+            while (rclcpp::ok()) {
+                if (pose_status_ == "complete") break;
+                rate.sleep();
             }
 
             publishRobotStatus(request->robot_id, "STANDBY", request->order_id, 0);
+            RCLCPP_INFO(this->get_logger(), "대기자세");
         }
-    }
-
-    DetectionResult callDetectProducts(int32_t robot_id, int32_t order_id, int32_t product_id)
-    {
-        DetectionResult result;
-        auto request = std::make_shared<DetectProductsInCart::Request>();
-        request->robot_id = robot_id;
-        request->order_id = order_id;
-        request->expected_product_id = product_id;
-
-        while (!detect_products_client_->wait_for_service(1s)) 
+        else
         {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(this->get_logger(), "MovePoseLeft service unavailable, waiting again...");
-
+            RCLCPP_ERROR(this->get_logger(), "로봇 상태가 올바르지 않습니다.");
+            publishPackingComplete(request->robot_id, request->order_id, false, request->products.size(), "Failed Packing");
         }
-
-        auto future = detect_products_client_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), 
-                "Detection success: %s, message: %s",
-                response->success ? "true" : "false",
-                response->message.c_str());
-
-            result.arm_side = response->arm_side;
-            auto &p = response->products[0]; // 첫 번째 감지된 상품
-            result.pose = {
-                p.pose.x,
-                p.pose.y,
-                p.pose.z,
-                p.pose.rx,
-                p.pose.ry,
-                p.pose.rz
-            };
-
-            return result;
-        }
-
-        RCLCPP_ERROR(this->get_logger(), "Failed to call detect products service");
-        DetectionResult response;
-        response.pose = {0, 0, 0, 0, 0, 0};
-        return response;
     }
 
     bool callMovePoseLeft(int32_t robot_id, int32_t order_id, const std::string& pose_type)
@@ -352,152 +228,6 @@ public:
         return false;
     }
 
-    bool callPickProductLeft(int32_t robot_id, int32_t order_id, int32_t product_id,
-                         const std::string& arm_side, const std::vector<float>& target_position)
-    {
-        auto request = std::make_shared<ArmPickProduct::Request>();
-        request->robot_id = robot_id;
-        request->order_id = order_id;
-        request->product_id = product_id;
-        request->arm_side = arm_side;
-
-        if(target_position.size() == 6) {
-            request->pose.x = target_position[0];
-            request->pose.y = target_position[1];
-            request->pose.z = target_position[2];
-            request->pose.rx = target_position[3];
-            request->pose.ry = target_position[4];
-            request->pose.rz = target_position[5];
-        }
-
-        while (!pick_product_client1_->wait_for_service(1s)) 
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(this->get_logger(), "PickProductLeft service unavailable, waiting again...");
-
-        }
-
-        auto future = pick_product_client1_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PickProduct success: %s, message: %s",
-                        response->success ? "true" : "false",
-                        response->message.c_str());
-            return response->success;
-        }
-        return false;
-    }
-
-    bool callPickProductRight(int32_t robot_id, int32_t order_id, int32_t product_id,
-                         const std::string& arm_side, const std::vector<float>& target_position)
-    {
-        auto request = std::make_shared<ArmPickProduct::Request>();
-        request->robot_id = robot_id;
-        request->order_id = order_id;
-        request->product_id = product_id;
-        request->arm_side = arm_side;
-
-        if(target_position.size() == 6) {
-            request->pose.x = target_position[0];
-            request->pose.y = target_position[1];
-            request->pose.z = target_position[2];
-            request->pose.rx = target_position[3];
-            request->pose.ry = target_position[4];
-            request->pose.rz = target_position[5];
-        }
-
-        while (!pick_product_client2_->wait_for_service(1s)) 
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(this->get_logger(), "PickProductRight service unavailable, waiting again...");
-
-        }
-
-        auto future = pick_product_client2_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PickProduct success: %s, message: %s",
-                        response->success ? "true" : "false",
-                        response->message.c_str());
-            return response->success;
-        }
-        return false;
-    }
-
-    bool callPlaceProductLeft(int32_t robot_id, int32_t order_id, int32_t product_id,
-                          const std::string& arm_side, const std::vector<float>& box_position)
-    {
-        auto request = std::make_shared<ArmPlaceProduct::Request>();
-        request->robot_id = robot_id;
-        request->order_id = order_id;
-        request->product_id = product_id;
-        request->arm_side = arm_side;
-
-        while (!place_product_client1_->wait_for_service(1s)) 
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(this->get_logger(), "PlaceProductLeft service unavailable, waiting again...");
-
-        }
-
-        auto future = place_product_client1_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PlaceProduct success: %s, message: %s",
-                        response->success ? "true" : "false",
-                        response->message.c_str());
-            return response->success;
-        }
-        return false;
-    }
-
-    bool callPlaceProductRight(int32_t robot_id, int32_t order_id, int32_t product_id,
-                          const std::string& arm_side, const std::vector<float>& box_position)
-    {
-        auto request = std::make_shared<ArmPlaceProduct::Request>();
-        request->robot_id = robot_id;
-        request->order_id = order_id;
-        request->product_id = product_id;
-        request->arm_side = arm_side;
-
-        while (!place_product_client2_->wait_for_service(1s)) 
-        {
-            if (!rclcpp::ok())
-            {
-                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(this->get_logger(), "PlaceProductRight service unavailable, waiting again...");
-
-        }
-
-        auto future = place_product_client2_->async_send_request(request);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "PlaceProduct success: %s, message: %s",
-                        response->success ? "true" : "false",
-                        response->message.c_str());
-            return response->success;
-        }
-        return false;
-    }
-
     bool callVerifyPacking(int32_t robot_id, int32_t order_id)
     {
         auto request = std::make_shared<VerifyPackingComplete::Request>();
@@ -547,31 +277,16 @@ public:
 private:
     int robot_id_;
     std::string pose_status_;
-    std::string pick_arm_side_;
-    std::string pick_status_;
-    std::string place_arm_side_;
-    std::string place_status_;
     std::string robot_status_;
 
     rclcpp::Service<StartPacking>::SharedPtr start_packing_service_;
-
-    rclcpp::Subscription<ArmTaskStatus>::SharedPtr pick_status_sub_;
-    rclcpp::Subscription<ArmTaskStatus>::SharedPtr place_status_sub_;
     rclcpp::Subscription<PoseStatus>::SharedPtr pose_status_sub_;
-
     rclcpp::Publisher<robotStatus>::SharedPtr robot_status_pub_;
+    rclcpp::Subscription<robotStatus>::SharedPtr robot_status_sub_;
     rclcpp::Publisher<PackingComplete>::SharedPtr packing_complete_pub_;
-
-    rclcpp::Client<DetectProductsInCart>::SharedPtr detect_products_client_;
     rclcpp::Client<VerifyPackingComplete>::SharedPtr verify_packing_client_;
-
     rclcpp::Client<ArmMoveToPose>::SharedPtr move_pose_client1_;
     rclcpp::Client<ArmMoveToPose>::SharedPtr move_pose_client2_;
-    rclcpp::Client<ArmPickProduct>::SharedPtr pick_product_client1_;
-    rclcpp::Client<ArmPickProduct>::SharedPtr pick_product_client2_;
-    rclcpp::Client<ArmPlaceProduct>::SharedPtr place_product_client1_;
-    rclcpp::Client<ArmPlaceProduct>::SharedPtr place_product_client2_;
-
 
 };
 
