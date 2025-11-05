@@ -5,9 +5,11 @@ import rclpy
 from rclpy.node import Node
 
 from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
+from shopee_interfaces.srv import PickeeMobileGoStraight, PickeeMobileRotate
 from std_msgs.msg import Bool
 from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
 from rclpy.executors import MultiThreadedExecutor
+from nav_msgs.msg import Odometry
 
 # Pickee 전용 이동 함수 (직선 이동, 회전)
 from pickee_mobile.module.module_go_strait import run
@@ -27,7 +29,7 @@ class ArucoDocking(Node):
         self.last_yaw_rad_offset = 0.0                      # 최근 yaw 오차값
         self.lost_count_during_docking = 0                  # 도킹 중 마커 유실 count
         self.lost_count_before_docking = 0                  # 도킹 전 마커 유실 count
-        self.position_error_yaw_rad = 0.0                   # Nav2가 알려준 도착 시 회전 오차 (deg)
+        self.position_error_yaw_rad = 0.0                   # Nav2가 알려준 도착 시 회전 오차 (rad)
         self.pre_docking_search_angles_rad = [              # 도킹 전 탐색 회전 패턴
             math.radians(15),
             math.radians(-30),
@@ -43,7 +45,7 @@ class ArucoDocking(Node):
             3: {"x": 1.25, "y": 2.90, "yaw_rad": math.radians(90)},  # 우하
         }
 
-
+        ## Publish
         # 속도 publish 설정
         self.cmd_pub = self.create_publisher(
             Twist, "/cmd_vel_modified", 10
@@ -59,6 +61,7 @@ class ArucoDocking(Node):
             PoseWithCovarianceStamped, "/initialpose", 10
         )
 
+        ## Subscribe
         # Aruco marker 위치
         self.sub = self.create_subscription(
             ArucoPose,
@@ -143,6 +146,7 @@ class ArucoDocking(Node):
         # 전방 거리 기반 전진
         if z > self.limit_z:
             self.get_logger().info(" Moving forward")
+            self.realign_once = True
             self.lost_count_during_docking = 0
             scale_z = max(min((z - self.limit_z) / 1000, 0.2), 0.05)
             self.cmd_vel.linear.x = scale_z
@@ -193,10 +197,10 @@ class ArucoDocking(Node):
         # ✅ 두 번째~다섯 번째 탐색 : 지정 각도 순차 회전
         elif self.lost_count_before_docking <= 4:
             idx = self.lost_count_before_docking - 1
-            angle = self.pre_docking_search_angles[idx]
+            angle = self.pre_docking_search_angles_rad[idx]
             self.get_logger().info(
                 f"🔁 [Pre-Docking Scan #{self.lost_count_before_docking + 1}] "
-                f"Rotate {angle:+.2f}° (Search pattern)"
+                f"Rotate {math.degrees(angle):+.2f}° (Search pattern)"
             )
             rotate(self, angle)
             time.sleep(0.5)
@@ -232,7 +236,7 @@ class ArucoDocking(Node):
             scale = 0.7 if (self.last_yaw_rad_offset * self.last_x_offset) > 0 else 0.9
             self.old_yaw_rad_diff = float(self.last_yaw_rad_offset) * scale
 
-            yaw_rad_adjust = 5.0 if self.last_yaw_rad_offset > 0 else -5.0
+            yaw_rad_adjust = math.radians(5.0) if self.last_yaw_rad_offset > 0 else math.radians(-5.0)
             yaw_rad_adjusted = float(self.last_yaw_rad_offset) + yaw_rad_adjust
 
             # 회전 → 뒤로 → 회전
@@ -249,7 +253,7 @@ class ArucoDocking(Node):
         # === 2) 3~6회 → 사전탐색 패턴 ===
         if self.lost_count_during_docking <= 6:
             idx = self.lost_count_during_docking - 3
-            angle = self.pre_docking_search_angles[idx]
+            angle = self.pre_docking_search_angles_rad[idx]
 
             self.get_logger().info(
                 f"🔁 During-docking scan #{self.lost_count_during_docking}: rotate {math.degrees(angle):+.2f}°"
@@ -290,9 +294,6 @@ class ArucoDocking(Node):
         pos = self.aruco_map_positions[aruco_id]
         self.set_robot_pose(self, pos["x"], pos["y"], pos["yaw_rad"])
 
-
-
-
     # ---------------------------
     # 정지
     # ---------------------------
@@ -320,9 +321,6 @@ class ArucoDocking(Node):
         self.aruco_id = 0
         self.last_x_offset = 0.0
         self.last_yaw_rad_offset = 0.0
-
-
-
 
 # ==========================================================
 # ✅ Main

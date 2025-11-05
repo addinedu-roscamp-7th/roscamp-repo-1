@@ -10,7 +10,7 @@ from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 
-from shopee_interfaces.srv import PickeeMobileMoveToLocation
+from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileGoStraight, PickeeMobileRotate
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D, PickeeMobilePose
 
 # Pickee 전용 이동 함수 (직선 이동, 회전)
@@ -125,7 +125,7 @@ class PickeeMobileController(Node):
 
         
 
-        self.get_logger().info(f'🎯 Sending goal to ({x}, {y}), yaw={yaw_radian} rad')
+        self.get_logger().info(f'🎯 Sending goal to ({x}, {y}), yaw_deg={math.degrees(yaw_radian)}°')
 
         # 완료 시 오차 계산을 위해 목표 저장
         self.goal = [x, y, yaw_radian]
@@ -165,8 +165,7 @@ class PickeeMobileController(Node):
         self.current_radian = math.atan2(2.0 * qz * qw, 1.0 - 2.0 * (qz ** 2))
 
         self.get_logger().info(
-            f'🔄 Feedback: x={self.currnet_x:.2f}, y={self.currnet_y:.2f}, yaw_rad = {self.current_radian}'
-        )
+            f'🔄 Feedback: x={self.currnet_x:.2f}, y={self.currnet_y:.2f}, yaw_deg = {math.degrees(self.current_radian)}°')
 
 
     # ================= Nav2 Goal 완료 처리 =================
@@ -188,7 +187,7 @@ class PickeeMobileController(Node):
             self.get_logger().info("✅ Goal reached successfully!")
             self.get_logger().info(f"⏱️ Travel time: {travel_time:.2f} sec")
             self.get_logger().info(
-                f"📍 Error: x={position_error.x:.3f}, y={position_error.y:.3f}, θ={position_error.theta:.3f}"
+                f"📍 Error: x={position_error.x:.3f}, y={position_error.y:.3f}, θ_deg={math.degrees(position_error.theta):.3f}°"
             )
 
             # 도착 메시지 publish (백엔드/DB로 전송 가능)

@@ -56,7 +56,7 @@ setup(
             'module_go_strait = pickee_mobile.module.module_go_strait:main',
             'module_rotate = pickee_mobile.module.module_rotate:main',
             'module_aruco_detect = pickee_mobile.module.module_aruco_detect:main',
-            'module_run_rotate = pickee_mobile.module.module_run_rotate:main',
+            'module_straight_rotate = pickee_mobile.module.module_straight_rotate:main',
             
             
 
@@ -73,6 +73,7 @@ setup(
             'pub_pose = pickee_mobile.test.topic_test.pub_pose:main',
             'pub_cmd_vel = pickee_mobile.test.topic_test.pub_cmd_vel:main',
             'control_vel_teteop = pickee_mobile.test.topic_test.control_vel_teleop:main',
+            'import_test = pickee_mobile.test.topic_test.import_test:main',
 
             # Mock / Simulation Test
             'mock_vel_modifier_publisher = pickee_mobile.test.mock_test.mock_vel_modifier_publisher:main',
