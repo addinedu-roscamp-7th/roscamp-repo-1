@@ -7,7 +7,7 @@ using namespace std::placeholders;
 class PackeeStateManager : public rclcpp::Node
 {
 public:
-    PackeeStateManager() : Node("Robot Manager Server")
+    PackeeStateManager() : Node("Robot_Manager_Server")
     {
         robot_id_ = 0;
         current_status_ = "STANDBY";
@@ -15,7 +15,7 @@ public:
         items_in_cart_ = 0;
 
         state_sub_ = this->create_subscription<robotStatus>(
-            "/packee/robot_status", 
+            "/packee/set_robot_status", 
             10,
             std::bind(&PackeeStateManager::statusCallback, this, _1)
         );
