@@ -1360,49 +1360,53 @@ class UserWindow(QWidget):
         # QSS 스타일시트를 적용하여 세그먼트 버튼 디자인을 구현합니다.
         # 이 스타일은 'seg' 속성을 사용하여 각 버튼(왼쪽, 오른쪽)을 식별하고
         # :checked 상태에 따라 모양과 색상을 변경합니다.
-        qss = """
+        primary_color = COLORS["primary"]
+        qss = (
+            f'''
         /* 공통 베이스: 회색 테두리, 글자 회색, 약간의 패딩 */
-        QToolButton[seg="left"], QToolButton[seg="right"] {
+        QAbstractButton[seg="left"], QAbstractButton[seg="right"] {{
             border: 1px solid #D3D3D3;         /* 회색 보더 */
             background: #F2F2F2;               /* 비활성 회색 */
             color: #9AA0A6;                    /* 비활성 글자색 */
             padding: 2px 14px;
             font-weight: 600;
-        }
+        }}
 
         /* 왼쪽 캡슐 */
-        QToolButton[seg="left"] {
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
+        QAbstractButton[seg="left"] {{
+            border-top-left-radius: 3px;
+            border-bottom-left-radius: 3px;
             border-right: 0;                   /* 가운데 라인 제거 */
-        }
+        }}
 
         /* 오른쪽 캡슐 */
-        QToolButton[seg="right"] {
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
-        }
+        QAbstractButton[seg="right"] {{
+            border-top-right-radius: 3px;
+            border-bottom-right-radius: 3px;
+        }}
 
         /* 체크(선택) 상태: 흰 배경 + 빨강 글자, 빨강 테두리 */
-        QToolButton[seg="left"]:checked,
-        QToolButton[seg="right"]:checked {
+        QAbstractButton[seg="left"]:checked,
+        QAbstractButton[seg="right"]:checked {{
             background: #FFFFFF;
-            color: #FF3B30;
-            border-color: #FF3B30; /* 클릭된 버튼 테두리 빨강으로 변경 */
-        }
+            color: {primary_color};
+            border-color: {primary_color}; /* 클릭된 버튼 테두리 빨강으로 변경 */
+        }}
 
         /* hover 시 살짝 밝게 */
-        QToolButton[seg="left"]:hover,
-        QToolButton[seg="right"]:hover {
+        QAbstractButton[seg="left"]:hover,
+        QAbstractButton[seg="right"]:hover {{
             background: #FAFAFA;
-        }
+        }}
 
         /* 포커스 윤곽선 없애기(원하면) */
-        QToolButton[seg="left"]:focus,
-        QToolButton[seg="right"]:focus {
+        QAbstractButton[seg="left"]:focus,
+        QAbstractButton[seg="right"]:focus {{
             outline: none;
-        }
-        """
+        }}
+        '''
+        )
+        self._segment_button_qss = qss
         self.setStyleSheet(qss)
 
         if self.shopping_button:
@@ -1433,6 +1437,21 @@ class UserWindow(QWidget):
             self.store_button.clicked.connect(self.on_store_button_clicked)
 
         self.set_mode("shopping")
+        self._apply_camera_toggle_styles()
+
+    def _apply_camera_toggle_styles(self) -> None:
+        '''전면/로봇팔 전환 버튼에 세그먼트 스타일을 적용한다.'''
+        if self.front_view_button is None or self.arm_view_button is None:
+            return
+        self.front_view_button.setProperty("seg", "left")
+        self.arm_view_button.setProperty("seg", "right")
+        self.front_view_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.arm_view_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.front_view_button.setMinimumHeight(32)
+        self.arm_view_button.setMinimumHeight(32)
+        stylesheet = getattr(self, "_segment_button_qss", "")
+        if stylesheet:
+            self.setStyleSheet(stylesheet)
 
     def _setup_allergy_toggle(self) -> None:
         button = getattr(self.ui, "btn_allergy", None)
