@@ -668,6 +668,7 @@ class Ui_Form_user(object):
         self.frame_pick_bottom_sheet = QtWidgets.QFrame(parent=self.pick_bottom_sheet)
         self.frame_pick_bottom_sheet.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
         self.frame_pick_bottom_sheet.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
+        self.frame_pick_bottom_sheet.setLineWidth(2)
         self.frame_pick_bottom_sheet.setObjectName("frame_pick_bottom_sheet")
         self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.frame_pick_bottom_sheet)
         self.horizontalLayout_13.setContentsMargins(10, 0, 10, 0)

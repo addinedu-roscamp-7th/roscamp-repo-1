@@ -1,4 +1,8 @@
+numpy
+openai-whisper
 pyqt6
-watchdog
 pyyaml
+sounddevice
+torch
+watchdog
 websocket-client
