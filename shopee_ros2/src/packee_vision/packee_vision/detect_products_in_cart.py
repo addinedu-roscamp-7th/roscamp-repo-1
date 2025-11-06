@@ -51,7 +51,7 @@ class DetectProducts(Node):
         self.video_cap = video_cap
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.yolo_model = YOLO('./src/pickee_vision/resource/20251027_v11.pt').to(self.device)
+        self.yolo_model = YOLO('./src/pickee_vision/resource/20251104_v11_ver1_ioudefault.pt').to(self.device)
 
         num_classes = 3
         self.cnn = PoseCNN(num_classes=num_classes).to(self.device)
@@ -100,7 +100,7 @@ class DetectProducts(Node):
     
     def callback_service(self, request, response):
         self.get_logger().info(
-            f"Received request → robot_id: {request.robot_id}, order_id: {request.order_id}, expected_product_ids: {list(request.expected_product_id)}"
+            f"Received request → robot_id: {request.robot_id}, order_id: {request.order_id}, expected_product_id: {list(request.expected_product_id)}"
         )
 
         if not self.video_cap.isOpened():
