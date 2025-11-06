@@ -42,7 +42,10 @@ class MainServiceConfig:
 
 
 class MainServiceClient:
+    '''Main Service와의 TCP 요청/응답을 담당하는 클라이언트.'''
+
     def __init__(self, config: MainServiceConfig | None = None):
+        '''환경 설정을 적용하고 연결 정보를 출력한다.'''
         self.config = config if config is not None else MainServiceConfig()
         print(
             '[MainServiceClient] host='
@@ -51,6 +54,7 @@ class MainServiceClient:
         )
 
     def login(self, user_id: str, password: str) -> dict:
+        '''사용자 로그인 요청을 전송한다.'''
         payload = {
             "type": "user_login",
             "data": {
@@ -67,6 +71,7 @@ class MainServiceClient:
         payment_method: str,
         total_amount: int,
     ) -> dict:
+        '''장바구니 기반으로 주문 생성을 요청한다.'''
         order_items: list[dict[str, int]] = []
         for item in cart_items:
             product_id = None
@@ -98,7 +103,7 @@ class MainServiceClient:
         return self.send(payload)
 
     def fetch_total_products(self, user_id: str) -> dict:
-        # 전체 상품 목록을 요청하지 않으면 초기 화면에 최신 데이터를 표시할 수 없다.
+        '''전체 상품 목록을 요청해 초기 화면 데이터를 확보한다.'''
         payload = {
             "type": "total_product",
             "data": {
@@ -115,6 +120,7 @@ class MainServiceClient:
         allergy_filter: dict[str, bool] | None = None,
         is_vegan: bool | None = None,
     ) -> dict:
+        '''검색어와 필터를 포함한 상품 검색 요청을 전송한다.'''
         # 검색 필터를 누적할 딕셔너리가 없으면 조건별 데이터를 모을 수 없어 서버에 온전한 요청을 보낼 수 없다.
         filter_payload: dict[str, object] = {}
         # 알레르기 필터가 제공되었는지 확인하지 않으면 기본값과 사용자 입력을 구분할 수 없어 의미 없는 필터를 보낼 수 있다.
@@ -182,6 +188,7 @@ class MainServiceClient:
         bbox_number: int,
         product_id: int,
     ) -> dict:
+        '''로봇이 선택한 상품 정보를 서버에 보고한다.'''
         payload = {
             "type": "product_selection",
             "data": {
@@ -202,6 +209,7 @@ class MainServiceClient:
         robot_id: int,
         camera_type: str,
     ) -> dict:
+        '''로봇 카메라 스트림을 시작하도록 요청한다.'''
         payload = {
             "type": "video_stream_start",
             "data": {
@@ -221,6 +229,7 @@ class MainServiceClient:
         user_type: str,
         robot_id: int,
     ) -> dict:
+        '''진행 중인 영상 스트림을 종료하도록 요청한다.'''
         payload = {
             "type": "video_stream_stop",
             "data": {
@@ -239,6 +248,7 @@ class MainServiceClient:
         log_response: bool = True,
         timeout: float | None = None,
     ) -> dict:
+        '''JSON 페이로드를 송신하고 응답을 JSON으로 반환한다.'''
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n"
         effective_timeout = self.config.timeout if timeout is None else timeout
 
@@ -266,6 +276,7 @@ class MainServiceClient:
             raise MainServiceClientError("JSON 응답을 해석할 수 없습니다.") from exc
 
     def recv_all(self, conn: socket.socket, *, timeout: float) -> bytes:
+        '''개행 문자까지 수신하여 응답 본문을 결합한다.'''
         chunks: list[bytes] = []
         while True:
             try:
