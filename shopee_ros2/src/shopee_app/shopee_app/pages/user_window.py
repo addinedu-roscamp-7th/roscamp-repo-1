@@ -41,6 +41,8 @@ from PyQt6.QtWidgets import QGraphicsView
 from PyQt6.QtWidgets import QGraphicsEllipseItem
 from PyQt6.QtWidgets import QGraphicsLineItem
 from PyQt6.QtWidgets import QGraphicsPixmapItem
+from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+from PyQt6.QtWidgets import QGraphicsItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
@@ -246,6 +248,7 @@ class UserWindow(QWidget):
     ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
     ROBOT_POSITION_OFFSET_X = 14.7
     ROBOT_POSITION_OFFSET_Y = 12.0
+    ROBOT_LABEL_OFFSET_Y = -36.0
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
         1: IMAGE_ROOT / "product_horseradish.png",
         2: IMAGE_ROOT / "product_spicy_chicken.png",
@@ -404,6 +407,7 @@ class UserWindow(QWidget):
         self.map_pixmap_item: QGraphicsPixmapItem | None = None
         self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
         self.map_heading_item: QGraphicsLineItem | None = None
+        self.map_robot_label: QGraphicsSimpleTextItem | None = None
         self.map_resolution: float | None = None
         self.map_origin: tuple[float, float] | None = None
         self.map_image_size: tuple[int, int] | None = None
@@ -2357,6 +2361,18 @@ class UserWindow(QWidget):
             heading_item.setVisible(False)
         self.map_robot_item = robot_item
         self.map_heading_item = heading_item
+        label_item = QGraphicsSimpleTextItem('')
+        label_font = label_item.font()
+        label_font.setPointSize(10)
+        label_item.setFont(label_font)
+        label_item.setBrush(QBrush(QColor('#212121')))
+        label_item.setZValue(12)
+        label_item.setVisible(False)
+        label_item.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
+        )
+        self.map_scene.addItem(label_item)
+        self.map_robot_label = label_item
         self.map_view.installEventFilter(self)
 
     def _create_robot_graphics(
@@ -2579,6 +2595,16 @@ class UserWindow(QWidget):
         self.map_robot_item.setPos(px, scene_y)
         angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
+        if self.map_robot_label is not None:
+            self.map_robot_label.setVisible(True)
+            label_text = f'({x:.2f}, {y:.2f})'
+            self.map_robot_label.setText(label_text)
+            label_rect = self.map_robot_label.boundingRect()
+            label_x = px - (label_rect.width() / 2)
+            label_x = max(0.0, min(label_x, float(width) - label_rect.width()))
+            label_y = scene_y + self.ROBOT_LABEL_OFFSET_Y
+            label_y = max(0.0, min(label_y, float(height)))
+            self.map_robot_label.setPos(label_x, label_y)
         self._fit_map_to_view()
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
