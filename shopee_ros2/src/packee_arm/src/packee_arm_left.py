@@ -17,7 +17,7 @@ class PackeeArmController(Node):
         self.pickup_server = self.create_service(ArmPickProduct, "/packee2/arm/pick_product", self.pickup_product)
 
         ## 서비스 client
-        self.vision_client = self.create_client(PackeeVisionDetectProductsInCart, "/packee2/vision/detect_products_in_cart", 10)
+        self.vision_client = self.create_client(PackeeVisionDetectProductsInCart, "/packee2/vision/detect_products_in_cart")
 
         self.gain = 0.3
         self.epsilon = 10.0
@@ -79,8 +79,11 @@ class PackeeArmController(Node):
         self.get_logger().info(f"pickup Request Data: robot_id={robot_id}, order_id={order_id}, product_id={product_id}, arm_side={arm_side}, pose={pose}")
 
         try:
-            complete_flag = False
+            self.mc.send_coords([42.2, -39.0, 289.8, -153.04, 21.75, -85.67], self.speed)
+            self.get_logger().info(f"packee2 Arm 장바구니 확인자세 변경합니다.")
+            time.sleep(1)
 
+            complete_flag = False
             while not complete_flag:
                 results = self.call_vision_service(robot_id, order_id, product_id)
                 current_pose = results["current_pose"]
@@ -99,11 +102,11 @@ class PackeeArmController(Node):
                     lift_pose = pose.copy()
                     lift_pose[2] -= 40.0
                     self.mc.send_coords(lift_pose.to_list(), self.speed)
-                    time.sleep(1.0)
+                    time.sleep(1)
 
                     self.mc.set_gripper_value(0, self.speed)
                     self.get_logger().info("그리퍼를 닫습니다.")
-                    time.sleep(1.0)
+                    time.sleep(1)
 
                     self.mc.send_angles([0, 0, 0, 0, 0, 0], self.speed)
                     self.get_logger().info("상품을 들어올립니다.")

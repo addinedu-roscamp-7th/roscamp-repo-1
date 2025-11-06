@@ -46,7 +46,7 @@ class PoseCNN(nn.Module):
 
 class DetectProducts(Node):
     def __init__(self, packee_num, video_cap):
-        super().__init__("detect_products_in_cart")
+        super().__init__(f"packee{packee_num}_vision_node")
         self.packee_num = packee_num
         self.video_cap = video_cap
 
@@ -64,7 +64,7 @@ class DetectProducts(Node):
             self.callback_service
         )
 
-        self.get_logger().info("DetectProducts started")
+        self.get_logger().info(f"packee{self.packee_num} vision node started")
 
 
     def load_pose_stats(self, csv):
@@ -170,7 +170,7 @@ class DetectProducts(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    packee1_cap = cv2.VideoCapture(0)
+    packee1_cap = cv2.VideoCapture(2)
     packee2_cap = cv2.VideoCapture(1)
 
     packee1_node = DetectProducts(1, packee1_cap)
