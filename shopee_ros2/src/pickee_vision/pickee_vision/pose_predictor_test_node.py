@@ -115,14 +115,14 @@ class PickeeVisionControlNode(Node):
                             'src/pickee_vision/resource'
                         )
         # 1. 상품 인식용 세그멘테이션 모델
-        yolo_model_path = os.path.join(self.package_share_directory, '20251103_v11_ver1_ioudefault.pt')
+        yolo_model_path = os.path.join(self.package_share_directory, '20251104_v11_ver1_ioudefault.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
-        cnn_model_path = os.path.join(self.package_share_directory, 'product_cnn_best.pt')
+        cnn_model_path = os.path.join(self.package_share_directory, 'fish_grid2.pt')
 
 
         try:
             self.yolo_model = YOLO(yolo_model_path).to(self.device)
-            self.cnn_model = PoseCNN(num_classes=3).to(self.device)
+            self.cnn_model = PoseCNN(num_classes=1).to(self.device)
             self.cnn_model.load_state_dict(
                 torch.load(cnn_model_path, map_location=self.device)
             )
@@ -134,11 +134,11 @@ class PickeeVisionControlNode(Node):
 
 
         ##### 비정규화 테스트
-        self.pose_mean = np.array([101.83254, -5.495607, -17.48855, -51.927643, 15.7234745, -32.664993], dtype=np.float32)
-        self.pose_std = np.array([9.889868, 44.882977, 44.291027, 26.125616, 4.711149, 9.533664], dtype=np.float32)
+        self.pose_mean = np.array([-49.469975, 210.49309, 177.79279, 53.573994, 11.1954775, 40.481068 ], dtype=np.float32)
+        self.pose_std = np.array([10.638039, 18.996292, 7.232353, 164.99438, 2.535464, 2.6578875], dtype=np.float32)
 
 
-        self.target_object_name = "14" # 6 = eclipse
+        self.target_object_name = "12" # 6 = eclipse
 
 
         self.transform = transforms.Compose([
@@ -204,7 +204,7 @@ class PickeeVisionControlNode(Node):
 
                 if cls_name == self.target_object_name:
                     current_pose = self.predict_pose(frame)
-                    target_image_path = os.path.join(self.package_share_directory, 'on_eclipse.jpg')
+                    target_image_path = os.path.join(self.package_share_directory, 'fish_grep_grid2.jpg')
 
                     # 상품명으로 넣어줄 때 
                     # target_image_path = os.path.join(self.package_share_directory, 

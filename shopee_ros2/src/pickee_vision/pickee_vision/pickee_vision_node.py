@@ -204,6 +204,10 @@ class PickeeVisionNode(Node):
         return response
 
     def publish_detection_data(self, robot_id, order_id):
+        
+        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
+
+
         # self.last_detections를 ROS 메시지로 변환하여 발행
         detected_products = [] # DetectedProduct[] 자료형
         for i, det in enumerate(self.last_detections):
