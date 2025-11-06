@@ -58,6 +58,8 @@ class DetectProducts(Node):
         self.cnn.load_state_dict(torch.load(f'./src/packee_vision/packee_vision/checkpoints/packee{self.packee_num}_cnn.pt', map_location=self.device))
         self.cnn.eval()
 
+        self.products = {1: "wasabi", 12: "fish", 14: "eclipse"}
+
         self.server = self.create_service(
             PackeeVisionDetectProductsInCart,
             f"packee{self.packee_num}/vision/detect_products_in_cart",
@@ -100,19 +102,25 @@ class DetectProducts(Node):
     
     def callback_service(self, request, response):
         self.get_logger().info(
-            f"Received request → robot_id: {request.robot_id}, order_id: {request.order_id}, expected_product_id: {list(request.expected_product_id)}"
+            f"Received request → robot_id: {request.robot_id}, order_id: {request.order_id}, expected_product_id: {request.expected_product_id}"
         )
 
         if not self.video_cap.isOpened():
-            self.get_logger().warn(f"[WARN] packee {self.arm_side} 카메라가 열리지 않았습니다.")
-            return
-
-        product_list = []
+            self.get_logger().warn(f"[WARN] packee {self.packee_num} 카메라가 열리지 않았습니다.")
+            response.success = False
+            response.current_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
+            response.target_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
+            response.message = f"[packee{self.packee_num}] 카메라 열기 실패"
+            return response
 
         ret, frame = self.video_cap.read()
         if not ret:
-            self.get_logger().warn(f"[WARN] packee {self.arm_side} 카메라 프레임을 읽지 못했습니다.")
-            return
+            self.get_logger().warn(f"[WARN] packee {self.packee_num} 카메라 프레임을 읽지 못했습니다.")
+            response.success = False
+            response.current_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
+            response.target_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
+            response.message = f"[packee{self.packee_num}] 카메라 프레임 읽기 실패"
+            return response
 
         # 카메라 왜곡 보정
         h, w = frame.shape[:2]
@@ -127,10 +135,10 @@ class DetectProducts(Node):
             for result in results:
                 for box in result.boxes:
                     cls_id = int(box.cls.cpu().numpy())
-                    if cls_id not in request.expected_product_id:
+                    class_name = int(self.yolo_model.names[cls_id])
+                    if class_name == request.expected_product_id:
                         continue
 
-                    class_name = self.yolo_model.names[cls_id]
                     x1, y1, x2, y2 = map(int, box.xyxy.cpu().numpy().flatten())
 
                     # ROI 중심으로 grid 구분
@@ -145,24 +153,24 @@ class DetectProducts(Node):
                     else:
                         grid_key = "grid1"
 
-                    target_img_path = f"./src/packee_vision/target_img/packee{self.packee_num}_{class_name}_{grid_key}.jpg"
-                    pose_mean, pose_std = self.load_pose_stats(f"./packee{self.packee_num}_datasets/labels.csv")
+                    target_img_path = f"./src/packee_vision/packee_vision/target_img/packee{self.packee_num}_{self.products[int(class_name)]}_{grid_key}.jpg"
+                    pose_mean, pose_std = self.load_pose_stats(f"./src/packee_vision/packee_vision/packee{self.packee_num}_datasets/labels.csv")
 
                     current_pose = self.predict(self.cnn, frame, None, pose_mean, pose_std, self.device)
                     target_pose = self.predict(self.cnn, None, target_img_path, pose_mean, pose_std, self.device)
 
                     response.success = True
-                    response.current_pose = current_pose
-                    response.target_pose = target_pose
+                    response.current_pose = Pose6D(x=float(current_pose[0]), y=float(current_pose[1]), z=float(current_pose[2]), rx=float(current_pose[3]), ry=float(current_pose[4]), rz=float(current_pose[5]))
+                    response.target_pose = Pose6D(x=float(target_pose[0]), y=float(target_pose[1]), z=float(target_pose[2]), rx=float(target_pose[3]), ry=float(target_pose[4]), rz=float(target_pose[5]))
                     response.message = f"[packee{self.packee_num}] pose 예측을 성공하였습니다."
 
                     self.get_logger().info(f"[packee{self.packee_num}] current_pose: {current_pose},  target_pose: {target_pose}")
 
         except Exception as e:
-            self.get_logger().error(f"[packee {self.arm_side}] detection error: {e}")
+            self.get_logger().error(f"[packee {self.packee_num}] detection error: {e}")
             response.success = False
-            response.current_pose = Pose6D(x=0, y=0, z=0, rx=0, ry=0, rz=0)
-            response.target_pose = Pose6D(x=0, y=0, z=0, rx=0, ry=0, rz=0)
+            response.current_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
+            response.target_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
             response.message = f"[packee{self.packee_num}] pose 예측을 실패하였습니다."
 
         return response
