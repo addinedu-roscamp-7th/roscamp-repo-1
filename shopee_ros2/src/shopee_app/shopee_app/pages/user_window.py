@@ -1842,7 +1842,7 @@ class UserWindow(QWidget):
             if self.current_robot_id is not None:
                 status_label.setText(f"로봇 {self.current_robot_id} 이동중")
             else:
-                status_label.setText("로봇 이동중")
+                status_label.setText("로봇 id ")
 
     def clear_ordered_cart_items(self, items: list[CartItemData]) -> None:
         for item in items:
