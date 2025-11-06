@@ -136,7 +136,7 @@ class DetectProducts(Node):
                 for box in result.boxes:
                     cls_id = int(box.cls.cpu().numpy())
                     class_name = int(self.yolo_model.names[cls_id])
-                    if class_name == request.expected_product_id:
+                    if class_name != request.expected_product_id:
                         continue
 
                     x1, y1, x2, y2 = map(int, box.xyxy.cpu().numpy().flatten())
