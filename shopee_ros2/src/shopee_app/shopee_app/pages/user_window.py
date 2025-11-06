@@ -409,6 +409,7 @@ class UserWindow(QWidget):
         self.map_image_size: tuple[int, int] | None = None
         self.video_receiver: VideoStreamReceiver | None = None
         self.active_camera_type: str | None = None
+        self._auto_camera_warning_displayed = False
         self.allergy_toggle_button: QPushButton | None = None
         self.allergy_sub_widget: QWidget | None = None
         self.allergy_filters_expanded = True
@@ -2479,7 +2480,11 @@ class UserWindow(QWidget):
 
     def on_camera_button_clicked(self, camera_type: str) -> None:
         if self.current_robot_id is None:
-            QMessageBox.information(self, "영상 요청", "연결된 로봇 정보가 없습니다.")
+            QMessageBox.information(
+                self,
+                '영상 요청',
+                '로봇 ID가 없어 영상 스트림을 요청할 수 없습니다.\n주문 생성 또는 로봇 연결 상태를 확인해주세요.',
+            )
             self._update_video_buttons(None)
             return
         target_page = self.page_front if camera_type == "front" else self.page_arm
@@ -2491,10 +2496,18 @@ class UserWindow(QWidget):
         if self.active_camera_type is not None:
             return
         if self.current_robot_id is None:
+            if not self._auto_camera_warning_displayed:
+                QMessageBox.information(
+                    self,
+                    '영상 자동 시작 안내',
+                    '로봇 ID 정보를 확인할 수 없어 전면 카메라 자동 시작을 건너뜁니다.\n주문 생성 후 다시 시도해주세요.',
+                )
+                self._auto_camera_warning_displayed = True
             return
         if self.front_view_button is None:
             return
-        self.on_camera_button_clicked("front")
+        self._auto_camera_warning_displayed = False
+        self.on_camera_button_clicked('front')
 
     def _enable_pose_tracking(self) -> None:
         if self.pose_tracking_active:
