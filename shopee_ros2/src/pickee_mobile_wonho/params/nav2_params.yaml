@@ -169,7 +169,7 @@ controller_server:
       CostCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.81
+        cost_weight: 2.0
         critical_cost: 300.0
         consider_footprint: true
         collision_cost: 1000000.0
@@ -270,14 +270,14 @@ local_costmap:
       # robot_radius: 0.65
       # inscribed_radius: 0.12
       # circumscribed_radius: 0.65
-      inflation_radius: 0.6
+      inflation_radius: 0.25
       cost_scaling_factor: 3.0
 
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.6
+        inflation_radius: 0.25
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -326,7 +326,7 @@ global_costmap:
       # robot_radius: 0.65                    # 로봇 반지름
       # inscribed_radius: 0.12               # 내접원 반지름
       # circumscribed_radius: 0.65           # 외접원 반지름
-      inflation_radius: 0.6               # 팽창 반지름 (circumscribed_radius보다 커야 함)
+      inflation_radius: 0.25               # 팽창 반지름 (circumscribed_radius보다 커야 함)
       cost_scaling_factor: 3.0             # 비용 스케일링
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       obstacle_layer:
@@ -351,7 +351,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.6
+        inflation_radius: 0.25
       always_send_full_costmap: True
 
 map_server:

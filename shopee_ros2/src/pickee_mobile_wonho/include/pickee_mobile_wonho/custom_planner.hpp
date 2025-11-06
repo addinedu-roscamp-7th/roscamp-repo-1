@@ -21,6 +21,15 @@ namespace custom_planner
         size_t x_index;
         size_t y_index;
     };
+    struct WaypointIndex {
+        size_t x_idx;
+        size_t y_idx;
+    };
+    struct NextWaypointResult {
+        geometry_msgs::msg::PoseStamped waypoint;
+        std::string key;
+        size_t turnable_index;
+    };
     class CustomPlanner : public nav2_core::GlobalPlanner
     {
     public:
@@ -44,11 +53,23 @@ namespace custom_planner
             const geometry_msgs::msg::PoseStamped &goal,
             const bool is_start);
 
-        std::optional<std::vector<geometry_msgs::msg::PoseStamped>> GetBetweenWaypoints(
+        std::optional<std::map<std::string, geometry_msgs::msg::PoseStamped>> GetBetweenWaypoints(
             const geometry_msgs::msg::PoseStamped &start, 
             const geometry_msgs::msg::PoseStamped &goal,
             const std::string &startKey,
             const std::string &endKey);
+
+        std::optional<NextWaypointResult> GetNextWaypoint(
+            const geometry_msgs::msg::PoseStamped &start,
+            const geometry_msgs::msg::PoseStamped &goal,
+            const std::map<std::string, geometry_msgs::msg::PoseStamped> &betweenWaypoints,
+            const WaypointIndex &startWaypointIndex,
+            const WaypointIndex &endWaypointIndex);
+        
+        std::optional<bool> GetProgressedDirection(
+            const std::string &current_wp_key,
+            const std::string &before_wp_key,
+            const geometry_msgs::msg::PoseStamped &start);
 
         nav_msgs::msg::Path createPlan(
             const geometry_msgs::msg::PoseStamped &start,
