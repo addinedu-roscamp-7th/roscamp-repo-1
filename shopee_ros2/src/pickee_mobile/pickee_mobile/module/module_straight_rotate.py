@@ -97,7 +97,6 @@ class SimpleMotion(Node):
         a_max, latency = 0.8, 0.12
 
         try:
-            # --- 여기부터 네 기존 move_straight 루프 그대로 ---
             distance = math.copysign(abs(distance) * 0.962, distance)
             dir_sign = 1.0 if distance >= 0 else -1.0 # 전진, 후진 판별
 
@@ -131,7 +130,7 @@ class SimpleMotion(Node):
                 d_err = 0.0 if prev_err is None else (error - prev_err) / dt # 단위에러
                 base = Kp * error + Kd * d_err
                 prev_err, t_prev = error, now
-                speed_cmd = dir_sign * base
+                speed_cmd = dir_sign * base # 방향 결정
                 speed_cmd = max(min(speed_cmd, max_speed), -max_speed)
 
                 v = abs(speed_cmd)

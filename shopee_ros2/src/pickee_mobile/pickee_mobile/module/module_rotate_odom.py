@@ -6,45 +6,6 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-
-# def rotate(node: Node, angle_rad: float):
-#     """
-#     이미 실행 중인 ROS 노드 내부에서 회전할 때 사용.
-#     rclpy.init() / shutdown() 없이 주어진 노드의 publisher 사용.
-#     """
-#     wz_mag = 0.2  # [rad/s]
-#     tol_deg = 2.0
-#     rate_hz = 20
-#     angle_rad = math.atan2(math.sin(angle_rad), math.cos(angle_rad))
-
-#     direction = 1.0 if angle_rad >= 0 else -1.0
-#     target_angle = abs(angle_rad)
-#     duration = target_angle / wz_mag
-
-#     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
-#     cmd = Twist()
-#     cmd.angular.z = float(direction * wz_mag)
-
-#     end_time = time.time() + duration
-#     while time.time() < end_time:
-#         pub.publish(cmd)
-#         time.sleep(1.0 / rate_hz)
-
-#     pub.publish(Twist())
-#     # node.get_logger().info(f"✅ 내부 회전 완료: {angle_rad:.1f}°")
-
-
-# def main():
-#     # +90도 회전
-#     rotate(90.0)
-#     # -90도 회전
-#     rotate(-90.0)
-#     # 180도 회전
-#     rotate(180.0)
-
-# if __name__ == '__main__':
-#     main()
-
 def euler_yaw_from_quaternion(q) -> float:
     """Quaternion (x,y,z,w) → yaw(rad). roll/pitch는 무시."""
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -55,10 +16,9 @@ def euler_yaw_from_quaternion(q) -> float:
 def normalize_angle(angle: float) -> float:
     return math.atan2(math.sin(angle), math.cos(angle))
 
-
 class Rotate(Node):
     def __init__(self):
-        super().__init__('rotator')
+        super().__init__('rotate_odom')
         odom_qos = QoSProfile(depth=10)
         odom_qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
@@ -73,27 +33,9 @@ class Rotate(Node):
         self.yaw = euler_yaw_from_quaternion(msg.pose.pose.orientation)
 
     def rotate(self, angle_rad: float):
-        # wz_mag = 0.2
-        # rate_hz = 20
-        # angle_rad = math.atan2(math.sin(angle_rad), math.cos(angle_rad))
-
-        # direction = 1.0 if angle_rad >= 0 else -1.0
-        # target_angle = abs(angle_rad)
-        # duration = target_angle / wz_mag
-
-        # cmd = Twist()
-        # cmd.angular.z = float(direction * wz_mag)
-
-        # end_time = time.time() + duration
-        # while time.time() < end_time:
-        #     self.cmd_pub.publish(cmd)
-        #     time.sleep(1.0 / rate_hz)
-
-        # self.cmd_pub.publish(Twist())
 
         while self.yaw is None and rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.05)
-
 
         Kp, Kd   = 2.2, 0.18
         max_w    = 0.3

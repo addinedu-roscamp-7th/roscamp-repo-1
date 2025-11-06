@@ -10,11 +10,11 @@ from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 
-from shopee_interfaces.srv import PickeeMobileMoveToLocation, PickeeMobileGoStraight, PickeeMobileRotate
+from shopee_interfaces.srv import PickeeMobileMoveToLocation
 from shopee_interfaces.msg import PickeeMobileArrival, Pose2D, PickeeMobilePose
 
 # Pickee 전용 이동 함수 (직선 이동, 회전)
-from pickee_mobile.module.module_go_strait import run
+from pickee_mobile.module.module_go_straight import run
 from pickee_mobile.module.module_rotate import rotate
 
 
