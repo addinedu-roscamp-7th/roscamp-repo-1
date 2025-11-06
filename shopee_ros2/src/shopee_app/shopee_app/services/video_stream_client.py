@@ -7,6 +7,7 @@ from PyQt6 import QtCore
 from PyQt6 import QtGui
 
 
+# UDP 헤더와 청크 구조는 Main Service 명세를 따른다.
 HEADER_SIZE = 200
 CHUNK_DATA_SIZE = 1400
 DEFAULT_UDP_PORT = 6000
@@ -15,6 +16,8 @@ FRAME_TIMEOUT_SEC = 2.0
 
 @dataclass
 class _FrameBuffer:
+    '''한 프레임을 이루는 여러 청크를 조립하기 위한 임시 버퍼.'''
+
     total_chunks: int
     chunks: list[bytes | None]
     received: int
@@ -43,6 +46,7 @@ class VideoStreamReceiver(QtCore.QThread):
         self._sock: socket.socket | None = None
 
     def run(self) -> None:
+        '''UDP 소켓을 열고 청크를 수신해 한 프레임으로 합친다.'''
         self._running = True
         buffers: dict[int, _FrameBuffer] = {}
         try:
@@ -133,6 +137,7 @@ class VideoStreamReceiver(QtCore.QThread):
             self._running = False
 
     def stop(self) -> None:
+        '''외부 호출로 수신 루프를 종료하고 소켓을 닫는다.'''
         self._running = False
         if self._sock is not None:
             try:
@@ -142,6 +147,7 @@ class VideoStreamReceiver(QtCore.QThread):
         self.wait()
 
     def _cleanup_buffers(self, buffers: dict[int, _FrameBuffer], now: float) -> None:
+        '''지연된 프레임 버퍼를 제거해 메모리 누수를 방지한다.'''
         stale_ids = [
             frame_id
             for frame_id, buffer in buffers.items()
@@ -151,6 +157,7 @@ class VideoStreamReceiver(QtCore.QThread):
             buffers.pop(frame_id, None)
 
     def _emit_image(self, data: bytes) -> None:
+        '''완성된 프레임 데이터를 QImage로 변환해 신호로 알린다.'''
         if not data:
             return
         image = QtGui.QImage.fromData(data)

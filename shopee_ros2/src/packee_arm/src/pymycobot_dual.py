@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-'''Packee Main과 듀얼 myCobot 280 하드웨어를 연결하는 ROS2 서비스 노드.'''
+"""Packee Main과 듀얼 myCobot 280 하드웨어를 연결하는 ROS2 서비스 노드."""
 
 
 import copy
 import threading
 import time
 from typing import Dict, List, Optional
+
 import rclpy
 from rclpy.node import Node
 
@@ -23,12 +24,12 @@ except ImportError:  # pragma: no cover - 하드웨어 라이브러리를 설치
 
 
 class PymycobotDualArmNode(Node):
-    '''Packee Main에서 내려오는 서비스를 처리하고 좌/우 myCobot 280을 직접 구동한다.'''
+    """Packee Main에서 내려오는 서비스를 처리하고 좌/우 myCobot 280을 직접 구동한다."""
 
     _SUPPORTED_ARMS = {'left', 'right'}
 
     def __init__(self) -> None:
-        super().__init__('pymycobot_arm_node') 
+        super().__init__('pymycobot_arm_node')
         self.declare_parameter('enabled_arms', 'left,right')
         self.declare_parameter('serial_port_left', '/dev/ttyUSB1')
         self.declare_parameter('serial_port_right', '/dev/ttyUSB0')
@@ -104,7 +105,7 @@ class PymycobotDualArmNode(Node):
             f'듀얼 팔용 pymycobot 기반 Packee Arm 서비스 노드를 시작했습니다. 활성 팔: {enabled_arms_str}')
 
     def _parse_pose_parameter(self, name: str) -> Dict[str, float]:
-        '''런치 파라미터에 정의된 포즈 배열을 사전으로 변환한다.'''
+        """런치 파라미터에 정의된 포즈 배열을 사전으로 변환한다."""
         raw_value = self.get_parameter(name).value
         if isinstance(raw_value, (list, tuple)):
             values = list(raw_value)
@@ -134,7 +135,7 @@ class PymycobotDualArmNode(Node):
         }
 
     def _connect_robots(self) -> None:
-        '''myCobot 280 시리얼 포트에 연결한다.'''
+        """Mycobot 280 시리얼 포트에 연결한다."""
         if MyCobot280 is None:
             self.get_logger().error('pymycobot 패키지를 찾을 수 없어 하드웨어 제어를 비활성화합니다.')
             return
@@ -161,7 +162,7 @@ class PymycobotDualArmNode(Node):
         request: ArmMoveToPose.Request,
         response: ArmMoveToPose.Response
     ) -> ArmMoveToPose.Response:
-        '''Packee Main에서 내려온 자세 변경 명령을 처리한다.'''
+        """Packee Main에서 내려온 자세 변경 명령을 처리한다."""
         pose_type = self._normalize_pose_type(request.pose_type)
         if pose_type not in self._pose_presets:
             response.success = False
@@ -229,7 +230,7 @@ class PymycobotDualArmNode(Node):
         request: ArmPickProduct.Request,
         response: ArmPickProduct.Response
     ) -> ArmPickProduct.Response:
-        '''Packee Main의 픽업 명령을 수행한다.'''
+        """Packee Main의 픽업 명령을 수행한다."""
         arm_side = (request.arm_side or 'left').lower()
         if arm_side not in self._arm_sides:
             response.success = False
@@ -296,7 +297,7 @@ class PymycobotDualArmNode(Node):
         request: ArmPlaceProduct.Request,
         response: ArmPlaceProduct.Response
     ) -> ArmPlaceProduct.Response:
-        '''Packee Main의 상품 담기 명령을 수행한다.'''
+        """Packee Main의 상품 담기 명령을 수행한다."""
         arm_side = (request.arm_side or 'left').lower()
         if arm_side not in self._arm_sides:
             response.success = False
@@ -372,7 +373,7 @@ class PymycobotDualArmNode(Node):
         approach_pose: Dict[str, float],
         grasp_pose: Dict[str, float]
     ) -> bool:
-        '''접근 → 하강 → 파지 → 상승 순으로 픽업을 수행한다.'''
+        """접근 → 하강 → 파지 → 상승 순으로 픽업을 수행한다."""
         self._publish_pick_status(
             robot_id,
             order_id,
@@ -435,7 +436,7 @@ class PymycobotDualArmNode(Node):
         approach_pose: Dict[str, float],
         place_pose: Dict[str, float]
     ) -> bool:
-        '''접근 → 하강 → 개방 → 상승 순으로 담기를 수행한다.'''
+        """접근 → 하강 → 개방 → 상승 순으로 담기를 수행한다."""
         self._publish_place_status(
             robot_id,
             order_id,
@@ -481,7 +482,7 @@ class PymycobotDualArmNode(Node):
         return True
 
     def _normalize_pose_type(self, pose_type: str) -> str:
-        '''pose_type 별칭을 표준 pose 이름으로 변환한다.'''
+        """pose_type 별칭을 표준 pose 이름으로 변환한다."""
         key = pose_type.strip().lower()
         if key in self._pose_presets:
             return key
@@ -489,7 +490,7 @@ class PymycobotDualArmNode(Node):
 
     @staticmethod
     def _pose_from_msg(pose: Pose6D) -> Dict[str, float]:
-        '''Pose6D 메시지를 내부 표현으로 변환한다.'''
+        """Pose6D 메시지를 내부 표현으로 변환한다."""
         return {
             'x': float(pose.x),
             'y': float(pose.y),
@@ -500,7 +501,7 @@ class PymycobotDualArmNode(Node):
         }
 
     def _send_pose(self, arm_side: str, pose: Dict[str, float]) -> bool:
-        '''지정한 팔의 myCobot 280에 좌표 명령을 전송한다.'''
+        """지정한 팔의 myCobot 280에 좌표 명령을 전송한다."""
         robot = self._robots.get(arm_side)
         if not robot:
             self.get_logger().error(f'{arm_side} 팔 myCobot 인스턴스가 초기화되지 않았습니다.')
@@ -521,7 +522,7 @@ class PymycobotDualArmNode(Node):
             return False
 
     def _close_gripper(self, arm_side: str) -> bool:
-        '''지정한 팔의 그리퍼를 닫는다.'''
+        """지정한 팔의 그리퍼를 닫는다."""
         robot = self._robots.get(arm_side)
         if not robot:
             self.get_logger().error(f'{arm_side} 팔 myCobot 인스턴스가 초기화되지 않았습니다.')
@@ -534,7 +535,7 @@ class PymycobotDualArmNode(Node):
             return False
 
     def _open_gripper(self, arm_side: str) -> bool:
-        '''지정한 팔의 그리퍼를 연다.'''
+        """지정한 팔의 그리퍼를 연다."""
         robot = self._robots.get(arm_side)
         if not robot:
             self.get_logger().error(f'{arm_side} 팔 myCobot 인스턴스가 초기화되지 않았습니다.')
@@ -555,7 +556,7 @@ class PymycobotDualArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''Pose 상태 토픽을 발행한다.'''
+        """Pose 상태 토픽을 발행한다."""
         msg = ArmPoseStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -576,7 +577,7 @@ class PymycobotDualArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''픽업 상태 토픽을 발행한다.'''
+        """픽업 상태 토픽을 발행한다."""
         msg = ArmTaskStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -599,7 +600,7 @@ class PymycobotDualArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''담기 상태 토픽을 발행한다.'''
+        """담기 상태 토픽을 발행한다."""
         msg = ArmTaskStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -613,7 +614,7 @@ class PymycobotDualArmNode(Node):
 
     @staticmethod
     def _sleep(duration: float) -> None:
-        '''서비스 처리 중 내부 대기 시간을 명확히 표현한다.'''
+        """서비스 처리 중 내부 대기 시간을 명확히 표현한다."""
         time.sleep(duration)
 
 

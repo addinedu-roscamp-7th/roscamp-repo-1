@@ -24,7 +24,10 @@ if TYPE_CHECKING:
 
 
 class MainWindow(QMainWindow):
+    '''로그인과 역할별 창 전환을 담당하는 메인 윈도우.'''
+
     def __init__(self, ros_thread: Optional["RosNodeThread"] = None):
+        '''UI 구성 요소와 서비스 클라이언트를 초기화한다.'''
         super().__init__()
         self._ros_thread = ros_thread
         self.ui = Ui_MainWindow()
@@ -45,6 +48,7 @@ class MainWindow(QMainWindow):
         self.ui.et_password.returnPressed.connect(self.on_login_clicked)
 
     def setup_role_toggle(self):
+        '''사용자/관리자 역할 토글 버튼을 그룹으로 묶는다.'''
         self.ui.btn_user.setCheckable(True)
         self.ui.btn_admin.setCheckable(True)
         self.role_group = QButtonGroup(self)
@@ -54,6 +58,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_user.setChecked(True)
 
     def on_login_clicked(self):
+        '''로그인 버튼 클릭 시 인증 절차를 진행한다.'''
         user_id = self.ui.et_id.text().strip()
         password = self.ui.et_password.text().strip()
 
@@ -102,6 +107,7 @@ class MainWindow(QMainWindow):
             return
 
     def on_id_return_pressed(self) -> None:
+        '''아이디 입력 후 엔터를 누르면 흐름에 맞춰 다음 동작을 실행한다.'''
         password_text = self.ui.et_password.text().strip()
         if password_text:
             self.on_login_clicked()
@@ -109,6 +115,7 @@ class MainWindow(QMainWindow):
         self.ui.et_password.setFocus()
 
     def launch_role_window(self, factory):
+        '''역할에 맞는 하위 창을 생성해 표시한다.'''
         if self.child_window:
             self.child_window.close()
             self.child_window = None
@@ -119,14 +126,17 @@ class MainWindow(QMainWindow):
         self.child_window.closed.connect(self.on_child_closed)
 
     def on_child_closed(self):
+        '''하위 창이 닫히면 메인 화면을 다시 표시한다.'''
         self.child_window = None
         self.show()
 
     def on_ros_ready(self):
+        '''ROS 노드 초기화가 완료되면 후속 UI 동작을 준비한다.'''
         # TODO: ROS2 데이터 연동 후 초기 화면 업데이트 로직을 추가한다.
         pass
 
     def on_ros_error(self, message: str):
+        '''ROS 초기화 실패 시 사용자에게 알리고 애플리케이션을 종료한다.'''
         QMessageBox.critical(self, "ROS2 오류", message)
         self.close()
 

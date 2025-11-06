@@ -22,8 +22,9 @@ class PackeePackingCheckAvailability : public rclcpp::Node
 public:
     PackeePackingCheckAvailability() : Node("packee_packing_check_availability_server")
     {
-        robot_status_ = "STANDBY";
+        robot_status_ = "";
         pose_status_ = "";
+        max_retry_count_ = 10;
 
         check_avail_service_ = this->create_service<CheckAvailability>(
             "/packee/packing/check_availability",
@@ -34,10 +35,6 @@ public:
 
         move_pose_client_ = this->create_client<ArmMoveToPose>("/packee1/arm/move_to_pose");
         cart_presence_client_ = this->create_client<CheckCartPresence>("/packee/vision/check_cart_presence");
-
-        pose_status_sub_ = this->create_subscription<PoseStatus>(
-            "/packee/arm/pose_status", 10,
-            [this](PoseStatus::SharedPtr msg) { pose_status_ = msg->status; });
 
         robot_status_sub_ = this->create_subscription<RobotStatus>(
             "/packee/robot_status", 10,
@@ -73,31 +70,59 @@ private:
                     return;
                 }
 
-                checkCartPresenceAsync(request->robot_id, request->order_id,
-                    [this, request](bool cart_present) {
-                        moveToPoseAsync(request->robot_id, request->order_id, "standby",
-                            [this, request, cart_present](bool move_back_ok) {
-                                if (!move_back_ok) {
-                                    RCLCPP_ERROR(this->get_logger(), "MovePose(standby) failed");
-                                }
+                // 재시도 로직 시작
+                checkCartPresenceWithRetry(request->robot_id, request->order_id, 0);
+            });
+    }
 
-                                publishRobotStatus(request->robot_id, "STANDBY", request->order_id, 0);
+    void checkCartPresenceWithRetry(int32_t robot_id, int32_t order_id, int retry_count)
+    {
+        RCLCPP_INFO(this->get_logger(), "Cart detection attempt %d/%d", retry_count + 1, max_retry_count_);
 
-                                auto msg = AvailabilityResult();
-                                msg.robot_id = request->robot_id;
-                                msg.order_id = request->order_id;
-                                msg.available = cart_present;
-                                msg.cart_detected = cart_present;
-                                msg.message = cart_present
-                                                ? "Packee availability OK (cart detected)"
-                                                : "No cart detected";
-                                check_avail_pub_->publish(msg);
+        checkCartPresenceAsync(robot_id, order_id,
+            [this, robot_id, order_id, retry_count](bool cart_present) {
+                if (cart_present) {
+                    // 카트 감지 성공 - 대기 상태로 복귀
+                    RCLCPP_INFO(this->get_logger(), "Cart detected on attempt %d", retry_count + 1);
+                    returnToStandby(robot_id, order_id, true);
+                } else {
+                    // 카트 감지 실패
+                    if (retry_count + 1 >= max_retry_count_) {
+                        // 최대 재시도 횟수 도달 - 대기 상태로 복귀
+                        RCLCPP_WARN(this->get_logger(), "Cart not detected after %d attempts", max_retry_count_);
+                        returnToStandby(robot_id, order_id, false);
+                    } else {
+                        // 재시도
+                        RCLCPP_WARN(this->get_logger(), "Cart not detected, retrying...");
+                        checkCartPresenceWithRetry(robot_id, order_id, retry_count + 1);
+                    }
+                }
+            });
+    }
 
-                                RCLCPP_INFO(this->get_logger(),
-                                    "Availability check done (cart_detected=%s)",
-                                    cart_present ? "true" : "false");
-                            });
-                    });
+    void returnToStandby(int32_t robot_id, int32_t order_id, bool cart_detected)
+    {
+        moveToPoseAsync(robot_id, order_id, "standby",
+            [this, robot_id, order_id, cart_detected](bool move_back_ok) {
+                if (!move_back_ok) {
+                    RCLCPP_ERROR(this->get_logger(), "MovePose(standby) failed");
+                }
+
+                publishRobotStatus(robot_id, "STANDBY", order_id, 0);
+
+                auto msg = AvailabilityResult();
+                msg.robot_id = robot_id;
+                msg.order_id = order_id;
+                msg.available = cart_detected;
+                msg.cart_detected = cart_detected;
+                msg.message = cart_detected
+                                ? "Packee availability OK (cart detected)"
+                                : "No cart detected after maximum retries";
+                check_avail_pub_->publish(msg);
+
+                RCLCPP_INFO(this->get_logger(),
+                    "Availability check done (cart_detected=%s)",
+                    cart_detected ? "true" : "false");
             });
     }
 
@@ -163,6 +188,7 @@ private:
 
     std::string robot_status_;
     std::string pose_status_;
+    int max_retry_count_;
 
     rclcpp::Service<CheckAvailability>::SharedPtr check_avail_service_;
     rclcpp::Publisher<AvailabilityResult>::SharedPtr check_avail_pub_;

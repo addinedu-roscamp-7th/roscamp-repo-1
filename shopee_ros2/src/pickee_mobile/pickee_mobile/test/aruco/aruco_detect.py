@@ -20,6 +20,49 @@ def get_euler_angles(R):
 
     return math.degrees(roll), math.degrees(pitch), math.degrees(yaw)
 
+# def lateral_offsets_perp_to_normal(tvec, rvec, up=np.array([0.0, 1.0, 0.0])):
+#     """
+#     반환:
+#       lateral_dist : 법선(정면) 방향에 '수직인' 평면(마커 평면)으로의 이동 거리 '크기'
+#       lateral_LR   : 바닥면에서 좌우 한 축(부호 포함)으로의 필요 이동 거리
+#       d_normal     : 정면(법선) 거리
+#     """
+#     t = np.asarray(tvec, dtype=float).reshape(3)
+#     R, _ = cv2.Rodrigues(np.asarray(rvec, dtype=float).reshape(3))
+#     n = R[:, 2]                       # marker normal in camera frame
+
+#     # 정면(법선) 거리
+#     d_normal = float(np.dot(t, n))
+
+#     # 법선 수직(마커 평면) 성분과 그 크기
+#     t_parallel = t - d_normal * n
+#     lateral_dist = float(np.linalg.norm(t_parallel))
+
+#     # 바닥면 기준 좌우 축(법선과 up에 모두 수직)
+#     up = up / np.linalg.norm(up)
+#     lr_axis = np.cross(up, n)
+#     if np.linalg.norm(lr_axis) < 1e-6:
+#         # 법선이 거의 수직일 때 대체축 사용(예: 카메라 z축)
+#         fallback = np.array([0.0, 0.0, 1.0])
+#         lr_axis = np.cross(fallback, n)
+#     lr_axis = lr_axis / np.linalg.norm(lr_axis)
+
+#     # 부호 있는 좌우 오프셋(바닥면 한 축)
+#     lateral_LR = float(np.dot(t, lr_axis))
+
+#     return lateral_dist, lateral_LR, d_normal
+
+# 마커 기준 로봇이 전진해야 하는 거리, 좌우 이동해야 하는 거리
+def dist_from_xyz_pitch(x, z, pitch_rad):
+    # 정면(법선) 거리
+    dist_front = x*math.sin(pitch_rad) + z*math.cos(pitch_rad)
+    # 바닥면 좌우(부호 포함), 음수 : 카메라 기준 마커가 왼쪽에 있다.
+    dist_side = x*math.cos(pitch_rad) - z*math.sin(pitch_rad)
+
+    return dist_front, dist_side
+
+
+
 
 # === Load camera calibration ===
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -67,11 +110,19 @@ while True:
             # ✅ Rodrigues → Euler(roll, pitch, yaw)
             R, _ = cv2.Rodrigues(rvec)
             roll, pitch, yaw = get_euler_angles(R)
+            # pitch = 0
+            pitch_rad = math.radians(pitch)
+            # aruco_distance = z * math.cos(pitch_rad) + x * math.sin(pitch_rad)
+            # aruco_diff = z * math.sin(pitch_rad) + x * math.cos(pitch_rad)
+
+            dist_front, dist_side = dist_from_xyz_pitch(x, z, pitch_rad)
 
             print(
-                f"🟢 ID {marker_id[0]} | "
+                # f"🟢 ID {marker_id[0]} | "
                 f"x={x:.1f}mm, y={y:.1f}mm, z={z:.1f}mm | "
                 f"roll={roll:.1f}°, pitch={pitch:.1f}°, yaw={yaw:.1f}°"
+                f"aruco_distance = {dist_front}"
+                f"aruco_diff = {dist_side}"
             )
 
     cv2.imshow("ArUco Marker Detection", frame_undistorted)

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-'''Packee Main과 우측 myCobot 280 하드웨어를 연결하는 ROS2 서비스 노드.'''
+"""Packee Main과 myCobot 280 하드웨어를 연결하는 ROS2 서비스 노드."""
 
 
 import copy
 import threading
 import time
 from typing import Dict, List, Optional
+
 import rclpy
 from rclpy.node import Node
 
@@ -23,7 +24,7 @@ except ImportError:  # pragma: no cover - 하드웨어 라이브러리를 설치
 
 
 class PymycobotRightArmNode(Node):
-    '''Packee Main에서 내려오는 서비스를 처리하고 우측 myCobot 280을 직접 구동한다.'''
+    """Packee Main에서 내려오는 서비스를 처리하고 우측 myCobot 280을 직접 구동한다."""
 
     def __init__(self) -> None:
         super().__init__('pymycobot_right_arm_node')
@@ -33,8 +34,12 @@ class PymycobotRightArmNode(Node):
         self.declare_parameter('arm_sides', 'right')
         self.declare_parameter('approach_offset_m', 0.02)
         self.declare_parameter('lift_offset_m', 0.03)
-        self.declare_parameter('preset_pose_cart_view', [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
-        self.declare_parameter('preset_pose_standby', [142.0, -23.5, 291.5, -174.67, 5.73, -93.55])
+        self.declare_parameter(
+            'preset_pose_cart_view',
+            [142.0, -23.5, 291.5, -174.67, 5.73, -93.55])
+        self.declare_parameter(
+            'preset_pose_standby',
+            [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
         self.declare_parameter('gripper_open_value', 100)
         self.declare_parameter('gripper_close_value', 0)
         self.declare_parameter('pose_status_topic', '/packee/arm/pose_status')
@@ -45,11 +50,9 @@ class PymycobotRightArmNode(Node):
         self._baud_rate: int = int(self.get_parameter('baud_rate').value)
         self._move_speed: int = int(self.get_parameter('move_speed').value)
         sides_param = str(self.get_parameter('arm_sides').value)
-        # self._arm_sides: List[str] = [
-        #     side.strip() for side in sides_param.split(',') if side.strip()
-        # ] or ['right']
-        self._arm_sides: List[str] = ['right']
-
+        self._arm_sides: List[str] = [
+            side.strip() for side in sides_param.split(',') if side.strip()
+        ] or ['right']
         self._approach_offset: float = float(self.get_parameter('approach_offset_m').value)
         self._lift_offset: float = float(self.get_parameter('lift_offset_m').value)
         self._gripper_open_value: int = int(self.get_parameter('gripper_open_value').value)
@@ -94,7 +97,7 @@ class PymycobotRightArmNode(Node):
         self.get_logger().info('우측 팔용 pymycobot 기반 Packee Arm 서비스 노드를 시작했습니다.')
 
     def _parse_pose_parameter(self, name: str) -> Dict[str, float]:
-        '''런치 파라미터에 정의된 포즈 배열을 사전으로 변환한다.'''
+        """런치 파라미터에 정의된 포즈 배열을 사전으로 변환한다."""
         raw_value = self.get_parameter(name).value
         if isinstance(raw_value, (list, tuple)):
             values = list(raw_value)
@@ -112,19 +115,19 @@ class PymycobotRightArmNode(Node):
         if len(values) != 6:
             self.get_logger().warn(f'{name} 파라미터가 6개 항목을 갖지 않아 기본값을 사용합니다.')
             if 'cart_view' in name:
-                return {'x': 0.0, 'y': 0.0, 'z': 0.0, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
-            return {'x': 0.0, 'y': 0.0, 'z': 0.0, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
+                return {'x': 0.16, 'y': 0.0, 'z': 0.18, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
+            return {'x': 0.10, 'y': 0.0, 'z': 0.14, 'rx': 0.0, 'ry': 0.0, 'rz': 0.0}
         return {
             'x': float(values[0]),
             'y': float(values[1]),
             'z': float(values[2]),
             'rx': float(values[3]),
             'ry': float(values[4]),
-            'rz': float(values[5]),
+            'rz': float(values[5])
         }
 
     def _connect_robot(self) -> None:
-        '''myCobot 280 시리얼 포트에 연결한다.'''
+        """Mycobot 280 시리얼 포트에 연결한다."""
         if MyCobot280 is None:
             self.get_logger().error('pymycobot 패키지를 찾을 수 없어 하드웨어 제어를 비활성화합니다.')
             return
@@ -133,25 +136,21 @@ class PymycobotRightArmNode(Node):
             if self._robot.is_power_on() != 1:
                 self._robot.power_on()
             self._robot.focus_all_servos()
-            self.get_logger().info(
-                f'우측 myCobot 280 연결 성공: 포트={
-                    self._serial_port}, 속도={
-                    self._baud_rate}')
+            connection_msg = (
+                f'myCobot 280 연결 성공: 포트={self._serial_port}, '
+                f'속도={self._baud_rate}')
+            self.get_logger().info(connection_msg)
         except Exception as exc:  # pragma: no cover - 실제 하드웨어 환경에서만 평가
             self._robot = None
-            self.get_logger().error(f'우측 myCobot 280 연결 실패: {exc}')
+            self.get_logger().error(f'myCobot 280 연결 실패: {exc}')
 
-    # def _handle_move_to_pose(
-    #     self,
-    #     request: ArmMoveToPose.Request,
-    #     response: ArmMoveToPose.Response
-    # ) -> ArmMoveToPose.Response:
-    def _handle_move_to_pose(self, request, response):
-    
-        print("handle move to pose called!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")  ### ham
-        '''Packee Main에서 내려온 자세 변경 명령을 처리한다.'''
+    def _handle_move_to_pose(
+        self,
+        request: ArmMoveToPose.Request,
+        response: ArmMoveToPose.Response
+    ) -> ArmMoveToPose.Response:
+        """Packee Main에서 내려온 자세 변경 명령을 처리한다."""
         pose_type = self._normalize_pose_type(request.pose_type)
-        self.get_logger().info(f'자세 변경 명령 수신: pose_type={pose_type}')
         if pose_type not in self._pose_presets:
             response.success = False
             response.message = f'미지원 pose_type: {request.pose_type}'
@@ -171,9 +170,7 @@ class PymycobotRightArmNode(Node):
             'in_progress',
             0.1,
             '자세 이동 명령을 수락했습니다.')
-        self.get_logger().info(f'목표 자세로 이동 중: {target_pose}')
         with self._lock:
-            self.get_logger().info('자세 이동 명령 실행 중...')
             if not self._send_pose(target_pose):
                 response.success = False
                 response.message = '자세 이동 중 오류가 발생했습니다.'
@@ -194,7 +191,6 @@ class PymycobotRightArmNode(Node):
             'in_progress',
             0.6,
             '목표 자세로 이동 중입니다.')
-        self.get_logger().info('자세 이동 완료 대기 중...')
         self._sleep(1.0)
         self._publish_pose_status(
             request.robot_id,
@@ -203,9 +199,8 @@ class PymycobotRightArmNode(Node):
             'complete',
             1.0,
             '자세 이동을 완료했습니다.')
-        self.get_logger().info('자세 변경 명령 완료.')
         response.success = True
-        response.message = '자세 변경 명령을 완료했습니다.!!!!!!!!'
+        response.message = '자세 변경 명령을 완료했습니다.'
         return response
 
     def _handle_pick_product(
@@ -213,10 +208,8 @@ class PymycobotRightArmNode(Node):
         request: ArmPickProduct.Request,
         response: ArmPickProduct.Response
     ) -> ArmPickProduct.Response:
-        '''Packee Main의 픽업 명령을 수행한다.'''
-        # arm_side = request.arm_side or 'right'
-        arm_side = 'right'
-
+        """Packee Main의 픽업 명령을 수행한다."""
+        arm_side = request.arm_side or 'right'
         if arm_side not in self._arm_sides:
             response.success = False
             response.message = f'팔 정보가 올바르지 않습니다: {arm_side}'
@@ -243,12 +236,13 @@ class PymycobotRightArmNode(Node):
 
         with self._lock:
             if not self._execute_pick_sequence(
-                    request.robot_id,
-                    request.order_id,
-                    request.product_id,
-                    arm_side,
-                    approach_pose,
-                    pose):
+                request.robot_id,
+                request.order_id,
+                request.product_id,
+                arm_side,
+                approach_pose,
+                pose
+            ):
                 response.success = False
                 response.message = '픽업 시퀀스가 실패했습니다.'
                 self._publish_pick_status(
@@ -281,7 +275,7 @@ class PymycobotRightArmNode(Node):
         request: ArmPlaceProduct.Request,
         response: ArmPlaceProduct.Response
     ) -> ArmPlaceProduct.Response:
-        '''Packee Main의 상품 담기 명령을 수행한다.'''
+        """Packee Main의 상품 담기 명령을 수행한다."""
         arm_side = request.arm_side or 'right'
         if arm_side not in self._arm_sides:
             response.success = False
@@ -314,12 +308,13 @@ class PymycobotRightArmNode(Node):
             '담기 경로를 계획합니다.')
         with self._lock:
             if not self._execute_place_sequence(
-                    request.robot_id,
-                    request.order_id,
-                    request.product_id,
-                    arm_side,
-                    approach_pose,
-                    pose):
+                request.robot_id,
+                request.order_id,
+                request.product_id,
+                arm_side,
+                approach_pose,
+                pose
+            ):
                 response.success = False
                 response.message = '담기 시퀀스가 실패했습니다.'
                 self._publish_place_status(
@@ -356,7 +351,7 @@ class PymycobotRightArmNode(Node):
         approach_pose: Dict[str, float],
         grasp_pose: Dict[str, float]
     ) -> bool:
-        '''접근 → 하강 → 파지 → 상승 순으로 픽업을 수행한다.'''
+        """접근 → 하강 → 파지 → 상승 순으로 픽업을 수행한다."""
         self._publish_pick_status(
             robot_id,
             order_id,
@@ -419,7 +414,7 @@ class PymycobotRightArmNode(Node):
         approach_pose: Dict[str, float],
         place_pose: Dict[str, float]
     ) -> bool:
-        '''접근 → 하강 → 개방 → 상승 순으로 담기를 수행한다.'''
+        """접근 → 하강 → 개방 → 상승 순으로 담기를 수행한다."""
         self._publish_place_status(
             robot_id,
             order_id,
@@ -465,25 +460,25 @@ class PymycobotRightArmNode(Node):
         return True
 
     def _normalize_pose_type(self, pose_type: str) -> str:
-        '''pose_type 별칭을 표준 pose 이름으로 변환한다.'''
+        """pose_type 별칭을 표준 pose 이름으로 변환한다."""
         key = pose_type.strip().lower()
         if key in self._pose_presets:
             return key
         return self._pose_aliases.get(key, key)
 
     def _pose_from_msg(self, pose: Pose6D) -> Dict[str, float]:
-        '''Pose6D 메시지를 내부 표현으로 변환한다.'''
+        """Pose6D 메시지를 내부 표현으로 변환한다."""
         return {
             'x': float(pose.x),
             'y': float(pose.y),
             'z': float(pose.z),
             'rx': float(pose.rx),
             'ry': float(pose.ry),
-            'rz': float(pose.rz),
+            'rz': float(pose.rz)
         }
 
     def _send_pose(self, pose: Dict[str, float]) -> bool:
-        '''myCobot 280에 좌표 명령을 전송한다.'''
+        """Mycobot 280에 좌표 명령을 전송한다."""
         if not self._robot:
             return False
         coords_mm = [
@@ -494,19 +489,15 @@ class PymycobotRightArmNode(Node):
             pose['ry'],
             pose['rz'],
         ]
-
         try:
-            # print(coords_mm, "debug1111111111111111!!!!!!!!!!!!!!!!") ### ham
-            # self._robot.sync_send_coords(coords_mm, self._move_speed, 0) ### ham
-            self._robot.send_coords(coords_mm, self._move_speed, 0)
-
+            self._robot.sync_send_coords(coords_mm, self._move_speed, 0)
             return True
         except Exception as exc:  # pragma: no cover
             self.get_logger().error(f'좌표 전송 실패: {exc}')
             return False
 
     def _close_gripper(self) -> bool:
-        '''그리퍼를 닫는다.'''
+        """그리퍼를 닫는다."""
         if not self._robot:
             return False
         try:
@@ -517,7 +508,7 @@ class PymycobotRightArmNode(Node):
             return False
 
     def _open_gripper(self) -> bool:
-        '''그리퍼를 연다.'''
+        """그리퍼를 연다."""
         if not self._robot:
             return False
         try:
@@ -536,7 +527,7 @@ class PymycobotRightArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''Pose 상태 토픽을 발행한다.'''
+        """Pose 상태 토픽을 발행한다."""
         msg = ArmPoseStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -557,7 +548,7 @@ class PymycobotRightArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''픽업 상태 토픽을 발행한다.'''
+        """픽업 상태 토픽을 발행한다."""
         msg = ArmTaskStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -580,7 +571,7 @@ class PymycobotRightArmNode(Node):
         progress: float,
         message: str
     ) -> None:
-        '''담기 상태 토픽을 발행한다.'''
+        """담기 상태 토픽을 발행한다."""
         msg = ArmTaskStatus()
         msg.robot_id = robot_id
         msg.order_id = order_id
@@ -594,7 +585,7 @@ class PymycobotRightArmNode(Node):
 
     @staticmethod
     def _sleep(duration: float) -> None:
-        '''서비스 처리 중 내부 대기 시간을 명확히 표현한다.'''
+        """서비스 처리 중 내부 대기 시간을 명확히 표현한다."""
         time.sleep(duration)
 
 
@@ -604,7 +595,7 @@ def main() -> None:
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('pymycobot 우측 노드를 종료합니다.')
+        node.get_logger().info('pymycobot 노드를 종료합니다.')
     finally:
         node.destroy_node()
         rclpy.shutdown()

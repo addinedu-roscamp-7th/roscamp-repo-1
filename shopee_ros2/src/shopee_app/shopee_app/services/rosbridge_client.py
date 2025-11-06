@@ -11,6 +11,8 @@ import websocket
 
 @dataclass
 class RosbridgeConfig:
+    '''rosbridge 서버 접속 정보와 구독 토픽 설정.'''
+
     host: str
     port: int
     topic: str
@@ -19,6 +21,7 @@ class RosbridgeConfig:
 
     @property
     def url(self) -> str:
+        '''WebSocket 접속 URL을 구성한다.'''
         return f"ws://{self.host}:{self.port}"
 
 
@@ -41,6 +44,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
         self._lock = threading.Lock()
 
     def start(self) -> None:
+        '''백그라운드 스레드를 시작해 rosbridge와 연결한다.'''
         with self._lock:
             if self._thread is not None:
                 return
@@ -53,6 +57,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
             self._thread.start()
 
     def stop(self) -> None:
+        '''연결을 종료하고 백그라운드 스레드를 정리한다.'''
         with self._lock:
             self._should_run = False
             if self._ws_app is not None:
@@ -68,6 +73,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
     # 내부 구현 ---------------------------------------------------------------
 
     def _run_loop(self) -> None:
+        '''연결 유지와 재시도를 관리하는 루프를 실행한다.'''
         while True:
             with self._lock:
                 if not self._should_run:
@@ -95,6 +101,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
             time.sleep(self._config.retry_interval)
 
     def _on_open(self, ws_app: websocket.WebSocketApp) -> None:  # pragma: no cover
+        '''연결이 열리면 즉시 구독 요청을 전송한다.'''
         subscribe_payload = {
             "op": "subscribe",
             "topic": self._config.topic,
@@ -103,6 +110,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
         ws_app.send(json.dumps(subscribe_payload))
 
     def _on_message(self, _ws_app: websocket.WebSocketApp, message: str) -> None:
+        '''pose 메시지를 파싱해 필요한 경우 시그널을 발생시킨다.'''
         try:
             payload = json.loads(message)
         except json.JSONDecodeError:
@@ -117,6 +125,7 @@ class RosbridgePoseSubscriber(QtCore.QObject):
             self.pose_received.emit(msg)
 
     def _on_error(self, _ws_app: websocket.WebSocketApp, error: Exception) -> None:
+        '''웹소켓 오류를 문자열로 변환해 UI에 전달한다.'''
         self.connection_error.emit(str(error))
 
     def _on_close(
@@ -125,4 +134,5 @@ class RosbridgePoseSubscriber(QtCore.QObject):
         _close_status_code,
         _close_msg,
     ) -> None:  # pragma: no cover
+        '''rosbridge에서 연결을 끊을 때 호출된다.'''
         pass

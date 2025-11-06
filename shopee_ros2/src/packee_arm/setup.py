@@ -24,6 +24,8 @@ setup(
             'pymycobot_right_node = packee_arm.pymycobot_right:main',
             'pymycobot_left_node = packee_arm.pymycobot_left:main',
             'pymycobot_dual_node = packee_arm.pymycobot_dual:main',
+            'packee_arm_left_node = packee_arm.packee_arm_left:main',
+            'packee_arm_right_node = packee_arm.packee_arm_right:main',
         ],
     },
 )

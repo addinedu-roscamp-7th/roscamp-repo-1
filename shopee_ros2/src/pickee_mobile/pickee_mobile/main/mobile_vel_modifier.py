@@ -68,7 +68,9 @@ def main(args=None):
     try:
         executor.spin()
     except KeyboardInterrupt:
-        executor.stop_node()
+        executor.shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

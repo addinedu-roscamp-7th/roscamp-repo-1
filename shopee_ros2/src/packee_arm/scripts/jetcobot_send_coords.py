@@ -1,6 +1,6 @@
-from pymycobot.mycobot280 import MyCobot280
 import time
-import os
+
+from pymycobot.mycobot280 import MyCobot280
 # MyCobot 연결 (포트와 보드레이트 확인)
 mc = MyCobot280('/dev/ttyJETCOBOT', 1000000)
 
