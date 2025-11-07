@@ -7,8 +7,6 @@ Packee 로봇의 듀얼 myCobot 280 팔을 Python 기반으로 제어하는 ROS 
 ## 구성 요소
 - `scripts/jetcobot_bridge.py`  
   Packee Arm 상위 모듈이 발행하는 속도·그리퍼 명령을 통합해 myCobot 시리얼 명령으로 변환합니다.
-- `src/pymycobot_dual`  
-  좌/우 팔을 동시에 제어하며, 인터페이스 명세에 정의된 서비스와 토픽을 단일 노드에서 처리합니다.
 - `src/pymycobot_left`  
   필요 시 좌측 팔만 독립적으로 제어할 수 있는 경량 노드입니다.
 - `src/pymycobot_right`  

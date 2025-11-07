@@ -36,7 +36,7 @@ class PymycobotRightArmNode(Node):
         self.declare_parameter('lift_offset_m', 0.03)
         self.declare_parameter(
             'preset_pose_cart_view',
-            [142.0, -23.5, 291.5, -174.67, 5.73, -93.55])
+            [42.2, -39.0, 289.8, -153.04, 21.75, -85.67])
         self.declare_parameter(
             'preset_pose_standby',
             [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
