@@ -2,9 +2,6 @@ import math
 import time
 from threading import Event
 
-
-
-
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
@@ -220,6 +217,7 @@ class ArucoDocking(Node):
     def align_to_side(self):
         
         if abs(self.dist_side) > 30:
+            self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
             turn_to_side_rad = sign(self.yaw_rad) * (math.radians(90) - abs(self.yaw_rad))
@@ -291,7 +289,7 @@ class ArucoDocking(Node):
 
             self.get_logger().info(f"🔁 222")
 
-            goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 7, 10), 0.0))
+            goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 14, 10), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
             self.set_yaw(goal_yaw_rad)
 
@@ -304,7 +302,7 @@ class ArucoDocking(Node):
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(10):
+        elif abs(self.yaw_rad) > math.radians(10):# or abs(self.dist_side) > 25:
 
             self.get_logger().info(f"🚗 222")
 
@@ -313,7 +311,7 @@ class ArucoDocking(Node):
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.11)
+            run(self, 0.115)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
             self.publish_stop()
             self.reset_docking_state()
@@ -327,7 +325,7 @@ class ArucoDocking(Node):
         
         else:
             self.cmd_vel.angular.z = -0.06
-            pass
+
 
     def detect_marker_before_docking(self):
         self.get_logger().info(f"⚠️ ArUco marker lost before docking")
