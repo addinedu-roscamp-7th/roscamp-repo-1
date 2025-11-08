@@ -41,36 +41,36 @@ namespace custom_planner
 
         // 웨이포인트 map 상수 초기화
         waypoints_ = {
-            {"x1y6", {waypoints_y_[5], waypoints_x_[0]}},
-            {"x2y6", {waypoints_y_[5], waypoints_x_[1]}},
-            {"x3y6", {waypoints_y_[5], waypoints_x_[2]}},
-            {"x4y6", {waypoints_y_[5], waypoints_x_[3]}},
-            {"x5y6", {waypoints_y_[5], waypoints_x_[4]}},
-            {"x6y6", {waypoints_y_[5], waypoints_x_[5]}}, 
-            {"x7y6", {waypoints_y_[5], waypoints_x_[6]}}, // 1행
-            {"x1y5", {waypoints_y_[4], waypoints_x_[0]}},
-            {"x2y5", {waypoints_y_[4], waypoints_x_[1]}},
-            {"x3y5", {waypoints_y_[4], waypoints_x_[2]}},
-            {"x5y5", {waypoints_y_[4], waypoints_x_[4]}},
-            {"x6y5", {waypoints_y_[4], waypoints_x_[5]}},
-            {"x7y5", {waypoints_y_[4], waypoints_x_[6]}}, // 2행
-            {"x1y4", {waypoints_y_[3], waypoints_x_[0]}},
-            {"x3y4", {waypoints_y_[3], waypoints_x_[2]}},
-            {"x4y4", {waypoints_y_[3], waypoints_x_[3]}},
-            {"x5y4", {waypoints_y_[3], waypoints_x_[4]}},
-            {"x7y4", {waypoints_y_[3], waypoints_x_[6]}}, // 3행
-            {"x1y3", {waypoints_y_[2], waypoints_x_[0]}},
-            {"x2y3", {waypoints_y_[2], waypoints_x_[1]}},
-            {"x3y3", {waypoints_y_[2], waypoints_x_[2]}},
-            {"x4y3", {waypoints_y_[2], waypoints_x_[3]}},
-            {"x5y3", {waypoints_y_[2], waypoints_x_[4]}},
-            {"x6y3", {waypoints_y_[2], waypoints_x_[5]}},
-            {"x7y3", {waypoints_y_[2], waypoints_x_[6]}}, // 4행
-            {"x1y2", {waypoints_y_[1], waypoints_x_[0]}},
-            {"x7y2", {waypoints_y_[1], waypoints_x_[6]}}, // 5행
-            {"x1y1", {waypoints_y_[0], waypoints_x_[0]}},
-            {"x4y1", {waypoints_y_[0], waypoints_x_[3]}},
-            {"x7y1", {waypoints_y_[0], waypoints_x_[6]}}  // 6행
+            {"x1y6", {waypoints_x_[0], waypoints_y_[5]}},
+            {"x2y6", {waypoints_x_[1], waypoints_y_[5]}},
+            {"x3y6", {waypoints_x_[2], waypoints_y_[5]}},
+            {"x4y6", {waypoints_x_[3], waypoints_y_[5]}},
+            {"x5y6", {waypoints_x_[4], waypoints_y_[5]}},
+            {"x6y6", {waypoints_x_[5], waypoints_y_[5]}}, 
+            {"x7y6", {waypoints_x_[6], waypoints_y_[5]}}, // 1행
+            {"x1y5", {waypoints_x_[0], waypoints_y_[4]}},
+            {"x2y5", {waypoints_x_[1], waypoints_y_[4]}},
+            {"x3y5", {waypoints_x_[2], waypoints_y_[4]}},
+            {"x5y5", {waypoints_x_[4], waypoints_y_[4]}},
+            {"x6y5", {waypoints_x_[5], waypoints_y_[4]}},
+            {"x7y5", {waypoints_x_[6], waypoints_y_[4]}}, // 2행
+            {"x1y4", {waypoints_x_[0], waypoints_y_[3]}},
+            {"x3y4", {waypoints_x_[2], waypoints_y_[3]}},
+            {"x4y4", {waypoints_x_[3], waypoints_y_[3]}},
+            {"x5y4", {waypoints_x_[4], waypoints_y_[3]}},
+            {"x7y4", {waypoints_x_[6], waypoints_y_[3]}}, // 3행
+            {"x1y3", {waypoints_x_[0], waypoints_y_[2]}},
+            {"x2y3", {waypoints_x_[1], waypoints_y_[2]}},
+            {"x3y3", {waypoints_x_[2], waypoints_y_[2]}},
+            {"x4y3", {waypoints_x_[3], waypoints_y_[2]}},
+            {"x5y3", {waypoints_x_[4], waypoints_y_[2]}},
+            {"x6y3", {waypoints_x_[5], waypoints_y_[2]}},
+            {"x7y3", {waypoints_x_[6], waypoints_y_[2]}}, // 4행
+            {"x1y2", {waypoints_x_[0], waypoints_y_[1]}},
+            {"x7y2", {waypoints_x_[6], waypoints_y_[1]}}, // 5행
+            {"x1y1", {waypoints_x_[0], waypoints_y_[0]}},
+            {"x4y1", {waypoints_x_[3], waypoints_y_[0]}},
+            {"x7y1", {waypoints_x_[6], waypoints_y_[0]}}  // 6행
         };
 
     }
