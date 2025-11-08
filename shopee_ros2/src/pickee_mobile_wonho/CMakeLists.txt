@@ -66,6 +66,35 @@ ament_target_dependencies(${library_name}
   pluginlib
 )
 
+# Custom Planner Simulation 라이브러리 생성
+set(library_name_sim ${PROJECT_NAME}__custom_planner_simulation)
+
+add_library(${library_name_sim} SHARED
+  src/custom_planner_simulation.cpp
+)
+
+ament_target_dependencies(${library_name_sim}
+  rclcpp
+  rclcpp_lifecycle
+  nav2_core
+  nav2_costmap_2d
+  nav2_util
+  nav_msgs
+  geometry_msgs
+  tf2_ros
+  pluginlib
+)
+
+# Install custom_planner_simulation library
+install(TARGETS ${library_name_sim}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+# Export custom_planner_simulation library
+ament_export_libraries(${library_name_sim})
+
 # Create executable for pickee mobile node (Shopee Interface 통신)
 add_executable(pickee_mobile_wonho_node
   src/pickee_mobile_wonho_node.cpp
