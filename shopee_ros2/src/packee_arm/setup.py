@@ -26,7 +26,7 @@ setup(
             'packee_arm_left_node = packee_arm.packee_arm_left:main',
             'packee_arm_right_node = packee_arm.packee_arm_right:main',
             'packee_arm_2 = packee_arm.packee_arm_2:main',
-            'packee_arm_left_test = packee_arm_left_test:main',
+            'packee_arm_left_test = packee_arm.packee_arm_left_test:main',
         ],
     },
 )
