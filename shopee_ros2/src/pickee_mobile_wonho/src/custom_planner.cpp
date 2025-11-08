@@ -701,7 +701,7 @@ namespace custom_planner
         }
         auto before = std::make_pair(0.0, 0.0);
         if (before_wp_key == "x0y0") {
-            before = {start.pose.position.y, start.pose.position.x};
+            before = {start.pose.position.x, start.pose.position.y};
         } else {
             before = waypoints_[before_wp_key];
         }
