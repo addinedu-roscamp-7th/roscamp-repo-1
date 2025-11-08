@@ -23,7 +23,7 @@ namespace custom_planner
         // 각 좌표 x,y 상수 초기화
         x1_ = -2.3;
         x2_ = -1.0;
-        x3_ = 0.0;
+        x3_ = 0.1;
         x4_ = 0.9;
         x5_ = 1.9;
         x6_ = 3.2;
@@ -34,7 +34,7 @@ namespace custom_planner
         y3_ = 1.0;
         y4_ = 1.5;
         y5_ = 0.8;
-        y6_ = 0.0;
+        y6_ = 0.1;
 
         waypoints_x_ = {x1_, x2_, x3_, x4_, x5_, x6_, x7_};
         waypoints_y_ = {y1_, y2_, y3_, y4_, y5_, y6_};
@@ -249,14 +249,14 @@ namespace custom_planner
 
         // waypoints_y_ 순서대로 경유
         if (is_start) {
-            RCLCPP_INFO(logger_, "[GetStartWaypoint 시작]start x: %.2f, goal x: %.2f", 
-                        start.pose.position.x, goal.pose.position.x);
+            RCLCPP_INFO(logger_, "[GetStartWaypoint 시작]start x: %.2f, goal y: %.2f", 
+                        start.pose.position.x, goal.pose.position.y);
             // RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
                         // start.pose.position.y, goal.pose.position.y);
             // RCLCPP_INFO(logger_, "[for1] waypoints_y_");
         } else {
-            RCLCPP_INFO(logger_, "[GetEndWaypoint 시작]start x: %.2f, goal x: %.2f", 
-                        start.pose.position.x, goal.pose.position.x);
+            RCLCPP_INFO(logger_, "[GetEndWaypoint 시작]start x: %.2f, goal y: %.2f", 
+                        start.pose.position.x, goal.pose.position.y);
             // RCLCPP_INFO(logger_, "start y: %.2f, goal y: %.2f",
                         // start.pose.position.y, goal.pose.position.y);
             // RCLCPP_INFO(logger_, "[for2] waypoints_y_");
@@ -425,7 +425,7 @@ namespace custom_planner
     {
         size_t turnable_index = 2;
         bool is_adding_waypoint = true;
-        bool is_x_dir_increase = endWaypointIndex.x_idx > startWaypointIndex.x_idx;
+        bool is_x_dir_increase = endWaypointIndex.x_idx < startWaypointIndex.x_idx;
         bool is_y_dir_increase = endWaypointIndex.y_idx > startWaypointIndex.y_idx;
         RCLCPP_INFO(logger_, "is_x_dir_increase: %s, is_y_dir_increase: %s", 
                     is_x_dir_increase ? "true" : "false",
