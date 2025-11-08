@@ -164,8 +164,8 @@ namespace custom_planner
         RCLCPP_INFO(logger_, "좁은 문 통과 중 (타이머 실행)...");
         
         geometry_msgs::msg::Twist cmd_vel_msg;
-        double current_y = current_pose.pose.pose.position.x;
-        double current_x = current_pose.pose.pose.position.y;
+        double current_x = current_pose.pose.pose.position.x;
+        double current_y = current_pose.pose.pose.position.y;
         double current_theta = tf2::getYaw(current_pose.pose.pose.orientation);
         
         RCLCPP_INFO(logger_, "second_to_last_y: %.2f, current_y: %.2f, diff: %.2f",
@@ -261,42 +261,42 @@ namespace custom_planner
                         // start.pose.position.y, goal.pose.position.y);
             // RCLCPP_INFO(logger_, "[for2] waypoints_y_");
         }
-        for (size_t i = 0; i < waypoints_y_.size(); ++i)
+        for (size_t i = 0; i < waypoints_x_.size(); ++i)
         {   
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             // RCLCPP_INFO(logger_, "--%zu번째", i);
             if (start.pose.position.x < goal.pose.position.x) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_y_[i] > start.pose.position.x && waypoints_y_[i] <= goal.pose.position.x) {
-                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y;
+                if (waypoints_x_[i] > start.pose.position.x && waypoints_x_[i] <= goal.pose.position.x) {
+                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
+                    double current_diff_x;
                     if (is_start) {
-                        current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                        current_diff_x = std::abs(start.pose.position.x - waypoints_x_[i]); // x
                     } else {
-                        current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
+                        current_diff_x = std::abs(goal.pose.position.x - waypoints_x_[i]); // x
                     }
-                    if (current_diff_y < diff_y) {
-                        diff_y = current_diff_y;
-                        y_index = i;
-                        // RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
+                    if (current_diff_x < diff_x) {
+                        diff_x = current_diff_x;
+                        x_index = i;
+                        // RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
                     }
                 } else {
                     // RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
                 }
             } else if (start.pose.position.x > goal.pose.position.x) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_y_[i] < start.pose.position.x && waypoints_y_[i] >= goal.pose.position.x) {
-                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
-                    double current_diff_y;
+                if (waypoints_x_[i] < start.pose.position.x && waypoints_x_[i] >= goal.pose.position.x) {
+                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
+                    double current_diff_x;
                     if (is_start) {
-                        current_diff_y = std::abs(start.pose.position.x - waypoints_y_[i]); // x
+                        current_diff_x = std::abs(start.pose.position.x - waypoints_x_[i]); // x
                     } else {
-                        current_diff_y = std::abs(goal.pose.position.x - waypoints_y_[i]); // x
+                        current_diff_x = std::abs(goal.pose.position.x - waypoints_x_[i]); // x
                     }
-                    if (current_diff_y < diff_y) {
-                        diff_y = current_diff_y;
-                        y_index = i;
-                        // RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
+                    if (current_diff_x < diff_x) {
+                        diff_x = current_diff_x;
+                        x_index = i;
+                        // RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
                     }
                 } else {
                     // RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
@@ -307,45 +307,45 @@ namespace custom_planner
             }
         }
 
-        // waypoints_x_ 순서대로 경유
+        // waypoints_y_ 순서대로 경유
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        RCLCPP_INFO(logger_, "[for2] waypoints_x_");
-        for (size_t i = 0; i < waypoints_x_.size(); ++i)
+        RCLCPP_INFO(logger_, "[for2] waypoints_y_");
+        for (size_t i = 0; i < waypoints_y_.size(); ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             // RCLCPP_INFO(logger_, "--%zu번째", i);
             if (start.pose.position.y < goal.pose.position.y) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_x_[i] > start.pose.position.y && waypoints_x_[i] <= goal.pose.position.y) {
-                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x;
+                if (waypoints_y_[i] > start.pose.position.y && waypoints_y_[i] <= goal.pose.position.y) {
+                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
+                    double current_diff_y;
                     if (is_start) {
-                        current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                        current_diff_y = std::abs(start.pose.position.y - waypoints_y_[i]); // y
                     } else {
-                        current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
+                        current_diff_y = std::abs(goal.pose.position.y - waypoints_y_[i]); // y
                     }
-                    if (current_diff_x < diff_x) {
-                        diff_x = current_diff_x;
-                        x_index = i;
-                        // RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
+                    if (current_diff_y < diff_y) {
+                        diff_y = current_diff_y;
+                        y_index = i;
+                        // RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
                     }
                 } else {
                     // RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
                 }
             } else if (start.pose.position.y > goal.pose.position.y) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                if (waypoints_x_[i] < start.pose.position.y && waypoints_x_[i] >= goal.pose.position.y) {
-                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_x_: %.2f", waypoints_x_[i]);
-                    double current_diff_x;
+                if (waypoints_y_[i] < start.pose.position.y && waypoints_y_[i] >= goal.pose.position.y) {
+                    // RCLCPP_INFO(logger_, "----검토 중인 waypoints_y_: %.2f", waypoints_y_[i]);
+                    double current_diff_y;
                     if (is_start) {
-                        current_diff_x = std::abs(start.pose.position.y - waypoints_x_[i]); // y
+                        current_diff_y = std::abs(start.pose.position.y - waypoints_y_[i]); // y
                     } else {
-                        current_diff_x = std::abs(goal.pose.position.y - waypoints_x_[i]); // y
+                        current_diff_y = std::abs(goal.pose.position.y - waypoints_y_[i]); // y
                     }
-                    if (current_diff_x < diff_x) {
-                        diff_x = current_diff_x;
-                        x_index = i;
-                        // RCLCPP_INFO(logger_, "------[x_index 변경: %zu]", x_index);
+                    if (current_diff_y < diff_y) {
+                        diff_y = current_diff_y;
+                        y_index = i;
+                        // RCLCPP_INFO(logger_, "------[y_index 변경: %zu]", y_index);
                     }
                 } else {
                     // RCLCPP_INFO(logger_, "----검토안됨: %zu", i);
@@ -364,8 +364,8 @@ namespace custom_planner
             if (waypoints_.find(key) != waypoints_.end()) {
                 WaypointResult result;
                 geometry_msgs::msg::PoseStamped waypoint;
-                waypoint.pose.position.x = waypoints_y_[y_index];
-                waypoint.pose.position.y = waypoints_x_[x_index];
+                waypoint.pose.position.x = waypoints_x_[x_index];
+                waypoint.pose.position.y = waypoints_y_[y_index];
                 // waypoint.pose.orientation = goal.pose.orientation;
                 RCLCPP_INFO(logger_, "추가된 웨이포인트: (%.2f, %.2f)", 
                     waypoint.pose.position.x, waypoint.pose.position.y);
@@ -706,8 +706,8 @@ namespace custom_planner
             before = waypoints_[before_wp_key];
         }
         auto current = waypoints_[current_wp_key];
-        double dx = current.second - before.second;
-        double dy = current.first - before.first;
+        double dx = current.first - before.first;
+        double dy = current.second - before.second;
         double yaw = std::atan2(dy, dx);
         RCLCPP_INFO(logger_, "yaw: %.4f", yaw);
 
@@ -728,22 +728,22 @@ namespace custom_planner
         bool has_x1y2 = false;
         bool has_x1y1 = false;
         for (const auto &pose : global_path.poses) {
-            if (std::abs(pose.pose.position.x - y2_) < 1e-6 && std::abs(pose.pose.position.y - x7_) < 1e-6) {
+            if (std::abs(pose.pose.position.y - y2_) < 1e-6 && std::abs(pose.pose.position.x - x7_) < 1e-6) {
                 has_x7y2 = true;
             }
-            if (std::abs(pose.pose.position.x - y1_) < 1e-6 && std::abs(pose.pose.position.y - x7_) < 1e-6) {
+            if (std::abs(pose.pose.position.y - y1_) < 1e-6 && std::abs(pose.pose.position.x - x7_) < 1e-6) {
                 has_x7y1 = true;
             }
-            if (std::abs(pose.pose.position.x - y2_) < 1e-6 && std::abs(pose.pose.position.y - x1_) < 1e-6) {
+            if (std::abs(pose.pose.position.y - y2_) < 1e-6 && std::abs(pose.pose.position.x - x1_) < 1e-6) {
                 has_x1y2 = true;
             }
-            if (std::abs(pose.pose.position.x - y1_) < 1e-6 && std::abs(pose.pose.position.y - x1_) < 1e-6) {
+            if (std::abs(pose.pose.position.y - y1_) < 1e-6 && std::abs(pose.pose.position.x - x1_) < 1e-6) {
                 has_x1y1 = true;
             }
         }
         // 경로 뒤에서 2번째 포즈의 y좌표 얻기
-        second_to_last_x = global_path.poses[global_path.poses.size() - 2].pose.position.y;
-        second_to_last_y = global_path.poses[global_path.poses.size() - 2].pose.position.x;
+        second_to_last_y = global_path.poses[global_path.poses.size() - 2].pose.position.y;
+        second_to_last_x = global_path.poses[global_path.poses.size() - 2].pose.position.x;
         path_after_narrow.start = global_path.poses[global_path.poses.size() - 2];
         path_after_narrow.goal = global_path.poses[global_path.poses.size() - 1];
         // 경로 뒤에서 2개 포즈 제거
