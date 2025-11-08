@@ -58,7 +58,7 @@ bt_navigator:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
 
     ##절대경로!!
-    default_nav_to_pose_bt_xml: /home/vic/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/behavior_trees/navigate_to_pose_w_replanning_and_recovery_custom.xml
+    # default_nav_to_pose_bt_xml: /home/vic/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/behavior_trees/navigate_to_pose_w_replanning_and_recovery_custom.xml
 
     # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
     # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
@@ -82,8 +82,8 @@ controller_server:
 
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.20       # 10 cm 위치 오차 허용
-      yaw_goal_tolerance: 0.2      # 약 1.1° 회전 오차 허용
+      xy_goal_tolerance: 0.25       # 10 cm 위치 오차 허용
+      yaw_goal_tolerance: 0.22      # 약 1.1° 회전 오차 허용
       stateful: True                # 도착 후 약간 움직여도 SUCCESS 유지
     ####
 

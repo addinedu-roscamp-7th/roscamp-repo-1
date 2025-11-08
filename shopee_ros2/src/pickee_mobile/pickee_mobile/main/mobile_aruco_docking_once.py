@@ -1,5 +1,6 @@
 import math
 import time
+from threading import Event
 
 import rclpy
 from rclpy.node import Node
@@ -23,7 +24,7 @@ from pickee_mobile.module.module_rotate_odom import Rotate #⚙️ odom읽으면
 # Idle(대기) 
 # -> Before_docking (목적지 도착 신호를 받음, 마커 감지 안되면 탐색동작), Lost_before_docking (목적지 도착 했는데 마커가 안보임)
 # -> Aligning_to_side (마커가 정면에 오도록 옆으로 이동) 
-# -> Approaching (마커가 어느정도 정면에 있고 z값 줄이면서 도킹 완료), Lost_during_approaching (Approaching 중에 마커 안보임)
+# -> Docking (마커가 어느정도 정면에 있고 z값 줄이면서 도킹 완료), Lost_during_docking (Docking 중에 마커 안보임)
 # -> Ending (도킹 완료 신호 전송, 정지, 카운터 리셋, 상태변수 리셋)
 # -> Idle(대기)
 
@@ -66,8 +67,8 @@ class ArucoDocking(Node):
                                     "Before_docking", 
                                     "Lost_before_docking",
                                     "Aligning_to_side",
-                                    "Approaching",
-                                    "Lost_during_approaching",
+                                    "Docking",
+                                    "Lost_during_docking",
                                     "Ending"]
         self.current_state = "Idle"                         # 대기 상태
         self.pre_docking_search_angles_rad = [              # 도킹 전 탐색 회전 패턴
@@ -84,6 +85,7 @@ class ArucoDocking(Node):
             2: {"x": 4.10, "y": -0.30, "yaw_rad": math.radians(180)}, # 중우
             3: {"x": 1.25, "y": 2.90, "yaw_rad": math.radians(90)},  # 우하
         }
+        self.stop_event = Event()
 
         # 기구 오프셋
         self.camera_offset_mm = 90.0           # 카메라가 로봇 중심보다 전방(+Z) 90 mm
@@ -174,9 +176,9 @@ class ArucoDocking(Node):
                         
                         self.align_to_side()
 
-                    elif self.current_state == "Approaching":
+                    elif self.current_state == "Docking":
 
-                        self.approaching()
+                        self.docking()
 
             # 마커 감지 실패
             else:
@@ -187,10 +189,10 @@ class ArucoDocking(Node):
                     self.detect_marker_before_docking()
                 
                 # 접근 중 복구동작
-                elif self.current_state == "Approaching":
+                elif self.current_state == "Docking":
 
-                    self.current_state = "Lost_during_approaching"
-                    self.detect_marker_during_approaching()
+                    self.current_state = "Lost_during_docking"
+                    self.detect_marker_during_docking()
 
             # If docking in progress → process movements
             # if self.is_docking_active:
@@ -199,7 +201,7 @@ class ArucoDocking(Node):
 
             #         self.align_x(x, z, yaw_rad)
 
-            #     elif self.current_state == "Approaching":
+            #     elif self.current_state == "Docking":
 
             #         self.set_docking_vel(x, z, yaw_rad)
 
@@ -215,6 +217,7 @@ class ArucoDocking(Node):
     def align_to_side(self):
         
         if abs(self.dist_side) > 30:
+            self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
             turn_to_side_rad = sign(self.yaw_rad) * (math.radians(90) - abs(self.yaw_rad))
@@ -238,13 +241,13 @@ class ArucoDocking(Node):
         else:
 
             self.get_logger().info(f"🤖 PickeeMobile is allready aligned to side. dist_side = {self.dist_side}")
-            self.get_logger().info(f"🤖 Start approaching")
+            self.get_logger().info(f"🤖 Start docking")
 
-        self.current_state = "Approaching"
+        self.current_state = "Docking"
 
-    def approaching(self):
+    def docking(self):
         now = time.time()
-        # self.get_logger().info(f"✅ Aligned to x!!! Start Approaching")
+        # self.get_logger().info(f"✅ Aligned to x!!! Start Docking")
         
         self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
@@ -286,7 +289,7 @@ class ArucoDocking(Node):
 
             self.get_logger().info(f"🔁 222")
 
-            goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 7, 10), 0.0))
+            goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 14, 10), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
             self.set_yaw(goal_yaw_rad)
 
@@ -299,16 +302,16 @@ class ArucoDocking(Node):
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(10):
+        elif abs(self.yaw_rad) > math.radians(10):# or abs(self.dist_side) > 25:
 
             self.get_logger().info(f"🚗 222")
 
-            self.detect_marker_during_approaching()
+            self.detect_marker_during_docking()
         
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.11)
+            run(self, 0.115)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
             self.publish_stop()
             self.reset_docking_state()
@@ -322,7 +325,7 @@ class ArucoDocking(Node):
         
         else:
             self.cmd_vel.angular.z = -0.06
-            pass
+
 
     def detect_marker_before_docking(self):
         self.get_logger().info(f"⚠️ ArUco marker lost before docking")
@@ -363,8 +366,8 @@ class ArucoDocking(Node):
 
         self.current_state = "Before_docking"
 
-    def detect_marker_during_approaching(self):
-        self.get_logger().info(f"⚠️ ArUco marker lost during approaching")
+    def detect_marker_during_docking(self):
+        self.get_logger().info(f"⚠️ ArUco marker lost during docking")
         self.get_logger().info(f"⚠️ Current state is {self.current_state}")
         # self.get_logger().info(f"⚠️ Marker lost while docking (count={self.lost_count_during_docking})")
         
@@ -420,7 +423,7 @@ class ArucoDocking(Node):
             self.publish_stop()
             self.reset_docking_state()
         
-        self.current_state = "Approaching"
+        self.current_state = "Docking"
 
     # ---------------------------
     # 정지
