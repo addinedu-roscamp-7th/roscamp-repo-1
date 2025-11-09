@@ -31,7 +31,7 @@ namespace custom_planner
 
         y1_ = 7.0;
         y2_ = 4.5;
-        y3_ = 1.0;
+        y3_ = 2.4;
         y4_ = 1.5;
         y5_ = 0.8;
         y6_ = 0.1;
