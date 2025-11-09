@@ -14,5 +14,11 @@ def generate_launch_description():
             executable='packee_packing',
             name='packee_packing',
             output='screen'
+        ),
+        Node(
+            package='packee_main',
+            executable='packee_state_manager',
+            name='packee_state_manager',
+            output='screen'
         )
     ])

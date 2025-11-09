@@ -133,25 +133,36 @@ class DetectProducts(Node):
         try:
             results = self.yolo_model(undistorted, conf=0.6)
             for result in results:
-                for box in result.boxes:
-                    cls_id = int(box.cls.cpu().numpy())
+                if not hasattr(result, "masks") or result.masks is None:
+                    self.get_logger().warn(f"[packee{self.packee_num}] 세그멘테이션 마스크가 없습니다.")
+                    continue
+
+                for i, mask in enumerate(result.masks.data):
+                    cls_id = int(result.boxes.cls[i].cpu().numpy())
                     class_name = int(self.yolo_model.names[cls_id])
+
                     if class_name != request.expected_product_id:
                         continue
 
-                    x1, y1, x2, y2 = map(int, box.xyxy.cpu().numpy().flatten())
+                    # --- 세그멘테이션 중심 계산 ---
+                    mask_np = mask.cpu().numpy()
+                    ys, xs = np.nonzero(mask_np)
+                    if len(xs) == 0 or len(ys) == 0:
+                        continue
 
-                    # ROI 중심으로 grid 구분
-                    x_center = (x1 + x2) / 2
+                    mask_center_x = np.mean(xs)
+                    mask_center_y = np.mean(ys)
+
                     frame_center_x = undistorted.shape[1] / 2
-                    offset = x_center - frame_center_x
+                    offset = mask_center_x - frame_center_x
                     threshold = 0.15 * undistorted.shape[1]
+
                     if offset > threshold:
-                        grid_key = "grid3"
-                    elif offset < -threshold:
-                        grid_key = "grid2"
-                    else:
                         grid_key = "grid1"
+                    elif offset < -threshold:
+                        grid_key = "grid3"
+                    else:
+                        grid_key = "grid2"
 
                     target_img_path = f"./src/packee_vision/packee_vision/target_img/packee{self.packee_num}_{self.products[int(class_name)]}_{grid_key}.jpg"
                     pose_mean, pose_std = self.load_pose_stats(f"./src/packee_vision/packee_vision/packee{self.packee_num}_datasets/labels.csv")
@@ -167,7 +178,7 @@ class DetectProducts(Node):
                     self.get_logger().info(f"[packee{self.packee_num}] current_pose: {current_pose},  target_pose: {target_pose}")
 
         except Exception as e:
-            self.get_logger().error(f"[packee {self.packee_num}] detection error: {e}")
+            self.get_logger().error(f"[packee {self.packee_num}] segmentation error: {e}")
             response.success = False
             response.current_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
             response.target_pose = Pose6D(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0)
