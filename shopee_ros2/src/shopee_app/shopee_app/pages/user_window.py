@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+import re
 from pathlib import Path
 from dataclasses import replace
 from threading import Event
@@ -40,6 +41,8 @@ from PyQt6.QtWidgets import QGraphicsView
 from PyQt6.QtWidgets import QGraphicsEllipseItem
 from PyQt6.QtWidgets import QGraphicsLineItem
 from PyQt6.QtWidgets import QGraphicsPixmapItem
+from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+from PyQt6.QtWidgets import QGraphicsItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
@@ -53,6 +56,8 @@ from shopee_app.pages.widgets.cart_select_item import CartSelectItemWidget
 from shopee_app.pages.widgets.product_card import ProductCard
 from shopee_app.ui_gen.layout_user import Ui_Form_user as Ui_UserLayout
 from shopee_app.pages.widgets.profile_dialog import ProfileDialog
+from shopee_app.styles.constants import COLORS
+from shopee_app.styles.constants import STYLES
 
 if TYPE_CHECKING:
     from shopee_app.ros_node import RosNodeThread
@@ -117,6 +122,7 @@ VIDEO_STREAM_DEBUG = os.getenv("SHOPEE_APP_DEBUG_VIDEO_STREAM", "0") == "1"
 
 
 class ClickableLabel(QLabel):
+    '''마우스 클릭 이벤트를 시그널로 제공하는 QLabel 확장.'''
 
     clicked = pyqtSignal()
 
@@ -125,12 +131,14 @@ class ClickableLabel(QLabel):
         self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        '''왼쪽 버튼이 떼어질 때 클릭 신호를 방출한다.'''
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
 
 class SttStatusDialog(QDialog):
+    '''음성 인식 진행 상황을 실시간으로 보여 주는 모달 대화상자.'''
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -144,6 +152,8 @@ class SttStatusDialog(QDialog):
         layout.addWidget(self.message_label)
 
     def update_message(self, text: str, *, warning: bool = False) -> None:
+        '''상태 메시지를 갱신하고 경고 여부에 따라 색상을 조정한다.'''
+        # 안내 문구를 업데이트하면서 경고 여부에 따라 색상을 바꾼다.
         self.message_label.setText(text)
         if warning:
             self.message_label.setStyleSheet("color: #d32f2f;")
@@ -154,6 +164,7 @@ class SttStatusDialog(QDialog):
 
 
 class SttWorker(QtCore.QObject):
+    '''Whisper STT를 별도 스레드에서 실행해 UI 응답성을 유지한다.'''
 
     microphone_detected = QtCore.pyqtSignal(int, str)
     listening_started = QtCore.pyqtSignal()
@@ -174,7 +185,9 @@ class SttWorker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
+        '''마이크를 탐색하고 STT를 실행한 뒤 결과를 발행한다.'''
         try:
+            # 우선 사용 가능한 마이크를 탐색하고 발견한 정보를 신호로 알린다.
             microphone_info = self._detect_microphone(self._stt_module)
             if microphone_info is None:
                 self.error_occurred.emit("사용 가능한 마이크 정보를 찾지 못했습니다.")
@@ -184,6 +197,7 @@ class SttWorker(QtCore.QObject):
             prompt_notified = False
 
             def _notify_prompt() -> None:
+                # Whisper가 프롬프트 문구를 출력하기 전까지 단 한 번만 듣기 시작 신호를 보낸다.
                 nonlocal prompt_notified
                 if prompt_notified:
                     return
@@ -198,6 +212,7 @@ class SttWorker(QtCore.QObject):
                     self._callback = callback
 
                 def write(self, text: str) -> int:
+                    # Whisper 모듈이 stdout에 프롬프트를 쓰는 순간 콜백을 호출해 UI에 반영한다.
                     self._target.write(text)
                     self._target.flush()
                     if "Please Talk to me" in text:
@@ -209,6 +224,7 @@ class SttWorker(QtCore.QObject):
 
             sys.stdout = _StdoutProxy(original_stdout, _notify_prompt)
             try:
+                # Whisper STT 실행 결과를 문자열로 변환해 신호로 전달한다.
                 result = self._stt_module.stt_use()
             finally:
                 sys.stdout = original_stdout
@@ -226,10 +242,13 @@ class SttWorker(QtCore.QObject):
 
 
 class UserWindow(QWidget):
+    '''사용자 쇼핑 화면과 로봇 제어 흐름을 담당하는 주 창.'''
+
     IMAGE_ROOT = Path(__file__).resolve().parent / "image"
     ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
     ROBOT_POSITION_OFFSET_X = 14.7
     ROBOT_POSITION_OFFSET_Y = 12.0
+    ROBOT_LABEL_OFFSET_Y = -36.0
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
         1: IMAGE_ROOT / "product_horseradish.png",
         2: IMAGE_ROOT / "product_spicy_chicken.png",
@@ -278,6 +297,7 @@ class UserWindow(QWidget):
         ros_thread: "RosNodeThread | None" = None,
         parent=None,
     ):
+        '''사용자 정보와 서비스 의존성을 받아 UI를 초기화한다.'''
         super().__init__(parent)
 
         # 컴포넌트 로거 초기화
@@ -304,7 +324,19 @@ class UserWindow(QWidget):
         self.cart_widgets: dict[int, CartItemWidget] = {}
         self.cart_items_layout = getattr(self.ui, "cart_items_layout", None)
         self.cart_spacer = None
+        self.cart_empty_label: QLabel | None = None
         if self.cart_items_layout is not None:
+            # 장바구니가 비었을 때 표시할 안내 문구를 준비한다.
+            self.cart_empty_label = QLabel('장바구니에 담긴 상품이 없습니다.')
+            self.cart_empty_label.setAlignment(
+                QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignVCenter
+            )
+            self.cart_empty_label.setStyleSheet(
+                'color: #9AA0A6; font-size: 12pt; font-weight: 500;'
+            )
+            self.cart_empty_label.setWordWrap(True)
+            self.cart_empty_label.hide()
+            self.cart_items_layout.insertWidget(0, self.cart_empty_label)
             self.cart_spacer = QSpacerItem(
                 0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
             )
@@ -375,11 +407,13 @@ class UserWindow(QWidget):
         self.map_pixmap_item: QGraphicsPixmapItem | None = None
         self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
         self.map_heading_item: QGraphicsLineItem | None = None
+        self.map_robot_label: QGraphicsSimpleTextItem | None = None
         self.map_resolution: float | None = None
         self.map_origin: tuple[float, float] | None = None
         self.map_image_size: tuple[int, int] | None = None
         self.video_receiver: VideoStreamReceiver | None = None
         self.active_camera_type: str | None = None
+        self._auto_camera_warning_displayed = False
         self.allergy_toggle_button: QPushButton | None = None
         self.allergy_sub_widget: QWidget | None = None
         self.allergy_filters_expanded = True
@@ -397,12 +431,50 @@ class UserWindow(QWidget):
             self.select_done_button = getattr(self.ui, "toolButton", None)
         if self.select_done_button is not None:
             self.select_done_button.clicked.connect(self.on_select_done_clicked)
-        self.select_cancel_button = getattr(self.ui, "btn_select_cancel", None)
-        if self.select_cancel_button is None:
-            self.select_cancel_button = getattr(self.ui, "toolButton_4", None)
-        if self.select_cancel_button is not None:
-            self.select_cancel_button.setText("선택 취소")
-            self.select_cancel_button.clicked.connect(self.on_select_cancel_clicked)
+            self.select_done_button.setStyleSheet(
+                f"""
+                    background-color: {COLORS['primary']};
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 10px 24px;
+                """
+            )
+        self.selection_state_label = getattr(self.ui, "label_selecting_state", None)
+        if self.selection_state_label is not None:
+            self.selection_state_label.setText("선택 대기 중")
+        self.selection_voice_button = getattr(self.ui, "btn_select_cancel", None)
+        if self.selection_voice_button is None:
+            self.selection_voice_button = getattr(self.ui, "toolButton_4", None)
+        if self.selection_voice_button is not None:
+            self.selection_voice_button.setCheckable(True)
+            self.selection_voice_button.setChecked(False)
+            self.selection_voice_button.setToolTip("음성으로 선택지 고르기")
+            mic_icon_path = Path(__file__).resolve().parent / "icons" / "mic.svg"
+            if mic_icon_path.exists():
+                self.selection_voice_button.setIcon(QIcon(str(mic_icon_path)))
+                self.selection_voice_button.setIconSize(QtCore.QSize(20, 20))
+            if hasattr(self.selection_voice_button, "setToolButtonStyle"):
+                self.selection_voice_button.setToolButtonStyle(
+                    QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+                )
+            if hasattr(self.selection_voice_button, "setSizePolicy"):
+                self.selection_voice_button.setSizePolicy(
+                    QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+                )
+            primary_color = COLORS["primary"]
+            neutral_color = "#666666"
+            self.selection_voice_button.setStyleSheet(
+                f"QToolButton {{ text-align: center; padding: 6px 16px; min-height: 40px; border-radius: 10px; "
+                f"background-color: transparent; color: {neutral_color}; border: 1px solid {neutral_color}; "
+                f"margin-right: 12px; }} "
+                f"QToolButton:checked {{ background-color: {primary_color}; color: white; border-color: {primary_color}; }} "
+                f"QToolButton::icon {{ margin-right: 3px; }}"
+            )
+            self._update_selection_voice_button(False)
+            self.selection_voice_button.clicked.connect(
+                self.on_selection_voice_button_clicked
+            )
         self.front_view_button = getattr(self.ui, "btn_view_front", None)
         self.arm_view_button = getattr(self.ui, "btn_view_arm", None)
         self.camera_button_group = QButtonGroup(self)
@@ -419,12 +491,17 @@ class UserWindow(QWidget):
             self.arm_view_button.clicked.connect(
                 lambda: self.on_camera_button_clicked("arm")
             )
+        self.pick_bottom_sheet_frame = getattr(self.ui, "frame_pick_bottom_sheet", None)
+        if self.pick_bottom_sheet_frame is not None:
+            self._apply_pick_bottom_sheet_frame_style(self.pick_bottom_sheet_frame)
         self.shop_end_button = getattr(self.ui, "btn_shop_end", None)
         if self.shop_end_button is not None:
             self.shop_end_button.clicked.connect(self.on_shop_end_clicked)
+            self._apply_shop_end_button_style(self.shop_end_button)
         self.shop_continue_button = getattr(self.ui, "btn_shop_continue", None)
         if self.shop_continue_button is not None:
             self.shop_continue_button.clicked.connect(self.on_shop_continue_clicked)
+            self._apply_shop_continue_button_style(self.shop_continue_button)
         # 검색 입력 위젯을 저장하지 않으면 사용자가 입력한 검색어를 가져올 방법이 없다.
         self.search_input = getattr(self.ui, "edit_search", None)
         if self.search_input is None:
@@ -482,7 +559,9 @@ class UserWindow(QWidget):
         self._stt_status_close_timer.setSingleShot(True)
         self._stt_status_close_timer.timeout.connect(self._close_stt_status_dialog)
         self._stt_last_microphone_name: str | None = None
-        self.set_products(self.load_initial_products())
+        self._stt_context: str | None = None
+        self.empty_products_message = self.default_empty_products_message
+        self.set_products([])
         self.update_cart_summary()
 
         self.user_info: dict[str, Any] = dict(user_info or {})
@@ -514,7 +593,7 @@ class UserWindow(QWidget):
             profile_button.setToolTip("프로필 보기")
             profile_button.clicked.connect(self.open_profile_dialog)
         QtCore.QTimer.singleShot(0, self.refresh_product_grid)
-        # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 더미 데이터가 그대로 남는다.
+        # 초기 화면에서 바로 서버 상품을 갱신하지 않으면 빈 상태가 유지된다.
         QtCore.QTimer.singleShot(0, self.request_total_products)
 
         self._update_user_header()
@@ -537,6 +616,7 @@ class UserWindow(QWidget):
         return user_id_value
 
     def _get_stt_module(self) -> STT_Module:
+        # STT 모듈은 초기화 비용이 크므로 한 번만 생성해 재사용한다.
         if self._stt_module is None:
             self._stt_module = STT_Module()
         return self._stt_module
@@ -608,6 +688,10 @@ class UserWindow(QWidget):
         self._close_stt_status_dialog()
         if self.mic_button is not None:
             self.mic_button.setEnabled(True)
+        if self.selection_voice_button is not None:
+            self.selection_voice_button.setEnabled(True)
+        self._stt_context = None
+        self._update_selection_voice_button(False)
         self.unsetCursor()
         self._hide_mic_info()
 
@@ -646,12 +730,57 @@ class UserWindow(QWidget):
         # 버튼 클릭과 엔터 입력이 동일하게 동작하도록 검색 제출 함수를 재사용한다.
         self.on_search_submitted()
 
+    # 검색 영역에서 마이크 버튼을 누르면 STT 쓰레드를 기동한다.
     def on_microphone_clicked(self) -> None:
         if self._stt_busy:
             QMessageBox.information(
                 self, "음성 인식 진행 중", "이미 음성을 인식하고 있습니다."
             )
             return
+        self._stt_context = "search"
+        self._start_mic_feedback()
+        self.on_stt_started()
+        self._show_stt_status_dialog(
+            "마이크 찾는 중...", icon=QMessageBox.Icon.Information
+        )
+        stt_module = self._get_stt_module()
+        self._stt_last_microphone_name = None
+        worker = SttWorker(
+            stt_module=stt_module,
+            detect_microphone=self._detect_microphone,
+        )
+        thread = QtCore.QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.microphone_detected.connect(self._on_stt_microphone_detected)
+        worker.listening_started.connect(self._on_stt_listening_started)
+        worker.result_ready.connect(self.on_stt_result_ready)
+        worker.error_occurred.connect(self.on_stt_error)
+        worker.finished.connect(self._on_stt_worker_finished)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_stt_thread_finished)
+        self._stt_thread = thread
+        self._stt_worker = worker
+        thread.start()
+
+    # 상품 선택 화면에서 음성 버튼을 누르면 동일한 STT 파이프라인을 재사용한다.
+    def on_selection_voice_button_clicked(self) -> None:
+        # 선택지가 없다면 음성 입력으로도 전달할 데이터가 없다.
+        if not self.selection_options:
+            QMessageBox.information(
+                self, "음성 선택", "현재 고를 수 있는 선택지가 없습니다."
+            )
+            self._update_selection_voice_button(False)
+            return
+        if self._stt_busy:
+            QMessageBox.information(
+                self, "음성 선택", "다른 음성 명령이 진행 중입니다."
+            )
+            self._update_selection_voice_button(False)
+            return
+        self._stt_context = "selection"
         self._start_mic_feedback()
         self.on_stt_started()
         self._show_stt_status_dialog(
@@ -692,9 +821,12 @@ class UserWindow(QWidget):
     @QtCore.pyqtSlot()
     def _on_stt_listening_started(self) -> None:
         self._stt_status_close_timer.stop()
-        prompt = "검색할 음성을 말해주세요..."
         if self._stt_last_microphone_name:
             prompt = f"마이크: [{self._stt_last_microphone_name}] \n 음성 인식 중..."
+        elif self._stt_context == "selection":
+            prompt = "선택할 번호를 말씀해주세요..."
+        else:
+            prompt = "검색할 음성을 말해주세요..."
         self._show_stt_status_dialog(prompt, icon=QMessageBox.Icon.Information)
 
     @QtCore.pyqtSlot()
@@ -707,17 +839,29 @@ class UserWindow(QWidget):
     def _on_stt_thread_finished(self) -> None:
         self._stt_thread = None
 
+    # STT가 시작되면 UI 상호작용을 잠시 비활성화한다.
     def on_stt_started(self) -> None:
         self._stt_busy = True
         if self.mic_button is not None:
             self.mic_button.setEnabled(False)
+        if self.selection_voice_button is not None:
+            self.selection_voice_button.setEnabled(False)
+        if self._stt_context == "selection":
+            self._update_selection_voice_button(True)
         self.setCursor(QtCore.Qt.CursorShape.WaitCursor)
 
+    # STT가 종료되면 버튼과 커서를 원래 상태로 되돌린다.
     def on_stt_finished(self) -> None:
         self._stt_busy = False
+        current_context = self._stt_context
+        self._stt_context = None
         self._stt_feedback_timer.stop()
         if self.mic_button is not None:
             self.mic_button.setEnabled(True)
+        if self.selection_voice_button is not None:
+            self.selection_voice_button.setEnabled(True)
+        if current_context == "selection":
+            self._update_selection_voice_button(False)
         self.unsetCursor()
         if (
             self._stt_status_dialog is not None
@@ -738,6 +882,23 @@ class UserWindow(QWidget):
             )
             self._schedule_stt_status_close(2000)
             return
+        current_context = self._stt_context
+        if current_context == "selection":
+            handled = self._handle_selection_voice_result(recognized)
+            if handled:
+                self._show_stt_status_dialog(
+                    f"'{recognized}'을(를) 인식했습니다. 선택을 진행합니다.",
+                    icon=QMessageBox.Icon.Information,
+                )
+                self._schedule_stt_status_close(2000)
+            else:
+                self._show_stt_status_dialog(
+                    f"'{recognized}'에서 선택 번호를 찾지 못했습니다.",
+                    icon=QMessageBox.Icon.Warning,
+                )
+                self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return
         if self.search_input is not None:
             self.search_input.setText(recognized)
         self._show_mic_info(f"음성 인식 결과: {recognized}")
@@ -750,15 +911,19 @@ class UserWindow(QWidget):
             icon=QMessageBox.Icon.Warning,
         )
         self._schedule_stt_status_close(2500)
+        if self._stt_context == "selection":
+            self._update_selection_voice_button(False)
         self._show_mic_info("음성 인식 실패")
         self._stt_status_hide_timer.start(2500)
 
     def _start_mic_feedback(self) -> None:
+        # 화면 하단 상태 표시 라벨을 즉시 노출해 사용자가 진행 상황을 인지하게 한다.
         self._stt_status_hide_timer.stop()
         self._stt_feedback_timer.stop()
         self._show_mic_info("음성 인식 중...")
 
     def _on_stt_feedback_tick(self) -> None:
+        # 1초마다 메시지를 갱신해 장시간 대기 시에도 피드백을 유지한다.
         self._stt_feedback_timer.stop()
         self._show_mic_info("음성 인식 중...")
 
@@ -775,36 +940,42 @@ class UserWindow(QWidget):
         self.mic_info_label.setVisible(False)
 
     def request_total_products(self) -> None:
-        # 전체 목록을 가져오지 않으면 쇼핑 첫 화면에 표시할 데이터가 부족하다.
+        '''전체 상품 목록을 조회해 초기 화면에 표시한다.'''
         if self.service_client is None:
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(
+                self, '상품 로드 실패', '상품 서비스를 사용할 수 없습니다.'
+            )
+            self.set_products([])
             self.refresh_product_grid()
             return
         user_id = self._ensure_user_identity()
         if not user_id:
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(
+                self, '상품 로드 실패', '사용자 정보를 확인할 수 없어 상품을 불러올 수 없습니다.'
+            )
+            self.set_products([])
             self.refresh_product_grid()
             return
         try:
             response = self.service_client.fetch_total_products(user_id)
         except MainServiceClientError as exc:
             QMessageBox.warning(
-                self, "상품 로드 실패", f"전체 상품을 불러오지 못했습니다.\n{exc}"
+                self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}'
             )
-            self.set_products(self.load_initial_products())
+            self.set_products([])
             self.refresh_product_grid()
             return
         if not response:
             QMessageBox.warning(
-                self, "상품 로드 실패", "서버에서 전체 상품 응답을 받지 못했습니다."
+                self, '상품 로드 실패', '서버에서 전체 상품 응답을 받지 못했습니다.'
             )
-            self.set_products(self.load_initial_products())
+            self.set_products([])
             self.refresh_product_grid()
             return
         if not response.get("result"):
-            message = response.get("message") or "전체 상품을 가져오지 못했습니다."
-            QMessageBox.warning(self, "상품 로드 실패", message)
-            self.set_products(self.load_initial_products())
+            message = response.get("message") or '전체 상품을 가져오지 못했습니다.'
+            QMessageBox.warning(self, '상품 로드 실패', message)
+            self.set_products([])
             self.refresh_product_grid()
             return
         data = response.get("data") or {}
@@ -812,15 +983,18 @@ class UserWindow(QWidget):
         products = self._convert_total_products(entries)
         if not products:
             QMessageBox.information(
-                self, "상품 로드 안내", "표시할 상품이 없어 기본 목록을 사용합니다."
+                self, '상품 로드 안내', '표시할 상품이 없습니다.'
             )
-            self.set_products(self.load_initial_products())
+            self.empty_products_message = '표시할 상품이 없습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
+        self.empty_products_message = self.default_empty_products_message
         self.set_products(products)
         self.refresh_product_grid()
 
     def request_product_search(self, query: str) -> None:
+        '''사용자 입력과 필터 조건으로 상품 검색을 수행한다.'''
         # 서비스 클라이언트가 없다면 네트워크 요청 자체가 불가능하므로 즉시 반환한다.
         if self.service_client is None:
             return
@@ -859,10 +1033,11 @@ class UserWindow(QWidget):
             self._close_stt_status_dialog()
             # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
             QMessageBox.warning(
-                self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}"
+                self, '검색 실패', f'상품 검색 중 오류가 발생했습니다.\n{exc}'
             )
-            # 실패 시 기본 상품을 채워 넣지 않으면 화면이 비어 보이게 된다.
-            self.set_products(self.load_initial_products())
+            # 실패 시 목록을 초기화하지 않으면 사용자가 최신 상태를 확인하기 어렵다.
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             # 상품 목록을 다시 그리지 않으면 기존 화면이 갱신되지 않는다.
             self.refresh_product_grid()
             return
@@ -876,16 +1051,18 @@ class UserWindow(QWidget):
         self._close_stt_status_dialog()
         # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
         if not response:
-            QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")
-            self.set_products(self.load_initial_products())
+            QMessageBox.warning(self, '검색 실패', '서버에서 응답을 받지 못했습니다.')
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
         # result 플래그를 확인하지 않으면 서버가 실패를 알린 경우에도 잘못된 데이터를 사용할 수 있다.
         if not response.get("result"):
             # 서버가 전달한 메시지를 표시하지 않으면 사용자가 실패 이유를 확인할 수 없다.
-            message = response.get("message") or "상품을 불러오지 못했습니다."
-            QMessageBox.warning(self, "검색 실패", message)
-            self.set_products(self.load_initial_products())
+            message = response.get("message") or '상품을 불러오지 못했습니다.'
+            QMessageBox.warning(self, '검색 실패', message)
+            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.set_products([])
             self.refresh_product_grid()
             return
         # 데이터 섹션을 추출하지 않으면 실제 상품 목록에 접근할 수 없다.
@@ -896,7 +1073,7 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            self.empty_products_message = "조건에 맞는 상품이 없습니다."
+            self.empty_products_message = '조건에 맞는 상품이 없습니다.'
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -906,6 +1083,7 @@ class UserWindow(QWidget):
         self.refresh_product_grid()
 
     def _build_search_filter(self) -> tuple[dict[str, bool], bool | None]:
+        '''사용자 환경설정으로 검색 필터를 구성한다.'''
         # 사용자 정보가 비어 있으면 알레르기 필터를 구성할 수 없으므로 빈 딕셔너리를 준비한다.
         raw_allergy = (
             self.user_info.get("allergy_info")
@@ -933,6 +1111,7 @@ class UserWindow(QWidget):
         return normalized_allergy, bool(vegan_value)
 
     def _resolve_product_image(self, product_id: int, name: str) -> Path:
+        '''상품 이름이나 ID로 이미지 파일 경로를 결정한다.'''
         # 이름 기반 매핑이 있으면 우선적으로 사용한다. 상품 ID가 재사용되더라도 이름은 정확하다는 가정이다.
         normalized_name = (name or "").strip()
         if normalized_name:
@@ -952,6 +1131,7 @@ class UserWindow(QWidget):
         *,
         allergy_info_id: int,
     ) -> AllergyInfoData | None:
+        '''상품 항목에 포함된 알레르기 정보를 안전하게 추출한다.'''
         # 알러지 정보가 딕셔너리 형태가 아니라면 안전하게 None으로 처리한다.
         raw_info = entry.get("allergy_info")
         if not isinstance(raw_info, dict):
@@ -975,6 +1155,7 @@ class UserWindow(QWidget):
     def _convert_search_results(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
+        '''검색 결과 응답을 UI 표현에 맞는 데이터 모델로 변환한다.'''
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
         # 이미지 경로 계산은 전용 헬퍼로 위임해 중복을 줄인다.
@@ -1065,6 +1246,7 @@ class UserWindow(QWidget):
     def _convert_total_products(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
+        '''전체 상품 목록 응답을 ProductData 목록으로 변환한다.'''
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
         for entry in entries:
@@ -1105,6 +1287,7 @@ class UserWindow(QWidget):
         return products
 
     def setup_cart_section(self):
+        '''장바구니 영역의 컨테이너와 토글 버튼을 구성한다.'''
         self.cart_container = getattr(self.ui, "widget_3", None)
         self.cart_frame = getattr(self.ui, "cart_frame", None)
         self.cart_body = getattr(self.ui, "cart_body", None)
@@ -1157,8 +1340,10 @@ class UserWindow(QWidget):
             self.product_scroll.show()
 
         self.apply_cart_state()
+        self.update_cart_empty_state()
 
     def setup_navigation(self):
+        '''상단 네비게이션과 사이드 스택 위젯을 초기화한다.'''
         self.main_stack = getattr(self.ui, "stacked_content", None)
         self.side_stack = getattr(self.ui, "stack_side_bar", None)
         self.page_user = getattr(self.ui, "page_content_user", None)
@@ -1175,49 +1360,53 @@ class UserWindow(QWidget):
         # QSS 스타일시트를 적용하여 세그먼트 버튼 디자인을 구현합니다.
         # 이 스타일은 'seg' 속성을 사용하여 각 버튼(왼쪽, 오른쪽)을 식별하고
         # :checked 상태에 따라 모양과 색상을 변경합니다.
-        qss = '''
+        primary_color = COLORS["primary"]
+        qss = (
+            f'''
         /* 공통 베이스: 회색 테두리, 글자 회색, 약간의 패딩 */
-        QToolButton[seg="left"], QToolButton[seg="right"] {
+        QAbstractButton[seg="left"], QAbstractButton[seg="right"] {{
             border: 1px solid #D3D3D3;         /* 회색 보더 */
             background: #F2F2F2;               /* 비활성 회색 */
             color: #9AA0A6;                    /* 비활성 글자색 */
             padding: 2px 14px;
             font-weight: 600;
-        }
+        }}
 
         /* 왼쪽 캡슐 */
-        QToolButton[seg="left"] {
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
+        QAbstractButton[seg="left"] {{
+            border-top-left-radius: 3px;
+            border-bottom-left-radius: 3px;
             border-right: 0;                   /* 가운데 라인 제거 */
-        }
+        }}
 
         /* 오른쪽 캡슐 */
-        QToolButton[seg="right"] {
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
-        }
+        QAbstractButton[seg="right"] {{
+            border-top-right-radius: 3px;
+            border-bottom-right-radius: 3px;
+        }}
 
         /* 체크(선택) 상태: 흰 배경 + 빨강 글자, 빨강 테두리 */
-        QToolButton[seg="left"]:checked,
-        QToolButton[seg="right"]:checked {
+        QAbstractButton[seg="left"]:checked,
+        QAbstractButton[seg="right"]:checked {{
             background: #FFFFFF;
-            color: #FF3B30;
-            border-color: #FF3B30; /* 클릭된 버튼 테두리 빨강으로 변경 */
-        }
+            color: {primary_color};
+            border-color: {primary_color}; /* 클릭된 버튼 테두리 빨강으로 변경 */
+        }}
 
         /* hover 시 살짝 밝게 */
-        QToolButton[seg="left"]:hover,
-        QToolButton[seg="right"]:hover {
+        QAbstractButton[seg="left"]:hover,
+        QAbstractButton[seg="right"]:hover {{
             background: #FAFAFA;
-        }
+        }}
 
         /* 포커스 윤곽선 없애기(원하면) */
-        QToolButton[seg="left"]:focus,
-        QToolButton[seg="right"]:focus {
+        QAbstractButton[seg="left"]:focus,
+        QAbstractButton[seg="right"]:focus {{
             outline: none;
-        }
+        }}
         '''
+        )
+        self._segment_button_qss = qss
         self.setStyleSheet(qss)
 
         if self.shopping_button:
@@ -1248,6 +1437,21 @@ class UserWindow(QWidget):
             self.store_button.clicked.connect(self.on_store_button_clicked)
 
         self.set_mode("shopping")
+        self._apply_camera_toggle_styles()
+
+    def _apply_camera_toggle_styles(self) -> None:
+        '''전면/로봇팔 전환 버튼에 세그먼트 스타일을 적용한다.'''
+        if self.front_view_button is None or self.arm_view_button is None:
+            return
+        self.front_view_button.setProperty("seg", "left")
+        self.arm_view_button.setProperty("seg", "right")
+        self.front_view_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.arm_view_button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.front_view_button.setMinimumHeight(32)
+        self.arm_view_button.setMinimumHeight(32)
+        stylesheet = getattr(self, "_segment_button_qss", "")
+        if stylesheet:
+            self.setStyleSheet(stylesheet)
 
     def _setup_allergy_toggle(self) -> None:
         button = getattr(self.ui, "btn_allergy", None)
@@ -1290,6 +1494,7 @@ class UserWindow(QWidget):
         button.toggled.connect(self._on_allergy_toggle_clicked)
 
     def _setup_allergy_checkboxes(self) -> None:
+        '''알레르기 체크박스를 수집해 상태 동기화를 준비한다.'''
         # 알러지 필터 체크박스를 동기화하지 않으면 상위와 하위 항목이 따로 움직인다.
         self.allergy_total_checkbox = getattr(self.ui, "cb_allergy_total", None)
         checkbox_names = {
@@ -1359,6 +1564,7 @@ class UserWindow(QWidget):
         self._apply_product_filters(refresh=False)
 
     def _apply_allergy_toggle_state(self, *, expanded: bool) -> None:
+        '''토글 상태에 맞춰 서브 위젯 표시 여부와 아이콘을 갱신한다.'''
         if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
             return
         self.allergy_filters_expanded = expanded
@@ -1376,6 +1582,7 @@ class UserWindow(QWidget):
         self.allergy_sub_widget.hide()
 
     def _on_allergy_toggle_clicked(self, checked: bool) -> None:
+        '''토글 버튼 클릭에 대해 확장 상태를 반영한다.'''
         if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
             return
         self._apply_allergy_toggle_state(expanded=checked)
@@ -1383,6 +1590,7 @@ class UserWindow(QWidget):
     def _on_allergy_total_state_changed(
         self, state: int | QtCore.Qt.CheckState
     ) -> None:
+        '''상위 체크박스 상태에 따라 하위 항목을 일괄 갱신한다.'''
         # 하위 체크박스가 없으면 동기화를 진행할 수 없다.
         if not self.allergy_checkbox_map:
             return
@@ -1402,6 +1610,7 @@ class UserWindow(QWidget):
         self._apply_product_filters()
 
     def _on_allergy_child_state_changed(self, _state: int) -> None:
+        '''하위 체크박스 변경 시 상위 상태와 필터를 다시 계산한다.'''
         # 상위 체크박스가 없거나 하위 목록이 비어 있으면 처리하지 않는다.
         if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
             return
@@ -1411,10 +1620,12 @@ class UserWindow(QWidget):
         self._apply_product_filters()
 
     def _on_vegan_state_changed(self, _state: int) -> None:
+        '''비건 필터 변경에 맞춰 검색 조건을 다시 적용한다.'''
         # 비건 필터만 변경되어도 상품 목록을 다시 계산해야 한다.
         self._apply_product_filters()
 
     def _set_allergy_children_checked(self, *, checked: bool) -> None:
+        '''하위 알레르기 체크박스를 일괄적으로 설정한다.'''
         # 신호 루프를 막기 위해 블록하면서 모든 하위 체크박스를 설정한다.
         for checkbox in self.allergy_checkbox_map.values():
             checkbox.blockSignals(True)
@@ -1422,6 +1633,7 @@ class UserWindow(QWidget):
             checkbox.blockSignals(False)
 
     def _sync_allergy_total_from_children(self) -> None:
+        '''하위 체크 상태를 검토해 상위 체크박스 표시를 동기화한다.'''
         # 상위 체크박스나 하위 목록이 없으면 더 이상 동기화를 진행하지 않는다.
         if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
             return
@@ -1579,12 +1791,12 @@ class UserWindow(QWidget):
                 total_amount=total_amount,
             )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, "주문 생성 실패", str(exc))
-            return self.handle_fake_order(selected_snapshot, selected_items)
+            QMessageBox.warning(self, '주문 생성 실패', str(exc))
+            return False
 
         if not response:
-            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
-            return self.handle_fake_order(selected_snapshot, selected_items)
+            QMessageBox.warning(self, '주문 생성 실패', '서버 응답이 없습니다.')
+            return False
 
         if response.get("result"):
             order_data = response.get("data") or {}
@@ -1599,10 +1811,10 @@ class UserWindow(QWidget):
 
         QMessageBox.warning(
             self,
-            "주문 생성 실패",
-            response.get("message") or "주문 생성에 실패했습니다.",
+            '주문 생성 실패',
+            response.get("message") or '주문 생성에 실패했습니다.',
         )
-        return self.handle_fake_order(selected_snapshot, selected_items)
+        return False
 
     def on_notification_received(self, payload: dict) -> None:
         """푸시 알림 수신 시 처리."""
@@ -1643,6 +1855,7 @@ class UserWindow(QWidget):
         auto_widget = getattr(self.ui, "widget_auto_select_list", None)
         self.populate_selection_list(remote_widget, remote_items, "원격 선택 대기")
         self.populate_selection_list(auto_widget, auto_items, "자동 선택 대기")
+        self._update_selection_state_label()
 
         self.current_order_id = order_data.get("order_id")
         self.current_robot_id = order_data.get("robot_id")
@@ -1653,7 +1866,7 @@ class UserWindow(QWidget):
             if self.current_robot_id is not None:
                 status_label.setText(f"로봇 {self.current_robot_id} 이동중")
             else:
-                status_label.setText("로봇 이동중")
+                status_label.setText("로봇 id ")
 
     def clear_ordered_cart_items(self, items: list[CartItemData]) -> None:
         for item in items:
@@ -1662,26 +1875,6 @@ class UserWindow(QWidget):
             self.remove_cart_widget(item.product_id)
         self.update_cart_summary()
         self.sync_select_all_state()
-
-    def handle_fake_order(
-        self,
-        ordered_snapshot: list[CartItemData],
-        original_items: list[CartItemData],
-    ) -> bool:
-        QMessageBox.information(
-            self,
-            "임시 주문 진행",
-            "Main Service 응답이 없어 임시 데이터로 화면을 전환합니다.",
-        )
-        self.handle_order_created(
-            ordered_snapshot,
-            {
-                "order_id": -1,
-                "robot_id": None,
-            },
-        )
-        self.clear_ordered_cart_items(original_items)
-        return True
 
     def handle_robot_moving_notification(self, payload: dict) -> None:
         """로봇 이동 알림에 따라 상태 텍스트를 갱신한다."""
@@ -1863,6 +2056,7 @@ class UserWindow(QWidget):
             if target_page is not None:
                 self.order_select_stack.setCurrentWidget(target_page)
         print(f"[알림] {formatted}")
+        self._update_selection_state_label()
 
     def handle_cart_update_notification(self, payload: dict) -> None:
         """장바구니 담기 알림을 처리한다."""
@@ -2044,6 +2238,7 @@ class UserWindow(QWidget):
             if name:
                 button.setToolTip(name)
             button.setProperty("option_index", index)
+            self._apply_selection_button_style(button)
             self.selection_button_group.addButton(button)
             row, column = divmod(index, 5)
             self.selection_grid.addWidget(button, row, column)
@@ -2057,6 +2252,81 @@ class UserWindow(QWidget):
             self.selection_selected_index = 0
         else:
             self.selection_selected_index = None
+
+    def _apply_selection_button_style(self, button: QPushButton) -> None:
+        # 선택 토글 버튼은 상태별 색상을 명확히 구분한다.
+        primary_color = COLORS["primary"]
+        neutral_background = COLORS["gray_light"]
+        button.setStyleSheet(
+            f"""
+                QPushButton {{
+                    background-color: {neutral_background};
+                    color: #000000;
+                    border: 1px solid transparent;
+                    border-radius: 3px;
+                    padding: 6px 12px;
+                }}
+                QPushButton:checked {{
+                    background-color: #ffffff;
+                    color: {primary_color};
+                    border: 1px solid {primary_color};
+                }}
+            """
+        )
+
+    def _apply_pick_bottom_sheet_frame_style(self, frame: QWidget) -> None:
+        # 픽업 바텀시트 프레임의 상단 모서리를 둥글게 처리한다.
+        object_name = frame.objectName() or "frame_pick_bottom_sheet"
+        frame.setObjectName(object_name)
+        frame.setStyleSheet(
+            f"""
+                QFrame#{object_name} {{
+                    background-color: #ffffff;
+                    border: 1px solid #000000;
+                    border-top-left-radius: 15px;
+                    border-top-right-radius: 15px;
+                    border-bottom-left-radius: 0px;
+                    border-bottom-right-radius: 0px;
+                }}
+            """
+        )
+
+    def _apply_shop_end_button_style(self, button: QPushButton) -> None:
+        # 쇼핑 종료 버튼은 강조 색상 테두리와 텍스트 대비를 유지한다.
+        primary_color = COLORS["primary"]
+        button.setStyleSheet(
+            f"""
+                QPushButton {{
+                    background-color: #ffffff;
+                    color: {primary_color};
+                    border: 1px solid {primary_color};
+                    border-radius: 3px;
+                    padding: 8px 20px;
+                }}
+                QPushButton:pressed {{
+                    background-color: #ffffff;
+                }}
+            """
+        )
+
+    def _apply_shop_continue_button_style(self, button: QPushButton) -> None:
+        # 쇼핑 계속 버튼은 기본 색상으로 강조한다.
+        primary_color = COLORS["primary"]
+        primary_dark = COLORS.get("primary_dark", primary_color)
+        button.setStyleSheet(
+            f"""
+                QPushButton {{
+                    background-color: {primary_color};
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 3px;
+                    padding: 8px 20px;
+                }}
+                QPushButton:pressed {{
+                    background-color: {primary_dark};
+                }}
+            """
+        )
 
     def _init_video_views(self) -> None:
         if self.gv_front is not None:
@@ -2110,6 +2380,18 @@ class UserWindow(QWidget):
             heading_item.setVisible(False)
         self.map_robot_item = robot_item
         self.map_heading_item = heading_item
+        label_item = QGraphicsSimpleTextItem('')
+        label_font = label_item.font()
+        label_font.setPointSize(10)
+        label_item.setFont(label_font)
+        label_item.setBrush(QBrush(QColor('#212121')))
+        label_item.setZValue(12)
+        label_item.setVisible(False)
+        label_item.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
+        )
+        self.map_scene.addItem(label_item)
+        self.map_robot_label = label_item
         self.map_view.installEventFilter(self)
 
     def _create_robot_graphics(
@@ -2233,7 +2515,11 @@ class UserWindow(QWidget):
 
     def on_camera_button_clicked(self, camera_type: str) -> None:
         if self.current_robot_id is None:
-            QMessageBox.information(self, "영상 요청", "연결된 로봇 정보가 없습니다.")
+            QMessageBox.information(
+                self,
+                '영상 요청',
+                '로봇 ID가 없어 영상 스트림을 요청할 수 없습니다.\n주문 생성 또는 로봇 연결 상태를 확인해주세요.',
+            )
             self._update_video_buttons(None)
             return
         target_page = self.page_front if camera_type == "front" else self.page_arm
@@ -2245,10 +2531,18 @@ class UserWindow(QWidget):
         if self.active_camera_type is not None:
             return
         if self.current_robot_id is None:
+            if not self._auto_camera_warning_displayed:
+                QMessageBox.information(
+                    self,
+                    '영상 자동 시작 안내',
+                    '로봇 ID 정보를 확인할 수 없어 전면 카메라 자동 시작을 건너뜁니다.\n주문 생성 후 다시 시도해주세요.',
+                )
+                self._auto_camera_warning_displayed = True
             return
         if self.front_view_button is None:
             return
-        self.on_camera_button_clicked("front")
+        self._auto_camera_warning_displayed = False
+        self.on_camera_button_clicked('front')
 
     def _enable_pose_tracking(self) -> None:
         if self.pose_tracking_active:
@@ -2320,6 +2614,16 @@ class UserWindow(QWidget):
         self.map_robot_item.setPos(px, scene_y)
         angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
+        if self.map_robot_label is not None:
+            self.map_robot_label.setVisible(True)
+            label_text = f'({x:.2f}, {y:.2f})'
+            self.map_robot_label.setText(label_text)
+            label_rect = self.map_robot_label.boundingRect()
+            label_x = px - (label_rect.width() / 2)
+            label_x = max(0.0, min(label_x, float(width) - label_rect.width()))
+            label_y = scene_y + self.ROBOT_LABEL_OFFSET_Y
+            label_y = max(0.0, min(label_y, float(height)))
+            self.map_robot_label.setPos(label_x, label_y)
         self._fit_map_to_view()
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
@@ -2394,10 +2698,68 @@ class UserWindow(QWidget):
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
 
-    def on_select_cancel_clicked(self) -> None:
-        """상품 선택 단계를 종료하고 대기 화면으로 돌아간다."""
-        if self.order_select_stack is not None and self.page_moving_view is not None:
-            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+    def _update_selection_voice_button(self, active: bool) -> None:
+        if self.selection_voice_button is None:
+            return
+        text = "on" if active else "off"
+        self.selection_voice_button.setChecked(active)
+        self.selection_voice_button.setText(text)
+
+    def _handle_selection_voice_result(self, recognized: str) -> bool:
+        # 음성 인식 결과에서 선택 번호를 추출한다.
+        normalized = recognized.replace(" ", "")
+        number_value: int | None = None
+        match = re.search(r"(\d+)", normalized)
+        if match:
+            try:
+                number_value = int(match.group(1))
+            except ValueError:
+                number_value = None
+        if number_value is None:
+            # 한국어 수사 대응
+            candidates = {
+                "한": 1,
+                "하나": 1,
+                "일": 1,
+                "첫": 1,
+                "첫번": 1,
+                "첫째": 1,
+                "두": 2,
+                "둘": 2,
+                "이": 2,
+                "세": 3,
+                "셋": 3,
+                "삼": 3,
+                "네": 4,
+                "넷": 4,
+                "사": 4,
+                "다섯": 5,
+                "오": 5,
+                "여섯": 6,
+                "육": 6,
+                "일곱": 7,
+                "칠": 7,
+                "여덟": 8,
+                "팔": 8,
+                "아홉": 9,
+                "구": 9,
+            }
+            for keyword, value in candidates.items():
+                if keyword in normalized:
+                    number_value = value
+                    break
+        if number_value is None:
+            return False
+        index = number_value - 1
+        if self.selection_options is None or not (
+            0 <= index < len(self.selection_options)
+        ):
+            return False
+        self.selection_selected_index = index
+        if 0 <= index < len(self.selection_buttons):
+            self.selection_buttons[index].setChecked(True)
+        self.on_select_done_clicked()
+        return True
 
     def _start_video_stream(self, camera_type: str) -> None:
         if self.current_robot_id is None:
@@ -2620,7 +2982,10 @@ class UserWindow(QWidget):
                 "total": item.quantity,
                 "picked": picked_count,
                 "base_status": base_status,
+                "name": item.name,
             }
+        if status_text.startswith("원격"):
+            self._update_selection_state_label()
 
     def _update_selection_progress(self, product_id: int, picked_delta: int) -> None:
         """선택 리스트에 표시된 상품 진행률을 갱신한다."""
@@ -2633,6 +2998,8 @@ class UserWindow(QWidget):
             return
         picked = max(0, min(total, picked))
         state["picked"] = picked
+        if not state.get("name"):
+            state["name"] = self._get_product_name_by_id(product_id)
         widget = state.get("widget")
         if isinstance(widget, CartSelectItemWidget):
             widget.label_progress.setText(f"({picked}/{total})")
@@ -2642,6 +3009,7 @@ class UserWindow(QWidget):
                 base_status = str(state.get("base_status") or "대기")
                 widget.set_status(base_status)
         self._refresh_selection_progress_summary()
+        self._update_selection_state_label(product_id)
 
     def _show_pick_complete_page(self) -> None:
         if self.order_select_stack is None or self.page_end_pick_up is None:
@@ -2654,9 +3022,12 @@ class UserWindow(QWidget):
         if state is None:
             return
         state["base_status"] = status_text
+        if not state.get("name"):
+            state["name"] = self._get_product_name_by_id(product_id)
         widget = state.get("widget")
         if isinstance(widget, CartSelectItemWidget):
             widget.set_status(status_text)
+        self._update_selection_state_label(product_id)
 
     def _show_moving_page(self) -> None:
         """선택 단계가 아니고 쇼핑이 완료되지 않았다면 이동 화면을 표시한다."""
@@ -2682,6 +3053,7 @@ class UserWindow(QWidget):
                 widget.label_progress.setText(f"({total}/{total})")
                 widget.set_status("완료")
         self._refresh_selection_progress_summary()
+        self._update_selection_state_label()
 
     def _refresh_selection_progress_summary(self) -> None:
         """전체 진행률을 합산해 Progress Bar와 텍스트에 반영한다."""
@@ -2707,6 +3079,79 @@ class UserWindow(QWidget):
             self.progress_bar.setValue(progress_ratio)
         if self.progress_text is not None:
             self.progress_text.setText(f"{progress_ratio}%")
+
+    def _update_selection_state_label(self, product_id: int | None = None) -> None:
+        if self.selection_state_label is None:
+            return
+        display_text = "선택 대기 중"
+        if not hasattr(self, "selection_item_states"):
+            self.selection_state_label.setText(display_text)
+            return
+        remote_items = getattr(self, "remote_selection_items", [])
+        auto_items = getattr(self, "auto_selection_items", [])
+        active_state = None
+        active_product_id = product_id
+        if active_product_id is not None:
+            active_state = self.selection_item_states.get(active_product_id)
+        if active_state is None:
+            for pid, info in self.selection_item_states.items():
+                base_status = str(info.get("base_status") or "")
+                if base_status.replace(" ", "") == "선택진행중":
+                    active_state = info
+                    active_product_id = pid
+                    break
+        if active_state is None:
+            for item in remote_items:
+                info = self.selection_item_states.get(item.product_id)
+                if info is None:
+                    continue
+                total = max(0, int(info.get("total", 0)))
+                picked = max(0, int(info.get("picked", 0)))
+                if total <= 0:
+                    continue
+                if picked < total:
+                    active_state = info
+                    active_product_id = item.product_id
+                    break
+        if active_state is None:
+            for pid, info in self.selection_item_states.items():
+                total = max(0, int(info.get("total", 0)))
+                picked = max(0, int(info.get("picked", 0)))
+                if total <= 0 or picked >= total:
+                    continue
+                active_state = info
+                active_product_id = pid
+                break
+        if active_state is None:
+            self.selection_state_label.setText(display_text)
+            return
+        total = max(0, int(active_state.get("total", 0)))
+        picked = max(0, int(active_state.get("picked", 0)))
+        name = active_state.get("name")
+        if not name and active_product_id is not None:
+            name = self._get_product_name_by_id(active_product_id)
+        if not name:
+            name = "상품"
+        if total > 0:
+            if picked < total:
+                current_index = picked + 1
+            else:
+                current_index = total
+            progress_text = f" ({current_index}/{total})"
+        else:
+            progress_text = ""
+        self.selection_state_label.setText(f"{name} 선택중{progress_text}")
+
+    def _get_product_name_by_id(self, product_id: int) -> str | None:
+        remote_items = getattr(self, "remote_selection_items", [])
+        auto_items = getattr(self, "auto_selection_items", [])
+        for item in remote_items:
+            if item.product_id == product_id:
+                return item.name
+        for item in auto_items:
+            if item.product_id == product_id:
+                return item.name
+        return None
 
     def open_profile_dialog(self) -> None:
         dialog = getattr(self, "profile_dialog", None)
@@ -2853,10 +3298,15 @@ class UserWindow(QWidget):
                 for i in reversed(range(self.cart_items_layout.count())):
                     item = self.cart_items_layout.itemAt(i)
                     if item is not None:
+                        spacer = item.spacerItem()
+                        if spacer is not None and spacer is self.cart_spacer:
+                            continue
                         widget = item.widget()
-                        if widget is not None:
-                            widget.setParent(None)
+                        if widget is None or widget is self.cart_empty_label:
+                            continue
+                        widget.setParent(None)
             self.logger.debug("장바구니 위젯 정리 완료")
+            self.update_cart_empty_state()
 
         except Exception as e:
             self.logger.error(f"장바구니 정리 중 오류: {e}")
@@ -2935,6 +3385,9 @@ class UserWindow(QWidget):
             # 선택 버튼 그리드 초기화
             if self.selection_grid is not None:
                 self._initialize_selection_grid()
+            self._update_selection_state_label()
+            if self.selection_state_label is not None:
+                self.selection_state_label.setText("선택 대기 중")
 
             self.logger.debug("상품 선택 UI 정리 완료")
 
@@ -2983,6 +3436,12 @@ class UserWindow(QWidget):
                 except:
                     pass
             self.selection_item_states.clear()
+            self._update_selection_state_label()
+        if (
+            hasattr(self, "selection_state_label")
+            and self.selection_state_label is not None
+        ):
+            self.selection_state_label.setText("선택 대기 중")
 
     def _update_user_header(self) -> None:
         name = str(
@@ -3330,200 +3789,14 @@ class UserWindow(QWidget):
             label_amount.setText(formatted_text)
             # HTML 해석 활성화
             label_amount.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.update_cart_empty_state()
+
+    def update_cart_empty_state(self) -> None:
+        if self.cart_empty_label is None:
+            return
+        is_empty = not self.cart_items
+        self.cart_empty_label.setVisible(is_empty)
 
     def set_products(self, products: list[ProductData]) -> None:
         self.all_products = list(products)
         self._apply_product_filters(refresh=False)
-
-    def load_initial_products(self) -> list[ProductData]:
-        return [
-            ProductData(
-                product_id=1,
-                name="삼겹살",
-                category="고기",
-                price=15000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=True,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(1, "삼겹살"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=101,
-                    nuts=False,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=102,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=3,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(3, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=103,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=True,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=4,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(4, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=104,
-                    nuts=True,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=105,
-                    nuts=False,
-                    milk=True,
-                    seafood=False,
-                    soy=True,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=106,
-                    nuts=False,
-                    milk=False,
-                    seafood=True,
-                    soy=False,
-                    peach=False,
-                    gluten=False,
-                    eggs=False,
-                ),
-            ),
-            ProductData(
-                product_id=2,
-                name="서울우유",
-                category="우유",
-                price=1000,
-                discount_rate=10,
-                allergy_info_id=0,
-                is_vegan_friendly=False,
-                section_id=1,
-                warehouse_id=1,
-                length=20,
-                width=15,
-                height=5,
-                weight=300,
-                fragile=False,
-                image_path=self._resolve_product_image(2, "서울우유"),
-                allergy_info=AllergyInfoData(
-                    allergy_info_id=107,
-                    nuts=False,
-                    milk=False,
-                    seafood=False,
-                    soy=False,
-                    peach=True,
-                    gluten=False,
-                    eggs=True,
-                ),
-            ),
-        ]

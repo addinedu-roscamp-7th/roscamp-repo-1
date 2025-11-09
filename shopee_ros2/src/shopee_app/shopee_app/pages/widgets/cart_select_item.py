@@ -11,6 +11,8 @@ from shopee_app.ui_gen.cart_select_item import Ui_cart_select_item
 
 
 class CartSelectItemWidget(QWidget):
+    '''로봇 장바구니 선택 진행 상태를 요약해 보여 주는 위젯.'''
+
     FALLBACK_IMAGE = (
         Path(__file__).resolve().parent.parent / 'image' / 'product_no_image.png'
     )
@@ -18,6 +20,7 @@ class CartSelectItemWidget(QWidget):
     STATUS_ICON_SIZE = QtCore.QSize(24, 24)
 
     def __init__(self, parent=None):
+        '''UI 구성 요소를 초기화하고 상태 애니메이션을 준비한다.'''
         super().__init__(parent)
         self.ui = Ui_cart_select_item()
         self.ui.setupUi(self)
@@ -48,6 +51,7 @@ class CartSelectItemWidget(QWidget):
         image_path: Path | None = None,
         **_: Any,
     ) -> None:
+        '''주문 항목 정보를 적용하고 진행률 표시를 갱신한다.'''
         self.apply_image(image_path)
         self.label_image.setToolTip(f'#{index}')
         self.label_name.setText(name)
@@ -87,6 +91,7 @@ class CartSelectItemWidget(QWidget):
         return QtCore.QSize(clamped_width, total_height)
 
     def _configure_widgets(self) -> None:
+        '''위젯 크기 정책과 정렬을 조정해 레이아웃을 안정화한다.'''
         image_policy = self.label_image.sizePolicy()
         image_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
         image_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
@@ -105,6 +110,7 @@ class CartSelectItemWidget(QWidget):
         self.label_status.setScaledContents(False)
 
     def apply_image(self, path: Path | None) -> None:
+        '''이미지 경로를 적용하고 없을 경우 기본 이미지를 사용한다.'''
         image_path = path if path and path.exists() else self.FALLBACK_IMAGE
         pixmap = QtGui.QPixmap(str(image_path))
         if pixmap.isNull():
@@ -137,6 +143,7 @@ class CartSelectItemWidget(QWidget):
             self.label_status.setText(normalized)
 
     def _load_icon_pixmap(self, filename: str) -> QtGui.QPixmap | None:
+        '''아이콘 파일을 읽어 적절한 크기의 픽스맵으로 반환한다.'''
         icon_path = Path(__file__).resolve().parent.parent / 'icons' / filename
         if not icon_path.exists():
             return None
@@ -150,6 +157,7 @@ class CartSelectItemWidget(QWidget):
         return self._render_svg(icon_path, target_size)
 
     def _apply_status_pixmap(self, pixmap: QtGui.QPixmap | None) -> None:
+        '''상태 라벨에 픽스맵을 설정하고 없을 경우 텍스트를 유지한다.'''
         self.label_status.clear()
         if pixmap is None or pixmap.isNull():
             self.label_status.setText(self.current_status)
@@ -162,6 +170,7 @@ class CartSelectItemWidget(QWidget):
         self.label_status.setPixmap(scaled)
 
     def _start_progress_animation(self) -> None:
+        '''진행 중 상태에 맞춰 회전 애니메이션을 시작한다.'''
         self.progress_base_pixmap = self._load_icon_pixmap('progress.svg')
         if self.progress_base_pixmap is None:
             self.label_status.setText(self.current_status)
@@ -173,12 +182,14 @@ class CartSelectItemWidget(QWidget):
             self.status_timer.start()
 
     def _stop_progress_animation(self) -> None:
+        '''애니메이션 타이머와 기준 픽스맵을 초기화한다.'''
         if self.status_timer.isActive():
             self.status_timer.stop()
         self.progress_base_pixmap = None
         self.progress_angle = 0
 
     def _rotate_progress_icon(self) -> None:
+        '''타이머 이벤트마다 아이콘을 회전시켜 진행감을 준다.'''
         if self.progress_base_pixmap is None:
             if self.status_timer.isActive():
                 self.status_timer.stop()
@@ -206,10 +217,12 @@ class CartSelectItemWidget(QWidget):
         self.progress_angle = (self.progress_angle + 30) % 360
 
     def _is_completed_status(self, status: str) -> bool:
+        '''완료 상태를 나타내는 키워드를 포함하는지 확인한다.'''
         keywords = ('완료', '성공', '종료')
         return any(keyword in status for keyword in keywords)
 
     def _is_in_progress_status(self, status: str) -> bool:
+        '''진행 중 상태를 나타내는지 판별한다.'''
         if not status:
             return False
         if '대기' in status or '준비' in status:
@@ -232,6 +245,7 @@ class CartSelectItemWidget(QWidget):
         return False
 
     def _should_display_text_status(self, status: str) -> bool:
+        '''텍스트 경고가 필요한 상태인지 판단한다.'''
         if not status:
             return False
         alert_keywords = (
@@ -244,6 +258,7 @@ class CartSelectItemWidget(QWidget):
         return any(keyword in status for keyword in alert_keywords)
 
     def _render_svg(self, path: Path, target_size: QtCore.QSize) -> QtGui.QPixmap | None:
+        '''SVG 아이콘을 직접 렌더링해 픽스맵으로 변환한다.'''
         renderer = QSvgRenderer(str(path))
         if not renderer.isValid():
             return None

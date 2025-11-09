@@ -8,12 +8,14 @@ from shopee_app.ros_node import RosNodeThread
 
 
 def create_application(argv: Optional[list[str]] = None) -> QApplication:
+    '''PyQt 애플리케이션을 생성하고 기본 속성을 설정한다.'''
     app = QApplication(argv if argv is not None else sys.argv)
     app.setApplicationName('Shopee App')
     return app
 
 
 def main():
+    '''메인 윈도우와 ROS 스레드를 초기화하고 이벤트 루프를 실행한다.'''
     app = create_application()
     ros_thread = RosNodeThread()
     window = MainWindow(ros_thread=ros_thread)

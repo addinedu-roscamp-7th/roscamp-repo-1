@@ -17,19 +17,24 @@ from shopee_app.pages.user_window import UserWindow
 from shopee_app.ui_gen.main_window import Ui_MainWindow
 from shopee_app.services.main_service_client import MainServiceClient
 from shopee_app.services.main_service_client import MainServiceClientError
+from shopee_app.styles.constants import COLORS
 
 if TYPE_CHECKING:
     from shopee_app.ros_node import RosNodeThread
 
 
 class MainWindow(QMainWindow):
+    '''로그인과 역할별 창 전환을 담당하는 메인 윈도우.'''
+
     def __init__(self, ros_thread: Optional["RosNodeThread"] = None):
+        '''UI 구성 요소와 서비스 클라이언트를 초기화한다.'''
         super().__init__()
         self._ros_thread = ros_thread
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowTitle("Shopee GUI (PyQt6)")
         self.ui.et_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self._apply_login_button_style()
         self.service_client = MainServiceClient()
         self._user_info: dict[str, Any] | None = None
         self._pixmap_helpers: list[_AspectRatioPixmapHelper] = []
@@ -43,6 +48,7 @@ class MainWindow(QMainWindow):
         self.ui.et_password.returnPressed.connect(self.on_login_clicked)
 
     def setup_role_toggle(self):
+        '''사용자/관리자 역할 토글 버튼을 그룹으로 묶는다.'''
         self.ui.btn_user.setCheckable(True)
         self.ui.btn_admin.setCheckable(True)
         self.role_group = QButtonGroup(self)
@@ -52,37 +58,37 @@ class MainWindow(QMainWindow):
         self.ui.btn_user.setChecked(True)
 
     def on_login_clicked(self):
+        '''로그인 버튼 클릭 시 인증 절차를 진행한다.'''
         user_id = self.ui.et_id.text().strip()
         password = self.ui.et_password.text().strip()
 
         if not user_id or not password:
-            QMessageBox.warning(self, '로그인 실패', '아이디와 비밀번호를 모두 입력해주세요.')
+            QMessageBox.warning(
+                self, "로그인 실패", "아이디와 비밀번호를 모두 입력해주세요."
+            )
             return
 
         self.ui.btn_login.setEnabled(False)
         try:
             response = self.service_client.login(user_id, password)
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '서버 연결 실패', f'{exc}\\n임시 계정으로 계속 진행합니다.')
-            response = {
-                'result': True,
-                'data': {
-                    'user_id': user_id,
-                    'name': user_id or '임시 사용자',
-                },
-            }
+            QMessageBox.warning(
+                self, "서버 연결 실패", f"로그인 서버에 연결할 수 없습니다.\\n{exc}"
+            )
+            self.ui.btn_login.setEnabled(True)
+            return
 
         self.ui.btn_login.setEnabled(True)
 
-        if not response or not response.get('result'):
-            message = response.get('message') or '로그인에 실패했습니다.'
-            QMessageBox.warning(self, '로그인 실패', message)
+        if not response or not response.get("result"):
+            message = response.get("message") or "로그인에 실패했습니다."
+            QMessageBox.warning(self, "로그인 실패", message)
             return
 
-        user_info = response.get('data') or {}
-        user_info.setdefault('user_id', user_id)
+        user_info = response.get("data") or {}
+        user_info.setdefault("user_id", user_id)
         # 알림 전용 연결에서도 재인증할 수 있도록 비밀번호를 보관한다.
-        user_info.setdefault('password', password)
+        user_info.setdefault("password", password)
         self._user_info = user_info
         self.ui.et_password.clear()
 
@@ -101,6 +107,7 @@ class MainWindow(QMainWindow):
             return
 
     def on_id_return_pressed(self) -> None:
+        '''아이디 입력 후 엔터를 누르면 흐름에 맞춰 다음 동작을 실행한다.'''
         password_text = self.ui.et_password.text().strip()
         if password_text:
             self.on_login_clicked()
@@ -108,6 +115,7 @@ class MainWindow(QMainWindow):
         self.ui.et_password.setFocus()
 
     def launch_role_window(self, factory):
+        '''역할에 맞는 하위 창을 생성해 표시한다.'''
         if self.child_window:
             self.child_window.close()
             self.child_window = None
@@ -118,14 +126,17 @@ class MainWindow(QMainWindow):
         self.child_window.closed.connect(self.on_child_closed)
 
     def on_child_closed(self):
+        '''하위 창이 닫히면 메인 화면을 다시 표시한다.'''
         self.child_window = None
         self.show()
 
     def on_ros_ready(self):
+        '''ROS 노드 초기화가 완료되면 후속 UI 동작을 준비한다.'''
         # TODO: ROS2 데이터 연동 후 초기 화면 업데이트 로직을 추가한다.
         pass
 
     def on_ros_error(self, message: str):
+        '''ROS 초기화 실패 시 사용자에게 알리고 애플리케이션을 종료한다.'''
         QMessageBox.critical(self, "ROS2 오류", message)
         self.close()
 
@@ -202,6 +213,17 @@ class MainWindow(QMainWindow):
             return
 
         self._register_pixmap_helper(label, pixmap, forced_size)
+
+    def _apply_login_button_style(self) -> None:
+        """로그인 버튼에 브랜드 스타일을 적용한다."""
+        primary_light_color = COLORS["primary_light"]
+        self.ui.btn_login.setStyleSheet(
+            f"background-color: {primary_light_color}; "
+            f"color: white; "
+            f"border: none; "
+            f"border-radius: 3px; "
+            f"padding: 8px 16px;"
+        )
 
     def _register_pixmap_helper(
         self,

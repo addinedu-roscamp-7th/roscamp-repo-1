@@ -162,21 +162,21 @@ class OdomRotate(Node):
         return diff
 
 
-def rotate(angle_deg: float):
-    rclpy.init()
-    node = OdomRotate(angle_deg)
-    try:
-        while rclpy.ok() and not node.done:
-            rclpy.spin_once(node, timeout_sec=0.1)
-    except KeyboardInterrupt:
-        node._finish()
-        rclpy.shutdown()
-    finally:
-        try:
-            node.destroy_node()
-        finally:
-            if rclpy.ok():
-                rclpy.shutdown()
+# def rotate(angle_deg: float):
+#     rclpy.init()
+#     node = OdomRotate(angle_deg)
+#     try:
+#         while rclpy.ok() and not node.done:
+#             rclpy.spin_once(node, timeout_sec=0.1)
+#     except KeyboardInterrupt:
+#         node._finish()
+#         rclpy.shutdown()
+#     finally:
+#         try:
+#             node.destroy_node()
+#         finally:
+#             if rclpy.ok():
+#                 rclpy.shutdown()
 
 def rotate_standalone(angle_deg: float):
     rclpy.init()
@@ -189,7 +189,7 @@ def rotate_standalone(angle_deg: float):
         rclpy.shutdown()
 
 
-def rotate(node: Node, angle_deg: float):
+def rotate(node: Node, angle_rad: float):
     """
     이미 실행 중인 ROS 노드 내부에서 회전할 때 사용.
     rclpy.init() / shutdown() 없이 주어진 노드의 publisher 사용.
@@ -197,8 +197,10 @@ def rotate(node: Node, angle_deg: float):
     wz_mag = 0.2  # [rad/s]
     tol_deg = 2.0
     rate_hz = 20
-    direction = 1.0 if angle_deg >= 0 else -1.0
-    target_angle = math.radians(abs(angle_deg))
+    angle_rad = math.atan2(math.sin(angle_rad), math.cos(angle_rad))
+
+    direction = 1.0 if angle_rad >= 0 else -1.0
+    target_angle = abs(angle_rad)
     duration = target_angle / wz_mag
 
     pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
@@ -211,7 +213,7 @@ def rotate(node: Node, angle_deg: float):
         time.sleep(1.0 / rate_hz)
 
     pub.publish(Twist())
-    # node.get_logger().info(f"✅ 내부 회전 완료: {angle_deg:.1f}°")
+    # node.get_logger().info(f"✅ 내부 회전 완료: {angle_rad:.1f}°")
 
 
 def main():

@@ -101,7 +101,7 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
   robot_id: 1,
   order_id: 123,
   location_id: 5,
-  target_pose: {x: 1.0, y: 1.0, theta: 0.0},
+  target_pose: {x: -1.0, y: 0.98, theta: 0.0},
 }"
 
 # Global Path 업데이트
@@ -126,19 +126,18 @@ ros2 service call /pickee/arm/move_to_pose shopee_interfaces/srv/PickeeArmMoveTo
 }"
 
 # Arm 제품 픽업
-ros2 service call /pickee/arm/pick_product shopee_interfaces/srv/PickeeArmPickProduct "{
+ros2 service call /pickee/arm/pick_product shopee_interfaces/srv/ArmPickProduct "{
   robot_id: 1,
   order_id: 123,
-  target_product: {
-    product_id: 33,
-    bbox_number: 1,
-    bbox_coords: {
-      x1: 1,
-      y1: 1,
-      x2: 1,
-      y2: 1
-    },
-    confidence: 1.0
+  product_id: 33,
+  arm_side: 'left',
+  pose: {
+    x: 1.0,
+    y: 1.0,
+    z: 1.0,
+    rx: 1.0,
+    ry: 1.0,
+    rz: 1.0
   }
 }"
 
@@ -284,7 +283,7 @@ ros2 service call /pickee/workflow/return_to_staff shopee_interfaces/srv/PickeeW
 ros2 service call /pickee/product/detect shopee_interfaces/srv/PickeeProductDetect "{
   robot_id: 1,
   order_id: 123,
-  product_ids: [1, 2, 3]
+  product_ids: [1, 1]
 }"
 
 # 제품 선택 처리

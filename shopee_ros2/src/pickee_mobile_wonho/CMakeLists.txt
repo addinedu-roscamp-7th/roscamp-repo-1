@@ -47,6 +47,54 @@ include_directories(
   include
 )
 
+# Custom Planner 라이브러리 생성
+set(library_name ${PROJECT_NAME}__custom_planner)
+
+add_library(${library_name} SHARED
+  src/custom_planner.cpp
+)
+
+ament_target_dependencies(${library_name}
+  rclcpp
+  rclcpp_lifecycle
+  nav2_core
+  nav2_costmap_2d
+  nav2_util
+  nav_msgs
+  geometry_msgs
+  tf2_ros
+  pluginlib
+)
+
+# Custom Planner Simulation 라이브러리 생성
+set(library_name_sim ${PROJECT_NAME}__custom_planner_simulation)
+
+add_library(${library_name_sim} SHARED
+  src/custom_planner_simulation.cpp
+)
+
+ament_target_dependencies(${library_name_sim}
+  rclcpp
+  rclcpp_lifecycle
+  nav2_core
+  nav2_costmap_2d
+  nav2_util
+  nav_msgs
+  geometry_msgs
+  tf2_ros
+  pluginlib
+)
+
+# Install custom_planner_simulation library
+install(TARGETS ${library_name_sim}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+# Export custom_planner_simulation library
+ament_export_libraries(${library_name_sim})
+
 # Create executable for pickee mobile node (Shopee Interface 통신)
 add_executable(pickee_mobile_wonho_node
   src/pickee_mobile_wonho_node.cpp
@@ -64,6 +112,7 @@ ament_target_dependencies(pickee_mobile_wonho_node
   tf2_ros
   tf2_geometry_msgs
   std_msgs
+  std_srvs
   shopee_interfaces
 )
 
@@ -139,6 +188,19 @@ install(DIRECTORY
 #     DESTINATION share/${PROJECT_NAME}
 #   )
 # endif()
+
+# Install custom_planner library
+install(TARGETS ${library_name}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+# Export custom_planner library
+ament_export_libraries(${library_name})
+
+# Install pluginlib description
+pluginlib_export_plugin_description_file(nav2_core pluginlib.xml)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

@@ -733,13 +733,14 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
             return False
 
-    async def call_arm_pick_product(self, target_position):
+    async def call_arm_pick_product(self, product_id, arm_side):
         # Arm에 상품 픽업 명령
         request = ArmPickProduct.Request()
         request.robot_id = self.robot_id
         request.order_id = self.current_order_id
-        # request.product_id = product_id
-        request.target_position = target_position
+        request.product_id = product_id
+        request.arm_side = arm_side
+
         
         if not self.arm_pick_product_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Arm pick product service not available')
@@ -925,16 +926,20 @@ class PickeeMainController(Node):
     # Publisher 메소드들
     def publish_robot_status(self):
         # 로봇 상태를 주기적으로 발행
-        msg = PickeeRobotStatus()
-        msg.robot_id = self.robot_id
-        msg.state = self.state_machine.get_current_state_name()
-        msg.battery_level = self.current_battery_level
-        msg.current_order_id = self.current_order_id
-        msg.position_x = self.current_position_x
-        msg.position_y = self.current_position_y
-        msg.orientation_z = self.current_orientation_z
-        
-        self.robot_status_pub.publish(msg)
+        try: 
+            msg = PickeeRobotStatus()
+            msg.robot_id = self.robot_id
+            msg.state = self.state_machine.get_current_state_name()
+            msg.battery_level = self.current_battery_level
+            msg.current_order_id = self.current_order_id
+            msg.position_x = self.current_position_x
+            msg.position_y = self.current_position_y
+            msg.orientation_z = self.current_orientation_z
+            
+            self.robot_status_pub.publish(msg)
+            self.get_logger().info(f'로봇 상태 발행: state={msg.state}, battery={msg.battery_level:.1%}, position=({msg.position_x:.2f}, {msg.position_y:.2f})')
+        except Exception as e:
+            self.get_logger().error(f'Failed to publish robot status: {str(e)}')
 
     # def update_camera_frame(self, qt_image):
     #     '''

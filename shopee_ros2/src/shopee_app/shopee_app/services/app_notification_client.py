@@ -32,10 +32,24 @@ class AppNotificationClient(QtCore.QThread):
         self._user_id = user_id
         self._password = password or ""
         self._stop_event = threading.Event()
+        self._socket_lock = threading.Lock()
+        self._current_socket: Optional[socket.socket] = None
 
     def stop(self) -> None:
         """수신 스레드를 종료한다."""
         self._stop_event.set()
+        with self._socket_lock:
+            current_socket = self._current_socket
+            self._current_socket = None
+        if current_socket is not None:
+            try:
+                current_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                current_socket.close()
+            except OSError:
+                pass
         self.wait()
 
     def run(self) -> None:
@@ -47,13 +61,15 @@ class AppNotificationClient(QtCore.QThread):
                     (self._config.host, self._config.port),
                     timeout=self._config.timeout,
                 ) as conn:
+                    with self._socket_lock:
+                        self._current_socket = conn
                     conn.settimeout(self._config.timeout)
                     # 소켓을 연 직후 로그인 메시지를 전송해 사용자와 연결을 매핑한다.
                     pending_buffer = b""
                     success, pending_buffer = self._authenticate(conn)
                     if not success:
                         raise ConnectionError('알림 인증에 실패했습니다.')
-                    conn.settimeout(None)
+                    conn.settimeout(max(1.0, self._config.timeout))
                     self.reconnected.emit()
                     backoff_seconds = 1.0
                     self._listen_loop(conn, pending_buffer)
@@ -63,6 +79,9 @@ class AppNotificationClient(QtCore.QThread):
                 self.connection_error.emit(str(exc))
                 time.sleep(backoff_seconds)
                 backoff_seconds = min(backoff_seconds * 2, 10.0)
+            finally:
+                with self._socket_lock:
+                    self._current_socket = None
 
     def _listen_loop(self, conn: socket.socket, initial_buffer: bytes = b"") -> None:
         """연결된 소켓에서 JSON 라인 단위로 알림을 읽는다."""

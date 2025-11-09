@@ -3,6 +3,6 @@ int32 order_id
 int32 expected_product_id
 ---
 bool success
-shopee_interfaces/DetectedProduct[] products
-int32 total_detected
+shopee_interfaces/Pose6D current_pose
+shopee_interfaces/Pose6D target_pose
 string message

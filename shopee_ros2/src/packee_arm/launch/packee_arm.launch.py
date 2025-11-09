@@ -29,11 +29,11 @@ def generate_launch_description() -> LaunchDescription:
     # 공통 팔 동작 파라미터
     preset_pose_cart_view_arg = DeclareLaunchArgument(
         'preset_pose_cart_view',
-        default_value='[0.16, 0.0, 0.18, 0.0, 0.0, 0.0]',
+        default_value='[52.9, -64.1, 408.7, -92.37, 0.81, -89.5]',
         description='카트 확인 자세 (x,y,z,rx,ry,rz)')
     preset_pose_standby_arg = DeclareLaunchArgument(
         'preset_pose_standby',
-        default_value='[0.10, 0.0, 0.14, 0.0, 0.0, 0.0]',
+        default_value='[142.0, -23.5, 291.5, -174.67, 5.73, -93.55]',
         description='대기 자세 (x,y,z,rx,ry,rz)')
     pymycobot_baud_rate_arg = DeclareLaunchArgument(
         'pymycobot_baud_rate',
@@ -57,7 +57,7 @@ def generate_launch_description() -> LaunchDescription:
         description='그리퍼 개방 값')
     pymycobot_gripper_close_arg = DeclareLaunchArgument(
         'pymycobot_gripper_close_value',
-        default_value='20',
+        default_value='0',
         description='그리퍼 파지 값')
     pymycobot_enabled_arms_arg = DeclareLaunchArgument(
         'pymycobot_enabled_arms',
@@ -79,11 +79,11 @@ def generate_launch_description() -> LaunchDescription:
     # 좌/우 팔 별 시리얼 포트
     left_serial_port_arg = DeclareLaunchArgument(
         'left_serial_port',
-        default_value='/dev/ttyUSB0',
+        default_value='/dev/ttyUSB1',
         description='좌측 myCobot 시리얼 포트')
     right_serial_port_arg = DeclareLaunchArgument(
         'right_serial_port',
-        default_value='/dev/ttyUSB1',
+        default_value='/dev/ttyUSB0',
         description='우측 myCobot 시리얼 포트')
 
     # JetCobot 브릿지 토픽/파라미터

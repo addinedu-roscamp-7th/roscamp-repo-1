@@ -119,7 +119,8 @@ class MainWindow(QMainWindow):
             return 'color:green; font-weight:bold;'
         elif node_name.startswith('mock_shopee_main'):
             return 'color:crimson; font-weight:bold;'
-        
+        elif node_name.startswith('planner_server'):
+            return 'color:brown; font-weight:bold;'
         return ''
 
     def append_log(self, node_name, level, message, is_state_log):

@@ -46,15 +46,20 @@ setup(
             'bringup = pickee_mobile.bringup:main',
 
             # Main Components
-            'main_aruco_pub = pickee_mobile.main.main_aruco_pub:main', # ArUco 마커 인식 및 퍼블리시 노드
+            'main_aruco_pub = pickee_mobile.main.main_aruco_pub:main', # ArUco 마커 퍼블리시 노드
+            'main_aruco_pub_once = pickee_mobile.main.main_aruco_pub_once:main', # 도킹 1트
+            'main_aruco_detect = pickee_mobile.main.main_aruco_detect:main', # ArUco 마커 인식 함수
             'mobile_controller = pickee_mobile.main.mobile_controller:main', # 모바일 로봇의 주요 제어 노드
             'mobile_vel_modifier = pickee_mobile.main.mobile_vel_modifier:main', # 속도 명령을 수정하는 노드
             'mobile_aruco_docking = pickee_mobile.main.mobile_aruco_docking:main', # ArUco 마커 도킹 노드
+            'mobile_aruco_docking_once = pickee_mobile.main.mobile_aruco_docking_once:main', # 도킹 1트
 
             # Module Components 함수
             'module_go_strait = pickee_mobile.module.module_go_strait:main',
             'module_rotate = pickee_mobile.module.module_rotate:main',
             'module_aruco_detect = pickee_mobile.module.module_aruco_detect:main',
+            'module_straight_rotate = pickee_mobile.module.module_straight_rotate:main',
+            
             
 
             ####Test Nodes####
@@ -63,13 +68,15 @@ setup(
             'get_clicked_move = pickee_mobile.test.goal_test.get_send_goal:main',
             'custom_goal_move = pickee_mobile.test.goal_test.custom_goal:main',
             'goal_send_client = pickee_mobile.test.goal_test.goal_send_client:main',
-            'import_go_strait = pickee_mobile.test.goal_test.import_go_strait:main',
+            'import_go_straight = pickee_mobile.test.goal_test.import_go_straight:main',
 
             # Topic Test
             'control_vel = pickee_mobile.test.topic_test.control_vel:main',
             'pub_pose = pickee_mobile.test.topic_test.pub_pose:main',
             'pub_cmd_vel = pickee_mobile.test.topic_test.pub_cmd_vel:main',
             'control_vel_teteop = pickee_mobile.test.topic_test.control_vel_teleop:main',
+            'import_test_rotate_odom = pickee_mobile.test.topic_test.import_test_rotate_odom:main',
+            'import_test_go_straight_odom = pickee_mobile.test.topic_test.import_test_go_straight_odom:main',
 
             # Mock / Simulation Test
             'mock_vel_modifier_publisher = pickee_mobile.test.mock_test.mock_vel_modifier_publisher:main',

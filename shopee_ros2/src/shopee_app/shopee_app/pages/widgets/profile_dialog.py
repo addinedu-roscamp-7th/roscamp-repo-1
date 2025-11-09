@@ -20,9 +20,12 @@ ALLERGY_LABELS = {
 
 
 class ProfileDialog(QtWidgets.QDialog):
+    '''사용자 정보를 팝오버 형태로 표시하는 프로필 대화상자.'''
+
     logout_requested = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
+        '''UI 리소스를 로드하고 로그아웃 버튼을 연결한다.'''
         super().__init__(parent)
         uic.loadUi(str(UI_PATH), self)
         self.configure_window()
@@ -32,6 +35,7 @@ class ProfileDialog(QtWidgets.QDialog):
             logout_button.clicked.connect(self._on_logout_clicked)
 
     def configure_window(self) -> None:
+        '''프로필 대화상자의 크기와 윈도우 속성을 설정한다.'''
         self.setWindowFlags(
             QtCore.Qt.WindowType.Popup
             | QtCore.Qt.WindowType.FramelessWindowHint
@@ -40,6 +44,7 @@ class ProfileDialog(QtWidgets.QDialog):
         self.setFixedSize(260, 220)
 
     def set_user_info(self, user_info: dict[str, Any]) -> None:
+        '''사용자 정보를 적용하고 각 라벨을 업데이트한다.'''
         self._user_info = dict(user_info or {})
         name = str(self._user_info.get('name') or self._user_info.get('user_id') or '사용자')
         if hasattr(self, 'label_user_name'):
@@ -69,6 +74,7 @@ class ProfileDialog(QtWidgets.QDialog):
 
     @staticmethod
     def _is_truthy(value: Any) -> bool:
+        '''다양한 입력 값을 사용자 친화적 불리언으로 정규화한다.'''
         if isinstance(value, str):
             if value.lower() in {'true', '1', 'yes'}:
                 return True
@@ -84,5 +90,6 @@ class ProfileDialog(QtWidgets.QDialog):
         super().closeEvent(event)
 
     def _on_logout_clicked(self) -> None:
+        '''로그아웃 버튼 클릭 시 신호를 발생시키고 창을 닫는다.'''
         self.logout_requested.emit()
         self.accept()

@@ -31,11 +31,28 @@ class ArmControl:
             self.logger.error("myCobot arm is not connected. Cannot get angles.")
             return None
 
+    def get_coords(self):
+        """현재 로봇 팔의 6축 관절 각도를 읽어옵니다."""
+        if self.is_connected():
+            return self.mc.get_coords()
+        else:
+            self.logger.error("myCobot arm is not connected. Cannot get angles.")
+            return None
+
     def move_to_joints(self, joint_angles, speed=40, timeout=5):
         """목표 관절 각도로 로봇 팔을 움직이고, 동작이 끝날 때까지 기다립니다."""
         if self.is_connected():
-            self.logger.info(f"Executing sync move to: {joint_angles}")
-            self.mc.sync_send_angles(joint_angles, speed, timeout)
+            self.logger.info(f"Executing move to: {joint_angles}")
+            self.mc.send_angles(joint_angles, speed, timeout)
+            self.logger.info("Move complete.")
+        else:
+            self.logger.error("myCobot arm is not connected. Cannot send command.")
+
+    def move_to_coords(self, joint_angles, speed=40, timeout=5):
+        """목표 관절 각도로 로봇 팔을 움직이고, 동작이 끝날 때까지 기다립니다."""
+        if self.is_connected():
+            self.logger.info(f"Executing move to: {joint_angles}")
+            self.mc.send_coords(joint_angles, speed, timeout)
             self.logger.info("Move complete.")
         else:
             self.logger.error("myCobot arm is not connected. Cannot send command.")

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-'''Packee Arm JetCobot 브릿지 노드.'''
+"""Packee Arm JetCobot 브릿지 노드."""
 
 
 import math
 from typing import Dict, List, Optional, Sequence
 
-import rclpy
 from geometry_msgs.msg import TwistStamped
+import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
 from std_msgs.msg import Float32
@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - 장비가 없는 환경에서도 노�
 
 
 class JetCobotArm:
-    '''단일 myCobot 280 팔과 통신하며 속도/그리퍼 명령을 적용한다.'''
+    """단일 myCobot 280 팔과 통신하며 속도/그리퍼 명령을 적용한다."""
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class JetCobotArm:
         self._connect()
 
     def _connect(self) -> None:
-        '''시리얼 포트를 통해 JetCobot에 접속하고 초기화를 수행한다.'''
+        """시리얼 포트를 통해 JetCobot에 접속하고 초기화를 수행한다."""
         if not self._serial_port:
             self._node.get_logger().warn(
                 f'[{self._arm_name}] serial_port 파라미터가 비어 있어 실제 로봇 제어를 비활성화합니다.')
@@ -74,7 +74,7 @@ class JetCobotArm:
             self._robot = None
 
     def handle_twist(self, message: TwistStamped) -> None:
-        '''Packee Arm 컨트롤러가 발행한 속도 명령을 적분해 좌표 이동을 수행한다.'''
+        """Packee Arm 컨트롤러가 발행한 속도 명령을 적분해 좌표 이동을 수행한다."""
         now_stamp = (
             Time.from_msg(message.header.stamp)
             if message.header.stamp.sec != 0
@@ -95,7 +95,9 @@ class JetCobotArm:
             scale = self._workspace['radial'] / max(radial, 1e-6)
             self._pose['x'] *= scale
             self._pose['y'] *= scale
-        self._pose['z'] = min(self._workspace['z_max'], max(self._workspace['z_min'], self._pose['z']))
+        self._pose['z'] = min(
+            self._workspace['z_max'], max(
+                self._workspace['z_min'], self._pose['z']))
 
         if not self._robot:
             return
@@ -104,9 +106,9 @@ class JetCobotArm:
             self._pose['x'] * 1000.0,
             self._pose['y'] * 1000.0,
             self._pose['z'] * 1000.0,
-            math.degrees(self._pose['rx']),
-            math.degrees(self._pose['ry']),
-            math.degrees(self._pose['rz'])
+            self._pose['rx'],
+            self._pose['ry'],
+            self._pose['rz']
         ]
         try:
             self._robot.sync_send_coords(coords_mm, self._move_speed, 0)
@@ -114,10 +116,13 @@ class JetCobotArm:
             self._node.get_logger().error(f'[{self._arm_name}] 좌표 명령 전송 실패: {exc}')
 
     def handle_gripper(self, message: Float32) -> None:
-        '''GripperController가 발행한 힘 명령을 JetCobot gripper 값으로 변환한다.'''
+        """GripperController가 발행한 힘 명령을 JetCobot gripper 값으로 변환한다."""
         if not self._robot:
             return
-        target_value = self._gripper_open_value if message.data <= 0.0 else self._gripper_close_value
+        target_value = (
+            self._gripper_open_value
+            if message.data <= 0.0
+            else self._gripper_close_value)
         try:
             self._robot.set_gripper_value(target_value, max(10, self._move_speed))
         except Exception as exc:  # pragma: no cover
@@ -125,12 +130,12 @@ class JetCobotArm:
 
 
 class JetCobotBridge(Node):
-    '''Packee Arm ↔ JetCobot 하드웨어 통신을 담당하는 rclpy 노드.'''
+    """Packee Arm ↔ JetCobot 하드웨어 통신을 담당하는 rclpy 노드."""
 
     def __init__(self) -> None:
         super().__init__('jetcobot_bridge')
-        self.declare_parameter('left_serial_port', '/dev/ttyUSB0')
-        self.declare_parameter('right_serial_port', '/dev/ttyUSB1')
+        self.declare_parameter('left_serial_port', '/dev/ttyUSB1')
+        self.declare_parameter('right_serial_port', '/dev/ttyUSB0')
         self.declare_parameter('left_velocity_topic', '/packee/jetcobot/left/cmd_vel')
         self.declare_parameter('right_velocity_topic', '/packee/jetcobot/right/cmd_vel')
         self.declare_parameter('left_gripper_topic', '/packee/jetcobot/left/gripper_cmd')
@@ -140,10 +145,14 @@ class JetCobotBridge(Node):
         self.declare_parameter('workspace_radial', 0.28)
         self.declare_parameter('workspace_z_min', 0.05)
         self.declare_parameter('workspace_z_max', 0.30)
-        self.declare_parameter('default_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
-        self.declare_parameter('default_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
+        self.declare_parameter(
+            'default_pose_cart_view',
+            [57.6, -63.4, 407.7, -93.33, 0.83, -88.72])
+        self.declare_parameter(
+            'default_pose_standby',
+            [106.8, -55.2, 306.3, -166.79, 9.58, -88.57])
         self.declare_parameter('gripper_open_value', 100)
-        self.declare_parameter('gripper_close_value', 10)
+        self.declare_parameter('gripper_close_value', 0)
 
         workspace = {
             'radial': float(self.get_parameter('workspace_radial').value),
@@ -156,7 +165,7 @@ class JetCobotBridge(Node):
         close_value = int(self.get_parameter('gripper_close_value').value)
 
         def parse_pose_param(name: str, fallback: Sequence[float]) -> List[float]:
-            '''파라미터 문자열/배열을 6자유도 포즈 리스트로 변환한다.'''
+            """파라미터 문자열/배열을 6자유도 포즈 리스트로 변환한다."""
             raw_value = self.get_parameter(name).value
             if isinstance(raw_value, (list, tuple)):
                 values = list(raw_value)
@@ -176,7 +185,9 @@ class JetCobotBridge(Node):
                 return list(fallback)
             return [float(item) for item in values]
 
-        cart_view_pose = parse_pose_param('default_pose_cart_view', [0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
+        cart_view_pose = parse_pose_param(
+            'default_pose_cart_view', [
+                0.16, 0.0, 0.18, 0.0, 0.0, 0.0])
         standby_pose = parse_pose_param('default_pose_standby', [0.10, 0.0, 0.14, 0.0, 0.0, 0.0])
 
         self._left_arm = JetCobotArm(
