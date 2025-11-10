@@ -148,8 +148,8 @@ controller_server:
       GoalAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 8.0
-        threshold_to_consider: 0.2
+        cost_weight: 5.0
+        threshold_to_consider: 0.5
       PreferForwardCritic:
         enabled: true
         cost_power: 1
@@ -187,15 +187,15 @@ controller_server:
       PathFollowCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 35.0
+        cost_weight: 13.0
         offset_from_furthest: 3     # 값이 작으면 더 가까운 거만 고려   
         threshold_to_consider: 0.5  # 패널티를 받는 영역
       PathAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 40.0
+        cost_weight: 13.0
         offset_from_furthest: 4
-        threshold_to_consider: 0.2
+        threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
         mode: 0
       # VelocityDeadbandCritic:
@@ -270,14 +270,14 @@ local_costmap:
       # robot_radius: 0.65
       # inscribed_radius: 0.12
       # circumscribed_radius: 0.65
-      inflation_radius: 0.7
+      inflation_radius: 0.45
       cost_scaling_factor: 6.0
 
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 6.0
-        inflation_radius: 0.7
+        inflation_radius: 0.45
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
