@@ -74,13 +74,13 @@ public:
         );
 
         place_product_right_client_ = this->create_client<PlaceProduct>(
-            "/packee1/mtc/place_product",
+            "/packee1/arm/place_product",
             rclcpp::QoS(10),
             reentrant_cb_group_
         );
 
         place_product_left_client_ = this->create_client<PlaceProduct>(
-            "/packee2/mtc/place_product",
+            "/packee2/arm/place_product",
             rclcpp::QoS(10),
             reentrant_cb_group_
         );
@@ -145,10 +145,8 @@ public:
         for (auto &product_id : request->products) {
             if (index % 2 == 0) {
                 callRightPickProductService(request->robot_id, request->order_id, product_id, "right", {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
-                callRightPlaceProductService(request->robot_id, request->order_id, product_id, "right", {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
             } else {
                 callLeftPickProductService(request->robot_id, request->order_id, product_id, "left", {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
-                callLeftPlaceProductService(request->robot_id, request->order_id, product_id, "left", {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
             }
             index++;
         }
@@ -199,14 +197,21 @@ public:
         }
 
         pick_product_right_client_->async_send_request(
-            request,
-            [this](rclcpp::Client<PickProduct>::SharedFuture future_response) {
-                const auto response = future_response.get();
+        request,
+        [this, robot_id, order_id, product_id, arm_side, pose]  // ✅ 캡처 추가
+        (rclcpp::Client<PickProduct>::SharedFuture future_response) {
+            auto response = future_response.get();
+            if (response->success) {
                 RCLCPP_INFO(this->get_logger(),
-                            "Pick Product result: success=%s, msg=%s",
-                            response->success ? "true" : "false",
-                            response->message.c_str());
-            });
+                            "✅ packee1 Pick 성공 (product_id=%d). Place 시작!", product_id);
+                this->callRightPlaceProductService(robot_id, order_id, product_id, arm_side, pose);
+            } else {
+                RCLCPP_ERROR(this->get_logger(),
+                            "❌ packee1 Pick 실패 (product_id=%d): %s",
+                            product_id, response->message.c_str());
+            }
+        });
+
     }
 
     // packee2 pickup
@@ -234,14 +239,21 @@ public:
         }
 
         pick_product_left_client_->async_send_request(
-            request,
-            [this](rclcpp::Client<PickProduct>::SharedFuture future_response) {
-                const auto response = future_response.get();
+        request,
+        [this, robot_id, order_id, product_id, arm_side, pose]  // ✅ 캡처 추가
+        (rclcpp::Client<PickProduct>::SharedFuture future_response) {
+            auto response = future_response.get();
+            if (response->success) {
                 RCLCPP_INFO(this->get_logger(),
-                            "packee2 Pick Product result: success=%s, msg=%s",
-                            response->success ? "true" : "false",
-                            response->message.c_str());
-            });
+                            "✅ packee2 Pick 성공 (product_id=%d). Place 시작!", product_id);
+                this->callLeftPlaceProductService(robot_id, order_id, product_id, arm_side, pose);
+            } else {
+                RCLCPP_ERROR(this->get_logger(),
+                            "❌ packee2 Pick 실패 (product_id=%d): %s",
+                            product_id, response->message.c_str());
+            }
+        });
+
     }
 
     // packee1 place
