@@ -21,7 +21,7 @@ namespace custom_planner
         is_after_plan = false;
         
         // 각 좌표 x,y 상수 초기화
-        x1_ = -2.3;
+        x1_ = -2.1;
         x2_ = -1.0;
         x3_ = 0.1;
         x4_ = 0.9;
