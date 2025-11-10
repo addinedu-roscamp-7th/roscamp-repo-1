@@ -189,27 +189,22 @@ class DetectProducts(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    packee1_cap = cv2.VideoCapture(2)
-    packee2_cap = cv2.VideoCapture(1)
+    packee1_cap = cv2.VideoCapture(1)
 
     packee1_node = DetectProducts(1, packee1_cap)
-    packee2_node = DetectProducts(2, packee2_cap)
 
     executor = MultiThreadedExecutor()
     executor.add_node(packee1_node)
-    executor.add_node(packee2_node)
 
     try:
         while rclpy.ok():
             rclpy.spin_once(packee1_node, timeout_sec=0.01)
-            rclpy.spin_once(packee2_node, timeout_sec=0.01)
 
     except KeyboardInterrupt:
         pass
 
     finally:
         packee1_node.destroy_node()
-        packee2_node.destroy_node()
         rclpy.shutdown()
 
         cv2.destroyAllWindows()
