@@ -146,6 +146,7 @@ class PackeeArmController(Node):
 
                     self.mc.send_angles([0, 0, 0, 0, 0, 0], self.speed)
                     self.get_logger().info("상품 들어올림 완료")
+                    time.sleep(1)
 
                     response.success = True
                     response.message = f"{self.products.get(product_id, '상품')} 픽업 완료"
