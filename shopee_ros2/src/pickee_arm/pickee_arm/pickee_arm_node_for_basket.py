@@ -147,8 +147,8 @@ to {request.pose_type}")
             msg.ry,
             msg.rz,
         ]
-
-        self.arm.move_to_joints(new_angles, speed=60)
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        self.arm.move_to_coords(new_angles, speed=60)
 
     def pick_product_callback(self, request, response):
 
