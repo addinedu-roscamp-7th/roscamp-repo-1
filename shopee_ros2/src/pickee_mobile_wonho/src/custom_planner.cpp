@@ -851,6 +851,15 @@ namespace custom_planner
             return global_path;
         }
 
+        if (global_path.poses.size() < 2) {
+            RCLCPP_WARN(logger_, "global_path이 비어 재생성합니다.");
+            global_path.poses.clear();
+            global_path.poses.push_back(start);
+            global_path.poses.push_back(goal);
+            path_logged = false;            // 다음 호출에서 정상 재빌드
+        }
+
+
         return global_path;
     }
 
