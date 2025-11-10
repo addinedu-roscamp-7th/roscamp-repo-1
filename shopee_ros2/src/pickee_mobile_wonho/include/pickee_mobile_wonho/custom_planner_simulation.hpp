@@ -97,9 +97,7 @@ namespace custom_planner_simulation
         void ResetCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
             std::shared_ptr<std_srvs::srv::Trigger::Response> response);
         void NarrowPassageTimerCallback();
-        void CheckNarrowPassage();
-        
-        bool path_logged;
+    void CheckNarrowPassage();
         
         double second_to_last_x;
         double second_to_last_y;
