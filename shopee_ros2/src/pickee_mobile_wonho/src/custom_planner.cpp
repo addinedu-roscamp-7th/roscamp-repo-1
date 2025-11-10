@@ -778,8 +778,9 @@ namespace custom_planner
         global_path.header.frame_id = "map";
         global_path.header.stamp = rclcpp::Clock().now();
         
-        if (!path_logged) {
+        if (!path_logged || global_path.poses.empty()) {
             // 경로 생성
+            global_path.poses.clear();
             global_path.poses.push_back(start);
 
             WaypointIndex startWaypointIndex;
