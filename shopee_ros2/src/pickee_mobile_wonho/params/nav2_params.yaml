@@ -148,8 +148,8 @@ controller_server:
       GoalAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 5.0
-        threshold_to_consider: 0.5
+        cost_weight: 8.0
+        threshold_to_consider: 0.3
       PreferForwardCritic:
         enabled: true
         cost_power: 1
@@ -187,15 +187,15 @@ controller_server:
       PathFollowCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 13.0
+        cost_weight: 20.0
         offset_from_furthest: 3     # 값이 작으면 더 가까운 거만 고려   
         threshold_to_consider: 0.5  # 패널티를 받는 영역
       PathAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 13.0
+        cost_weight: 20.0
         offset_from_furthest: 4
-        threshold_to_consider: 0.5
+        threshold_to_consider: 0.3
         max_angle_to_furthest: 1.0
         mode: 0
       # VelocityDeadbandCritic:
