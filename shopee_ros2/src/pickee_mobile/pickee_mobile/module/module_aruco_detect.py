@@ -42,7 +42,9 @@ class ArucoPoseEstimator:
         """camera_calibration.pkl 파일에서 내·외부 파라미터 불러오기"""
         # base_dir = os.path.dirname(os.path.abspath(__file__))
         # pkl_path = os.path.join(base_dir, self.calibration_file)
-        pkl_path = '/home/lim/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
+        # pkl_path = '/home/lim/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
+        pkl_path = '/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
+
         if not os.path.exists(pkl_path):
             raise FileNotFoundError(f"❌ 보정 파일을 찾을 수 없습니다: {pkl_path}")
 

@@ -40,7 +40,8 @@ class OdomMove(Node):
         self.declare_parameter('odom_topic', '/odom')
         # vel_topic을 /cmd_vel 값으로 설정
         # /cmd_vel : 직선 속도와 각속도를 제어할수 있는 토픽
-        self.declare_parameter('vel_topic', '/cmd_vel_modified')
+        # self.declare_parameter('vel_topic', '/cmd_vel_modified')
+        self.declare_parameter('vel_topic', '/cmd_vel')
         # speed_linear를 1.45 m/s 로 설정
         # speed_linear : 직선 속도
         self.declare_parameter('speed_linear', 0.20)
@@ -217,7 +218,8 @@ def run_standalone(target_distance: float):
 def run(node: Node, target_distance: float):
     # node.get_logger().info(f"🏃‍♂️ Forward {target_distance}m")
 
-    pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
+    # pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
+    pub = node.create_publisher(Twist, '/cmd_vel', 10)
     cmd = Twist()
     speed = 0.1 * (1 if target_distance > 0 else -1)
     distance = abs(target_distance)

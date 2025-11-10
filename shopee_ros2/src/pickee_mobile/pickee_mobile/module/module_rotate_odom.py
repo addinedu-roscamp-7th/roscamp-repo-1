@@ -22,7 +22,8 @@ class Rotate(Node):
         odom_qos = QoSProfile(depth=10)
         odom_qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel_modified', 10)
+        # self.cmd_pub = self.create_publisher(Twist, '/cmd_vel_modified', 10)
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.create_subscription(Odometry, '/odom', self.odom_cb, odom_qos)
 
         self.x = self.y = self.yaw = None

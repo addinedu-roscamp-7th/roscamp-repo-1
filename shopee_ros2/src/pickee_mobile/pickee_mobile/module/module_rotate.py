@@ -49,7 +49,8 @@ class OdomRotate(Node):
 
         # ---- 파라미터 선언 ----
         self.declare_parameter('odom_topic', '/odom')
-        self.declare_parameter('vel_topic', '/cmd_vel_modified')
+        # self.declare_parameter('vel_topic', '/cmd_vel_modified')
+        self.declare_parameter('vel_topic', '/cmd_vel')
         self.declare_parameter('speed_angular', 0.2)  # [rad/s]
         self.declare_parameter('tolerance_deg', 2.0)  # 허용 오차 (deg)
         self.declare_parameter('rate_hz', 20)
@@ -203,7 +204,8 @@ def rotate(node: Node, angle_rad: float):
     target_angle = abs(angle_rad)
     duration = target_angle / wz_mag
 
-    pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
+    # pub = node.create_publisher(Twist, '/cmd_vel_modified', 10)
+    pub = node.create_publisher(Twist, '/cmd_vel', 10)
     cmd = Twist()
     cmd.angular.z = float(direction * wz_mag)
 

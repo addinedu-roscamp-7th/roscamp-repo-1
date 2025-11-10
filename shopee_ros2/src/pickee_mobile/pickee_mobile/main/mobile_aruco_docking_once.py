@@ -93,7 +93,8 @@ class ArucoDocking(Node):
         ## Publish
         # 속도 publish 설정
         self.cmd_pub = self.create_publisher(
-            Twist, "/cmd_vel_modified", 10
+            # Twist, "/cmd_vel_modified", 10
+            Twist, "/cmd_vel", 10
         )
 
         # 도킹 완료 알림, False = 실패, True = 성공
