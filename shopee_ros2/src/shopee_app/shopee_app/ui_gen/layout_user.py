@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/layout_user.ui'
+# Form implementation generated from reading ui file '/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/layout_user.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -696,7 +696,7 @@ class Ui_Form_user(object):
         self.icon_mic.setCheckable(True)
         self.icon_mic.setChecked(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("/home/addinedu/dev/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/../../../../../../../.designer/pages/icons/mic.svg"), QtGui.QIcon.Mode.Active, QtGui.QIcon.State.On)
+        icon.addPixmap(QtGui.QPixmap("/home/addinedu/dev_ws/roscamp-repo-1/shopee_ros2/src/shopee_app/shopee_app/ui/../../../../../../../.designer/pages/icons/mic.svg"), QtGui.QIcon.Mode.Active, QtGui.QIcon.State.On)
         self.icon_mic.setIcon(icon)
         self.icon_mic.setObjectName("icon_mic")
 
