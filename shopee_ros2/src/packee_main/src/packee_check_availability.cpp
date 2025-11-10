@@ -84,7 +84,6 @@ private:
                 if (cart_present) {
                     // 카트 감지 성공 - 대기 상태로 복귀
                     RCLCPP_INFO(this->get_logger(), "Cart detected on attempt %d", retry_count + 1);
-                    returnToStandby(robot_id, order_id, true);
                 } else {
                     // 카트 감지 실패
                     if (retry_count + 1 >= max_retry_count_) {
