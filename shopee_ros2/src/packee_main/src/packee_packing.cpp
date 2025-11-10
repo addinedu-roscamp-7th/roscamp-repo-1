@@ -27,29 +27,33 @@ public:
         reentrant_cb_group_ = this->create_callback_group(
             rclcpp::CallbackGroupType::Reentrant);
 
+        rclcpp::SubscriptionOptions sub_options;
+        sub_options.callback_group = reentrant_cb_group_;
+
         start_packing_service_ = this->create_service<StartPacking>(
             "/packee/packing/start",
             std::bind(&PackeePackingServer::startPackingCallback, this, _1, _2),
-            rmw_qos_profile_services_default,
+            10,
             reentrant_cb_group_
         );
 
         robot_status_pub_ = this->create_publisher<RobotStatus>(
-            "/packee/set_robot_status", rmw_qos_profile_topics_default);
+            "/packee/set_robot_status", 10);
 
         packing_complete_pub_ = this->create_publisher<PackingComplete>(
-            "/packee/packing_complete", rmw_qos_profile_topics_default);
+            "/packee/packing_complete", 10);
 
         verify_packing_client_ = this->create_client<VerifyPackingComplete>(
             "/packee/vision/verify_packing_complete",
-            rmw_qos_profile_services_default,
+            10,
             reentrant_cb_group_
         );
 
         robot_status_sub_ = this->create_subscription<RobotStatus>(
-            "/packee/robot_status", 10,
+            "/packee/robot_status", 
+            10,
             [this](RobotStatus::SharedPtr msg) { robot_status_ = msg->state; },
-            reentrant_cb_group_
+            sub_options
         );
 
         RCLCPP_INFO(this->get_logger(), "PackeePackingServer started (Reentrant + Async)");
