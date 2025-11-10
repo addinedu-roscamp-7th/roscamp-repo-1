@@ -775,69 +775,9 @@ namespace custom_planner
         std::function<bool()> cancel_checker)
     {
         (void)cancel_checker;
+        global_path.poses.clear();
         global_path.header.frame_id = "map";
         global_path.header.stamp = rclcpp::Clock().now();
-        
-        if (!path_logged) {
-            // 경로 생성
-            global_path.poses.push_back(start);
-
-            WaypointIndex startWaypointIndex;
-            WaypointIndex endWaypointIndex;
-
-            // 1. 출발지 좌표 찾기
-            std::optional<WaypointResult> startResult = GetStartEndWaypoint(start, goal, true);
-            if (startResult != std::nullopt) {
-                startWaypointIndex.x_idx = startResult->x_index;
-                startWaypointIndex.y_idx = startResult->y_index;
-                global_path.poses.push_back(startResult->waypoint);
-            }
-            // 2. 목적지 좌표 찾기
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            std::optional<WaypointResult> endResult = GetStartEndWaypoint(start, goal, false);
-            if (endResult != std::nullopt) {
-                endWaypointIndex.x_idx = endResult->x_index;
-                endWaypointIndex.y_idx = endResult->y_index;
-                global_path.poses.push_back(endResult->waypoint);
-            }
-
-            // 3. 중간 웨이포인트 좌표 찾기
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            std::string startKey = 
-                "x" + std::to_string(startWaypointIndex.x_idx + 1) + 
-                "y" + std::to_string(startWaypointIndex.y_idx + 1);
-            std::string endKey = 
-                "x" + std::to_string(endWaypointIndex.x_idx + 1) + 
-                "y" + std::to_string(endWaypointIndex.y_idx + 1);
-            std::optional<std::map<std::string, geometry_msgs::msg::PoseStamped>> betweenWaypoints = GetBetweenWaypoints(start, goal, startKey, endKey);
-
-            // 4. 경로에 중간 웨이포인트 추가
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            std::optional<std::map<std::string, geometry_msgs::msg::PoseStamped>> betweenPath;
-            if (betweenWaypoints != std::nullopt) {
-                MakePathByBetweenWaypoints(*betweenWaypoints, startWaypointIndex, endWaypointIndex, start);
-            }
-
-            // 마지막 목적지 좌표 추가
-            global_path.poses.push_back(goal);
-
-            // 좁은길인지 체크 후 경로 수정
-            CheckNarrowPassage();
-
-            // 경로의 각 포즈에 올바른 오리엔테이션(방향) 설정
-            AddDetailedPath();
-            AddOrientationToPath();
-            
-            RCLCPP_INFO(logger_, "Create Plan 호출. 경로 생성됨 (총 %zu 개의 포즈)", global_path.poses.size());
-            RCLCPP_INFO(logger_, "생성된 경로: ");
-            for (const auto &pose : global_path.poses) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                RCLCPP_INFO(logger_, "-> (x: %.2f, y: %.2f)", 
-                            pose.pose.position.x, pose.pose.position.y);
-            }
-            path_logged = true;
-            return global_path;
-        }
         
         if (is_after_plan) {
             RCLCPP_INFO(logger_, "재주행 시작 start: (%.2f, %.2f), goal: (%.2f, %.2f)", 
@@ -849,10 +789,66 @@ namespace custom_planner
             is_after_plan = false;
             return global_path;
         }
+        // if (!path_logged) {
+        // 경로 생성
+        global_path.poses.push_back(start);
 
+        WaypointIndex startWaypointIndex;
+        WaypointIndex endWaypointIndex;
+
+        // 1. 출발지 좌표 찾기
+        std::optional<WaypointResult> startResult = GetStartEndWaypoint(start, goal, true);
+        if (startResult != std::nullopt) {
+            startWaypointIndex.x_idx = startResult->x_index;
+            startWaypointIndex.y_idx = startResult->y_index;
+            global_path.poses.push_back(startResult->waypoint);
+        }
+        // 2. 목적지 좌표 찾기
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::optional<WaypointResult> endResult = GetStartEndWaypoint(start, goal, false);
+        if (endResult != std::nullopt) {
+            endWaypointIndex.x_idx = endResult->x_index;
+            endWaypointIndex.y_idx = endResult->y_index;
+            global_path.poses.push_back(endResult->waypoint);
+        }
+
+        // 3. 중간 웨이포인트 좌표 찾기
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::string startKey = 
+            "x" + std::to_string(startWaypointIndex.x_idx + 1) + 
+            "y" + std::to_string(startWaypointIndex.y_idx + 1);
+        std::string endKey = 
+            "x" + std::to_string(endWaypointIndex.x_idx + 1) + 
+            "y" + std::to_string(endWaypointIndex.y_idx + 1);
+        std::optional<std::map<std::string, geometry_msgs::msg::PoseStamped>> betweenWaypoints = GetBetweenWaypoints(start, goal, startKey, endKey);
+
+        // 4. 경로에 중간 웨이포인트 추가
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::optional<std::map<std::string, geometry_msgs::msg::PoseStamped>> betweenPath;
+        if (betweenWaypoints != std::nullopt) {
+            MakePathByBetweenWaypoints(*betweenWaypoints, startWaypointIndex, endWaypointIndex, start);
+        }
+
+        // 마지막 목적지 좌표 추가
+        global_path.poses.push_back(goal);
+
+        // 좁은길인지 체크 후 경로 수정
+        CheckNarrowPassage();
+
+        // 경로의 각 포즈에 올바른 오리엔테이션(방향) 설정
+        AddDetailedPath();
+        AddOrientationToPath();
+        
+        RCLCPP_INFO(logger_, "Create Plan 호출. 경로 생성됨 (총 %zu 개의 포즈)", global_path.poses.size());
+        RCLCPP_INFO(logger_, "생성된 경로: ");
+        for (const auto &pose : global_path.poses) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            RCLCPP_INFO(logger_, "-> (x: %.2f, y: %.2f)", 
+                        pose.pose.position.x, pose.pose.position.y);
+        }
+        path_logged = true;
         return global_path;
     }
-
 } // namespace custom_planner
 
 // 플러그인 등록
