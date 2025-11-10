@@ -221,7 +221,7 @@ class ArucoDocking(Node):
 
             # 마커 방향 x축에 수직이 되도록 회전
             turn_to_side_rad = sign(self.yaw_rad) * (math.radians(90) - abs(self.yaw_rad))
-            normalize_angle(turn_to_side_rad)
+            # normalize_angle(turn_to_side_rad)
             self.get_logger().info(f"🔁 Rotating {math.degrees(turn_to_side_rad)}°")
             self.rotate_node.rotate(turn_to_side_rad)
             time.sleep(1.0)
@@ -234,7 +234,7 @@ class ArucoDocking(Node):
             # 마커 바라보기 회전
             self.get_logger().info(f"🔁 Rotating to ArUco Marker°")
             turn_to_front_rad = -sign(self.yaw_rad) * math.radians(90)
-            normalize_angle(turn_to_front_rad)
+            # normalize_angle(turn_to_front_rad)
             self.rotate_node.rotate(turn_to_front_rad)
             time.sleep(1.0)
         
@@ -276,7 +276,7 @@ class ArucoDocking(Node):
 
         #     self.cmd_vel.angular.z = scale_yaw if self.dist_side < 0 else -scale_yaw
 
-        
+
         if abs(self.dist_side) > 10:
 
             self.get_logger().info(f"🔁 111")
@@ -302,7 +302,7 @@ class ArucoDocking(Node):
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(10):# or abs(self.dist_side) > 25:
+        elif abs(self.yaw_rad) > math.radians(8):# or abs(self.dist_side) > 25:
 
             self.get_logger().info(f"🚗 222")
 
