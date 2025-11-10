@@ -4,7 +4,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 import time
-from shopee_interfaces.srv import ArmMoveToPose, ArmPickProduct, PackeeVisionDetectProductsInCart
+from shopee_interfaces.srv import ArmMoveToPose, ArmPickProduct, ArmPlaceProduct, PackeeVisionDetectProductsInCart
 import numpy as np
 from pymycobot.mycobot280 import MyCobot280
 
@@ -17,6 +17,8 @@ class PackeeArmController(Node):
         self.gain = 0.3
         self.epsilon = 10.0
         self.products = {1: "와사비", 12: "생선", 14: "이클립스"}
+        self.place_index = 0
+        self.place_pose = [[142.5, -215.0, 136.7, 176.56, 8.93, -94.48], [145.3, -125.9, 121.6, 178.02, 4.22, -91.48], [140.4, -64.1, 122.9, 177.67, 7.13, -89.86]]
 
         self.cb_group = ReentrantCallbackGroup()
 
@@ -35,6 +37,13 @@ class PackeeArmController(Node):
             ArmPickProduct,
             "/packee1/arm/pick_product",
             self.pickup_product,
+            callback_group=self.cb_group
+        )
+
+        self.place_server = self.create_service(
+            ArmPlaceProduct,
+            "/packee1/arm/place_product",
+            self.place_product,
             callback_group=self.cb_group
         )
 
@@ -147,6 +156,36 @@ class PackeeArmController(Node):
             self.get_logger().error(f"픽업 실패: {e}")
             response.success = False
             response.message = f"픽업 실패: {e}"
+            return response
+        
+    def place_product(self, request, response):
+        robot_id = request.robot_id
+        order_id = request.order_id
+        product_id = request.product_id
+
+        self.get_logger().info(f"상품 포장 요청: product_id={product_id}")
+
+        try:
+            drop_pose = self.place_pose[self.place_index]
+            self.mc.send_coords(drop_pose, self.speed)
+            time.sleep(1)
+
+            self.mc.set_gripper_value(100, self.speed)
+            self.get_logger().info("그리퍼 열음")
+            time.sleep(1)
+
+            self.mc.send_angles([0, 0, 0, 0, 0, 0], self.speed)
+            self.get_logger().info("배치 완료")
+            self.place_index = (self.place_index + 1) % len(self.place_pose)
+
+            response.success = True
+            response.message = "상품 배치 완료"
+            return response
+
+        except Exception as e:
+            self.get_logger().error(f"배치 실패: {e}")
+            response.success = False
+            response.message = f"배치 실패: {e}"
             return response
 
 def main():
