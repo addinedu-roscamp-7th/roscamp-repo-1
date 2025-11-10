@@ -384,6 +384,7 @@ class UserWindow(QWidget):
         self.selection_selected_index: int | None = None
         self.ros_thread = ros_thread
         self.pose_tracking_active = False
+        self._set_detection_subscription(False)
         self.order_select_stack = getattr(self.ui, "stackedWidget", None)
         self.page_select_product = getattr(self.ui, "page_select_product", None)
         self.page_moving_view = getattr(self.ui, "page_moving", None)
@@ -707,7 +708,7 @@ class UserWindow(QWidget):
                 )
             except TypeError:
                 pass
-        self.pose_tracking_active = False
+        self._disable_pose_tracking()
         self.closed.emit()
         super().closeEvent(event)
 
@@ -2544,11 +2545,29 @@ class UserWindow(QWidget):
         self._auto_camera_warning_displayed = False
         self.on_camera_button_clicked('front')
 
+    def _set_detection_subscription(self, enabled: bool) -> None:
+        '''UI 흐름에 맞춰 Pickee 비전 토픽 구독 상태를 전환한다.'''
+        if self.ros_thread is None:
+            return
+        try:
+            self.ros_thread.set_detection_subscription_enabled(enabled)
+        except AttributeError:
+            pass
+
     def _enable_pose_tracking(self) -> None:
         if self.pose_tracking_active:
             return
         self.pose_tracking_active = True
-        print("[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.")
+        print('[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.')
+        self._set_detection_subscription(True)
+
+    def _disable_pose_tracking(self) -> None:
+        if not self.pose_tracking_active:
+            self._set_detection_subscription(False)
+            return
+        self.pose_tracking_active = False
+        print('[Map] 픽업 모드를 종료하며 로봇 위치 추적을 중지합니다.')
+        self._set_detection_subscription(False)
 
     def _on_pickee_status_received(self, msg: object) -> None:
         if not self.pose_tracking_active:
@@ -3261,7 +3280,7 @@ class UserWindow(QWidget):
             self.logger.debug("음성 인식 리소스 정리 완료")
 
             # 위치 추적 중지
-            self.pose_tracking_active = False
+            self._disable_pose_tracking()
 
             # UI 상태 초기화
             self.logger.debug("UI 상태 초기화 시작")
@@ -3396,7 +3415,7 @@ class UserWindow(QWidget):
 
     def _disconnect_ros(self) -> None:
         """ROS 연결을 해제합니다."""
-        self.pose_tracking_active = False
+        self._disable_pose_tracking()
         if self.ros_thread is not None:
             try:
                 self.ros_thread.pickee_status_received.disconnect(
@@ -3462,7 +3481,7 @@ class UserWindow(QWidget):
                 self.shopping_button.setChecked(True)
             if self.store_button:
                 self.store_button.setChecked(False)
-            self.pose_tracking_active = False
+            self._disable_pose_tracking()
             if self.search_input is not None:
                 self.search_input.show()
             if self.search_button is not None:
