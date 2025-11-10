@@ -277,7 +277,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.40 # 전역경로 회피 반경, 원본 : 0.37
+        inflation_radius: 0.70 # 전역경로 회피 반경, 원본 : 0.37
       always_send_full_costmap: True
 
 map_server:
