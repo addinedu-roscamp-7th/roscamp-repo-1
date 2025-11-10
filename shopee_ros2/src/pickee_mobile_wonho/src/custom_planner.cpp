@@ -425,7 +425,7 @@ namespace custom_planner
     {
         size_t turnable_index = 2;
         bool is_adding_waypoint = true;
-        bool is_x_dir_increase = endWaypointIndex.x_idx < startWaypointIndex.x_idx;
+        bool is_x_dir_increase = endWaypointIndex.x_idx > startWaypointIndex.x_idx;
         bool is_y_dir_increase = endWaypointIndex.y_idx > startWaypointIndex.y_idx;
         RCLCPP_INFO(logger_, "is_x_dir_increase: %s, is_y_dir_increase: %s", 
                     is_x_dir_increase ? "true" : "false",
