@@ -444,6 +444,8 @@ class UserWindow(QWidget):
         self.arm_item = None
         self.bbox_overlay_items: list[QGraphicsItem] = []
         self.bbox_rect_items: dict[int, QGraphicsRectItem] = {}
+        self.bbox_label_items: dict[int, QGraphicsSimpleTextItem] = {}
+        self.bbox_label_bg_items: dict[int, QGraphicsRectItem] = {}
         self.pending_detection_products: list[dict[str, Any]] = []
         self._bbox_overlays_dirty = False
         self.map_scene: QGraphicsScene | None = None
@@ -2866,6 +2868,8 @@ class UserWindow(QWidget):
             return
         self._remove_bbox_items_from_scene()
         self.bbox_rect_items.clear()
+        self.bbox_label_items.clear()
+        self.bbox_label_bg_items.clear()
         pen = QPen(QColor('#ff9800'))
         pen.setWidth(2)
         pen.setCosmetic(True)
@@ -2920,6 +2924,9 @@ class UserWindow(QWidget):
             bg_item.setPen(QPen(QtCore.Qt.PenStyle.NoPen))
             bg_item.setZValue(6)
             self.bbox_overlay_items.extend([bg_item, label_item])
+            if bbox_number > 0:
+                self.bbox_label_items[bbox_number] = label_item
+                self.bbox_label_bg_items[bbox_number] = bg_item
         self.front_scene.update()
         self._bbox_overlays_dirty = False
         self._refresh_bbox_highlight()
@@ -2939,6 +2946,8 @@ class UserWindow(QWidget):
                 pass
         self.bbox_overlay_items.clear()
         self.bbox_rect_items.clear()
+        self.bbox_label_items.clear()
+        self.bbox_label_bg_items.clear()
 
     def _clear_bbox_overlays(self) -> None:
         '''bbox 그래픽과 대기 데이터를 모두 초기화한다.'''
@@ -2967,6 +2976,10 @@ class UserWindow(QWidget):
                 selected_bbox = None
         default_color = QColor('#ff9800')
         highlight_color = QColor('#4caf50')
+        default_label_color = QColor('#ffffff')
+        default_bg_color = QColor(0, 0, 0, 180)
+        highlight_label_color = QColor('#000000')
+        highlight_bg_color = QColor('#ffffff')
         for bbox_number, rect_item in self.bbox_rect_items.items():
             if rect_item is None:
                 continue
@@ -2974,10 +2987,25 @@ class UserWindow(QWidget):
                 highlight_color if selected_bbox == bbox_number else default_color
             )
             pen = QPen(rect_item.pen())
-            if pen.color() == target_color:
-                continue
-            pen.setColor(target_color)
-            rect_item.setPen(pen)
+            if pen.color() != target_color:
+                pen.setColor(target_color)
+                rect_item.setPen(pen)
+            label_item = self.bbox_label_items.get(bbox_number)
+            if label_item is not None:
+                label_color = (
+                    highlight_label_color
+                    if selected_bbox == bbox_number
+                    else default_label_color
+                )
+                label_item.setBrush(QBrush(label_color))
+            bg_item = self.bbox_label_bg_items.get(bbox_number)
+            if bg_item is not None:
+                bg_color = (
+                    highlight_bg_color
+                    if selected_bbox == bbox_number
+                    else default_bg_color
+                )
+                bg_item.setBrush(QBrush(bg_color))
 
     def _on_pickee_status_received(self, msg: object) -> None:
         if not self.pose_tracking_active:
