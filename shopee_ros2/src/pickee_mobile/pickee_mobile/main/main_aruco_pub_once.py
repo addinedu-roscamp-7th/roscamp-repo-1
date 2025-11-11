@@ -85,6 +85,8 @@ class ArucoReaderNode(Node):
             self.get_logger().info(f"🧭 target ID = {self.target_id}")
             self.docking_in_progress = True
             threading.Thread(target=self.read_marker, daemon=True).start()
+        else:
+            self.get_logger().info(f"🛑 Wrong location ID. location id = {msg.location_id}")
 
 
     # --------------------------------------------------------------------
