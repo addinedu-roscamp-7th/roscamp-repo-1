@@ -22,13 +22,13 @@ class PickeeArmNode(Node):
 
         # 실시간 시각 서보 제어(Visual Servoing) 활성화 여부를 나타내는 상태 플래그
         self.visual_servoing_active = True # for test
-
+        self.last_servo_time = self.get_clock().now() ##
         try:
             self.arm = ArmControl(self.get_logger())
             self.arm.control_gripper(100)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
             time.sleep(2)
-            self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE) #for_test
+            #self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE) #for_test
         except Exception as e:
             self.get_logger().fatal(f"ArmControl initialization failed: {e}. \
 Shutting down node.")
@@ -158,13 +158,20 @@ to {request.pose_type}")
             msg.ry,
             msg.rz,
         ]
-        
+        current_time = self.get_clock().now()
+        if (current_time - self.last_servo_time).nanoseconds / 1e9 < 0.1:
+            return
+        self.last_servo_time = current_time
         self.arm.move_to_coords(new_angles, speed=60)
+        print(self.arm.get_coords())
     
     def move_start_callback(self, request, response):
         self.get_logger().info('Move start request received from vision.')
         try:
+            self.arm.move_to_joints(arm_poses.STANDBY_POSE)
+            time.sleep(2)
             self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE)
+            time.sleep(1)
             while self.arm.is_moving():
                 time.sleep(0.1)
             response.success = True
@@ -179,7 +186,7 @@ to {request.pose_type}")
     def check_product_callback(self, request, response):
         self.bbox_number = request.bbox_number
         target_pose = None
-        
+
         self.bool_msg.data = False
         self.is_moving_pub.publish(self.bool_msg)
 
@@ -197,6 +204,7 @@ to {request.pose_type}")
 
         try:
             self.arm.move_to_coords(target_pose)
+            time.sleep(1)
             while self.arm.is_moving():
                 time.sleep(0.1)
             
@@ -210,7 +218,7 @@ to {request.pose_type}")
             response.message = "Successfully moved to grid and notified vision."
         except Exception as e:
             response.success = False
-            response.message = f"Failed during check_product process: {e}"
+            response.message = f"Fkiled during check_product process: {e}"
             self.get_logger().error(response.message)
         
         return response
