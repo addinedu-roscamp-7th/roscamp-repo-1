@@ -1,4 +1,5 @@
 import threading
+from typing import Any
 from typing import Callable
 from typing import Optional
 
@@ -43,6 +44,7 @@ class ShopeeAppNode(Node):
         """필요한 ROS 엔티티를 초기화하고 상태 토픽을 구독한다."""
         super().__init__('shopee_app_node')
         self._status_listeners: list[Callable[[PickeeRobotStatus], None]] = []
+        self._detection_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._detection_subscription: Subscription | None = None
         self._status_subscription: Subscription | None = None
         self._detection_subscription_timer: Timer | None = None
@@ -97,18 +99,71 @@ class ShopeeAppNode(Node):
         if callback in self._status_listeners:
             self._status_listeners.remove(callback)
 
+    def add_detection_listener(
+        self, callback: Callable[[dict[str, Any]], None]
+    ) -> None:
+        """비전 결과를 전달할 콜백을 등록한다."""
+        if callback not in self._detection_listeners:
+            self._detection_listeners.append(callback)
+
+    def remove_detection_listener(
+        self, callback: Callable[[dict[str, Any]], None]
+    ) -> None:
+        """등록된 비전 콜백을 안전하게 제거한다."""
+        if callback in self._detection_listeners:
+            self._detection_listeners.remove(callback)
+
     def on_selection_bbox(self, msg: PickeeVisionDetection) -> None:
+        products_payload: list[dict[str, Any]] = []
         for product in msg.products:
             bbox = product.bbox
             bbox_number = product.bbox_number
-            product_name = PRODUCT_CATALOG.get(product.product_id, "미등록상품")
+            product_name = PRODUCT_CATALOG.get(product.product_id, '미등록상품')
             product_id = product.product_id
 
-            self.get_logger().info(f"상품명: {product_name}, ID:{product_id}")
-            self.get_logger().info(f"bbox번호: {bbox_number}")
+            self.get_logger().info(f'상품명: {product_name}, ID:{product_id}')
+            self.get_logger().info(f'bbox번호: {bbox_number}')
             self.get_logger().info(
-                f"BBox={bbox.x1}, {bbox.y1}, -> {bbox.x2}, {bbox.y2}"
+                f'BBox={bbox.x1}, {bbox.y1}, -> {bbox.x2}, {bbox.y2}'
             )
+            try:
+                bbox_data = {
+                    'x1': int(bbox.x1),
+                    'y1': int(bbox.y1),
+                    'x2': int(bbox.x2),
+                    'y2': int(bbox.y2),
+                }
+            except (TypeError, ValueError):
+                continue
+            payload = {
+                'product_id': int(product_id),
+                'product_name': product_name,
+                'bbox_number': int(bbox_number),
+                'bbox': bbox_data,
+            }
+            products_payload.append(payload)
+        try:
+            robot_id_value = int(msg.robot_id)
+        except (TypeError, ValueError):
+            robot_id_value = -1
+        try:
+            order_id_value = int(msg.order_id)
+        except (TypeError, ValueError):
+            order_id_value = -1
+        detection_payload = {
+            'robot_id': robot_id_value,
+            'order_id': order_id_value,
+            'products': products_payload,
+        }
+        self._notify_detection_listeners(detection_payload)
+
+    def _notify_detection_listeners(self, payload: dict[str, Any]) -> None:
+        """UI 쓰레드로 비전 결과를 안전하게 전달한다."""
+        for callback in list(self._detection_listeners):
+            try:
+                callback(payload)
+            except Exception:
+                self.get_logger().exception('Pickee detection listener 실패')
 
     def _log_detection_subscription(self) -> None:
         """비전 토픽 구독이 활성화된 동안 상태 로그를 출력한다."""
@@ -136,6 +191,7 @@ class RosNodeThread(QThread):
     node_ready = pyqtSignal()
     node_error = pyqtSignal(str)
     pickee_status_received = pyqtSignal(object)
+    pickee_detection_received = pyqtSignal(object)
 
     def __init__(self):
         """스레드 동기화를 위한 이벤트와 실행기를 준비한다."""
@@ -162,6 +218,7 @@ class RosNodeThread(QThread):
             self._executor = SingleThreadedExecutor()
             self._executor.add_node(self._node)
             self._node.add_status_listener(self._handle_pickee_status)
+            self._node.add_detection_listener(self._handle_pickee_detection)
             self._apply_detection_subscription_state()
             self._ready_event.set()
             self.node_ready.emit()
@@ -178,6 +235,7 @@ class RosNodeThread(QThread):
                 self._executor.remove_node(self._node)
             if self._node is not None:
                 self._node.remove_status_listener(self._handle_pickee_status)
+                self._node.remove_detection_listener(self._handle_pickee_detection)
                 self._node.destroy_node()
                 self._node = None
             if self._executor is not None:
@@ -218,6 +276,10 @@ class RosNodeThread(QThread):
         if self._node is None:
             return
         self._node.set_detection_subscription_enabled(self._pending_detection_enabled)
+
+    def _handle_pickee_detection(self, payload: dict[str, Any]) -> None:
+        """비전 감지 결과를 PyQt 시그널로 전달한다."""
+        self.pickee_detection_received.emit(payload)
 
     def _handle_pickee_status(self, msg: PickeeRobotStatus) -> None:
         """선택된 콜백 대신 PyQt 시그널로 상태 메시지를 전달한다."""

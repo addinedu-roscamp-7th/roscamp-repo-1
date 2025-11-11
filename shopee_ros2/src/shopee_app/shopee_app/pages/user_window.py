@@ -43,6 +43,7 @@ from PyQt6.QtWidgets import QGraphicsLineItem
 from PyQt6.QtWidgets import QGraphicsPixmapItem
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 from PyQt6.QtWidgets import QGraphicsItem
+from PyQt6.QtWidgets import QGraphicsRectItem
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
@@ -249,6 +250,8 @@ class UserWindow(QWidget):
     ROBOT_POSITION_OFFSET_X = 14.7
     ROBOT_POSITION_OFFSET_Y = 12.0
     ROBOT_LABEL_OFFSET_Y = -36.0
+    VIDEO_FRAME_WIDTH = 640
+    VIDEO_FRAME_HEIGHT = 480
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
         1: IMAGE_ROOT / "product_horseradish.png",
         2: IMAGE_ROOT / "product_spicy_chicken.png",
@@ -404,6 +407,9 @@ class UserWindow(QWidget):
         self.arm_scene: QGraphicsScene | None = None
         self.front_item = None
         self.arm_item = None
+        self.bbox_overlay_items: list[QGraphicsItem] = []
+        self.pending_detection_products: list[dict[str, Any]] = []
+        self._bbox_overlays_dirty = False
         self.map_scene: QGraphicsScene | None = None
         self.map_pixmap_item: QGraphicsPixmapItem | None = None
         self.map_robot_item: QGraphicsPixmapItem | QGraphicsEllipseItem | None = None
@@ -541,6 +547,12 @@ class UserWindow(QWidget):
             self.ros_thread.pickee_status_received.connect(
                 self._on_pickee_status_received
             )
+            try:
+                self.ros_thread.pickee_detection_received.connect(
+                    self._on_detection_received
+                )
+            except AttributeError:
+                pass
         from shopee_app.styles.constants import STYLES
 
         self.ui.btn_pay.setStyleSheet(STYLES["pay_button"])
@@ -705,6 +717,12 @@ class UserWindow(QWidget):
             try:
                 self.ros_thread.pickee_status_received.disconnect(
                     self._on_pickee_status_received
+                )
+            except TypeError:
+                pass
+            try:
+                self.ros_thread.pickee_detection_received.disconnect(
+                    self._on_detection_received
                 )
             except TypeError:
                 pass
@@ -2569,6 +2587,164 @@ class UserWindow(QWidget):
         print('[Map] 픽업 모드를 종료하며 로봇 위치 추적을 중지합니다.')
         self._set_detection_subscription(False)
 
+    def _on_detection_received(self, payload: object) -> None:
+        '''ROS 비전 bbox 데이터를 받아와 화면에 반영한다.'''
+        normalized = self._normalize_detection_products(payload)
+        if normalized is None:
+            return
+        if not normalized:
+            self._clear_bbox_overlays()
+            return
+        self.pending_detection_products = normalized
+        self._bbox_overlays_dirty = True
+        self._try_render_bbox_overlays()
+
+    def _normalize_detection_products(
+        self, payload: object
+    ) -> list[dict[str, Any]] | None:
+        '''수신 페이로드를 UI에서 쓰기 쉬운 리스트로 변환한다.'''
+        if not isinstance(payload, dict):
+            return None
+        raw_products = payload.get('products')
+        if not isinstance(raw_products, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for entry in raw_products:
+            if not isinstance(entry, dict):
+                continue
+            bbox_info = entry.get('bbox')
+            if not isinstance(bbox_info, dict):
+                continue
+            coords = self._sanitize_bbox_coords(bbox_info)
+            if coords is None:
+                continue
+            try:
+                bbox_number = int(entry.get('bbox_number'))
+            except (TypeError, ValueError):
+                continue
+            if bbox_number <= 0:
+                continue
+            try:
+                product_id = int(entry.get('product_id'))
+            except (TypeError, ValueError):
+                product_id = -1
+            product_name = entry.get('product_name') or entry.get('name')
+            if product_name is None:
+                product_name = f'상품 {product_id}' if product_id >= 0 else '상품'
+            name_text = str(product_name)
+            label_text = f'{bbox_number}. {name_text}'
+            x1, y1, x2, y2 = coords
+            normalized.append(
+                {
+                    'bbox_number': bbox_number,
+                    'product_id': product_id,
+                    'label': label_text,
+                    'x1': x1,
+                    'y1': y1,
+                    'x2': x2,
+                    'y2': y2,
+                }
+            )
+        return normalized
+
+    def _sanitize_bbox_coords(
+        self, bbox: dict[str, Any]
+    ) -> tuple[int, int, int, int] | None:
+        '''UI 좌표계를 벗어난 bbox 좌표를 보정한다.'''
+        try:
+            x1 = int(bbox.get('x1'))
+            y1 = int(bbox.get('y1'))
+            x2 = int(bbox.get('x2'))
+            y2 = int(bbox.get('y2'))
+        except (TypeError, ValueError):
+            return None
+        frame_w = self.VIDEO_FRAME_WIDTH
+        frame_h = self.VIDEO_FRAME_HEIGHT
+        x1 = max(0, min(x1, frame_w))
+        y1 = max(0, min(y1, frame_h))
+        x2 = max(0, min(x2, frame_w))
+        y2 = max(0, min(y2, frame_h))
+        if x2 <= x1 or y2 <= y1:
+            return None
+        return x1, y1, x2, y2
+
+    def _try_render_bbox_overlays(self) -> None:
+        '''전면 카메라 장면 위에 bbox를 그린다.'''
+        if not self._bbox_overlays_dirty:
+            return
+        if self.front_scene is None or self.front_item is None:
+            return
+        if not self.pending_detection_products:
+            self._remove_bbox_items_from_scene()
+            self._bbox_overlays_dirty = False
+            return
+        self._remove_bbox_items_from_scene()
+        pen = QPen(QColor('#ff9800'))
+        pen.setWidth(2)
+        pen.setCosmetic(True)
+        transparent_brush = QBrush(QtCore.Qt.BrushStyle.NoBrush)
+        for info in self.pending_detection_products:
+            width = info['x2'] - info['x1']
+            height = info['y2'] - info['y1']
+            if width <= 0 or height <= 0:
+                continue
+            rect_item = QGraphicsRectItem(
+                info['x1'], info['y1'], width, height, self.front_item
+            )
+            rect_item.setPen(pen)
+            rect_item.setBrush(transparent_brush)
+            rect_item.setZValue(5)
+            self.bbox_overlay_items.append(rect_item)
+            label_item = QGraphicsSimpleTextItem(info['label'], self.front_item)
+            label_font = label_item.font()
+            if label_font.pointSizeF() < 11.0:
+                label_font.setPointSizeF(11.0)
+            label_item.setFont(label_font)
+            label_item.setBrush(QBrush(QColor('#ffffff')))
+            label_item.setZValue(7)
+            label_rect = label_item.boundingRect()
+            padding = 6.0
+            label_x = float(info['x1'])
+            max_x = float(self.VIDEO_FRAME_WIDTH) - label_rect.width()
+            label_x = max(0.0, min(label_x, max_x))
+            label_y = float(info['y1']) - label_rect.height() - padding
+            label_y = max(0.0, label_y)
+            label_item.setPos(label_x, label_y)
+            bg_item = QGraphicsRectItem(
+                label_x - (padding / 2),
+                label_y - (padding / 2),
+                label_rect.width() + padding,
+                label_rect.height() + padding,
+                self.front_item,
+            )
+            bg_item.setBrush(QBrush(QColor(0, 0, 0, 180)))
+            bg_item.setPen(QPen(QtCore.Qt.PenStyle.NoPen))
+            bg_item.setZValue(6)
+            self.bbox_overlay_items.extend([bg_item, label_item])
+        self.front_scene.update()
+        self._bbox_overlays_dirty = False
+
+    def _remove_bbox_items_from_scene(self) -> None:
+        '''현재 장면에 올라간 bbox 그래픽을 제거한다.'''
+        if not self.bbox_overlay_items:
+            return
+        for item in self.bbox_overlay_items:
+            if item is None:
+                continue
+            scene = item.scene()
+            try:
+                if scene is not None:
+                    scene.removeItem(item)
+            except RuntimeError:
+                pass
+        self.bbox_overlay_items.clear()
+
+    def _clear_bbox_overlays(self) -> None:
+        '''bbox 그래픽과 대기 데이터를 모두 초기화한다.'''
+        self.pending_detection_products = []
+        self._bbox_overlays_dirty = False
+        self._remove_bbox_items_from_scene()
+
     def _on_pickee_status_received(self, msg: object) -> None:
         if not self.pose_tracking_active:
             return
@@ -2683,6 +2859,7 @@ class UserWindow(QWidget):
             return
 
         trigger_button = self.select_done_button
+        self._clear_bbox_overlays()
         if trigger_button is not None:
             trigger_button.setEnabled(False)
 
@@ -2861,6 +3038,7 @@ class UserWindow(QWidget):
                 self.front_item = None
             except Exception as e:
                 self.logger.warning(f"전면 비디오 화면 정리 오류: {e}")
+        self._clear_bbox_overlays()
 
         if self.arm_scene is not None and self.arm_item is not None:
             try:
@@ -2900,6 +3078,8 @@ class UserWindow(QWidget):
                 f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}"
             )
         self._fit_view(view, item)
+        if camera_type == 'front':
+            self._try_render_bbox_overlays()
         scene.update()
 
     def _fit_view(self, view: QGraphicsView, item) -> None:

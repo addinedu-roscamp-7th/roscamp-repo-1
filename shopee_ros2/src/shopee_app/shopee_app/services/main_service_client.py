@@ -35,26 +35,32 @@ def _float_from_env(key: str, default: float) -> float:
 
 @dataclass
 class MainServiceConfig:
-    host: str = field(default_factory=lambda: os.getenv("SHOPEE_MAIN_HOST", "192.168.0.25"))
+    host: str = field(
+        default_factory=lambda: os.getenv("SHOPEE_MAIN_HOST", "192.168.0.154")
+    )
     port: int = field(default_factory=lambda: _int_from_env("SHOPEE_MAIN_PORT", 5000))
-    timeout: float = field(default_factory=lambda: _float_from_env("SHOPEE_MAIN_TIMEOUT", 3.0))
-    long_timeout: float = field(default_factory=lambda: _float_from_env("SHOPEE_MAIN_LONG_TIMEOUT", 8.0))
+    timeout: float = field(
+        default_factory=lambda: _float_from_env("SHOPEE_MAIN_TIMEOUT", 3.0)
+    )
+    long_timeout: float = field(
+        default_factory=lambda: _float_from_env("SHOPEE_MAIN_LONG_TIMEOUT", 8.0)
+    )
 
 
 class MainServiceClient:
-    '''Main Service와의 TCP 요청/응답을 담당하는 클라이언트.'''
+    """Main Service와의 TCP 요청/응답을 담당하는 클라이언트."""
 
     def __init__(self, config: MainServiceConfig | None = None):
-        '''환경 설정을 적용하고 연결 정보를 출력한다.'''
+        """환경 설정을 적용하고 연결 정보를 출력한다."""
         self.config = config if config is not None else MainServiceConfig()
         print(
-            '[MainServiceClient] host='
-            f'{self.config.host} port={self.config.port} timeout={self.config.timeout}s '
-            f'long_timeout={self.config.long_timeout}s'
+            "[MainServiceClient] host="
+            f"{self.config.host} port={self.config.port} timeout={self.config.timeout}s "
+            f"long_timeout={self.config.long_timeout}s"
         )
 
     def login(self, user_id: str, password: str) -> dict:
-        '''사용자 로그인 요청을 전송한다.'''
+        """사용자 로그인 요청을 전송한다."""
         payload = {
             "type": "user_login",
             "data": {
@@ -71,7 +77,7 @@ class MainServiceClient:
         payment_method: str,
         total_amount: int,
     ) -> dict:
-        '''장바구니 기반으로 주문 생성을 요청한다.'''
+        """장바구니 기반으로 주문 생성을 요청한다."""
         order_items: list[dict[str, int]] = []
         for item in cart_items:
             product_id = None
@@ -103,7 +109,7 @@ class MainServiceClient:
         return self.send(payload)
 
     def fetch_total_products(self, user_id: str) -> dict:
-        '''전체 상품 목록을 요청해 초기 화면 데이터를 확보한다.'''
+        """전체 상품 목록을 요청해 초기 화면 데이터를 확보한다."""
         payload = {
             "type": "total_product",
             "data": {
@@ -120,7 +126,7 @@ class MainServiceClient:
         allergy_filter: dict[str, bool] | None = None,
         is_vegan: bool | None = None,
     ) -> dict:
-        '''검색어와 필터를 포함한 상품 검색 요청을 전송한다.'''
+        """검색어와 필터를 포함한 상품 검색 요청을 전송한다."""
         # 검색 필터를 누적할 딕셔너리가 없으면 조건별 데이터를 모을 수 없어 서버에 온전한 요청을 보낼 수 없다.
         filter_payload: dict[str, object] = {}
         # 알레르기 필터가 제공되었는지 확인하지 않으면 기본값과 사용자 입력을 구분할 수 없어 의미 없는 필터를 보낼 수 있다.
@@ -132,39 +138,42 @@ class MainServiceClient:
                 # 각 항목을 불리언으로 변환하지 않으면 문자열이나 정수로 전달될 수 있어 명세와 달라진다.
                 normalized_allergy[key] = bool(value)
             # 정규화된 알레르기 정보를 필터에 포함하지 않으면 서버가 사용자의 알레르기 제한을 고려하지 못한다.
-            filter_payload['allergy_info'] = normalized_allergy
+            filter_payload["allergy_info"] = normalized_allergy
         # 비건 여부가 명시되었는지 확인하지 않으면 서버에 불필요한 필드가 전달되어 기본 동작을 방해할 수 있다.
         if is_vegan is not None:
             # 비건 여부를 불리언으로 강제하지 않으면 True/False 외의 값이 전달되어 검증 오류가 발생할 수 있다.
-            filter_payload['is_vegan'] = bool(is_vegan)
+            filter_payload["is_vegan"] = bool(is_vegan)
         # 알레르기 정보 키가 없으면 서버는 구조를 파싱할 때 KeyError를 일으킬 수 있다.
-        if 'allergy_info' not in filter_payload:
+        if "allergy_info" not in filter_payload:
             # 빈 알레르기 딕셔너리를 넣어 두지 않으면 필드가 아예 사라져 명세와 달라진다.
-            filter_payload['allergy_info'] = {}
+            filter_payload["allergy_info"] = {}
         # 비건 여부가 빠지면 서버가 기본값을 추측해야 하므로 명시적으로 False를 채워 넣는다.
-        if 'is_vegan' not in filter_payload:
+        if "is_vegan" not in filter_payload:
             # False를 기본값으로 전달하지 않으면 비건 필터가 적용되지 않아 예상과 다른 상품이 포함될 수 있다.
-            filter_payload['is_vegan'] = False
+            filter_payload["is_vegan"] = False
         # 검색 요청 페이로드를 구성하지 않으면 서버가 어떤 작업을 수행해야 하는지 전혀 알 수 없다.
         payload = {
             # type 필드를 누락하면 서버가 메시지 유형을 판별할 수 없어 요청을 거부한다.
-            'type': 'product_search',
+            "type": "product_search",
             # data 필드를 비워두면 사용자와 검색 조건이 전달되지 않아 의미 있는 검색이 불가능하다.
-            'data': {
+            "data": {
                 # 사용자 ID를 포함하지 않으면 서버가 개인화된 필터를 적용하거나 권한을 확인할 수 없다.
-                'user_id': user_id,
+                "user_id": user_id,
                 # 검색어를 전달하지 않으면 서버는 무엇을 찾아야 할지 몰라 전체 목록만 반환하거나 오류를 낼 수 있다.
-                'query': query,
+                "query": query,
                 # 필터 객체가 없으면 명세에 정의된 구조를 따르지 않아 서버가 요청을 거절할 수 있다.
-                'filter': filter_payload,
+                "filter": filter_payload,
             },
         }
         # 검색 요청과 응답을 기록하지 않으면 네트워크 왕복 데이터 추적이 어렵다.
-        print('[MainServiceClient] product_search 요청:', json.dumps(payload, ensure_ascii=False))
+        print(
+            "[MainServiceClient] product_search 요청:",
+            json.dumps(payload, ensure_ascii=False),
+        )
         # 소켓 전송을 수행하지 않으면 페이로드가 서버로 전달되지 않아 검색 결과를 받을 수 없다.
         response = self.send(payload, timeout=self.config.long_timeout)
         if isinstance(response, dict):
-            response_payload = response.get('data')
+            response_payload = response.get("data")
             try:
                 formatted_full_response = json.dumps(response, ensure_ascii=False)
             except (TypeError, ValueError):
@@ -172,12 +181,12 @@ class MainServiceClient:
         else:
             response_payload = response
             formatted_full_response = str(response)
-        print('[MainServiceClient] product_search 응답 전체:', formatted_full_response)
+        print("[MainServiceClient] product_search 응답 전체:", formatted_full_response)
         try:
             formatted_response = json.dumps(response_payload, ensure_ascii=False)
         except (TypeError, ValueError):
             formatted_response = str(response_payload)
-        print('[MainServiceClient] product_search 응답 데이터:', formatted_response)
+        print("[MainServiceClient] product_search 응답 데이터:", formatted_response)
         return response
 
     def select_product(
@@ -188,7 +197,7 @@ class MainServiceClient:
         bbox_number: int,
         product_id: int,
     ) -> dict:
-        '''로봇이 선택한 상품 정보를 서버에 보고한다.'''
+        """로봇이 선택한 상품 정보를 서버에 보고한다."""
         payload = {
             "type": "product_selection",
             "data": {
@@ -198,7 +207,10 @@ class MainServiceClient:
                 "product_id": int(product_id),
             },
         }
-        print('[MainServiceClient] product_selection 요청:', json.dumps(payload, ensure_ascii=False))
+        print(
+            "[MainServiceClient] product_selection 요청:",
+            json.dumps(payload, ensure_ascii=False),
+        )
         return self.send(payload)
 
     def start_video_stream(
@@ -209,7 +221,7 @@ class MainServiceClient:
         robot_id: int,
         camera_type: str,
     ) -> dict:
-        '''로봇 카메라 스트림을 시작하도록 요청한다.'''
+        """로봇 카메라 스트림을 시작하도록 요청한다."""
         payload = {
             "type": "video_stream_start",
             "data": {
@@ -219,7 +231,10 @@ class MainServiceClient:
                 "camera_type": camera_type,
             },
         }
-        print('[MainServiceClient] video_stream_start 요청:', json.dumps(payload, ensure_ascii=False))
+        print(
+            "[MainServiceClient] video_stream_start 요청:",
+            json.dumps(payload, ensure_ascii=False),
+        )
         return self.send(payload, timeout=self.config.long_timeout)
 
     def stop_video_stream(
@@ -229,7 +244,7 @@ class MainServiceClient:
         user_type: str,
         robot_id: int,
     ) -> dict:
-        '''진행 중인 영상 스트림을 종료하도록 요청한다.'''
+        """진행 중인 영상 스트림을 종료하도록 요청한다."""
         payload = {
             "type": "video_stream_stop",
             "data": {
@@ -238,7 +253,10 @@ class MainServiceClient:
                 "robot_id": int(robot_id),
             },
         }
-        print('[MainServiceClient] video_stream_stop 요청:', json.dumps(payload, ensure_ascii=False))
+        print(
+            "[MainServiceClient] video_stream_stop 요청:",
+            json.dumps(payload, ensure_ascii=False),
+        )
         return self.send(payload, timeout=self.config.timeout)
 
     def send(
@@ -248,7 +266,7 @@ class MainServiceClient:
         log_response: bool = True,
         timeout: float | None = None,
     ) -> dict:
-        '''JSON 페이로드를 송신하고 응답을 JSON으로 반환한다.'''
+        """JSON 페이로드를 송신하고 응답을 JSON으로 반환한다."""
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n"
         effective_timeout = self.config.timeout if timeout is None else timeout
 
@@ -268,15 +286,15 @@ class MainServiceClient:
             return {}
 
         try:
-            decoded = response.decode('utf-8')
+            decoded = response.decode("utf-8")
             if log_response:
-                print('[MainServiceClient] raw response:', decoded)
+                print("[MainServiceClient] raw response:", decoded)
             return json.loads(decoded)
         except json.JSONDecodeError as exc:
             raise MainServiceClientError("JSON 응답을 해석할 수 없습니다.") from exc
 
     def recv_all(self, conn: socket.socket, *, timeout: float) -> bytes:
-        '''개행 문자까지 수신하여 응답 본문을 결합한다.'''
+        """개행 문자까지 수신하여 응답 본문을 결합한다."""
         chunks: list[bytes] = []
         while True:
             try:
