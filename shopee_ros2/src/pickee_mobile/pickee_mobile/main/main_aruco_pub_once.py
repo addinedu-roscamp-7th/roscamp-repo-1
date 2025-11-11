@@ -92,6 +92,8 @@ class ArucoReaderNode(Node):
         if  msg.location_id > 0: # 
             if msg.location_id == 13: # 하드코딩
                 self.target_id = 1
+            elif msg.location_id == 1:
+                self.target_id = 1
             else:
                 self.get_logger().info(f"🛑 Wrong location ID. location id = {msg.location_id}")
                 
