@@ -89,9 +89,13 @@ class PickeeVisionNode(Node):
         self.camera_type = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
+<<<<<<< HEAD
         # self.arm_cam = cv2.VideoCapture(0)
         self.arm_cam = cv2.VideoCapture(4)
 
+=======
+        self.arm_cam = cv2.VideoCapture(4)
+>>>>>>> d1805897864bc6a2505eddeb6db450be4f11da7b
         if not self.arm_cam.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
             raise IOError("Cannot open camera 0")
@@ -100,9 +104,13 @@ class PickeeVisionNode(Node):
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
 
         # --- 장애물 인식 용 카트정면 웹캠 (front) ---
+<<<<<<< HEAD
         # self.front_cam = cv2.VideoCapture(2)
         self.front_cam = cv2.VideoCapture(6)
 
+=======
+        self.front_cam = cv2.VideoCapture(6)
+>>>>>>> d1805897864bc6a2505eddeb6db450be4f11da7b
         if not self.front_cam.isOpened():
             self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
             raise IOError("Cannot open camera 2")
@@ -219,12 +227,6 @@ class PickeeVisionNode(Node):
             bbox_msg = BBox(x1=bbox_data[0], y1=bbox_data[1], x2=bbox_data[2], y2=bbox_data[3])
             detection_info_msg = DetectionInfo(polygon=contour_points, bbox_coords=bbox_msg)
             pose6d_msg = Pose6D()
-
-            '''
-            pose6d_msg 계산하기
-            
-            '''
-
 
             product = DetectedProduct(
                 product_id=det['class_id'],
