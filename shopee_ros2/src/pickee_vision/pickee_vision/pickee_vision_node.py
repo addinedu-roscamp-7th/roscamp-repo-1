@@ -89,7 +89,9 @@ class PickeeVisionNode(Node):
         self.camera_type = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
-        self.arm_cam = cv2.VideoCapture(0)
+        # self.arm_cam = cv2.VideoCapture(0)
+        self.arm_cam = cv2.VideoCapture(4)
+
         if not self.arm_cam.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
             raise IOError("Cannot open camera 0")
@@ -98,7 +100,9 @@ class PickeeVisionNode(Node):
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
 
         # --- 장애물 인식 용 카트정면 웹캠 (front) ---
-        self.front_cam = cv2.VideoCapture(2)
+        # self.front_cam = cv2.VideoCapture(2)
+        self.front_cam = cv2.VideoCapture(6)
+
         if not self.front_cam.isOpened():
             self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
             raise IOError("Cannot open camera 2")
