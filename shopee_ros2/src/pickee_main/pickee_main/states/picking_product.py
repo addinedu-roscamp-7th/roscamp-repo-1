@@ -12,6 +12,7 @@ class PickingProductState(State):
         self.place_completed = False
         
         # 선택된 상품 정보
+        self.bbox_number = getattr(self._node, 'selected_bbox_number', 1)
         self.product_id = getattr(self._node, 'selected_product_id', 1)
         self.target_position = getattr(self._node, 'selected_target_position', None)
         
@@ -23,6 +24,21 @@ class PickingProductState(State):
             import threading
             import asyncio
             
+            def check_product():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(
+                        self._node.call_arm_check_product(self.bbox_number)
+                    )
+                    loop.close()
+                    if not success:
+                        self._node.get_logger().error('상품 체크 명령 전달 실패')
+                except Exception as e:
+                    self._node.get_logger().error(f'상품 체크 실패: {str(e)}')
+
+            threading.Thread(target=check_product).start()
+
             def pick_product():
                 try:
                     loop = asyncio.new_event_loop()
@@ -46,7 +62,7 @@ class PickingProductState(State):
             # Arm에 놓기 명령 전달 (비동기)
             import threading
             import asyncio
-            
+
             def place_product():
                 try:
                     loop = asyncio.new_event_loop()

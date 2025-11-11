@@ -50,6 +50,7 @@ from shopee_interfaces.srv import (
     PickeeMobileMoveToLocation,
     PickeeMobileUpdateGlobalPath,
     ArmMoveToPose,
+    ArmCheckBbox,
     ArmPickProduct,
     ArmPlaceProduct,
     PickeeVisionDetectProducts,
@@ -65,7 +66,6 @@ from shopee_interfaces.srv import (
 
 # 서비스 서버용 서비스 타입 임포트 (Main Service 연동)
 from shopee_interfaces.srv import (
-    ArmCheckBbox,
     PickeeWorkflowStartTask,
     PickeeWorkflowMoveToSection,
     PickeeProductDetect,
@@ -140,7 +140,8 @@ class PickeeMainController(Node):
         self.current_position_y = 0.0
         self.current_orientation_z = 0.0
         self.current_order_id = 0
-        
+        self.current_bbox_number = 0
+
         # 자세 변경 관련 상태 변수들
         self.arm_pose_in_progress = False
         self.arm_pose_completed = False
@@ -256,6 +257,11 @@ class PickeeMainController(Node):
             '/pickee/arm/move_to_pose'
         )
         
+        self.arm_check_product_client = self.create_client(
+            ArmCheckBbox,
+            '/pickee/arm/check_product'
+        )
+
         self.arm_pick_product_client = self.create_client(
             ArmPickProduct,
             '/pickee/arm/pick_product'
@@ -734,6 +740,24 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
             return False
 
+    async def call_arm_check_product(self, bbox_number):
+        # Arm에 상품 픽업 명령
+        request = ArmCheckBbox.Request()
+        request.bbox_number = bbox_number
+
+        
+        if not self.arm_check_product_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+            self.get_logger().error('Arm check product service not available')
+            return False
+        
+        try:
+            future = self.arm_check_product_client.call_async(request)
+            response = await future
+            return response.accepted
+        except Exception as e:
+            self.get_logger().error(f'Arm check product service call failed: {str(e)}')
+            return False
+        
     async def call_arm_pick_product(self, product_id, arm_side):
         # Arm에 상품 픽업 명령
         request = ArmPickProduct.Request()
@@ -1224,6 +1248,7 @@ class PickeeMainController(Node):
         
         # 상태 기계에 상품 선택 이벤트 전달
         self.selection_request = request
+        self.current_bbox_number = request.bbox_number
         
         response.success = True
         response.message = 'Product selection processing started'

@@ -36,6 +36,10 @@ class State(ABC):
         # Arm 자세 변경 명령
         return await self._node.call_arm_move_to_pose(pose_type)
     
+    async def arm_check_product(self, bbox_number):
+        # Arm 상품 체크 명령
+        return await self._node.call_arm_check_product(bbox_number)
+    
     async def arm_pick_product(self, product_id, target_position):
         # Arm 상품 픽업 명령
         return await self._node.call_arm_pick_product(product_id, target_position)
