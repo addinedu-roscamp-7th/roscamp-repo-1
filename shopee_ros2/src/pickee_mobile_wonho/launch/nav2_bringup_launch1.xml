@@ -4,8 +4,8 @@
     <set_env name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
 
     <arg name="namespace" default=""/>
-    <arg name="map" default="$(find-pkg-share pickee_mobile_wonho)/map/map1021_modify.yaml"/>
-    <!-- <arg name="map" default="$(find-pkg-share pickee_mobile_wonho)/map/shopee_map3.yaml"/> -->
+    <!-- <arg name="map" default="$(find-pkg-share pickee_mobile_wonho)/map/map1021_modify.yaml"/> -->
+    <arg name="map" default="$(find-pkg-share pickee_mobile_wonho)/map/shopee_map3.yaml"/>
     <arg name="use_sim_time" default="False"/>
     <arg name="params_file" default="$(find-pkg-share pickee_mobile_wonho)/params/nav2_params.yaml"/>
     <arg name="autostart" default="True"/>
