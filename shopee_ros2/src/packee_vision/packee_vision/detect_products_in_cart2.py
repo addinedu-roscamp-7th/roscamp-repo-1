@@ -153,7 +153,7 @@ class DetectProducts(Node):
                     mask_center_x = np.mean(xs)
                     mask_center_y = np.mean(ys)
 
-                    frame_center_x = undistorted.shape[1] / 2
+                    frame_center_x = (undistorted.shape[1] / 2) - 50
                     offset = mask_center_x - frame_center_x
                     threshold = 0.15 * undistorted.shape[1]
 
@@ -189,7 +189,7 @@ class DetectProducts(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    packee2_cap = cv2.VideoCapture(4)
+    packee2_cap = cv2.VideoCapture(0)
 
     packee2_node = DetectProducts(2, packee2_cap)
 

@@ -1,6 +1,6 @@
 int32 robot_id
 int32 order_id
-int32[] products
+shopee_interfaces/ProductInfo[] products
 ---
 int32 box_id
 bool success

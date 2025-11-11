@@ -1,0 +1,10 @@
+# Request
+int32 robot_id
+int32 order_id
+shopee_interfaces/Sequence[] sequences
+bool success
+string message
+---
+# Response
+bool success
+string message

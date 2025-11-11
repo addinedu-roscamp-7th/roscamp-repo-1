@@ -46,6 +46,7 @@ set(msg_files
   "msg/ProductLocation.msg"
   "msg/ProductInfo.msg"
   "msg/Vector2D.msg"
+  "msg/Sequence.msg"
 )
 
 set(srv_files
@@ -83,6 +84,8 @@ set(srv_files
   "srv/PickeeWorkflowReturnToStaff.srv"
   "srv/PickeeWorkflowStartTask.srv"
   "srv/VisionCheckCartPresence.srv"
+  "srv/PackeeArmPackingComplete.srv"
+  "srv/PackeeMainStartMTC.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
