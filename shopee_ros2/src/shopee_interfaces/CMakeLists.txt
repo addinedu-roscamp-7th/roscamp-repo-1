@@ -68,6 +68,7 @@ set(srv_files
   "srv/PackeeVisionVerifyPackingComplete.srv"
   "srv/PickeeMainVideoStreamStart.srv"
   "srv/PickeeMainVideoStreamStop.srv"
+  "srv/PickeeMobileStatus.srv"
   "srv/PickeeMobileMoveToLocation.srv"
   "srv/PickeeMobileUpdateGlobalPath.srv"
   "srv/PickeeProductDetect.srv"
