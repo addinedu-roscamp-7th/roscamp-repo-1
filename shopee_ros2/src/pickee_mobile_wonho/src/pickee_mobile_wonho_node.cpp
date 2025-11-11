@@ -349,6 +349,9 @@ private:
 
     void person_detection_callback(const shopee_interfaces::msg::PersonDetection::SharedPtr msg)
     {
+        if (current_status_ == "aruco") {
+            return;
+        }
         geometry_msgs::msg::Twist cmd_vel_msg;
         cmd_vel_msg.linear.x = 0.0;
         cmd_vel_msg.linear.y = 0.0;
