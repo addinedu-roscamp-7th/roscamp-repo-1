@@ -1,21 +1,23 @@
 import rclpy
 from rclpy.node import Node
 from shopee_interfaces.msg import Pose6D
+from shopee_interfaces.srv import ArmPickProduct
+from std_msgs.msg import Bool
+from std_srvs.srv import Trigger
+
 import cv2
 import threading
 import numpy as np
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from ultralytics import YOLO
 import os
-from ament_index_python.packages import get_package_share_directory
 import socket
-from std_msgs.msg import Bool
+from ultralytics import YOLO
 
-### txt 파일
-from datetime import datetime
-
+# =================================================================
+# 1. 비디오 수신을 위한 VideoReceiver 클래스 (기존과 동일)
+# =================================================================
 class VideoReceiver:
     def __init__(self, port=6230):
         self.port = port
@@ -33,16 +35,9 @@ class VideoReceiver:
                     data, addr = self.sock.recvfrom(65536)
                     if b'||' not in data: continue
                     header, img_data = data.split(b'||', 1)
-                    frame_id, packet_num, total_packets = map(
-                        int,
-                        header.decode().split(',')
-                    )
-                    
-                    if frame_id not in self.packet_buffer: 
-                        self.packet_buffer[frame_id] = [None] * total_packets
-                        
+                    frame_id, packet_num, total_packets = map(int, header.decode().split(','))
+                    if frame_id not in self.packet_buffer: self.packet_buffer[frame_id] = [None] * total_packets
                     self.packet_buffer[frame_id][packet_num] = img_data
-                    
                     if all(p is not None for p in self.packet_buffer[frame_id]):
                         complete_data = b''.join(self.packet_buffer[frame_id])
                         np_data = np.frombuffer(complete_data, np.uint8)
@@ -57,114 +52,255 @@ class VideoReceiver:
             self.sock.close()
 
     def get_frame(self):
-        with self.lock:
-            return self.frame.copy() if self.frame is not None else None
+        with self.lock: return self.frame.copy() if self.frame is not None else None
 
     def stop(self):
         self.running = False
 
+# =================================================================
+# 2. 6D Pose 추론을 위한 PoseCNN 모델 정의 (기존과 동일)
+# =================================================================
 class PoseCNN(nn.Module):
     def __init__(self, num_classes=3):
         super().__init__()
-        resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        resnet = models.resnet18(weights=None)
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
         feat_dim = 512
-        self.pose_head = nn.Sequential(
-            nn.Linear(feat_dim, 256), nn.ReLU(),
-            nn.Dropout(p=0.3), nn.Linear(256, 6)
-        )
-        self.class_head = nn.Sequential(
-            nn.Linear(feat_dim, 128), nn.ReLU(),
-            nn.Dropout(p=0.3), nn.Linear(128, num_classes)
-        )
-            
+        self.pose_head = nn.Sequential(nn.Linear(feat_dim, 256), nn.ReLU(), nn.Dropout(p=0.3), nn.Linear(256, 6))
+        self.class_head = nn.Sequential(nn.Linear(feat_dim, 128), nn.ReLU(), nn.Dropout(p=0.3), nn.Linear(128, num_classes))
     def forward(self, x):
         f = self.backbone(x).flatten(1)
         pose_out = self.pose_head(f)
         cls_out = self.class_head(f)
         return pose_out, cls_out
 
-class PickeeVisionControlNode(Node):
+# =================================================================
+# 3. 메인 로직을 수행하는 새로운 ROS2 노드 클래스
+# =================================================================
+class VisionCoordinatorNode(Node):
     def __init__(self, video_receiver):
-        super().__init__("pose_predictor_test_node")
-        self.get_logger().info("Initializing Pickee Vision Control Node...")
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        super().__init__("pose_predictor_test")
+        self.get_logger().info("Initializing Vision Coordinator Node...")
 
+        # --- 상태 및 멤버 변수 초기화 ---
+        self.state = 'IDLE'
         self.receiver = video_receiver
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.real_cur_cord = None
+        self.target_object_name = "12"
+        self.yolo_timer = None
+        self.cnn_servoing_timer = None
+        
+        # --- PI 제어기 파라미터 및 변수 ---
+        self.KP = 0.5
+        self.KI = 0.02
+        self.CONVERGENCE_THRESHOLD = 10.0
+        self.integral_error = np.zeros(6, dtype=np.float32)
+        self.last_servoing_time = None
+        self.integral_clamp = 5.0
 
-        # package_share_directory = get_package_share_directory('pickee_vision')
-        # yolo_model_path = os.path.join(
-        #     package_share_directory.replace(
-        #         'install/pickee_vision/share/pickee_vision', 
-        #         'src/pickee_vision'
-        #     ), 
-        #     'pickee_vision',
-        #     '20251027_v11.pt'
-        # )
-        # cnn_model_path = os.path.join(
-        #     package_share_directory.replace(
-        #         'install/pickee_vision/share/pickee_vision', 
-        #         'src/pickee_vision'
-        #     ),
-        #     'product_cnn_best.pt'
-        # )
+        # --- 모델 및 리소스 경로 설정 ---
+        resource_path = "/home/addinedu/roscamp-repo-1/shopee_ros2/src/pickee_vision/resource"
+        yolo_model_path = os.path.join(resource_path, '20251104_v11_ver1_ioudefault.pt')
+        cnn_model_path = os.path.join(resource_path, "fish_top_grid2_20251107_1.pt")
+        target_image_path = os.path.join(resource_path, "test/capture_20251107-174001.jpg")
 
-        # --- 의존성 클래스 초기화 (모델 파일 불러오기 위해) ---
-        self.package_share_directory = get_package_share_directory('pickee_vision').replace(
-                            'install/pickee_vision/share/pickee_vision', 
-                            'src/pickee_vision/resource'
-                        )
-        # 1. 상품 인식용 세그멘테이션 모델
-        yolo_model_path = os.path.join(self.package_share_directory, '20251104_v11_ver1_ioudefault.pt')
-        # 2. 장바구니 인식용 클래시피케이션 모델
-        cnn_model_path = os.path.join(self.package_share_directory, 'fish_top_20251107_1.pt')
+        # --- 역정규화 파라미터 ---
+        self.pose_mean = np.array([-68.1485, 180.1304, 238.1036, -179.1875, 9.4798, 49.0667], dtype=np.float32)
+        self.pose_std = np.array([16.3908, 17.5581, 8.4861, 0.7741, 0.5989, 5.5618], dtype=np.float32)
 
-
+        # --- 모델 로드 (YOLO & CNN) ---
         try:
-            self.yolo_model = YOLO(yolo_model_path).to(self.device)
+            self.yolo_model = YOLO(yolo_model_path)
             self.cnn_model = PoseCNN(num_classes=1).to(self.device)
-            self.cnn_model.load_state_dict(
-                torch.load(cnn_model_path, map_location=self.device)
-            )
+            self.cnn_model.load_state_dict(torch.load(cnn_model_path, map_location=self.device))
             self.cnn_model.eval()
-            self.get_logger().info("YOLO and PoseCNN models loaded successfully.")
+            self.get_logger().info("YOLO and CNN models loaded successfully.")
         except Exception as e:
             self.get_logger().error(f"Failed to load models: {e}")
-            return
+            raise e
 
+        self.transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((224, 224)), transforms.ToTensor()])
 
-        ##### 비정규화 테스트
-        self.pose_mean = np.array([-50.2244873046875, 172.77769470214844, 237.30694580078125, -174.7872314453125, 4.819617748260498, 43.5898551940918], dtype=np.float32)
-        self.pose_std = np.array([88.66088104248047, 21.838180541992188, 22.061058044433594, 3.194171667098999, 3.7769198417663574, 6.489022254943848], dtype=np.float32)
+        # --- 목표 이미지 Pose 추론 및 역정규화 (최초 1회) ---
+        try:
+            target_image = cv2.imread(target_image_path)
+            norm_tar_cord = self.predict_pose(target_image)
+            self.tar_cord = self.de_standardize_pose(norm_tar_cord)
+            self.get_logger().info(f"Target pose predicted and denormalized: {self.tar_cord}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to predict target pose: {e}")
+            raise e
 
-
-        self.target_object_name = "12" # 6 = eclipse
-
-
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)), 
-            transforms.ToTensor()
-        ])
-
-        self.publisher_ = self.create_publisher(Pose6D, '/pickee/arm/move_servo', 10)
-        self.timer = self.create_timer(0.2, self.control_callback)
-
-        self.test_sub = self.create_subscription(Bool, '/testtest/move_lock', self.test_lock_callback, 10)
-
-        self.get_logger().info("Pickee Vision Control Node started.")
-
+        # --- ROS2 통신 인터페이스 설정 ---
+        # 1. main 노드로부터 피킹 시작 명령을 받는 서비스 서버
+        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/vision/pick_product', self.start_pick_sequence_callback)
         
-        ### txt 파일
-        self.log_dir = os.path.expanduser("/home/addinedu/roscamp-repo-1/shopee_ros2/src/pickee_vision/pickee_vision/txt_logs")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_path = os.path.join(self.log_dir, f"log_{timestamp}.txt")
-        self.txt_file = open(self.log_path, "w", encoding="utf-8")
+        # 2. arm 노드에 매대 확인 자세를 요청하는 서비스 클라이언트
+        self.move_start_client = self.create_client(Trigger, '/pickee/arm/move_start')
+        while not self.move_start_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Arm move_start service not available, waiting...')
 
-        #### 쓰레기
-        self.temp = np.array([0] * 6)
-        self.move_angle_lock = False  ###########
+        # 3. arm 노드가 top_view 자세에 도달했음을 알리는 토픽을 구독
+        self.arm_ready_sub = self.create_subscription(Bool, '/pickee/arm/is_moving', self.arm_ready_callback, 10)
 
+        # 4. arm 노드로부터 실제 좌표를 받는 서브스크라이버
+        self.pose_subscriber = self.create_subscription(Pose6D, '/pickee/arm/real_pose', self.real_pose_callback, 10)
+
+        # 5. CNN 서보잉 제어 명령을 보내는 퍼블리셔
+        self.move_publisher = self.create_publisher(Pose6D, '/pickee/arm/move_servo', 10)
+
+        # 6. 최종 그리핑 명령을 보내는 서비스 클라이언트
+        self.grep_product_client = self.create_client(Trigger, '/pickee/arm/grep_product')
+        while not self.grep_product_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Grep product service not available, waiting...')
+
+        self.get_logger().info("Vision Coordinator Node started. Current state: IDLE")
+
+    def set_state(self, new_state):
+        self.get_logger().info(f"State transition: {self.state} -> {new_state}")
+        self.state = new_state
+
+    # --- Service and Topic Callbacks ---
+
+    def start_pick_sequence_callback(self, request, response):
+        if self.state != 'IDLE':
+            response.success = False
+            response.message = f"Node is not in IDLE state, current state: {self.state}"
+            self.get_logger().warn(response.message)
+            return response
+
+        self.get_logger().info("Start pick sequence request received from main.")
+        self.set_state('WAITING_FOR_SHELF_VIEW')
+
+        # [수정] /pickee/arm/move_start Trigger 서비스 호출
+        arm_request = Trigger.Request()
+        future = self.move_start_client.call_async(arm_request)
+        future.add_done_callback(self.move_start_response_callback)
+
+        response.success = True
+        response.message = "Request accepted. Asking arm to move to shelf_view via move_start service."
+        return response
+
+    def move_start_response_callback(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info("Arm successfully started move to shelf_view. Starting YOLO detection.")
+                self.set_state('YOLO_DETECTION')
+                if self.yolo_timer is None or self.yolo_timer.is_canceled():
+                    self.yolo_timer = self.create_timer(0.1, self.yolo_detection_loop)
+            else:
+                self.get_logger().error(f"Arm failed to start move_start: {response.message}")
+                self.set_state('IDLE')
+        except Exception as e:
+            self.get_logger().error(f"Service call to /pickee/arm/move_start failed: {e}")
+            self.set_state('IDLE')
+
+    def arm_ready_callback(self, msg):
+        """[수정] /pickee/arm/is_moving 토픽 콜백"""
+        if msg.data is True and self.state == 'WAITING_FOR_TOP_VIEW':
+            self.get_logger().info("Arm is ready for CNN servoing. Starting...")
+            # PI 제어기 상태 초기화
+            self.integral_error = np.zeros(6, dtype=np.float32)
+            self.last_servoing_time = None
+            self.set_state('CNN_SERVOING')
+            if self.cnn_servoing_timer is None or self.cnn_servoing_timer.is_canceled():
+                self.cnn_servoing_timer = self.create_timer(0.03, self.cnn_servoing_loop)
+    
+    def real_pose_callback(self, msg):
+        self.real_cur_cord = np.array([msg.x, msg.y, msg.z, msg.rx, msg.ry, msg.rz])
+
+    def grep_product_response_callback(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(f"Successfully called grep_product service: {response.message}")
+            else:
+                self.get_logger().error(f"Failed to call grep_product service: {response.message}")
+        except Exception as e:
+            self.get_logger().error(f"Grep service call failed with exception: {e}")
+
+    # --- Main Logic Loops (called by timers) ---
+
+    def yolo_detection_loop(self):
+        if self.state != 'YOLO_DETECTION': return
+        frame = self.receiver.get_frame()
+        if frame is None: return
+        results = self.yolo_model(frame, conf=0.8, device=self.device, verbose=False)
+        target_found = False
+        if results:
+            for result in results:
+                if not hasattr(result, 'boxes'): continue
+                for box in result.boxes:
+                    cls_id = int(box.cls)
+                    if result.names[cls_id] == self.target_object_name:
+                        target_found = True
+                        break
+                if target_found: break
+        if target_found:
+            self.get_logger().info(f"Target '{self.target_object_name}' detected with YOLO.")
+            if self.yolo_timer: self.yolo_timer.cancel()
+            
+
+            '''
+            통합해야 할 부분 - Pickee Main에 YOLO 객체 인식 결과 반환
+            '''
+
+            
+            self.get_logger().info("YOLO detection finished. Waiting for arm to move to top_view_pose.")
+            self.set_state('WAITING_FOR_TOP_VIEW')
+        
+        cv2.imshow("YOLO Detection", results[0].plot())
+        cv2.waitKey(1)
+
+    def cnn_servoing_loop(self):
+        if self.state != 'CNN_SERVOING': return
+        frame = self.receiver.get_frame()
+        if frame is None or self.real_cur_cord is None: return
+
+        current_time = self.get_clock().now()
+        if self.last_servoing_time is None:
+            self.last_servoing_time = current_time
+            return
+        dt = (current_time - self.last_servoing_time).nanoseconds / 1e9
+        self.last_servoing_time = current_time
+
+        norm_cur_cord = self.predict_pose(frame)
+        cur_cord = self.de_standardize_pose(norm_cur_cord)
+        pose_err = cur_cord - self.real_cur_cord
+        real_tar_cord = self.tar_cord - pose_err
+        error = real_tar_cord - self.real_cur_cord
+        error_magnitude = np.linalg.norm(np.array([error[0], error[1], error[5]]))
+        self.get_logger().info(f"CNN Visual Servoing... Error: {error_magnitude:.3f}")
+
+        if error_magnitude < self.CONVERGENCE_THRESHOLD:
+            self.get_logger().info(f"Target reached. Calling grep_product service.")
+            if self.cnn_servoing_timer: self.cnn_servoing_timer.cancel()
+            
+            # [수정] Trigger 서비스를 호출하여 피킹 동작 요청
+            request = Trigger.Request()
+            future = self.grep_product_client.call_async(request)
+            future.add_done_callback(self.grep_product_response_callback)
+            
+            self.set_state('IDLE')
+        else:
+            self.integral_error += error * dt
+            np.clip(self.integral_error, -self.integral_clamp, self.integral_clamp, out=self.integral_error)
+            proportional_term = self.KP * error
+            integral_term = self.KI * self.integral_error
+            delta = proportional_term + integral_term
+            
+            commanded_pose = self.real_cur_cord + delta
+            move_cmd = Pose6D()
+            move_cmd.x, move_cmd.y, move_cmd.rz = float(commanded_pose[0]), float(commanded_pose[1]), float(commanded_pose[5])
+            move_cmd.rx, move_cmd.ry, move_cmd.z = float(self.tar_cord[3]), float(self.tar_cord[4]), float(self.tar_cord[2])
+            self.move_publisher.publish(move_cmd)
+        
+        cv2.imshow("CNN Servoing", frame)
+        cv2.waitKey(1)
+
+    # --- Helper and Cleanup Methods ---
 
     def predict_pose(self, image):
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -173,124 +309,23 @@ class PickeeVisionControlNode(Node):
             pose_pred, _ = self.cnn_model(img_tensor)
             return pose_pred.cpu().numpy().flatten()
 
-    def de_standardize_pose(self, pose_std):
-        # 표준화된 포즈 값을 실제 물리 단위로 변환 (비표준화)
-        # 실제 Pose = (표준화된 Pose * 표준편차) + 평균
-        return (pose_std * self.pose_std) + self.pose_mean
-
-    def test_lock_callback(self, msg):
-        print(self.move_angle_lock)
-        self.move_angle_lock = msg.data
-
-
-    def control_callback(self):
-        frame = self.receiver.get_frame()
-        if frame is None:
-            return
-        results = self.yolo_model(frame, conf=0.8, device=self.device)
-        print(self.move_angle_lock)
-        for result in results:
-            if not hasattr(result, 'boxes'): continue
-
-            
-            for box in result.boxes:
-                
-                if self.move_angle_lock:
-                    print("move angle lock!!!!!!!!!!!!")
-                    break
-                cls_id = int(box.cls.cpu().numpy())
-                cls_id = int(box.cls)
-                cls_name = result.names[cls_id]
-
-                if cls_name == self.target_object_name:
-                    current_pose = self.predict_pose(frame)
-                    target_image_path = os.path.join(self.package_share_directory, 'fish_top_grid1.jpg')
-
-                    # 상품명으로 넣어줄 때 
-                    # target_image_path = os.path.join(self.package_share_directory, 
-                    #     f'target_img_{self.target_object_name}.png'
-                    # )
-                        
-                    if not os.path.exists(target_image_path):
-                        self.get_logger().warn(
-                            f"Target image not found: {target_image_path}"
-                        )
-                        continue
-                        
-                    target_image = cv2.imread(target_image_path)
-                    target_pose = self.predict_pose(target_image)
-
-
-                    ##### 비정규화 테스트
-                    real_current_pose = self.de_standardize_pose(current_pose)
-                    real_target_pose = self.de_standardize_pose(target_pose)
-                    print(real_target_pose)
-                    print(real_current_pose)
-
-
-                    ### txt 파일
-                    self.txt_file.write('target: ' + str(target_pose) + "\n")
-                    self.txt_file.write('current: ' + str(current_pose) + "\n")
-                    self.txt_file.write('real_target: ' + str(real_target_pose) + "\n")
-                    self.txt_file.write('real_current: ' + str(real_current_pose) + "\n")
-                    self.txt_file.write("---\n")
-
-
-
-                    error = real_target_pose - real_current_pose
-                    gain = 0.8
-                    move_command = Pose6D()
-                    
-                    move_command.x, move_command.y, move_command.z, \
-                    move_command.rx, move_command.ry, move_command.rz = (
-                        float(gain * e) for e in error
-                    )
-                    move_command.x += real_current_pose.tolist()[0]
-                    move_command.y += real_current_pose.tolist()[1]
-                    move_command.z += real_current_pose.tolist()[2]
-                    move_command.rx += real_current_pose.tolist()[3]
-                    move_command.ry += real_current_pose.tolist()[4]
-                    move_command.rz += real_current_pose.tolist()[5]
-
-
-                    # threshold = np.array([0.03] * 6)
-                    # print(threshold)
-                    # move = np.array([move_command.x, move_command.y, move_command.z, move_command.rx, move_command.ry, move_command.rz])
-                    # move_er = move-self.temp
-                    # self.temp = move
-                    # mask = np.abs(move_er) <= threshold
-
-                    # mask = np.linalg.norm(error) <= 35.0
-                    # print(mask)
-
-                    self.publisher_.publish(move_command)
-                    self.get_logger().info(
-                        f"Visual servoing... Error: {np.linalg.norm(error):.3f}"
-                    )
-
-                    # if np.all(mask):
-                    #     self.move_angle_lock = True
-                        
-                    break
-
-        cv2.imshow("Pickee Vision", results[0].plot())
-        cv2.waitKey(1)
+    def de_standardize_pose(self, norm_pose):
+        return (norm_pose * self.pose_std) + self.pose_mean
 
     def destroy_node(self):
         cv2.destroyAllWindows()
-
-        ### txt 파일
-        self.txt_file.close()
         super().destroy_node()
 
+# =================================================================
+# 4. 메인 실행 함수
+# =================================================================
 def main(args=None):
     rclpy.init(args=args)
-
     video_receiver = VideoReceiver()
-    video_thread = threading.Thread(target=video_receiver.run)
+    video_thread = threading.Thread(target=video_receiver.run, daemon=True)
     video_thread.start()
-
-    node = PickeeVisionControlNode(video_receiver)
+    
+    node = VisionCoordinatorNode(video_receiver)
 
     try:
         rclpy.spin(node)
