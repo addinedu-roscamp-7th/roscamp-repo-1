@@ -87,6 +87,7 @@ set(srv_files
   "srv/VisionCheckCartPresence.srv"
   "srv/PackeeArmPackingComplete.srv"
   "srv/PackeeMainStartMTC.srv"
+  "srv/ArmCheckBbox.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
