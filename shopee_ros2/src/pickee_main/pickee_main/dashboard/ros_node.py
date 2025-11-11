@@ -132,7 +132,6 @@ class RosNodeThread(QThread):
     def mobile_status_callback(self, msg: PickeeMobileStatus):
         self.mobile_state_updated.emit(msg.status)
         
-    
     def mobile_pose_callback(self, msg: PickeeMobilePose):
         self.mobile_pose_updated.emit(msg.status)
         self.tracking_mode = msg.status
@@ -141,6 +140,11 @@ class RosNodeThread(QThread):
         request = ChangeTrackingMode.Request()
         request.robot_id = 1
 
+        if self.tracking_mode == 'idle':
+                    request.mode = 'tracking'
+        else:
+            request.mode = 'idle'
+            
         if not self.change_tracking_mode_client.wait_for_service(timeout_sec=self.main_service_timeout):
             print('Change tracking mode service not available')
             return None
@@ -150,13 +154,8 @@ class RosNodeThread(QThread):
             response = await future
             if response.success:
                 print(f"Change tracking mode response: {response.message}")
-                if self.tracking_mode == 'idle':
-                    request.mode = 'tracking'
-                else:
-                    request.mode = 'idle'
                 self.mobile_pose_updated.emit(request.mode)
                 return response.message
-                
             return None
         except Exception as e:
             print(f'Change tracking mode service call failed: {str(e)}')

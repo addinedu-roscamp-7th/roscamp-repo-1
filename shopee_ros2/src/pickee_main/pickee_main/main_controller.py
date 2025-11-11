@@ -65,6 +65,7 @@ from shopee_interfaces.srv import (
 
 # 서비스 서버용 서비스 타입 임포트 (Main Service 연동)
 from shopee_interfaces.srv import (
+    ArmCheckBbox,
     PickeeWorkflowStartTask,
     PickeeWorkflowMoveToSection,
     PickeeProductDetect,
