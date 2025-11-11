@@ -284,6 +284,7 @@ class ArucoDocking(Node):
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 5, 20), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
+            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
         else: # abs(self.dist_side) <= 10:
@@ -292,6 +293,7 @@ class ArucoDocking(Node):
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 14, 10), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
+            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
 
@@ -303,7 +305,7 @@ class ArucoDocking(Node):
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(8):# or abs(self.dist_side) > 25:
+        elif abs(self.yaw_rad) > math.radians(5):# or abs(self.dist_side) > 25:
 
             self.get_logger().info(f"🚗 222")
 

@@ -1,10 +1,10 @@
 # /pickee/mobile/arrival publish
-
+#도착알림
 ros2 topic pub -1 /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArrival "
 {
   robot_id: 1,
   order_id: 1,
-  location_id: 2,
+  location_id: 3,
   final_pose: {
     x: 1.2,
     y: 3.4,
@@ -19,15 +19,24 @@ ros2 topic pub -1 /pickee/mobile/arrival shopee_interfaces/msg/PickeeMobileArriv
   message: \"Arrived at location\"
 }"
 
-
-# /pickee/mobile/change_tracking_mode 
-ros2 service call /pickee/mobile/change_tracking_mode shopee_interfaces/srv/ChangeTrackingMode "{
-  robot_id: 1,
-  mode: 'tracking'
-}"
+#bool true
+ros2 topic pub -1 /test std_msgs/Bool "{data: true}"
 
 
 # /pickee/mobile/move_to_location service_client
+# 좌매대 우
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "
+{
+  robot_id: 1,
+  order_id: 1,
+  location_id: 2,
+  target_pose: {
+    x: 0.2,
+    y: 1.47,
+    theta: 3.14
+  }
+}"
+
 # 중매대 하
 ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "
 {
@@ -66,3 +75,43 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
     theta: 1.57
   }
 }"
+
+# 우매대 좌
+ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "
+{
+  robot_id: 1,
+  order_id: 1,
+  location_id: 2,
+  target_pose: {
+    x: 2.01,
+    y: 1.47,
+    theta: 0.0
+  }
+}"
+
+pose:
+    position:
+      x: 3.3088653922559184
+      y: 1.1099082400657065
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.6973268683075913
+      w: 0.7167532621037224
+
+
+#직선주행
+ros2 service call /pickee/mobile/go_straight shopee_interfaces/srv/PickeeMobileGoStraight "
+{
+  distance: 0.47
+}"
+
+#회전
+ros2 service call /pickee/mobile/rotate shopee_interfaces/srv/PickeeMobileRotate "
+{
+  angle: 1.57
+}"
+
+
+

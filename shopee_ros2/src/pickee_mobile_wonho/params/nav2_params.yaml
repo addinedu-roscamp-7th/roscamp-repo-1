@@ -289,7 +289,7 @@ local_costmap:
         mark_threshold: 0
         observation_sources: scan
         combination_method: 1  # 1=Max, 0=Override - 최신 데이터로 덮어쓰기
-        # footprint_clearing_enabled: true  # 로봇 footprint 영역 자동 제거
+        footprint_clearing_enabled: true  # 로봇 footprint 영역 자동 제거
         scan:
           topic: /scan_filtered
           max_obstacle_height: 2.0
