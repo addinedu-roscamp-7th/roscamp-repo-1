@@ -44,6 +44,7 @@ from PyQt6.QtWidgets import QGraphicsPixmapItem
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 from PyQt6.QtWidgets import QGraphicsItem
 from PyQt6.QtWidgets import QGraphicsRectItem
+from PyQt6.QtWidgets import QGraphicsSceneMouseEvent
 
 from shopee_app.services.app_notification_client import AppNotificationClient
 from shopee_app.services.main_service_client import MainServiceClient
@@ -136,6 +137,39 @@ class ClickableLabel(QLabel):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
+
+
+class BBoxGraphicsRectItem(QGraphicsRectItem):
+    '''bbox 사각형을 클릭했을 때 콜백을 호출하는 그래픽 항목.'''
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        *,
+        bbox_number: int,
+        on_click: Callable[[int], None] | None,
+        parent: QGraphicsItem | None = None,
+    ) -> None:
+        super().__init__(x, y, width, height, parent)
+        self._bbox_number = bbox_number
+        self._on_click = on_click
+        self.setAcceptedMouseButtons(QtCore.Qt.MouseButton.LeftButton)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        '''좌클릭 시 선택 콜백을 호출한다.'''
+        if (
+            event.button() == QtCore.Qt.MouseButton.LeftButton
+            and self._bbox_number > 0
+            and self._on_click is not None
+        ):
+            self._on_click(self._bbox_number)
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 
 class SttStatusDialog(QDialog):
@@ -385,6 +419,7 @@ class UserWindow(QWidget):
         )
         self.selection_options: list[dict[str, Any]] = []
         self.selection_selected_index: int | None = None
+        self.selection_options_origin: str | None = None
         self.ros_thread = ros_thread
         self.pose_tracking_active = False
         self._set_detection_subscription(False)
@@ -408,6 +443,9 @@ class UserWindow(QWidget):
         self.front_item = None
         self.arm_item = None
         self.bbox_overlay_items: list[QGraphicsItem] = []
+        self.bbox_rect_items: dict[int, QGraphicsRectItem] = {}
+        self.bbox_label_items: dict[int, QGraphicsSimpleTextItem] = {}
+        self.bbox_label_bg_items: dict[int, QGraphicsRectItem] = {}
         self.pending_detection_products: list[dict[str, Any]] = []
         self._bbox_overlays_dirty = False
         self.map_scene: QGraphicsScene | None = None
@@ -2019,6 +2057,7 @@ class UserWindow(QWidget):
 
         raw_products = data.get("products") or []
         self.selection_options = []
+        self.selection_options_origin = 'service'
         for product in raw_products:
             if not isinstance(product, dict):
                 continue
@@ -2250,12 +2289,32 @@ class UserWindow(QWidget):
             button = QPushButton(parent)
             button.setCheckable(True)
             button.setFixedSize(123, 36)
-            button.setText(f"선택지{index + 1}")
-            name = str(
-                product.get("name") or product.get("product_id") or f"선택지{index + 1}"
-            )
-            if name:
-                button.setToolTip(name)
+            bbox_value = product.get('bbox_number')
+            raw_label = str(product.get('label') or '').strip()
+            raw_name = product.get('name')
+            if isinstance(raw_name, str):
+                name_text = raw_name.strip()
+            elif raw_name is not None:
+                name_text = str(raw_name)
+            else:
+                name_text = ''
+            if not name_text:
+                product_id_value = product.get('product_id')
+                if product_id_value is not None:
+                    name_text = str(product_id_value)
+            display_label = raw_label
+            if not display_label:
+                base_name = name_text or f'선택지{index + 1}'
+                try:
+                    bbox_number_text = f'{int(bbox_value)}. ' if bbox_value is not None else ''
+                except (TypeError, ValueError):
+                    bbox_number_text = ''
+                display_label = f'{bbox_number_text}{base_name}'.strip()
+                if not display_label:
+                    display_label = f'선택지{index + 1}'
+            tooltip_text = name_text or display_label
+            button.setText(display_label)
+            button.setToolTip(tooltip_text)
             button.setProperty("option_index", index)
             self._apply_selection_button_style(button)
             self.selection_button_group.addButton(button)
@@ -2271,6 +2330,7 @@ class UserWindow(QWidget):
             self.selection_selected_index = 0
         else:
             self.selection_selected_index = None
+        self._refresh_bbox_highlight()
 
     def _apply_selection_button_style(self, button: QPushButton) -> None:
         # 선택 토글 버튼은 상태별 색상을 명확히 구분한다.
@@ -2589,15 +2649,142 @@ class UserWindow(QWidget):
 
     def _on_detection_received(self, payload: object) -> None:
         '''ROS 비전 bbox 데이터를 받아와 화면에 반영한다.'''
+        if isinstance(payload, dict):
+            self._apply_detection_context(payload)
         normalized = self._normalize_detection_products(payload)
         if normalized is None:
             return
         if not normalized:
             self._clear_bbox_overlays()
+            self._clear_detection_selection_if_needed()
             return
         self.pending_detection_products = normalized
         self._bbox_overlays_dirty = True
         self._try_render_bbox_overlays()
+        self._update_selection_from_detection(normalized)
+
+    def _apply_detection_context(self, payload: dict[str, Any]) -> None:
+        '''bbox 토픽에서 전달된 로봇/주문 ID를 UI 상태와 동기화한다.'''
+        order_id_value: int | None = None
+        robot_id_value: int | None = None
+        try:
+            raw_order_id = payload.get('order_id')
+            if raw_order_id is not None:
+                order_id_value = int(raw_order_id)
+        except (TypeError, ValueError):
+            order_id_value = None
+        try:
+            raw_robot_id = payload.get('robot_id')
+            if raw_robot_id is not None:
+                robot_id_value = int(raw_robot_id)
+        except (TypeError, ValueError):
+            robot_id_value = None
+        if (
+            order_id_value is not None
+            and (
+                self.current_order_id is None
+                or self.current_order_id == -1
+                or self.current_order_id == order_id_value
+            )
+        ):
+            self.current_order_id = order_id_value
+        if (
+            robot_id_value is not None
+            and (
+                self.current_robot_id is None
+                or self.current_robot_id == -1
+                or self.current_robot_id == robot_id_value
+            )
+        ):
+            self.current_robot_id = robot_id_value
+
+    def _clear_detection_selection_if_needed(self) -> None:
+        '''bbox 기반 선택지가 표시 중일 때 화면을 초기화한다.'''
+        if self.selection_options_origin != 'detection':
+            return
+        self.selection_options = []
+        self.selection_options_origin = None
+        self.selection_selected_index = None
+        self.populate_selection_buttons([])
+        if self.order_select_stack is not None and self.page_moving_view is not None:
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _update_selection_from_detection(
+        self, detection_products: list[dict[str, Any]]
+    ) -> None:
+        '''전면 카메라 bbox 정보를 선택 버튼과 동기화한다.'''
+        mapped_options: list[dict[str, Any]] = []
+        for info in detection_products:
+            try:
+                bbox_value = int(info.get('bbox_number'))
+                product_id_value = int(info.get('product_id'))
+            except (TypeError, ValueError):
+                continue
+            if bbox_value <= 0:
+                continue
+            name_text = str(info.get('name') or info.get('label') or '').strip()
+            if not name_text:
+                name_text = f'상품 {product_id_value}'
+            label_text = str(info.get('label') or '').strip()
+            if not label_text:
+                label_text = f'{bbox_value}. {name_text}'
+            mapped_options.append(
+                {
+                    'product_id': product_id_value,
+                    'bbox_number': bbox_value,
+                    'name': name_text,
+                    'label': label_text,
+                }
+            )
+        if not mapped_options:
+            self._clear_detection_selection_if_needed()
+            return
+        self.selection_options = mapped_options
+        self.selection_options_origin = 'detection'
+        self.selection_selected_index = None
+        if self.select_title_label is not None:
+            self.select_title_label.setText('화면에 표시된 상품을 선택해주세요.')
+        self.populate_selection_buttons(mapped_options)
+        product_names = [opt.get('name') for opt in mapped_options if opt.get('name')]
+        detection_summary = ', '.join(product_names[:3])
+        if len(product_names) > 3:
+            detection_summary += ' 외'
+        status_label = getattr(self.ui, 'label_12', None)
+        footer_label = getattr(self.ui, 'label_robot_notification', None)
+        status_text = '감지된 상품을 선택해주세요.'
+        if detection_summary:
+            status_text = f'감지된 상품을 선택해주세요. ({detection_summary})'
+        if status_label is not None:
+            status_label.setText(status_text)
+        if footer_label is not None:
+            footer_label.setText(status_text)
+        if self.order_select_stack is not None and self.page_select_product is not None:
+            self.order_select_stack.setCurrentWidget(self.page_select_product)
+
+    def _on_bbox_rect_clicked(self, bbox_number: int) -> None:
+        '''영상 bbox를 클릭했을 때 선택 버튼과 동기화한다.'''
+        if not self.selection_options:
+            return
+        target_index: int | None = None
+        for index, option in enumerate(self.selection_options):
+            try:
+                option_bbox = int(option.get('bbox_number'))
+            except (TypeError, ValueError):
+                continue
+            if option_bbox == bbox_number:
+                target_index = index
+                break
+        if target_index is None:
+            return
+        self.selection_selected_index = target_index
+        button: QPushButton | None = None
+        if 0 <= target_index < len(self.selection_buttons):
+            button = self.selection_buttons[target_index]
+        if button is not None:
+            if not button.isChecked():
+                button.setChecked(True)
+                return
+        self._refresh_bbox_highlight()
 
     def _normalize_detection_products(
         self, payload: object
@@ -2638,6 +2825,7 @@ class UserWindow(QWidget):
                 {
                     'bbox_number': bbox_number,
                     'product_id': product_id,
+                    'name': name_text,
                     'label': label_text,
                     'x1': x1,
                     'y1': y1,
@@ -2679,6 +2867,9 @@ class UserWindow(QWidget):
             self._bbox_overlays_dirty = False
             return
         self._remove_bbox_items_from_scene()
+        self.bbox_rect_items.clear()
+        self.bbox_label_items.clear()
+        self.bbox_label_bg_items.clear()
         pen = QPen(QColor('#ff9800'))
         pen.setWidth(2)
         pen.setCosmetic(True)
@@ -2688,13 +2879,25 @@ class UserWindow(QWidget):
             height = info['y2'] - info['y1']
             if width <= 0 or height <= 0:
                 continue
-            rect_item = QGraphicsRectItem(
-                info['x1'], info['y1'], width, height, self.front_item
+            try:
+                bbox_number = int(info.get('bbox_number'))
+            except (TypeError, ValueError):
+                bbox_number = -1
+            rect_item = BBoxGraphicsRectItem(
+                info['x1'],
+                info['y1'],
+                width,
+                height,
+                bbox_number=bbox_number,
+                on_click=self._on_bbox_rect_clicked,
+                parent=self.front_item,
             )
             rect_item.setPen(pen)
             rect_item.setBrush(transparent_brush)
             rect_item.setZValue(5)
             self.bbox_overlay_items.append(rect_item)
+            if bbox_number > 0:
+                self.bbox_rect_items[bbox_number] = rect_item
             label_item = QGraphicsSimpleTextItem(info['label'], self.front_item)
             label_font = label_item.font()
             if label_font.pointSizeF() < 11.0:
@@ -2721,8 +2924,12 @@ class UserWindow(QWidget):
             bg_item.setPen(QPen(QtCore.Qt.PenStyle.NoPen))
             bg_item.setZValue(6)
             self.bbox_overlay_items.extend([bg_item, label_item])
+            if bbox_number > 0:
+                self.bbox_label_items[bbox_number] = label_item
+                self.bbox_label_bg_items[bbox_number] = bg_item
         self.front_scene.update()
         self._bbox_overlays_dirty = False
+        self._refresh_bbox_highlight()
 
     def _remove_bbox_items_from_scene(self) -> None:
         '''현재 장면에 올라간 bbox 그래픽을 제거한다.'''
@@ -2738,12 +2945,67 @@ class UserWindow(QWidget):
             except RuntimeError:
                 pass
         self.bbox_overlay_items.clear()
+        self.bbox_rect_items.clear()
+        self.bbox_label_items.clear()
+        self.bbox_label_bg_items.clear()
 
     def _clear_bbox_overlays(self) -> None:
         '''bbox 그래픽과 대기 데이터를 모두 초기화한다.'''
         self.pending_detection_products = []
         self._bbox_overlays_dirty = False
         self._remove_bbox_items_from_scene()
+        self._refresh_bbox_highlight()
+
+    def _refresh_bbox_highlight(self) -> None:
+        '''선택된 bbox와 동일한 사각형에 강조 색상을 적용한다.'''
+        if not self.bbox_rect_items:
+            return
+        selected_bbox = None
+        if (
+            self.selection_options
+            and self.selection_selected_index is not None
+            and 0 <= self.selection_selected_index < len(self.selection_options)
+        ):
+            try:
+                selected_bbox = int(
+                    self.selection_options[self.selection_selected_index].get(
+                        'bbox_number'
+                    )
+                )
+            except (TypeError, ValueError):
+                selected_bbox = None
+        default_color = QColor('#ff9800')
+        highlight_color = QColor('#4caf50')
+        default_label_color = QColor('#ffffff')
+        default_bg_color = QColor(0, 0, 0, 180)
+        highlight_label_color = QColor('#000000')
+        highlight_bg_color = QColor('#ffffff')
+        for bbox_number, rect_item in self.bbox_rect_items.items():
+            if rect_item is None:
+                continue
+            target_color = (
+                highlight_color if selected_bbox == bbox_number else default_color
+            )
+            pen = QPen(rect_item.pen())
+            if pen.color() != target_color:
+                pen.setColor(target_color)
+                rect_item.setPen(pen)
+            label_item = self.bbox_label_items.get(bbox_number)
+            if label_item is not None:
+                label_color = (
+                    highlight_label_color
+                    if selected_bbox == bbox_number
+                    else default_label_color
+                )
+                label_item.setBrush(QBrush(label_color))
+            bg_item = self.bbox_label_bg_items.get(bbox_number)
+            if bg_item is not None:
+                bg_color = (
+                    highlight_bg_color
+                    if selected_bbox == bbox_number
+                    else default_bg_color
+                )
+                bg_item.setBrush(QBrush(bg_color))
 
     def _on_pickee_status_received(self, msg: object) -> None:
         if not self.pose_tracking_active:
@@ -2830,6 +3092,7 @@ class UserWindow(QWidget):
             self.selection_selected_index = int(option_index)
         except (TypeError, ValueError):
             self.selection_selected_index = None
+        self._refresh_bbox_highlight()
 
     def on_select_done_clicked(self) -> None:
         """선택된 상품을 Main Service에 전달한다."""
@@ -2889,6 +3152,7 @@ class UserWindow(QWidget):
         self._set_selection_status(product_id_value, "선택 진행중")
         QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         self.selection_options = []
+        self.selection_options_origin = None
         self.selection_selected_index = None
         self.populate_selection_buttons([])
         if self.order_select_stack is not None and self.page_moving_view is not None:
@@ -3576,6 +3840,7 @@ class UserWindow(QWidget):
 
             # 선택 데이터 초기화
             self.selection_options.clear()
+            self.selection_options_origin = None
             self.selection_selected_index = None
             self.remote_selection_items.clear()
             self.auto_selection_items.clear()
