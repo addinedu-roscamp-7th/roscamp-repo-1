@@ -65,14 +65,29 @@ def dist_from_xyz_pitch(x, z, pitch_rad):
 
 
 # === Load camera calibration ===
-base_dir = os.path.dirname(os.path.abspath(__file__))
-pkl_path = os.path.join(base_dir, "camera_calibration.pkl")
+# base_dir = os.path.dirname(os.path.abspath(__file__))
+# pkl_path = os.path.join(base_dir, "camera_calibration.pkl")
 
-with open(pkl_path, 'rb') as f:
-    calib_data = pickle.load(f)
+# with open(pkl_path, 'rb') as f:
+#     calib_data = pickle.load(f)
 
-camera_matrix = calib_data['camera_matrix']
-dist_coeffs = calib_data['dist_coeffs']
+# camera_matrix = calib_data['camera_matrix']
+# dist_coeffs = calib_data['dist_coeffs']
+
+camera_matrix = np.array([
+    [7.97685154e+02, 0.00000000e+00, 2.82175616e+02],
+    [0.00000000e+00, 7.98389022e+02, 2.82054906e+02],
+    [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]
+], dtype=float)
+
+dist_coeffs = np.array([
+    -4.08433569e-01,
+     7.75362715e-01,
+    -1.58047124e-03,
+    -2.69813496e-04,
+    -2.79637393e+00
+], dtype=float)
+
 
 # === ArUco settings ===
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_50)

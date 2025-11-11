@@ -217,7 +217,7 @@ class ArucoDocking(Node):
     # 마커 중심으로 이동, 마커 주시
     def align_to_side(self):
         
-        if abs(self.dist_side) > 30:
+        if abs(self.dist_side) > 50:
             self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
