@@ -107,11 +107,14 @@ ros2 service call /pickee/mobile/go_straight shopee_interfaces/srv/PickeeMobileG
   distance: 0.47
 }"
 
-#회전
+# 회전
 ros2 service call /pickee/mobile/rotate shopee_interfaces/srv/PickeeMobileRotate "
 {
   angle: 1.57
 }"
+
+# 도킹결과
+ros2 topic pub /pickee/mobile/docking_result std_msgs/Bool "{data: true}" -1
 
 
 

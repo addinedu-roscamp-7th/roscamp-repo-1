@@ -12,7 +12,8 @@ from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Bool
 from geometry_msgs.msg import Pose2D
 from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
-
+from shopee_interfaces.srv import PickeeMobileStatus
+ # 감지 aruco, 끝 idle
 from pickee_mobile.main.main_aruco_detect import ArucoPoseEstimator
 
 class ArucoReaderNode(Node):
@@ -20,6 +21,7 @@ class ArucoReaderNode(Node):
         super().__init__('aruco_publisher_once')  # ROS2 Node 이름
         self.get_logger().info("📷 ArUco Reader Node Started")
 
+        self.robot_id = 1
         self.docking_in_progress = False         # 도킹 활성 상태 flag
         self.target_id = 2                       # 탐지할 ArUco ID 설정
         self.aruco_detect_rotate = 15
@@ -54,6 +56,16 @@ class ArucoReaderNode(Node):
             10
         )
 
+        # 아루코 도킹 시작, 끝 알림
+        self.cli_doc = self.create_client(
+                        PickeeMobileStatus,
+                        'pickee/mobile/pickee_mobile_status'
+                    )
+        while not self.cli_doc.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("⏳ Waiting for service pickee/mobile/pickee_mobile_status...")
+
+        self.doc_req = PickeeMobileStatus.Request()
+
         # ✅ 키보드 스레드 시작 (z: 시작, x: 정지) 테스트용
         # thread = threading.Thread(target=self.keyboard_listener, daemon=True)
         # thread.start()
@@ -67,8 +79,10 @@ class ArucoReaderNode(Node):
         
         if msg.data:
             self.get_logger().info("🟢 Docking process Succeed. Stopping ArUco scan.")
+            self.send_docking_status(robot_id=self.robot_id, status="idle")
         else:
             self.get_logger().info("🛑 Docking process Failed. Stopping ArUco scan.")
+            self.send_docking_status(robot_id=self.robot_id, status="idle")
 
         self.docking_in_progress = False # 성공이든 실패든 
 
@@ -76,7 +90,7 @@ class ArucoReaderNode(Node):
         """🚦 Nav2 도착 콜백 """
         self.get_logger().info("🚦 Arrival detected!")
         if  msg.location_id > 0: # 
-            if msg.location_id == 13:
+            if msg.location_id == 13: # 하드코딩
                 self.target_id = 1
             else:
                 self.get_logger().info(f"🛑 Wrong location ID. location id = {msg.location_id}")
@@ -85,8 +99,16 @@ class ArucoReaderNode(Node):
             self.get_logger().info(f"🧭 target ID = {self.target_id}")
             self.docking_in_progress = True
             threading.Thread(target=self.read_marker, daemon=True).start()
+
+            self.send_docking_status(robot_id=self.robot_id, status="aruco")
+
         else:
             self.get_logger().info(f"🛑 Wrong location ID. location id = {msg.location_id}")
+
+    def send_docking_status(self, robot_id, status):
+        self.doc_req.robot_id = robot_id
+        self.doc_req.status = status
+        return self.cli_doc.call_async(self.doc_req)
 
 
     # --------------------------------------------------------------------

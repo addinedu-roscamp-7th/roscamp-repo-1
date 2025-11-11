@@ -94,6 +94,7 @@ setup(
             'aruco_follow_3 = pickee_mobile.test.aruco.aruco_follow_3:main',
             'aruco_follow_4 = pickee_mobile.test.aruco.aruco_follow_4:main',
             'aruco_pub = pickee_mobile.test.aruco.aruco_pub:main',
+            'server_status = pickee_mobile.test.aruco.server_status:main'
         ],
     }
 
