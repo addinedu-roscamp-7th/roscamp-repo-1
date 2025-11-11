@@ -99,7 +99,7 @@ class GoStraight(Node):
             print(f'speed_cmd = {speed_cmd}')
             cmd.linear.x = float(speed_cmd)
             cmd.angular.z = 0.0  # 필요하면 헤딩 홀드 PD 추가 가능
-            self.cmd_pub.publish(cmd)
+            self.get_logger().info(f"speed_cmd {speed_cmd}")
             # time.sleep(0.02)
             rclpy.spin_once(self, timeout_sec=0.02)
 

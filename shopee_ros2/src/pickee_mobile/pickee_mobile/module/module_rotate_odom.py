@@ -80,7 +80,7 @@ class Rotate(Node):
             cmd.angular.z = float(w_cmd)
             print(f'')
             self.cmd_pub.publish(cmd)
-            print(f'w_cmd = {w_cmd}')
+            self.get_logger().info(f"w_cmd {w_cmd}")
             # time.sleep(0.02)
             rclpy.spin_once(self, timeout_sec=0.02)
         

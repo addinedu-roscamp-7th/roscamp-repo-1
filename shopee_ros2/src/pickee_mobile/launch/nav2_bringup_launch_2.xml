@@ -1,0 +1,76 @@
+<?xml version='1.0'?>
+<!-- Nav2 시동 -->
+<launch>
+    <set_env name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
+
+    <arg name="namespace" default=""/>
+    <arg name="map" default="$(find-pkg-share pickee_mobile)/map/map1021_modify.yaml"/>
+    <arg name="use_sim_time" default="False"/>
+    <arg name="params_file" default="$(find-pkg-share pickee_mobile)/params/nav2_params.yaml"/>
+    <arg name="autostart" default="True"/>
+    <arg name="container_name" default="nav2_container"/>
+    <arg name="use_composition" default="True"/>
+    <arg name="use_respawn" default="False"/>
+    <arg name="log_level" default="info"/>
+    <arg name="lifecycle_nodes_local" default="['map_server', 'amcl']"/>
+    <arg name="lifecycle_nodes_nav" default="['controller_server',
+                       'planner_server',
+                       'behavior_server',
+                       'bt_navigator',
+                       'waypoint_follower',
+                       'velocity_smoother']"/>
+
+    <!-- Map Server: 지정된 맵 파일을 로드합니다. -->
+    <node pkg="nav2_map_server" exec="map_server" name="map_server" output="screen">
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+        <param name="yaml_filename" value="$(var map)"/>
+    </node>
+
+    <!-- AMCL: 맵과 센서 데이터를 이용해 로봇 위치를 추정하고 'map' 프레임을 생성합니다. -->
+    <node pkg="nav2_amcl" exec="amcl" name="amcl" output="screen">
+        <param from="$(var params_file)"/>
+    </node>
+
+    <!-- Lifecycle Manager: map_server와 amcl 노드를 자동으로 활성화시킵니다. -->
+    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_localization" output="screen">
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+        <param name="autostart" value="true"/>
+        <param name="node_names" value="['map_server', 'amcl']"/>
+    </node>
+
+    <group>
+        <push-ros-namespace namespace="$(var namespace)"/>
+        <node pkg="rclcpp_components" exec="component_container_isolated" name='$(var container_name)' output="screen" args="--ros-args --log-level $(var log_level)">
+            <param from="$(var params_file)"/>
+            <param name='map' value="$(var map)"/>
+            <param name='autostart' value="$(var autostart)"/>
+            <param name='use_sim_time' value="$(var use_sim_time)"/>
+            
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+
+        <include file="$(find-pkg-share pickee_mobile)/launch/localization_launch.xml">
+            <arg name="params_file" value="$(var params_file)"/>
+            <arg name="map" value="$(var map)"/>
+            <arg name="use_sim_time" value="$(var use_sim_time)"/>
+            <arg name="autostart" value="$(var autostart)"/>
+            <arg name="use_composition" value="$(var use_composition)"/>
+            <arg name="use_respawn" value="$(var use_respawn)"/>
+            <arg name="container_name" value="$(var container_name)"/>
+            <arg name='lifecycle_nodes' value="$(var lifecycle_nodes_local)"/>
+        </include>
+
+        <include file="$(find-pkg-share pickee_mobile)/launch/navigation_launch.xml">
+            <arg name="params_file" value="$(var params_file)"/>
+            <arg name="use_sim_time" value="$(var use_sim_time)"/>
+            <arg name="autostart" value="$(var autostart)"/>
+            <arg name="use_composition" value="$(var use_composition)"/>
+            <arg name="use_respawn" value="$(var use_respawn)"/>
+            <arg name="container_name" value="$(var container_name)"/>
+            <arg name='lifecycle_nodes' value="$(var lifecycle_nodes_nav)"/>
+        </include>
+    </group>
+    
+    
+</launch>
