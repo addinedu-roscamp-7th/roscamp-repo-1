@@ -27,6 +27,7 @@ set(msg_files
   "msg/PickeeArrival.msg"
   "msg/PickeeCartHandover.msg"
   "msg/PickeeMobileArrival.msg"
+  "msg/PickeeMobileStatus.msg"
   "msg/PickeeMobilePose.msg"
   "msg/PickeeMobileSpeedControl.msg"
   "msg/PickeeMoveStatus.msg"

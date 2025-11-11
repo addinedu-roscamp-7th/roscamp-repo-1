@@ -22,7 +22,7 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1400, 800)
         self.tracking_mode = 'idle'
 
-        # 3. 상태 머신 패널
+        # 1. 상태 머신 패널
         state_dock = QDockWidget('State Machine', self)
         state_widget = QWidget()
         state_layout = QHBoxLayout(state_widget)
@@ -35,28 +35,20 @@ class MainWindow(QMainWindow):
         state_dock.setWidget(state_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, state_dock)
         state_dock.setFixedHeight(70)
-        # 1. 노드 목록 패널
+        # 2. 노드 목록 패널
         node_dock = QDockWidget("Nodes", self)
         self.node_list_widget = QListWidget()
         node_dock.setWidget(self.node_list_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, node_dock)
 
-        # 2. 서비스/토픽 패널
+        # 3. 서비스/토픽 패널
         comm_dock = QDockWidget("Services Topics", self)
         self.comm_tree_widget = QTreeWidget()
         self.comm_tree_widget.setHeaderLabels(["Name", "Type"])
         comm_dock.setWidget(self.comm_tree_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, comm_dock)
 
-
-        # 4. 로그 출력 패널
-        log_dock = QDockWidget("Logs", self)
-        self.log_text_edit = QTextEdit()
-        self.log_text_edit.setReadOnly(True)
-        log_dock.setWidget(self.log_text_edit)
-        self.addDockWidget(Qt.RightDockWidgetArea, log_dock)
-
-        # 5. 카메라 화면 패널
+        # 4. 카메라 화면 패널
         camera_dock = QDockWidget("Camera", self)
         self.camera_label = QLabel("카메라 대기 중...")
         self.camera_label.setAlignment(Qt.AlignCenter)
@@ -65,6 +57,14 @@ class MainWindow(QMainWindow):
         self.camera_label.setFixedWidth(320)
         camera_dock.setWidget(self.camera_label)
         self.addDockWidget(Qt.LeftDockWidgetArea, camera_dock)
+
+        # 5. 로그 출력 패널
+        log_dock = QDockWidget("Logs", self)
+        self.log_text_edit = QTextEdit()
+        self.log_text_edit.setReadOnly(True)
+        log_dock.setWidget(self.log_text_edit)
+        self.addDockWidget(Qt.RightDockWidgetArea, log_dock)
+
 
         self.setCentralWidget(self.log_text_edit) # 중앙 위젯 설정
 
@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self.ros_thread.topics_updated.connect(self.update_topic_list)
         self.ros_thread.services_updated.connect(self.update_service_list)
         self.ros_thread.state_updated.connect(self.update_state)
+        self.ros_thread.mobile_state_updated.connect(self.update_mobile_state)
         self.ros_thread.mobile_pose_updated.connect(self.update_tracking_mode)
         self.ros_thread.start()
         self.mobile_state_change_btn.clicked.connect(self.on_change_tracking_mode)
@@ -153,6 +154,10 @@ class MainWindow(QMainWindow):
 
     def update_state(self, state):
         self.state_label.setText(state)
+
+    def update_mobile_state(self, status):
+        self.tracking_mode = status
+        self.mobile_state_change_btn.setText(f"피키: {status}")
 
     def update_camera_frame(self, qt_image):
         # 카메라 프레임을 QLabel에 표시

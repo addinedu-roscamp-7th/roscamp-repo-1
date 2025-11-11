@@ -2,7 +2,7 @@ import rclpy
 import re
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
-from shopee_interfaces.msg import PickeeRobotStatus, ArucoPose, PersonDetection, PickeeMobilePose
+from shopee_interfaces.msg import PickeeMobileStatus, PickeeRobotStatus, ArucoPose, PersonDetection, PickeeMobilePose
 from shopee_interfaces.srv import ChangeTrackingMode
 
 from PySide6.QtCore import QThread, Signal, QTimer
@@ -14,6 +14,7 @@ class RosNodeThread(QThread):
     topics_updated = Signal(list)
     services_updated = Signal(list)
     state_updated = Signal(str)
+    mobile_state_updated = Signal(str)
     mobile_pose_updated = Signal(str)
 
     def __init__(self, main_service_timeout=3.0):
@@ -45,11 +46,19 @@ class RosNodeThread(QThread):
             10
         )
 
-        # /rosout 토픽을 구독하여 모든 로그 메시지 수신
+        # mobile 상태 구독
         self.node.create_subscription(
             Log,
             '/rosout',
             self.log_callback,
+            10
+        )
+
+        # /rosout 토픽을 구독하여 모든 로그 메시지 수신
+        self.node.create_subscription(
+            PickeeMobileStatus,
+            '/pickee/mobile/status',
+            self.mobile_status_callback,
             10
         )
 
@@ -119,6 +128,10 @@ class RosNodeThread(QThread):
 
     def status_callback(self, msg: PickeeRobotStatus):
         self.state_updated.emit(msg.state)
+
+    def mobile_status_callback(self, msg: PickeeMobileStatus):
+        self.mobile_state_updated.emit(msg.status)
+        
     
     def mobile_pose_callback(self, msg: PickeeMobilePose):
         self.mobile_pose_updated.emit(msg.status)
