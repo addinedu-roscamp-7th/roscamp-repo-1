@@ -289,10 +289,10 @@ private:
 
       case 12: // Fish
         info.quantity = 2;
-        info.length = 55;
-        info.width = 35;
-        info.height = 15;
-        info.weight = 150;
+        info.length = 1700;
+        info.width = 50;
+        info.height = 450;
+        info.weight = 100;
         info.fragile = false;
         break;
 
