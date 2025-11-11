@@ -106,7 +106,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="../resource/fish_top_grid2_20251107_1.pt")
     parser.add_argument("--csv", type=str, default="../resource/fish_top_grid2_20251107_1.csv")
-    parser.add_argument("--image", type=str, default="../resource/fish_top_grid3.jpg")
+    parser.add_argument("--image", type=str, default="../resource/test/capture_20251111-141126.jpg")
     args = parser.parse_args()
 
     # 장치 설정

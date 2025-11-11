@@ -93,8 +93,8 @@ class VisionCoordinatorNode(Node):
         
         # --- PI 제어기 파라미터 및 변수 ---
         self.KP = 0.5
-        self.KI = 0.02
-        self.CONVERGENCE_THRESHOLD = 10.0
+        self.KI = 0.05
+        self.CONVERGENCE_THRESHOLD = 7.0
         self.integral_error = np.zeros(6, dtype=np.float32)
         self.last_servoing_time = None
         self.integral_clamp = 5.0
@@ -134,7 +134,7 @@ class VisionCoordinatorNode(Node):
 
         # --- ROS2 통신 인터페이스 설정 ---
         # 1. main 노드로부터 피킹 시작 명령을 받는 서비스 서버
-        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/vision/pick_product', self.start_pick_sequence_callback)
+        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product', self.start_pick_sequence_callback)
         
         # 2. arm 노드에 매대 확인 자세를 요청하는 서비스 클라이언트
         self.move_start_client = self.create_client(Trigger, '/pickee/arm/move_start')
@@ -189,7 +189,7 @@ class VisionCoordinatorNode(Node):
                 self.get_logger().info("Arm successfully started move to shelf_view. Starting YOLO detection.")
                 self.set_state('YOLO_DETECTION')
                 if self.yolo_timer is None or self.yolo_timer.is_canceled():
-                    self.yolo_timer = self.create_timer(0.1, self.yolo_detection_loop)
+                    self.yolo_timer = self.create_timer(0.03, self.yolo_detection_loop)
             else:
                 self.get_logger().error(f"Arm failed to start move_start: {response.message}")
                 self.set_state('IDLE')
@@ -264,6 +264,7 @@ class VisionCoordinatorNode(Node):
             self.last_servoing_time = current_time
             return
         dt = (current_time - self.last_servoing_time).nanoseconds / 1e9
+        print(dt)
         self.last_servoing_time = current_time
 
         norm_cur_cord = self.predict_pose(frame)
@@ -271,7 +272,7 @@ class VisionCoordinatorNode(Node):
         pose_err = cur_cord - self.real_cur_cord
         real_tar_cord = self.tar_cord - pose_err
         error = real_tar_cord - self.real_cur_cord
-        error_magnitude = np.linalg.norm(np.array([error[0], error[1], error[5]]))
+        error_magnitude = np.linalg.norm(np.array([error[0], error[1]]))
         self.get_logger().info(f"CNN Visual Servoing... Error: {error_magnitude:.3f}")
 
         if error_magnitude < self.CONVERGENCE_THRESHOLD:
@@ -290,8 +291,10 @@ class VisionCoordinatorNode(Node):
             proportional_term = self.KP * error
             integral_term = self.KI * self.integral_error
             delta = proportional_term + integral_term
+            # delta = proportional_term
             
             commanded_pose = self.real_cur_cord + delta
+            print(real_tar_cord) #####
             move_cmd = Pose6D()
             move_cmd.x, move_cmd.y, move_cmd.rz = float(commanded_pose[0]), float(commanded_pose[1]), float(commanded_pose[5])
             move_cmd.rx, move_cmd.ry, move_cmd.z = float(self.tar_cord[3]), float(self.tar_cord[4]), float(self.tar_cord[2])
