@@ -104,9 +104,9 @@ def predict(model, img_path, class_names=None, device="cpu", pose_mean=None, pos
 # ==========================
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="../resource/fish_top_grid2_20251106.pt")
-    parser.add_argument("--csv", type=str, default="../resource/fish_top_grid2_20251106.csv")
-    parser.add_argument("--image", type=str, default="../resource/image_0808.jpg")
+    parser.add_argument("--model", type=str, default="../resource/fish_top_grid2_20251107_1.pt")
+    parser.add_argument("--csv", type=str, default="../resource/fish_top_grid2_20251107_1.csv")
+    parser.add_argument("--image", type=str, default="../resource/fish_top_grid3.jpg")
     args = parser.parse_args()
 
     # 장치 설정
@@ -136,10 +136,10 @@ def main():
 
     # 출력
     print("\n[결과]")
-    print(f"평균: {pose_mean}")
-    print(f"표준편차: {pose_std}")
+    print(f"평균: {pose_mean.tolist()}")
+    print(f"표준편차: {pose_std.tolist()}")
     print(f"상품 클래스: {cls_name}")
-    print(f"예측된 포즈: {np.round(pose, 3)}")
+    print(f"예측된 포즈: {np.round(pose, 3).tolist()}")
 
 
 if __name__ == "__main__":

@@ -117,7 +117,7 @@ class PickeeVisionControlNode(Node):
         # 1. 상품 인식용 세그멘테이션 모델
         yolo_model_path = os.path.join(self.package_share_directory, '20251104_v11_ver1_ioudefault.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
-        cnn_model_path = os.path.join(self.package_share_directory, 'fish_grid2.pt')
+        cnn_model_path = os.path.join(self.package_share_directory, 'fish_top_20251107_1.pt')
 
 
         try:
@@ -134,8 +134,8 @@ class PickeeVisionControlNode(Node):
 
 
         ##### 비정규화 테스트
-        self.pose_mean = np.array([-49.469975, 210.49309, 177.79279, 53.573994, 11.1954775, 40.481068 ], dtype=np.float32)
-        self.pose_std = np.array([10.638039, 18.996292, 7.232353, 164.99438, 2.535464, 2.6578875], dtype=np.float32)
+        self.pose_mean = np.array([-50.2244873046875, 172.77769470214844, 237.30694580078125, -174.7872314453125, 4.819617748260498, 43.5898551940918], dtype=np.float32)
+        self.pose_std = np.array([88.66088104248047, 21.838180541992188, 22.061058044433594, 3.194171667098999, 3.7769198417663574, 6.489022254943848], dtype=np.float32)
 
 
         self.target_object_name = "12" # 6 = eclipse
@@ -204,7 +204,7 @@ class PickeeVisionControlNode(Node):
 
                 if cls_name == self.target_object_name:
                     current_pose = self.predict_pose(frame)
-                    target_image_path = os.path.join(self.package_share_directory, 'fish_grep_grid2.jpg')
+                    target_image_path = os.path.join(self.package_share_directory, 'fish_top_grid1.jpg')
 
                     # 상품명으로 넣어줄 때 
                     # target_image_path = os.path.join(self.package_share_directory, 
