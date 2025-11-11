@@ -64,7 +64,7 @@ class PickeeVisionNode(Node):
                             'src/pickee_vision/resource'
                         )
         # 1. 상품 인식용 세그멘테이션 모델
-        product_model_path = os.path.join(package_share_directory, '20251103_v11_ver1_ioudefault.pt')
+        product_model_path = os.path.join(package_share_directory, '20251104_v11_ver1_ioudefault.pt')
         # 2. 장바구니 인식용 클래시피케이션 모델
         cart_model_path = os.path.join(package_share_directory, 'cart_best_.pth')
 
@@ -85,7 +85,7 @@ class PickeeVisionNode(Node):
         self.ROBOT_ID = 1
 
         # UDP 스트리머 서버 설정
-        self.streamer = UdpStreamer(host='0.0.0.0', port=6000, robot_id=self.ROBOT_ID)
+        self.streamer = UdpStreamer(host='192.168.0.154', port=6000, robot_id=self.ROBOT_ID)
         self.camera_type = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
@@ -206,7 +206,6 @@ class PickeeVisionNode(Node):
     def publish_detection_data(self, robot_id, order_id):
         
         self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
-
 
         # self.last_detections를 ROS 메시지로 변환하여 발행
         detected_products = [] # DetectedProduct[] 자료형
