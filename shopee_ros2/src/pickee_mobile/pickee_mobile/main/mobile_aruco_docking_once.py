@@ -229,7 +229,8 @@ class ArucoDocking(Node):
 
             # 해당 축까지 전진
             self.get_logger().info(f"🚗 Going straight to ArUco axis {self.dist_side}mm")
-            self.go_straight_node.go_straight(abs(self.dist_side/1000))
+            # self.go_straight_node.go_straight(abs(self.dist_side/1000))
+            run(self, abs(self.dist_side/1000))
             time.sleep(1.0)
 
             # 마커 바라보기 회전
