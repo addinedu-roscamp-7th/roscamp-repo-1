@@ -16,6 +16,7 @@
 
 // Shopee Interface 메시지 및 서비스 헤더
 #include <shopee_interfaces/msg/pickee_mobile_pose.hpp>
+#include <shopee_interfaces/msg/pickee_mobile_status.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_arrival.hpp>
 #include <shopee_interfaces/msg/pickee_mobile_speed_control.hpp>
 #include <shopee_interfaces/msg/aruco_pose.hpp>
@@ -53,6 +54,9 @@ public:
         current_status_ = "idle";  // 'idle', 'moving', 'stopped', 'charging', 'error'
         
         // Publishers 초기화 (Shopee Interface - pub 토픽들)
+        status_publisher_ = this->create_publisher<shopee_interfaces::msg::PickeeMobileStatus>(
+            "/pickee/mobile/status", 10);
+
         pose_publisher_ = this->create_publisher<shopee_interfaces::msg::PickeeMobilePose>(
             "/pickee/mobile/pose", 10);
             
@@ -133,6 +137,7 @@ private:
     rclcpp::Time last_scan_time_;  // 마지막 스캔 시간 추적
     
     // Publishers (Shopee Interface - pub 토픽들)
+    rclcpp::Publisher<shopee_interfaces::msg::PickeeMobileStatus>::SharedPtr status_publisher_;
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobilePose>::SharedPtr pose_publisher_;
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobileArrival>::SharedPtr arrival_publisher_;
     
@@ -651,6 +656,12 @@ private:
                        current_status_.c_str(), new_status.c_str(), 
                        reason.empty() ? "" : ("(" + reason + ")").c_str());
             current_status_ = new_status;
+
+            shopee_interfaces::msg::PickeeMobileStatus status_msg;
+            status_msg.robot_id = robot_id_;
+            status_msg.status = current_status_;
+
+            status_publisher_->publish(status_msg);
         }
     }
     
