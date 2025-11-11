@@ -27,7 +27,6 @@ set(msg_files
   "msg/PickeeArrival.msg"
   "msg/PickeeCartHandover.msg"
   "msg/PickeeMobileArrival.msg"
-  "msg/PickeeMobileStatus.msg"
   "msg/PickeeMobilePose.msg"
   "msg/PickeeMobileSpeedControl.msg"
   "msg/PickeeMoveStatus.msg"
@@ -62,6 +61,7 @@ set(srv_files
   "srv/MainGetSectionPose.srv"
   "srv/PackeePackingCheckAvailability.srv"
   "srv/PackeePackingStart.srv"
+  "srv/PackeeVisionBppStart.srv"
   "srv/PackeeVisionDetectProductsInCart.srv"
   "srv/PackeeVisionVerifyPackingComplete.srv"
   "srv/PickeeMainVideoStreamStart.srv"
@@ -87,7 +87,6 @@ set(srv_files
   "srv/VisionCheckCartPresence.srv"
   "srv/PackeeArmPackingComplete.srv"
   "srv/PackeeMainStartMTC.srv"
-  "srv/ArmCheckBbox.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
