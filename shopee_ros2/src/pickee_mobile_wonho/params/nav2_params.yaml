@@ -297,9 +297,9 @@ local_costmap:
           marking: True
           data_type: "LaserScan"
           raytrace_max_range: 5.0
-          raytrace_min_range: 0.6  # 로봇 중심부터 raytrace 
+          raytrace_min_range: 0.0  # 로봇 중심부터 raytrace 
           obstacle_max_range: 4.5
-          obstacle_min_range: 0.6  # 로봇 중심부터 장애물 감지 
+          obstacle_min_range: 0.0  # 로봇 중심부터 장애물 감지 
           min_obstacle_height: 0.0  # 바닥부터 감지
           inf_is_valid: false  # inf 값은 무시
       static_layer:
