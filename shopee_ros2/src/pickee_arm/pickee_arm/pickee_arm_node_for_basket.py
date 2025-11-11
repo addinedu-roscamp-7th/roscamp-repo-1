@@ -60,7 +60,7 @@ Shutting down node.")
             Pose6D,
             '/pickee/arm/move_servo',
             self.servo_callback,
-            10)
+            1)
 
         # 상태 보고용 퍼블리셔 생성
         self.pose_status_pub = self.create_publisher(ArmPoseStatus,
@@ -69,6 +69,8 @@ Shutting down node.")
         '/pickee/arm/pick_status', 10)
         self.place_status_pub = self.create_publisher(ArmTaskStatus,
         '/pickee/arm/place_status', 10)
+        self.real_pose_publisher = self.create_publisher(Pose6D, '/pickee/arm/real_pose', 10)
+        self.pose_publish_timer = self.create_timer(0.03, self.publish_real_pose_callback)
 
         # pickee_arm <-> pickee_vision test 
         
@@ -177,6 +179,9 @@ to {request.pose_type}")
     def check_product_callback(self, request, response):
         self.bbox_number = request.bbox_number
         target_pose = None
+        
+        self.bool_msg.data = False
+        self.is_moving_pub.publish(self.bool_msg)
 
         if self.bbox_number == 1:
             target_pose = arm_poses.TOP_VIEW_POSE_GRID1
@@ -293,6 +298,21 @@ received.')
             0.5, response.message)
 
         return response
+    
+    def publish_real_pose_callback(self):
+        if not self.arm or not self.arm.is_connected():
+            return
+
+        # ArmControl을 통해 현재 로봇 좌표를 얻어옴
+        current_coords = self.arm.get_coords()
+
+        # 좌표가 유효한지 확인 후 발행
+        if current_coords and isinstance(current_coords, list) and len(current_coords) == 6:
+            pose_msg = Pose6D()
+            pose_msg.x, pose_msg.y, pose_msg.z, pose_msg.rx, pose_msg.ry, pose_msg.rz = [float(c) for c in current_coords]
+            self.real_pose_publisher.publish(pose_msg)
+        else:
+            self.get_logger().debug(f"Could not get valid coordinates to publish. Value: {current_coords}")
 
 def main(args=None):
     rclpy.init(args=args)
