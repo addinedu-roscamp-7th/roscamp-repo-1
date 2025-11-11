@@ -2332,6 +2332,8 @@ class UserWindow(QWidget):
             self.select_done_button.setEnabled(bool(products))
         if self.auto_pick_button is not None:
             self.auto_pick_button.setEnabled(bool(products))
+        if products:
+            self._ensure_arm_camera_view()
         if self.selection_buttons:
             self.selection_buttons[0].setChecked(True)
             self.selection_selected_index = 0
@@ -2598,6 +2600,17 @@ class UserWindow(QWidget):
             self.front_view_button.setChecked(active == "front")
         if self.arm_view_button is not None:
             self.arm_view_button.setChecked(active == "arm")
+
+    def _ensure_arm_camera_view(self) -> None:
+        '''선택 단계에서는 로봇 팔 카메라가 표시되도록 보장한다.'''
+        if self.arm_view_button is None:
+            return
+        if self.current_robot_id is None:
+            return
+        if self.active_camera_type == 'arm':
+            return
+        self.arm_view_button.setChecked(True)
+        self.on_camera_button_clicked('arm')
 
     def on_camera_button_clicked(self, camera_type: str) -> None:
         if self.current_robot_id is None:
