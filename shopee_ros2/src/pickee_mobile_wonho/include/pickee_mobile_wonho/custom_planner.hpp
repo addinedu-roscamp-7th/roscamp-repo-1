@@ -107,7 +107,7 @@ namespace custom_planner
         rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_to_pose_client_;
         startAndGoalPoses path_after_narrow;
         bool is_after_plan;
-
+        bool aruco_mode;
         nav_msgs::msg::Path global_path;
         
         double x1_;

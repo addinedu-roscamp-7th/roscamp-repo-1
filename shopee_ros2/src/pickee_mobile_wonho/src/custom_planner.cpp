@@ -19,6 +19,7 @@ namespace custom_planner
 
         // 좁은 문 주행 후 재주행 여부
         is_after_plan = false;
+        aruco_mode = true;
         
         // 각 좌표 x,y 상수 초기화
         x1_ = -2.1;
@@ -135,14 +136,16 @@ namespace custom_planner
 
         // 100ms 주기로 타이머 콜백 실행
         auto node = node_.lock();
-        if (node) {
-            if (is_narrow_passage) {
-                narrow_passage_timer_ = node->create_wall_timer(
-                    std::chrono::milliseconds(100),
-                    std::bind(&CustomPlanner::NarrowPassageTimerCallback, this)
-                );
-                // 좁은 문 통과후 다시 주행 시작
-                RCLCPP_INFO(logger_, "좁은 문 통과 완료, 마지막 주행 시작");
+        if (!aruco_mode) {
+            if (node) {
+                if (is_narrow_passage) {
+                    narrow_passage_timer_ = node->create_wall_timer(
+                        std::chrono::milliseconds(100),
+                        std::bind(&CustomPlanner::NarrowPassageTimerCallback, this)
+                    );
+                    // 좁은 문 통과후 다시 주행 시작
+                    RCLCPP_INFO(logger_, "좁은 문 통과 완료, 마지막 주행 시작");
+                }
             }
         }
         
