@@ -29,6 +29,7 @@ set(msg_files
   "msg/PickeeMobileArrival.msg"
   "msg/PickeeMobilePose.msg"
   "msg/PickeeMobileSpeedControl.msg"
+  "msg/PickeeMobileStatus.msg"
   "msg/PickeeMoveStatus.msg"
   "msg/PickeeProductDetection.msg"
   "msg/PickeeProductLoaded.msg"
@@ -51,6 +52,7 @@ set(msg_files
 
 set(srv_files
   "srv/ArmMoveToPose.srv"
+  "srv/ArmCheckBbox.srv"
   "srv/ArmPickProduct.srv"
   "srv/ArmPlaceProduct.srv"
   "srv/ChangeTrackingMode.srv"
