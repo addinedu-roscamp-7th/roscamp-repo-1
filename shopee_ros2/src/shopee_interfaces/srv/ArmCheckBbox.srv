@@ -1,0 +1,6 @@
+# 사용자가 선택한  Bbox_number을 Pickee_Main->Pickee_arm 전달
+
+int32 bbox_number 
+---
+bool success
+string message       

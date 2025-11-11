@@ -23,6 +23,12 @@ class ArmControl:
         """Check if the arm is connected and powered on."""
         return self.mc and self.mc.is_power_on() == 1
 
+    def is_moving(self):
+        """self.mc.is_moving()은 움직이면 1, 멈추면 0을 반환합니다."""
+        is_moving_status = self.mc.is_moving()
+
+        return is_moving_status == 1
+        
     def get_angles(self):
         """현재 로봇 팔의 6축 관절 각도를 읽어옵니다."""
         if self.is_connected():

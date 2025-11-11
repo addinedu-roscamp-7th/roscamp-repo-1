@@ -60,7 +60,7 @@ class PackeeArmController(Node):
 
         try:
             if pose_type == "cart_view":
-                self.mc.send_coords([28.4, -78.5, 321.6, -151.79, -10.16, -98.4], self.speed)
+                self.mc.send_coords([28.4, -90.5, 321.6, -151.79, -10.16, -98.4], self.speed)
             else:
                 self.mc.send_angles([0, 0, 0, 0, 0, 0], self.speed)
             time.sleep(1)
@@ -103,7 +103,7 @@ class PackeeArmController(Node):
 
         try:
             # 카트 확인 자세로 이동
-            self.mc.send_coords([28.4, -78.5, 321.6, -151.79, -10.16, -98.4], self.speed)
+            self.mc.send_coords([28.4, -90.5, 321.6, -151.79, -10.16, -98.4], self.speed)
             self.mc.set_gripper_value(100, self.speed)
             self.get_logger().info("장바구니 확인 자세로 이동")
             time.sleep(1)

@@ -96,11 +96,13 @@ class GoStraight(Node):
             # 마찰 극복 최소속도
             if error > 0.02 and abs(speed_cmd) < 0.05:
                 speed_cmd = dir_sign * 0.05
-
+            print(f'speed_cmd = {speed_cmd}')
             cmd.linear.x = float(speed_cmd)
             cmd.angular.z = 0.0  # 필요하면 헤딩 홀드 PD 추가 가능
             self.cmd_pub.publish(cmd)
-            time.sleep(0.02)
+            # time.sleep(0.02)
+            rclpy.spin_once(self, timeout_sec=0.02)
+
 
         self.stop()
 
