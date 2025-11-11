@@ -53,10 +53,11 @@ class MainServiceClient:
     def __init__(self, config: MainServiceConfig | None = None):
         """환경 설정을 적용하고 연결 정보를 출력한다."""
         self.config = config if config is not None else MainServiceConfig()
+        domain_id = _int_from_env("ROS_DOMAIN_ID", 0)
         print(
             "[MainServiceClient] host="
             f"{self.config.host} port={self.config.port} timeout={self.config.timeout}s "
-            f"long_timeout={self.config.long_timeout}s"
+            f"long_timeout={self.config.long_timeout}s domain_id={domain_id}"
         )
 
     def login(self, user_id: str, password: str) -> dict:

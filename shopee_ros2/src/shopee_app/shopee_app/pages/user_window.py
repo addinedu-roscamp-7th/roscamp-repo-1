@@ -1,5 +1,6 @@
 import math
 import os
+import random
 import sys
 import re
 from pathlib import Path
@@ -520,6 +521,10 @@ class UserWindow(QWidget):
             self.selection_voice_button.clicked.connect(
                 self.on_selection_voice_button_clicked
             )
+        self.auto_pick_button: QPushButton | None = getattr(self.ui, 'btn_auto_pick', None)
+        if self.auto_pick_button is not None:
+            self.auto_pick_button.setEnabled(False)
+            self.auto_pick_button.clicked.connect(self.on_auto_pick_clicked)
         self.front_view_button = getattr(self.ui, "btn_view_front", None)
         self.arm_view_button = getattr(self.ui, "btn_view_arm", None)
         self.camera_button_group = QButtonGroup(self)
@@ -2325,6 +2330,8 @@ class UserWindow(QWidget):
             self.selection_grid.setColumnStretch(column, 1)
         if self.select_done_button is not None:
             self.select_done_button.setEnabled(bool(products))
+        if self.auto_pick_button is not None:
+            self.auto_pick_button.setEnabled(bool(products))
         if self.selection_buttons:
             self.selection_buttons[0].setChecked(True)
             self.selection_selected_index = 0
@@ -3095,17 +3102,21 @@ class UserWindow(QWidget):
         self._refresh_bbox_highlight()
 
     def on_select_done_clicked(self) -> None:
-        """선택된 상품을 Main Service에 전달한다."""
+        '''선택 완료 버튼 클릭을 처리한다.'''
+        self._submit_current_selection(self.select_done_button)
+
+    def _submit_current_selection(self, trigger_button: QPushButton | None) -> None:
+        '''선택된 상품을 Main Service에 전달한다.'''
         if not self.selection_options:
-            QMessageBox.information(self, "상품 선택", "선택 가능한 상품이 없습니다.")
+            QMessageBox.information(self, '상품 선택', '선택 가능한 상품이 없습니다.')
             return
         if self.selection_selected_index is None or not (
             0 <= self.selection_selected_index < len(self.selection_options)
         ):
-            QMessageBox.warning(self, "상품 선택", "먼저 선택지를 선택해주세요.")
+            QMessageBox.warning(self, '상품 선택', '먼저 선택지를 선택해주세요.')
             return
         if self.current_order_id is None or self.current_robot_id is None:
-            QMessageBox.warning(self, "상품 선택", "주문 정보가 확인되지 않습니다.")
+            QMessageBox.warning(self, '상품 선택', '주문 정보가 확인되지 않습니다.')
             return
         selected = self.selection_options[self.selection_selected_index]
         bbox_number = selected.get("bbox_number")
@@ -3117,11 +3128,10 @@ class UserWindow(QWidget):
             product_id_value = int(product_id)
         except (TypeError, ValueError):
             QMessageBox.warning(
-                self, "상품 선택", "선택한 상품 정보를 확인할 수 없습니다."
+                self, '상품 선택', '선택한 상품 정보를 확인할 수 없습니다.'
             )
             return
 
-        trigger_button = self.select_done_button
         self._clear_bbox_overlays()
         if trigger_button is not None:
             trigger_button.setEnabled(False)
@@ -3137,7 +3147,7 @@ class UserWindow(QWidget):
             if trigger_button is not None:
                 trigger_button.setEnabled(True)
             QMessageBox.warning(
-                self, "상품 선택", f"상품을 선택하지 못했습니다.\n{exc}"
+                self, '상품 선택', f'상품을 선택하지 못했습니다.\n{exc}'
             )
             return
 
@@ -3145,18 +3155,29 @@ class UserWindow(QWidget):
             trigger_button.setEnabled(True)
 
         if not response or not response.get("result"):
-            message = response.get("message") or "상품 선택을 처리하지 못했습니다."
-            QMessageBox.warning(self, "상품 선택", message)
+            message = response.get("message") or '상품 선택을 처리하지 못했습니다.'
+            QMessageBox.warning(self, '상품 선택', message)
             return
 
-        self._set_selection_status(product_id_value, "선택 진행중")
-        QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
+        self._set_selection_status(product_id_value, '선택 진행중')
+        QMessageBox.information(self, '상품 선택', '로봇에게 상품 선택을 전달했습니다.')
         self.selection_options = []
         self.selection_options_origin = None
         self.selection_selected_index = None
         self.populate_selection_buttons([])
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def on_auto_pick_clicked(self) -> None:
+        '''자동 선택 버튼을 눌렀을 때 랜덤 선택을 요청한다.'''
+        if not self.selection_options:
+            QMessageBox.information(self, '자동 선택', '선택 가능한 상품이 없습니다.')
+            return
+        random_index = random.randrange(len(self.selection_options))
+        self.selection_selected_index = random_index
+        if 0 <= random_index < len(self.selection_buttons):
+            self.selection_buttons[random_index].setChecked(True)
+        self._submit_current_selection(self.auto_pick_button)
 
     def _update_selection_voice_button(self, active: bool) -> None:
         if self.selection_voice_button is None:
