@@ -21,6 +21,7 @@ from pickee_main.states import (
 
 # 구독자(Subscriber)용 메시지 타입 임포트
 from shopee_interfaces.msg import (
+    PickeeMobileStatus,
     PickeeMobileArrival,
     PickeeMobilePose,
     ArmTaskStatus,
@@ -121,6 +122,7 @@ class PickeeMainController(Node):
         # 상태 기계 초기화 (초기 상태: INITIALIZING)
         initial_state = InitializingState(self)
         self.state_machine = StateMachine(initial_state)
+        self.current_mobile_status = 'idle'
         
         # 2.1단계: Subscriber 구현 - 내부 컴포넌트에서 발행하는 토픽 구독
         self.setup_internal_subscribers()
@@ -166,6 +168,13 @@ class PickeeMainController(Node):
     def setup_internal_subscribers(self):
         # 내부 컴포넌트 토픽 구독자 설정
         # Mobile에서 발행하는 토픽들
+        self.mobile_status_sub = self.create_subscription(
+            PickeeMobileStatus,
+            '/pickee/mobile/status',
+            self.mobile_status_callback,
+            10
+        )
+        
         self.mobile_arrival_sub = self.create_subscription(
             PickeeMobileArrival,
             '/pickee/mobile/arrival',
@@ -478,6 +487,18 @@ class PickeeMainController(Node):
         )
 
     # Mobile 관련 콜백 함수들
+    def mobile_status_callback(self, msg):
+        '''
+        Mobile 상태 업데이트 콜백
+        
+        docs 시퀀스 다이어그램 반영:
+        - Mobile에서 주기적으로 상태 정보 전송
+        - 통합 상태 모니터링을 위한 정보 업데이트
+        '''
+        # 로봇 상태에 Mobile 상태 정보 업데이트
+        self.current_mobile_status = msg.status
+        self.get_logger().info(f'📲 Mobile 상태 업데이트: robot_id={msg.robot_id}, status={msg.status}')
+
     def mobile_arrival_callback(self, msg):
         '''
         Mobile 도착 알림 콜백

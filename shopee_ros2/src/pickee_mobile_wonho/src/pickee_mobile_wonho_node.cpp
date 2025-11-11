@@ -21,6 +21,7 @@
 #include <shopee_interfaces/msg/pickee_mobile_speed_control.hpp>
 // #include <shopee_interfaces/msg/aruco_pose.hpp>
 #include <shopee_interfaces/msg/person_detection.hpp>
+#include <shopee_interfaces/srv/pickee_mobile_status.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_move_to_location.hpp>
 #include <shopee_interfaces/srv/pickee_mobile_update_global_path.hpp>
 #include <shopee_interfaces/srv/change_tracking_mode.hpp>
@@ -89,6 +90,11 @@ public:
             std::bind(&PickeeMobileWonhoNode::person_detection_callback, this, std::placeholders::_1));
 
         // Services 초기화 (Shopee Interface - service 서버들)
+        pickee_mobile_status_service_ = this->create_service<shopee_interfaces::srv::PickeeMobileStatus>(
+            "/pickee/mobile/pickee_mobile_status",
+            std::bind(&PickeeMobileWonhoNode::pickee_mobile_status_callback, this,
+                     std::placeholders::_1, std::placeholders::_2));
+        
         move_to_location_service_ = this->create_service<shopee_interfaces::srv::PickeeMobileMoveToLocation>(
             "/pickee/mobile/move_to_location",
             std::bind(&PickeeMobileWonhoNode::move_to_location_callback, this,
@@ -149,6 +155,7 @@ private:
     rclcpp::Subscription<shopee_interfaces::msg::PersonDetection>::SharedPtr person_detection_subscriber_;
     
     // Services (Shopee Interface - service 서버들)
+    rclcpp::Service<shopee_interfaces::srv::PickeeMobileStatus>::SharedPtr pickee_mobile_status_service_;
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileMoveToLocation>::SharedPtr move_to_location_service_;
     rclcpp::Service<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath>::SharedPtr update_global_path_service_;
     rclcpp::Service<shopee_interfaces::srv::ChangeTrackingMode>::SharedPtr change_tracking_mode_service_;
@@ -548,6 +555,34 @@ private:
     /**
      * @brief 전역 경로 업데이트 명령을 처리합니다. (Shopee Interface Service)
      */
+    
+    void pickee_mobile_status_callback(
+        const std::shared_ptr<shopee_interfaces::srv::PickeeMobileStatus::Request> request,
+        std::shared_ptr<shopee_interfaces::srv::PickeeMobileStatus::Response> response)
+    {
+        RCLCPP_INFO(this->get_logger(), "경로 업데이트 요청: 로봇=%d, 상태=%d", 
+                    request->robot_id, request->status);
+        
+        if (request->robot_id != robot_id_) {
+            response->success = false;
+            response->message = "잘못된 로봇 ID";
+            return;
+        }
+        
+        // current_order_id_ = request->order_id;
+        if (request->status == "idle" || request->status == "aruco") {
+            change_status(request->status, "aruco 상태 업데이트 요청");
+        } else {
+            response->success = false;
+            response->message = "잘못된 상태 값";
+            return;
+        }
+
+        // TODO: Nav2에 새 경로 전달 구현
+        response->success = true;
+        response->message = "전역 경로 업데이트됨";
+    }
+    
     void update_global_path_callback(
         const std::shared_ptr<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath::Request> request,
         std::shared_ptr<shopee_interfaces::srv::PickeeMobileUpdateGlobalPath::Response> response)
