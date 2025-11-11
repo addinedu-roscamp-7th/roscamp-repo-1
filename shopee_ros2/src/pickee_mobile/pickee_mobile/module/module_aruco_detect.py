@@ -24,7 +24,22 @@ class ArucoPoseEstimator:
         self.calibration_file = calibration_file
 
         # --- 보정 데이터 불러오기 ---
-        self.camera_matrix, self.dist_coeffs = self.load_calibration()
+        # self.camera_matrix, self.dist_coeffs = self.load_calibration()
+        
+        self.camera_matrix = np.array([
+            [7.97685154e+02, 0.00000000e+00, 2.82175616e+02],
+            [0.00000000e+00, 7.98389022e+02, 2.82054906e+02],
+            [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]
+        ], dtype=float)
+
+        self.dist_coeffs = np.array([
+            -4.08433569e-01,
+            7.75362715e-01,
+            -1.58047124e-03,
+            -2.69813496e-04,
+            -2.79637393e+00
+        ], dtype=float)
+
 
         # --- ArUco 설정 ---
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_50)
@@ -38,21 +53,21 @@ class ArucoPoseEstimator:
         print("✅ ArucoPoseEstimator 초기화 완료")
 
     # ------------------------------------------------------------------------
-    def load_calibration(self):
-        """camera_calibration.pkl 파일에서 내·외부 파라미터 불러오기"""
-        # base_dir = os.path.dirname(os.path.abspath(__file__))
-        # pkl_path = os.path.join(base_dir, self.calibration_file)
-        # pkl_path = '/home/lim/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
-        pkl_path = '/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
+    # def load_calibration(self):
+    #     """camera_calibration.pkl 파일에서 내·외부 파라미터 불러오기"""
+    #     # base_dir = os.path.dirname(os.path.abspath(__file__))
+    #     # pkl_path = os.path.join(base_dir, self.calibration_file)
+    #     pkl_path = '/home/lim/project/roscamp-repo-1/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
+    #     # pkl_path = '/home/wonho/tech_research/Shopee/shopee_ros2/src/pickee_mobile/pickee_mobile/module/camera_calibration.pkl'
 
-        if not os.path.exists(pkl_path):
-            raise FileNotFoundError(f"❌ 보정 파일을 찾을 수 없습니다: {pkl_path}")
+    #     if not os.path.exists(pkl_path):
+    #         raise FileNotFoundError(f"❌ 보정 파일을 찾을 수 없습니다: {pkl_path}")
 
-        with open(pkl_path, 'rb') as f:
-            calib_data = pickle.load(f)
+    #     with open(pkl_path, 'rb') as f:
+    #         calib_data = pickle.load(f)
 
-        print(f"📁 보정 파일 로드 완료: {pkl_path}")
-        return calib_data['camera_matrix'], calib_data['dist_coeffs']
+    #     print(f"📁 보정 파일 로드 완료: {pkl_path}")
+    #     return calib_data['camera_matrix'], calib_data['dist_coeffs']
 
     # ------------------------------------------------------------------------
     def get_euler_angles(self, R):
