@@ -435,9 +435,11 @@ class OrderService:
             logger.info(f"Order {msg.order_id} has {len(product_ids)} item types to pick in section {msg.section_id}")
 
             if not product_ids:
-                logger.warning("No products to detect for order %d in section %d. Moving to next.", msg.order_id, msg.section_id)
-                # 이 섹션에 상품이 없으면 바로 다음 단계로 진행
-                await self._move_to_next_or_end(msg.order_id, msg.robot_id)
+                logger.warning(
+                    "No products mapped for order %d in section %d. Holding until explicit instruction.",
+                    msg.order_id,
+                    msg.section_id,
+                )
                 return
 
             pending_sections = self._pending_detection_sections.setdefault(msg.order_id, set())
@@ -472,6 +474,13 @@ class OrderService:
 
         # 공통: 인식된 상품 BBox 정보 저장
         self._detected_product_bbox[msg.order_id] = {p.product_id: p.bbox_number for p in msg.products}
+        self._clear_pending_detection(msg.order_id, current_section.get("section_id"))
+        if not msg.products:
+            logger.warning(
+                "Order %d product detection returned empty list. Waiting for subsequent topic before progressing.",
+                msg.order_id,
+            )
+            return
         logger.info(
             "Order %d detected product BBox map: %s",
             msg.order_id,
@@ -614,10 +623,10 @@ class OrderService:
             )
         else:
             logger.warning(
-                "Auto section for order %d but no products to select. Moving to next.",
+                "Auto section for order %d but detection returned no products. Holding position until new topic arrives.",
                 msg.order_id,
             )
-            await self._move_to_next_or_end(msg.order_id, msg.robot_id)
+            return
 
     async def _move_to_next_or_end(self, order_id: int, robot_id: int):
         """다음 섹션으로 이동하거나, 모든 섹션 방문 시 쇼핑을 종료합니다."""
@@ -713,6 +722,16 @@ class OrderService:
             await self._notifier.notify_picking_complete(order_id, robot_id)
             
             await self.end_shopping(order_id, robot_id)
+
+    def _clear_pending_detection(self, order_id: int, section_id: Optional[int]) -> None:
+        """감지 대기 목록에서 섹션을 제거하여 중복 대기를 방지한다."""
+        pending_sections = self._pending_detection_sections.get(order_id)
+        if not pending_sections:
+            return
+        if section_id is not None:
+            pending_sections.discard(section_id)
+        if not pending_sections:
+            self._pending_detection_sections.pop(order_id, None)
 
     async def handle_pickee_selection(self, msg: "PickeeProductSelection") -> None:
         """Pickee 상품 선택 결과 처리 및 다음 섹션 이동 처리"""
