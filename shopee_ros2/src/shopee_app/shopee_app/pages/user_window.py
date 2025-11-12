@@ -2,7 +2,6 @@ import math
 import os
 import random
 import sys
-import re
 from pathlib import Path
 from dataclasses import replace
 from threading import Event
@@ -955,19 +954,8 @@ class UserWindow(QWidget):
         current_context = self._stt_context
         if current_context == "selection":
             handled = self._handle_selection_voice_result(recognized)
-            if handled:
-                self._show_stt_status_dialog(
-                    f"'{recognized}'을(를) 인식했습니다. 선택을 진행합니다.",
-                    icon=QMessageBox.Icon.Information,
-                )
-                self._schedule_stt_status_close(2000)
-            else:
-                self._show_stt_status_dialog(
-                    f"'{recognized}'에서 선택 번호를 찾지 못했습니다.",
-                    icon=QMessageBox.Icon.Warning,
-                )
-                self._schedule_stt_status_close(2500)
-            self._stt_status_hide_timer.start(2500)
+            if not handled:
+                self._stt_status_hide_timer.start(2500)
             return
         if self.search_input is not None:
             self.search_input.setText(recognized)
@@ -3157,37 +3145,23 @@ class UserWindow(QWidget):
         if trigger_button is not None:
             trigger_button.setEnabled(False)
 
-        try:
-            response = self.service_client.select_product(
-                order_id=order_id_value,
-                robot_id=robot_id_value,
-                bbox_number=bbox_value,
-                product_id=product_id_value,
-            )
-        except MainServiceClientError as exc:
-            if trigger_button is not None:
-                trigger_button.setEnabled(True)
-            QMessageBox.warning(
-                self, '상품 선택', f'상품을 선택하지 못했습니다.\n{exc}'
-            )
-            return
-
+        success, error_message = self._perform_product_selection(
+            order_id_value,
+            robot_id_value,
+            bbox_value,
+            product_id_value,
+        )
         if trigger_button is not None:
             trigger_button.setEnabled(True)
 
-        if not response or not response.get("result"):
-            message = response.get("message") or '상품 선택을 처리하지 못했습니다.'
-            QMessageBox.warning(self, '상품 선택', message)
+        if not success:
+            QMessageBox.warning(
+                self, '상품 선택', error_message or '상품 선택을 처리하지 못했습니다.'
+            )
             return
 
-        self._set_selection_status(product_id_value, '선택 진행중')
         QMessageBox.information(self, '상품 선택', '로봇에게 상품 선택을 전달했습니다.')
-        self.selection_options = []
-        self.selection_options_origin = None
-        self.selection_selected_index = None
-        self.populate_selection_buttons([])
-        if self.order_select_stack is not None and self.page_moving_view is not None:
-            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+        return
 
     def on_auto_pick_clicked(self) -> None:
         '''자동 선택 버튼을 눌렀을 때 랜덤 선택을 요청한다.'''
@@ -3200,6 +3174,70 @@ class UserWindow(QWidget):
             self.selection_buttons[random_index].setChecked(True)
         self._submit_current_selection(self.auto_pick_button)
 
+    def _perform_product_selection(
+        self,
+        order_id_value: int,
+        robot_id_value: int,
+        bbox_value: int,
+        product_id_value: int,
+    ) -> tuple[bool, str]:
+        '''product_selection 요청을 전송하고 UI 상태를 동기화한다.'''
+        if self.service_client is None:
+            return False, '서비스 클라이언트가 초기화되지 않았습니다.'
+        self.logger.info(
+            'product_selection 요청 시작',
+            extra={
+                'order_id': order_id_value,
+                'robot_id': robot_id_value,
+                'bbox_number': bbox_value,
+                'product_id': product_id_value,
+            },
+        )
+        try:
+            response = self.service_client.select_product(
+                order_id=order_id_value,
+                robot_id=robot_id_value,
+                bbox_number=bbox_value,
+                product_id=product_id_value,
+            )
+        except MainServiceClientError as exc:
+            self.logger.warning(
+                'product_selection 요청 실패',
+                extra={'order_id': order_id_value, 'error': str(exc)},
+            )
+            return False, f'상품을 선택하지 못했습니다.\n{exc}'
+        if not response or not response.get('result'):
+            if isinstance(response, dict):
+                message = response.get('message')
+            else:
+                message = None
+            self.logger.warning(
+                'product_selection 응답 실패',
+                extra={
+                    'order_id': order_id_value,
+                    'message': message or '',
+                    'response': response,
+                },
+            )
+            return False, message or '상품 선택을 처리하지 못했습니다.'
+        self.logger.info(
+            'product_selection 요청 성공',
+            extra={
+                'order_id': order_id_value,
+                'robot_id': robot_id_value,
+                'bbox_number': bbox_value,
+                'product_id': product_id_value,
+            },
+        )
+        self._set_selection_status(product_id_value, '선택 진행중')
+        self.selection_options = []
+        self.selection_options_origin = None
+        self.selection_selected_index = None
+        self.populate_selection_buttons([])
+        if self.order_select_stack is not None and self.page_moving_view is not None:
+            self.order_select_stack.setCurrentWidget(self.page_moving_view)
+        return True, ''
+
     def _update_selection_voice_button(self, active: bool) -> None:
         if self.selection_voice_button is None:
             return
@@ -3208,59 +3246,100 @@ class UserWindow(QWidget):
         self.selection_voice_button.setText(text)
 
     def _handle_selection_voice_result(self, recognized: str) -> bool:
-        # 음성 인식 결과에서 선택 번호를 추출한다.
-        normalized = recognized.replace(" ", "")
-        number_value: int | None = None
-        match = re.search(r"(\d+)", normalized)
-        if match:
-            try:
-                number_value = int(match.group(1))
-            except ValueError:
-                number_value = None
-        if number_value is None:
-            # 한국어 수사 대응
-            candidates = {
-                "한": 1,
-                "하나": 1,
-                "일": 1,
-                "첫": 1,
-                "첫번": 1,
-                "첫째": 1,
-                "두": 2,
-                "둘": 2,
-                "이": 2,
-                "세": 3,
-                "셋": 3,
-                "삼": 3,
-                "네": 4,
-                "넷": 4,
-                "사": 4,
-                "다섯": 5,
-                "오": 5,
-                "여섯": 6,
-                "육": 6,
-                "일곱": 7,
-                "칠": 7,
-                "여덟": 8,
-                "팔": 8,
-                "아홉": 9,
-                "구": 9,
-            }
-            for keyword, value in candidates.items():
-                if keyword in normalized:
-                    number_value = value
-                    break
-        if number_value is None:
+        '''음성 인식 결과를 Main Service에 전달해 상품을 선택한다.'''
+        speech = recognized.strip()
+        if not speech:
             return False
-        index = number_value - 1
-        if self.selection_options is None or not (
-            0 <= index < len(self.selection_options)
-        ):
+        if self.current_order_id is None or self.current_robot_id is None:
+            self._show_stt_status_dialog(
+                '주문 정보가 없어 음성 선택을 진행할 수 없습니다.',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
             return False
-        self.selection_selected_index = index
-        if 0 <= index < len(self.selection_buttons):
-            self.selection_buttons[index].setChecked(True)
-        self.on_select_done_clicked()
+        if self.service_client is None:
+            self._show_stt_status_dialog(
+                '서비스 클라이언트가 준비되지 않았습니다.',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+        try:
+            order_id_value = int(self.current_order_id)
+            robot_id_value = int(self.current_robot_id)
+        except (TypeError, ValueError):
+            self._show_stt_status_dialog(
+                '주문 또는 로봇 정보를 확인할 수 없습니다.',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+
+        try:
+            response = self.service_client.select_product_by_text(
+                order_id=order_id_value,
+                robot_id=robot_id_value,
+                speech=speech,
+            )
+        except MainServiceClientError as exc:
+            self._show_stt_status_dialog(
+                f'음성 선택 요청에 실패했습니다.\n{exc}',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+
+        if not response or not response.get('result'):
+            message = response.get('message') if isinstance(response, dict) else None
+            self._show_stt_status_dialog(
+                message or f"'{speech}'에서 선택할 상품을 찾지 못했습니다.",
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+
+        data = response.get('data') or {}
+        bbox_number = data.get('bbox')
+        product_id = data.get('product_id')
+        try:
+            bbox_value = int(bbox_number)
+            product_id_value = int(product_id)
+        except (TypeError, ValueError):
+            self._show_stt_status_dialog(
+                '서버 응답에 유효한 bbox 또는 상품 ID가 없습니다.',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+
+        self._clear_bbox_overlays()
+        success, error_message = self._perform_product_selection(
+            order_id_value,
+            robot_id_value,
+            bbox_value,
+            product_id_value,
+        )
+        if not success:
+            self._show_stt_status_dialog(
+                error_message or '음성 선택을 처리하지 못했습니다.',
+                icon=QMessageBox.Icon.Warning,
+            )
+            self._schedule_stt_status_close(2500)
+            self._stt_status_hide_timer.start(2500)
+            return False
+
+        self._show_stt_status_dialog(
+            f"'{speech}' 음성으로 선택을 전달했습니다.",
+            icon=QMessageBox.Icon.Information,
+        )
+        self._schedule_stt_status_close(2000)
+        self._stt_status_hide_timer.start(2000)
         return True
 
     def _start_video_stream(self, camera_type: str) -> None:

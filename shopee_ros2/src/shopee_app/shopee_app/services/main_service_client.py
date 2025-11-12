@@ -214,6 +214,28 @@ class MainServiceClient:
         )
         return self.send(payload)
 
+    def select_product_by_text(
+        self,
+        *,
+        order_id: int,
+        robot_id: int,
+        speech: str,
+    ) -> dict:
+        """음성 인식 결과를 기반으로 상품 선택을 요청한다."""
+        payload = {
+            "type": "product_selection_by_text",
+            "data": {
+                "order_id": int(order_id),
+                "robot_id": int(robot_id),
+                "speech": speech,
+            },
+        }
+        print(
+            "[MainServiceClient] product_selection_by_text 요청:",
+            json.dumps(payload, ensure_ascii=False),
+        )
+        return self.send(payload)
+
     def start_video_stream(
         self,
         *,
