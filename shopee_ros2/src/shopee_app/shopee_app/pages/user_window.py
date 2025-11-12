@@ -84,6 +84,13 @@ DEFAULT_MAP_CONFIG = (
 DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
 VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
 DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+SECTION_FRIENDLY_NAMES = {
+    'SECTION_1': '기성품',
+    'SECTION_7': '신선식품',
+    'SECTION_11': '과자',
+    'SECTION_C_3': '이클립스',
+    'SECTION_B_3': '생선',
+}
 
 
 def _get_env_int(name: str, default: int) -> int:
@@ -340,6 +347,7 @@ class UserWindow(QWidget):
 
         # 컴포넌트 로거 초기화
         self.logger = ComponentLogger("user_window")
+        self._footer_locked = False
 
         # UI 초기화
         self.ui = Ui_UserLayout()
@@ -1903,6 +1911,7 @@ class UserWindow(QWidget):
         order_data: dict,
     ) -> None:
         self.pick_flow_completed = False
+        self._footer_locked = False
         self._ensure_notification_listener()
         auto_select_map = self._build_order_auto_select_map(order_data)
         remote_items, auto_items = self.categorize_cart_items(
@@ -1954,16 +1963,17 @@ class UserWindow(QWidget):
             self._auto_start_front_camera_if_possible()
         destination = data.get("destination")
         message_text = payload.get("message") or "로봇 이동중"
-        if destination:
+        friendly_destination = self._get_friendly_section_name(destination)
+        if friendly_destination:
+            formatted = f'현재 <b>{friendly_destination}</b> 매대로 이동 중입니다.'
+        elif destination:
             formatted = f"{message_text} : {destination}"
         else:
             formatted = message_text
         status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        if footer_label is not None:
-            footer_label.setText(formatted)
+        self._update_footer_label(formatted, context='robot_moving_notification')
 
         print(f"[알림] {formatted}")
         self._show_moving_page()
@@ -1993,17 +2003,18 @@ class UserWindow(QWidget):
             location_text = None
 
         message_text = payload.get("message") or "로봇 도착"
-        if location_text:
+        friendly_destination = self._get_friendly_section_name(location_text)
+        if friendly_destination:
+            formatted = f'<b>{friendly_destination}</b> 매대에 도착했습니다.'
+        elif location_text:
             formatted = f"{message_text} : {location_text}"
         else:
             formatted = message_text
 
         status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        if footer_label is not None:
-            footer_label.setText(formatted)
+        self._update_footer_label(formatted, context='robot_arrived_notification')
         print(f"[알림] {formatted}")
         self._show_moving_page()
 
@@ -2023,11 +2034,14 @@ class UserWindow(QWidget):
 
         message_text = payload.get("message") or "모든 상품 담기가 완료되었습니다"
         status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if status_label is not None:
             status_label.setText(message_text)
-        if footer_label is not None:
-            footer_label.setText(message_text)
+        self._update_footer_label(
+            message_text,
+            context='picking_complete_notification',
+            force=True,
+        )
+        self._footer_locked = True
         print(f"[알림] {message_text}")
         self.pick_flow_completed = True
         self._mark_all_selection_completed()
@@ -2104,11 +2118,9 @@ class UserWindow(QWidget):
             formatted = message_text
 
         status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if status_label is not None:
             status_label.setText(formatted)
-        if footer_label is not None:
-            footer_label.setText(formatted)
+        self._update_footer_label(formatted, context='product_selection_start')
         self.populate_selection_buttons(self.selection_options)
         if self.order_select_stack is not None:
             target_page = (
@@ -2172,11 +2184,9 @@ class UserWindow(QWidget):
             formatted = message_text
 
         status_label = getattr(self.ui, "label_12", None)
-        footer_label = getattr(self.ui, "label_robot_notification", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        if footer_label is not None:
-            footer_label.setText(formatted)
+        self._update_footer_label(formatted, context='cart_update_notification')
         print(f"[알림] {formatted}")
         self._show_moving_page()
 
@@ -2770,14 +2780,12 @@ class UserWindow(QWidget):
         if len(product_names) > 3:
             detection_summary += ' 외'
         status_label = getattr(self.ui, 'label_12', None)
-        footer_label = getattr(self.ui, 'label_robot_notification', None)
         status_text = '감지된 상품을 선택해주세요.'
         if detection_summary:
             status_text = f'감지된 상품을 선택해주세요. ({detection_summary})'
         if status_label is not None:
             status_label.setText(status_text)
-        if footer_label is not None:
-            footer_label.setText(status_text)
+        self._update_footer_label(status_text, context='vision_detection_update')
         if self.order_select_stack is not None and self.page_select_product is not None:
             self.order_select_stack.setCurrentWidget(self.page_select_product)
 
@@ -3536,6 +3544,29 @@ class UserWindow(QWidget):
         if current_widget is self.page_select_product:
             return
         self.order_select_stack.setCurrentWidget(self.page_moving_view)
+
+    def _update_footer_label(
+        self,
+        text: str,
+        *,
+        context: str | None = None,
+        force: bool = False,
+    ) -> None:
+        '''푸터 상태 문구를 갱신하고 로깅한다.'''
+        if self._footer_locked and not force:
+            return
+        footer_label = getattr(self.ui, 'label_robot_notification', None)
+        if footer_label is not None:
+            footer_label.setText(text)
+        context_prefix = f'[{context}] ' if context else ''
+        self.logger.info(f'{context_prefix}footer_label: {text}')
+
+    def _get_friendly_section_name(self, section_label: str | None) -> str | None:
+        '''섹션 식별자를 사용자 친화적인 매대 이름으로 변환한다.'''
+        if not section_label:
+            return None
+        normalized = str(section_label).strip().upper()
+        return SECTION_FRIENDLY_NAMES.get(normalized)
 
     def _mark_all_selection_completed(self) -> None:
         """선택 항목 전체를 완료 상태로 동기화한다."""
