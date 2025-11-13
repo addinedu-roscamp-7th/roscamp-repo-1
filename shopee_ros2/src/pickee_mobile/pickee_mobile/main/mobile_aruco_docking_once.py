@@ -222,7 +222,7 @@ class ArucoDocking(Node):
     # 마커 중심으로 이동, 마커 주시
     def align_to_side(self):
         
-        if abs(self.dist_side) > 50:
+        if abs(self.dist_side) > 100:
             self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
@@ -295,12 +295,13 @@ class ArucoDocking(Node):
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.105)
+            run(self, 0.11)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
 
             self.publish_stop()
             self.reset_docking_state()
             self.docking_in_progress_pub.publish(Bool(data=True)) # 도킹 작업 성공 알림
+            time.sleep(0.5)
 
             # self.get_logger().info("✅ Docking complete → Resume Nav2") # nav2 가 cmd_vel 쏴주는거 재개, 안됨, 해당 서비스 없음
             # self.call_service(self.resume_cli)

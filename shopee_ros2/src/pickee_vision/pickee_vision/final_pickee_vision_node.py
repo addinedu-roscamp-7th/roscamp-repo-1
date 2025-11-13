@@ -115,9 +115,9 @@ class FinalPickeeVisionNode(Node):
         
         # --- PID 제어기 파라미터 및 변수 ---
         self.KP = 0.4   # P 제어기 게인
-        self.KI = 0.01 # I 제어기 게인
+        self.KI = 0.007 # I 제어기 게인
         self.KD = 0.05  # D 제어기 게인
-        self.CONVERGENCE_THRESHOLD = 3
+        self.CONVERGENCE_THRESHOLD = 5
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
         self.previous_error = np.zeros(6, dtype=np.float32) # D 제어를 위한 이전 에러
         self.last_servoing_time = None
@@ -126,7 +126,7 @@ class FinalPickeeVisionNode(Node):
         # --- 모델 및 리소스 경로 ---
         cnn_model_path = os.path.join(package_share_directory, "20251112_total.pt")
         # target_image_path = os.path.join(package_share_directory, "test/capture_20251107-174001.jpg")
-        self.target_image_path_fish = os.path.join(package_share_directory, "test/target_fish_4.jpg")
+        self.target_image_path_fish = os.path.join(package_share_directory, "test/target_fish_5.jpg")
         self.target_image_path_eclipse = os.path.join(package_share_directory, "test/target_eclipse_3.jpg")
 
         # --- 역정규화 파라미터 ---
@@ -182,7 +182,7 @@ class FinalPickeeVisionNode(Node):
             return
         
         # 로컬 디스플레이: 상태에 따라 다른 프레임 표시
-        if self.state == 'IDLE' or self.state == 'SHELF_VIEW_READY':
+        if self.state == 'IDLE' or self.state == 'SHELF_VIEW_READY' or self.state == 'WAITING_FOR_SHELF_VIEW':
             annotated_frame = self.draw_annotations(arm_frame.copy(), self.last_detections)
             cv2.imshow("Detection Result", annotated_frame)
         elif self.state == 'CNN_SERVOING':
@@ -236,7 +236,7 @@ class FinalPickeeVisionNode(Node):
             return response
 
         self.last_detections, self.results = self.product_detector.detect(frame_arm)
-        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
+        self.last_detections.sort(key=lambda det: (det['bbox'][0], det['bbox'][1]))
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         requested_counts = Counter(request.product_ids)
@@ -270,7 +270,7 @@ class FinalPickeeVisionNode(Node):
         return response
 
     def publish_detection_data(self, robot_id, order_id):
-        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
+        self.last_detections.sort(key=lambda det: (det['bbox'][0], det['bbox'][1]))
         detected_products = []
         for i, det in enumerate(self.last_detections):
             contour_points = [Point2D(x=float(p[0]), y=float(p[1])) for p in det['polygon']]
@@ -488,7 +488,7 @@ class FinalPickeeVisionNode(Node):
             move_cmd.rx, move_cmd.ry, move_cmd.z = float(self.tar_cord[3]), float(self.tar_cord[4]), float(self.tar_cord[2])
             
             self.move_publisher.publish(move_cmd)
-            time.sleep(2.3)
+            time.sleep(2.5)
 
     def grep_product_response_callback(self, future):
         try:
