@@ -604,9 +604,9 @@ private:
             //                 RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
             //             }
             //         });
-            } else {
-                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
-            }
+            // } else {
+            //     RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
+            // }
         } else {
             response->success = false;
             response->message = "잘못된 상태 값";
