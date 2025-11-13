@@ -4,6 +4,8 @@ import cv2
 import os
 from ament_index_python.packages import get_package_share_directory
 from collections import Counter
+import numpy as np
+import random
 
 # --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
@@ -89,33 +91,22 @@ class PickeeVisionNode(Node):
         self.camera_type = ""
         
         # --- 객체 인식 용 로봇팔 웹캠 (arm) ---
-<<<<<<< HEAD
-        # self.arm_cam = cv2.VideoCapture(0)
-        self.arm_cam = cv2.VideoCapture(4)
-
-=======
-        self.arm_cam = cv2.VideoCapture(4)
->>>>>>> d1805897864bc6a2505eddeb6db450be4f11da7b
+        self.arm_cam = cv2.VideoCapture(0)
         if not self.arm_cam.isOpened():
             self.get_logger().error("카메라 인덱스 0을 열 수 없습니다.")
             raise IOError("Cannot open camera 0")
         self.arm_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.last_detections = [] # 마지막 인식 결과를 저장하는 변수 -> List
+        self.results = None
 
-        # --- 장애물 인식 용 카트정면 웹캠 (front) ---
-<<<<<<< HEAD
-        # self.front_cam = cv2.VideoCapture(2)
-        self.front_cam = cv2.VideoCapture(6)
-
-=======
-        self.front_cam = cv2.VideoCapture(6)
->>>>>>> d1805897864bc6a2505eddeb6db450be4f11da7b
-        if not self.front_cam.isOpened():
-            self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
-            raise IOError("Cannot open camera 2")
-        self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # # --- 장애물 인식 용 카트정면 웹캠 (front) ---
+        # self.front_cam = cv2.VideoCapture(6)
+        # if not self.front_cam.isOpened():
+        #     self.get_logger().error("카메라 인덱스 2를 열 수 없습니다.")
+        #     raise IOError("Cannot open camera 2")
+        # self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        # self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         # --- 상품 인식 결과 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -136,9 +127,9 @@ class PickeeVisionNode(Node):
     def main_loop(self):
         # 상시 실행되는 메인 루프: 영상처리, 로컬 디스플레이, UDP 큐잉 담당
         ret_arm, arm_frame = self.arm_cam.read()
-        ret_front, front_frame = self.front_cam.read()
+        # ret_front, front_frame = self.front_cam.read()
         
-        if not ret_arm and not ret_front: # 둘 다 실패하면 리턴
+        if not ret_arm:# and not ret_front: # 둘 다 실패하면 리턴
             self.get_logger().warn('Failed to capture frame from both cameras.')
             return
         
@@ -160,14 +151,24 @@ class PickeeVisionNode(Node):
                 self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
     def draw_annotations(self, frame, detections):
+        if self.results is not None:
+            frame = self.results[0].plot()
+        # overlay = frame.copy()
+        # alpha = 0.5
+
         # 주어진 프레임에 감지된 객체 정보를 그립니다.
         for i, det in enumerate(detections):
             bbox_data = det['bbox']
             cv2.rectangle(frame, (bbox_data[0], bbox_data[1]), (bbox_data[2], bbox_data[3]), (0, 255, 0), 2)
-            # polygon_pts = np.array(det['polygon'], np.int32)
+            polygon_pts = np.array(det['polygon'], np.int32)
+
+            # cv2.fillPoly(overlay, [polygon_pts], color=(255, 255, 125))
+            # cv2.fillPoly(overlay, [polygon_pts], color=tuple(random.randint(0, 255) for _ in range(3)))
             # cv2.polylines(frame, [polygon_pts], isClosed=True, color=(255, 0, 0), thickness=2)
-            cv2.putText(frame, f"# {i + 1}: {product_dic[det['class_id']]}", (bbox_data[0], bbox_data[1] - 15), 
+            
+            cv2.putText(frame, f"# {i + 1}: {product_dic[int(det['class_name'])]}", (bbox_data[0], bbox_data[1] - 35), 
                         cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)
+        # frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
         return frame
     
     def detect_products_callback(self, request, response):
@@ -181,12 +182,13 @@ class PickeeVisionNode(Node):
             return response
 
         # 인식 수행 및 결과 저장 (yolo_detector.py 클래스)
-        self.last_detections = self.product_detector.detect(frame_arm)
+        self.last_detections, self.results = self.product_detector.detect(frame_arm)
+        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         # 요청된 상품 ID의 필요 수량과 실제 감지된 수량을 비교 변수 설정
         requested_counts = Counter(request.product_ids)
-        detected_ids_list = [det['class_id'] for det in self.last_detections]
+        detected_ids_list = [int(det['class_name']) for det in self.last_detections]
         detected_counts = Counter(detected_ids_list)
         missing_products = {} # 개수 맞지 않는 상품 딕셔너리 {상품ID:개수}
         all_products_found = True
@@ -229,7 +231,7 @@ class PickeeVisionNode(Node):
             pose6d_msg = Pose6D()
 
             product = DetectedProduct(
-                product_id=det['class_id'],
+                product_id=int(det['class_name']),
                 confidence=det['confidence'],
                 bbox=bbox_msg,
                 bbox_number=i + 1,
@@ -294,7 +296,7 @@ class PickeeVisionNode(Node):
         requested_product_id = request.product_id
         quantity = 0
         for det in self.last_detections:
-            if det['class_id'] == requested_product_id:
+            if int(det['class_name']) == requested_product_id:
                 quantity += 1
         
         found = quantity > 0

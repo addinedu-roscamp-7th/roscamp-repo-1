@@ -104,9 +104,9 @@ def predict(model, img_path, class_names=None, device="cpu", pose_mean=None, pos
 # ==========================
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="../resource/fish_top_grid2_20251107_1.pt")
-    parser.add_argument("--csv", type=str, default="../resource/fish_top_grid2_20251107_1.csv")
-    parser.add_argument("--image", type=str, default="../resource/test/capture_20251111-141126.jpg")
+    parser.add_argument("--model", type=str, default="../resource/20251112_total.pt")
+    parser.add_argument("--csv", type=str, default="../resource/20251112_total.csv")
+    parser.add_argument("--image", type=str, default="../resource/test/capture_20251112-155157.jpg")
     args = parser.parse_args()
 
     # 장치 설정
