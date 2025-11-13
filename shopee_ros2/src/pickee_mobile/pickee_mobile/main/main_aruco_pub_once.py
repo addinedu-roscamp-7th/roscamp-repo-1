@@ -61,8 +61,8 @@ class ArucoReaderNode(Node):
                         PickeeMobileStatus,
                         'pickee/mobile/pickee_mobile_status'
                     )
-        while not self.cli_doc.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn("⏳ Waiting for service pickee/mobile/pickee_mobile_status...")
+        # while not self.cli_doc.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().warn("⏳ Waiting for service pickee/mobile/pickee_mobile_status...")
 
         self.doc_req = PickeeMobileStatus.Request()
 
@@ -96,6 +96,7 @@ class ArucoReaderNode(Node):
                 self.target_id = 1
             else:
                 self.get_logger().info(f"🛑 Wrong location ID. location id = {msg.location_id}")
+                self.target_id = msg.location_id
                 
             self.get_logger().info("🚦 Arrival detected! Starting ArUco scan...")
             self.get_logger().info(f"🧭 target ID = {self.target_id}")

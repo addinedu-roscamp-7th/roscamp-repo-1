@@ -12,8 +12,8 @@ class PickingProductState(State):
         self.place_completed = False
         
         # 선택된 상품 정보
-        self.bbox_number = getattr(self._node, 'selected_bbox_number', 1)
-        self.product_id = getattr(self._node, 'selected_product_id', 1)
+        self.bbox_number = getattr(self._node, 'selected_bbox_number', 2)
+        self.product_id = getattr(self._node, 'selected_product_id', 2)
         self.target_position = getattr(self._node, 'selected_target_position', None)
         
     def execute(self):
@@ -39,21 +39,21 @@ class PickingProductState(State):
 
             threading.Thread(target=check_product).start()
 
-            def pick_product():
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    success = loop.run_until_complete(
-                        self._node.call_arm_pick_product(self.product_id, self.target_position)
-                    )
-                    loop.close()
-                    if not success:
-                        self._node.get_logger().error('상품 픽업 명령 전달 실패')
-                except Exception as e:
-                    self._node.get_logger().error(f'상품 픽업 실패: {str(e)}')
+            # def pick_product():
+            #     try:
+            #         loop = asyncio.new_event_loop()
+            #         asyncio.set_event_loop(loop)
+            #         success = loop.run_until_complete(
+            #             self._node.call_arm_pick_product(self.product_id, self.target_position)
+            #         )
+            #         loop.close()
+            #         if not success:
+            #             self._node.get_logger().error('상품 픽업 명령 전달 실패')
+            #     except Exception as e:
+            #         self._node.get_logger().error(f'상품 픽업 실패: {str(e)}')
             
-            threading.Thread(target=pick_product).start()
-            self.pick_started = True
+            # threading.Thread(target=pick_product).start()
+            # self.pick_started = True
         
         elif not self.pick_completed and hasattr(self._node, 'arm_pick_completed') and self._node.arm_pick_completed:
             # 픽업 완료, 장바구니에 놓기 시작

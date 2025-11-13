@@ -152,7 +152,7 @@ class FinalPickeeVisionNode(Node):
         
         # --- PID 제어기 파라미터 및 변수 ---
         self.KP = 0.4   # P 제어기 게인
-        self.KI = 0.007 # I 제어기 게인
+        self.KI = 0.01 # I 제어기 게인
         self.KD = 0.05  # D 제어기 게인
         self.CONVERGENCE_THRESHOLD = 5
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
