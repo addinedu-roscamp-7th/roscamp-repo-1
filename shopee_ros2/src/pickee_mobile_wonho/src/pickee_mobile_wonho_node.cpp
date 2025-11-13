@@ -505,6 +505,10 @@ private:
                 switch (result.code) {
                     case rclcpp_action::ResultCode::SUCCEEDED:
                         RCLCPP_INFO(this->get_logger(), "Nav2 네비게이션 성공! 목적지에 도착했습니다.");
+                        if (current_status_ == "aruco") {
+                            printf("현재 aruco 모드이므로 도착 보고를 하지 않습니다.\n");
+                            break;
+                        }
                         change_status("idle", "네비게이션 완료");
                         publish_arrival_notification(current_target_location_id_, current_target_pose_);
 
@@ -573,8 +577,36 @@ private:
         }
         
         // current_order_id_ = request->order_id;
-        if (request->status == "idle" || request->status == "aruco") {
+        if ( request->status == "aruco") {
             change_status(request->status, "aruco 상태 업데이트 요청");
+            
+        } else if (request->status == "idle"){
+            change_status(request->status, "일반 모드로 변경");
+            publish_arrival_notification(current_target_location_id_, current_target_pose_);
+
+            // CustomPlanner 초기화 서비스 호출
+            RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
+            if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
+                RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
+                auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+                reset_planner_client_->async_send_request(request,
+                    [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+                        try {
+                            auto response = future.get();
+                            if (response->success) {
+                                RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
+                                    response->message.c_str());
+                            } else {
+                                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
+                                    response->message.c_str());
+                            }
+                        } catch (const std::exception& e) {
+                            RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
+                        }
+                    });
+            } else {
+                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
+            }
         } else {
             response->success = false;
             response->message = "잘못된 상태 값";

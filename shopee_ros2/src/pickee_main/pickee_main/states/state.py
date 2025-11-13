@@ -61,7 +61,7 @@ class State(ABC):
         return await self._node.call_vision_track_staff(track)
     
     # Main Service에 보고하기 위한 Publisher 헬퍼 메소드들
-    def publish_arrival_notice(self, location_id, section_id=0):
+    def publish_arrival_notice(self, location_id, section_id=7):
         # 목적지 도착 알림 발행
         self._node.publish_arrival_notice(location_id, section_id)
     

@@ -61,7 +61,7 @@ class MovingToShelfState(State):
             self._node.get_logger().info('선반에 도착했습니다. 상품 인식을 시작합니다.')
             
             # 선반 도착 알림 발행
-            self._node.publish_arrival_notice(self.target_location_id)
+            self._node.publish_arrival_notice(self.target_location_id, section_id=7)
             
             from .detecting_product import DetectingProductState
             return DetectingProductState(self._node)

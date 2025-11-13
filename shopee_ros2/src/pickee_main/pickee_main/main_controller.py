@@ -704,14 +704,20 @@ class PickeeMainController(Node):
         
         if not self.mobile_move_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Mobile move service not available')
+            self.current_mobile_status = 'idle'
             return False
         
         try:
             future = self.mobile_move_client.call_async(request)
             response = await future
+            if response.success:
+                self.current_mobile_status = 'moving'
+            else:
+                self.current_mobile_status = 'idle'
             return response.success
         except Exception as e:
             self.get_logger().error(f'Mobile move service call failed: {str(e)}')
+            self.current_mobile_status = 'idle'
             return False
 
     async def call_mobile_update_global_path(self, location_id, global_path):
@@ -1020,7 +1026,7 @@ class PickeeMainController(Node):
     #     self.aruco_pose_pub.publish(msg)
     #     print(f'Aruco pose 발행: id={marker_id}, position=({tvec[0]:.2f}, {tvec[1]:.2f}, {tvec[2]:.2f})')
 
-    def publish_arrival_notice(self, location_id, section_id=0):
+    def publish_arrival_notice(self, location_id, section_id=7):
         # 목적지 도착 알림 발행
         msg = PickeeArrival()
         msg.robot_id = self.robot_id
@@ -1146,9 +1152,11 @@ class PickeeMainController(Node):
             future = self.get_location_pose_client.call_async(request)
             response = await future
             if response.success:
+                self.current_mobile_status = 'moving'
                 return response.pose
             return None
         except Exception as e:
+            self.current_mobile_status = 'idle'
             self.get_logger().error(f'Get location pose service call failed: {str(e)}')
             return None
 
@@ -1227,7 +1235,8 @@ class PickeeMainController(Node):
         # MOVING_TO_SHELF 상태로 전환
         new_state = MovingToShelfState(self)
         self.state_machine.transition_to(new_state)
-        
+        self.current_mobile_status = 'moving'
+
         response.success = True
         response.message = 'Move to section command accepted'
         return response
