@@ -7,6 +7,8 @@ from collections import Counter
 import numpy as np
 import torch
 from torchvision import models, transforms
+import time
+import collections
 
 # --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
@@ -90,6 +92,7 @@ class FinalPickeeVisionNode(Node):
         self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         self.last_detections = []
+        self.results = None
 
         # --- 기존 서비스 및 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -110,25 +113,29 @@ class FinalPickeeVisionNode(Node):
         self.real_cur_cord = None
         self.cnn_servoing_timer = None
         
-        # --- PI 제어기 파라미터 ---
-        self.KP = 0.5
-        self.KI = 0.05
-        self.CONVERGENCE_THRESHOLD = 7.0
-        self.integral_error = np.zeros(6, dtype=np.float32)
+        # --- PID 제어기 파라미터 및 변수 ---
+        self.KP = 0.4   # P 제어기 게인
+        self.KI = 0.01 # I 제어기 게인
+        self.KD = 0.05  # D 제어기 게인
+        self.CONVERGENCE_THRESHOLD = 3
+        self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
+        self.previous_error = np.zeros(6, dtype=np.float32) # D 제어를 위한 이전 에러
         self.last_servoing_time = None
-        self.integral_clamp = 5.0
+        self.integral_clamp = 2.0 
 
         # --- 모델 및 리소스 경로 ---
-        cnn_model_path = os.path.join(package_share_directory, "fish_top_grid2_20251107_1.pt")
-        target_image_path = os.path.join(package_share_directory, "test/capture_20251107-174001.jpg")
+        cnn_model_path = os.path.join(package_share_directory, "20251112_total.pt")
+        # target_image_path = os.path.join(package_share_directory, "test/capture_20251107-174001.jpg")
+        self.target_image_path_fish = os.path.join(package_share_directory, "test/target_fish_4.jpg")
+        self.target_image_path_eclipse = os.path.join(package_share_directory, "test/target_eclipse_3.jpg")
 
         # --- 역정규화 파라미터 ---
-        self.pose_mean = np.array([-68.1485, 180.1304, 238.1036, -179.1875, 9.4798, 49.0667], dtype=np.float32)
-        self.pose_std = np.array([16.3908, 17.5581, 8.4861, 0.7741, 0.5989, 5.5618], dtype=np.float32)
+        self.pose_mean = np.array([-75.24822998046875, 140.6298370361328, 220.1119842529297, -179.412109375, 0.4675877094268799, 44.999176025390625], dtype=np.float32)
+        self.pose_std = np.array([31.43274688720703, 30.908634185791016, 1.6736514568328857, 0.38159045577049255, 1.5441224575042725, 25.34377098083496], dtype=np.float32)
 
         # --- PoseCNN 모델 로드 ---
         try:
-            self.pose_cnn_model = PoseCNN(num_classes=1).to(self.device)
+            self.pose_cnn_model = PoseCNN(num_classes=2).to(self.device)
             self.pose_cnn_model.load_state_dict(torch.load(cnn_model_path, map_location=self.device))
             self.pose_cnn_model.eval()
             self.get_logger().info("PoseCNN model loaded successfully.")
@@ -139,17 +146,18 @@ class FinalPickeeVisionNode(Node):
         self.transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((224, 224)), transforms.ToTensor()])
 
         # --- 목표 이미지 Pose 추론 ---
-        try:
-            target_image = cv2.imread(target_image_path)
-            norm_tar_cord = self.predict_pose(target_image)
-            self.tar_cord = self.de_standardize_pose(norm_tar_cord)
-            self.get_logger().info(f"Target pose predicted and denormalized: {self.tar_cord}")
-        except Exception as e:
-            self.get_logger().error(f"Failed to predict target pose: {e}")
-            raise e
+        # try:
+        #     target_image = cv2.imread(target_image_path)
+        #     norm_tar_cord = self.predict_pose(target_image)
+        #     self.tar_cord = self.de_standardize_pose(norm_tar_cord)
+        #     self.get_logger().info(f"Target pose predicted and denormalized: {self.tar_cord}")
+        # except Exception as e:
+        #     self.get_logger().error(f"Failed to predict target pose: {e}")
+        #     raise e
+        self.tar_cord = None
 
         # --- Arm 연동 ROS2 인터페이스 ---
-        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product', self.start_pick_sequence_callback)
+        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product_gg', self.start_pick_sequence_callback)
         self.move_start_client = self.create_client(Trigger, '/pickee/arm/move_start')
         self.arm_ready_sub = self.create_subscription(Bool, '/pickee/arm/is_moving', self.arm_ready_callback, 10)
         self.pose_subscriber = self.create_subscription(Pose6D, '/pickee/arm/real_pose', self.real_pose_callback, 10)
@@ -193,11 +201,16 @@ class FinalPickeeVisionNode(Node):
             elif self.camera_type == "front" and ret_front: self.streamer.send_frame(front_frame)
 
     def draw_annotations(self, frame, detections):
+        if self.results is not None:
+            frame = self.results[0].plot()
+
         for i, det in enumerate(detections):
             bbox_data = det['bbox']
             cv2.rectangle(frame, (bbox_data[0], bbox_data[1]), (bbox_data[2], bbox_data[3]), (0, 255, 0), 2)
-            cv2.putText(frame, f"# {i + 1}: {product_dic.get(det['class_id'], 'Unknown')}", (bbox_data[0], bbox_data[1] - 15), 
+            cv2.putText(frame, f"# {i + 1}: {product_dic[int(det['class_name'])]}", (bbox_data[0], bbox_data[1] - 25), 
                         cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)
+            # cv2.putText(frame, f"# {i + 1}: {product_dic.get(det['class_id'], 'Unknown')}", (bbox_data[0], bbox_data[1] - 15), 
+            #             cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)
         return frame
     
     def detect_products_callback(self, request, response):
@@ -222,11 +235,12 @@ class FinalPickeeVisionNode(Node):
             if self.state == 'SHELF_VIEW_READY': self.set_state('IDLE') # 시퀀스 중 카메라 실패 시에는 IDLE로 리셋
             return response
 
-        self.last_detections = self.product_detector.detect(frame_arm)
+        self.last_detections, self.results = self.product_detector.detect(frame_arm)
+        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         requested_counts = Counter(request.product_ids)
-        detected_ids_list = [det['class_id'] for det in self.last_detections]
+        detected_ids_list = [int(det['class_name']) for det in self.last_detections]
         detected_counts = Counter(detected_ids_list)
         missing_products = {}
         all_products_found = True
@@ -262,7 +276,7 @@ class FinalPickeeVisionNode(Node):
             contour_points = [Point2D(x=float(p[0]), y=float(p[1])) for p in det['polygon']]
             bbox_msg = BBox(x1=det['bbox'][0], y1=det['bbox'][1], x2=det['bbox'][2], y2=det['bbox'][3])
             product = DetectedProduct(
-                product_id=det['class_id'], confidence=det['confidence'], bbox=bbox_msg, bbox_number=i + 1,
+                product_id=int(det['class_name']), confidence=det['confidence'], bbox=bbox_msg, bbox_number=i + 1,
                 detection_info=DetectionInfo(polygon=contour_points, bbox_coords=bbox_msg),
                 pose=Pose6D()
             )
@@ -297,7 +311,7 @@ class FinalPickeeVisionNode(Node):
             response.success = False; response.message = 'Failed to capture frame'; return response
 
         self.last_detections = self.product_detector.detect(frame_arm)
-        quantity = sum(1 for det in self.last_detections if det['class_id'] == request.product_id)
+        quantity = sum(1 for det in self.last_detections if int(det['class_name']) == request.product_id)
         found = quantity > 0
         
         result_msg = PickeeVisionCartCheck(
@@ -340,11 +354,39 @@ class FinalPickeeVisionNode(Node):
             response.message = f"Node is not in IDLE state, current state: {self.state}"
             return response
 
+        # --- Target Image 및 Pose 설정 ---
+        product_id = request.product_id
+        self.get_logger().info(f"Start pick sequence for product_id: {product_id}")
+
+        if product_id == 12: # fish
+            target_image_path = self.target_image_path_fish
+        elif product_id == 14: # eclipse
+            target_image_path = self.target_image_path_eclipse
+        else:
+            response.success = False
+            response.message = f"Unsupported product_id for picking: {product_id}"
+            self.get_logger().error(response.message)
+            return response
+
+        try:
+            target_image = cv2.imread(target_image_path)
+            if target_image is None:
+                raise FileNotFoundError(f"Target image not found at {target_image_path}")
+            norm_tar_cord = self.predict_pose(target_image)
+            self.tar_cord = self.de_standardize_pose(norm_tar_cord)
+            self.get_logger().info(f"Target pose for product {product_id} calculated: {self.tar_cord}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to calculate target pose: {e}")
+            response.success = False
+            response.message = f"Failed to calculate target pose: {e}"
+            return response
+
+        # --- 로봇 팔 이동 요청 ---
         if not self.move_start_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().error('Arm move_start service not available.')
             response.success = False; response.message = "Arm move_start service not available."; return response
 
-        self.get_logger().info(f"Start pick sequence trigger received. Moving arm to shelf view.")
+        # self.get_logger().info(f"Start pick sequence trigger received. Moving arm to shelf view.")
         self.set_state('WAITING_FOR_SHELF_VIEW')
 
         arm_request = Trigger.Request()
@@ -372,6 +414,7 @@ class FinalPickeeVisionNode(Node):
         if msg.data is True and self.state == 'WAITING_FOR_TOP_VIEW':
             self.get_logger().info("Arm is ready for CNN servoing. Starting...")
             self.integral_error = np.zeros(6, dtype=np.float32)
+            self.previous_error = np.zeros(6, dtype=np.float32)
             self.last_servoing_time = None
             self.set_state('CNN_SERVOING')
             if self.cnn_servoing_timer is None or self.cnn_servoing_timer.is_canceled():
@@ -384,9 +427,14 @@ class FinalPickeeVisionNode(Node):
         if self.state != 'CNN_SERVOING': return
         ret, frame = self.arm_cam.read()
         if not ret or self.real_cur_cord is None: return
+        # frame = self.arm_cam.read()[1] ###########추가###########
+        # if frame is None or self.real_cur_cord is None: return ###########추가###########
 
         current_time = self.get_clock().now()
-        dt = (current_time - self.last_servoing_time).nanoseconds / 1e9 if self.last_servoing_time else 0.03
+        if self.last_servoing_time is None:
+            self.last_servoing_time = current_time
+            return
+        dt = (current_time - self.last_servoing_time).nanoseconds / 1e9
         self.last_servoing_time = current_time
 
         norm_cur_cord = self.predict_pose(frame)
@@ -394,7 +442,7 @@ class FinalPickeeVisionNode(Node):
         pose_err = cur_cord - self.real_cur_cord
         real_tar_cord = self.tar_cord - pose_err
         error = real_tar_cord - self.real_cur_cord
-        error_magnitude = np.linalg.norm(np.array([error[0], error[1]]))
+        error_magnitude = np.linalg.norm(np.array([error[0], error[1], error[5]]))
         self.get_logger().info(f"CNN Visual Servoing... Error: {error_magnitude:.3f}")
 
         cv2.imshow("CNN Servoing", frame)
@@ -413,15 +461,34 @@ class FinalPickeeVisionNode(Node):
             future.add_done_callback(self.grep_product_response_callback)
             self.set_state('IDLE')
         else:
+            # --- PID 제어 계산 ---
+            # Proportional (P)
+            proportional_term = self.KP * error
+
+            # Integral (I)
             self.integral_error += error * dt
             np.clip(self.integral_error, -self.integral_clamp, self.integral_clamp, out=self.integral_error)
-            delta = (self.KP * error) + (self.KI * self.integral_error)
-            commanded_pose = self.real_cur_cord + delta
+            integral_term = self.KI * self.integral_error
+
+            # Derivative (D)
+            derivative_error = (error - self.previous_error) / dt
+            derivative_term = self.KD * derivative_error
+            self.previous_error = error
+
+            # PI 제어 (X, Y)
+            PI_delta = proportional_term + integral_term
+            commanded_pose = self.real_cur_cord + PI_delta
+            
+            # PD 제어 (RZ - Yaw)
+            commanded_pose[5] = self.real_cur_cord[5] + proportional_term[5] + derivative_term[5]
             
             move_cmd = Pose6D()
+            
             move_cmd.x, move_cmd.y, move_cmd.rz = float(commanded_pose[0]), float(commanded_pose[1]), float(commanded_pose[5])
             move_cmd.rx, move_cmd.ry, move_cmd.z = float(self.tar_cord[3]), float(self.tar_cord[4]), float(self.tar_cord[2])
+            
             self.move_publisher.publish(move_cmd)
+            time.sleep(2.3)
 
     def grep_product_response_callback(self, future):
         try:
