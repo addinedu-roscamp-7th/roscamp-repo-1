@@ -183,6 +183,13 @@ class PickeeMainController(Node):
             10
         )
         
+        self.mobile_aruco_arrival_sub = self.create_subscription(
+            PickeeMobileArrival,
+            '/pickee/mobile/aruco_arrival',
+            self.mobile_aruco_arrival_callback,
+            10
+        )
+        
         self.mobile_pose_sub = self.create_subscription(
             PickeeMobilePose,
             '/pickee/mobile/pose',
@@ -514,6 +521,21 @@ class PickeeMainController(Node):
         # 상태 기계에 도착 이벤트 전달
         self.arrival_received = True
         self.arrived_location_id = msg.location_id
+
+    def mobile_aruco_arrival_callback(self, msg):
+        '''
+        Mobile ArUco 도착 알림 콜백
+        
+        docs 인터페이스 명세 반영 (Pic_Main_vs_Pic_Mobile.md):
+        - Mobile에서 ArUco 마커 기반 도착 시 자동으로 알림 전송
+        - 중앙집중식 설계로 Mobile이 모든 경로 계획/실행 담당
+        '''
+        self.get_logger().info(f'📍 Mobile ArUco 도착 알림: robot_id={msg.robot_id}, location_id={msg.location_id}')
+        self.get_logger().info(f'🎯 → ArUco 마커 기반 목적지 도달 완료 (Mobile 자체 경로 계획/실행)')
+        
+        # 상태 기계에 ArUco 도착 이벤트 전달
+        self.arrival_received = True
+        self.aruco_arrived_location_id = msg.location_id
 
     def mobile_pose_callback(self, msg):
         '''

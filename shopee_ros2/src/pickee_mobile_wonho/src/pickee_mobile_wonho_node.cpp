@@ -63,6 +63,9 @@ public:
             
         arrival_publisher_ = this->create_publisher<shopee_interfaces::msg::PickeeMobileArrival>(
             "/pickee/mobile/arrival", 10);
+
+        aruco_arrival_publisher_ = this->create_publisher<shopee_interfaces::msg::PickeeMobileArrival>(
+            "/pickee/mobile/aruco_arrival", 10);
         
         // custom_planner reset 서비스 클라이언트 초기화
         reset_planner_client_ = this->create_client<std_srvs::srv::Trigger>(
@@ -146,6 +149,7 @@ private:
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobileStatus>::SharedPtr status_publisher_;
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobilePose>::SharedPtr pose_publisher_;
     rclcpp::Publisher<shopee_interfaces::msg::PickeeMobileArrival>::SharedPtr arrival_publisher_;
+    rclcpp::Publisher<shopee_interfaces::msg::PickeeMobileArrival>::SharedPtr aruco_arrival_publisher_;
     
     // Subscribers
     rclcpp::Subscription<shopee_interfaces::msg::PickeeMobileSpeedControl>::SharedPtr speed_control_subscriber_;
@@ -582,31 +586,31 @@ private:
             
         } else if (request->status == "idle"){
             change_status(request->status, "일반 모드로 변경");
-            publish_arrival_notification(current_target_location_id_, current_target_pose_);
+            publish_aruco_arrival_notification(current_target_location_id_, current_target_pose_);
 
             // CustomPlanner 초기화 서비스 호출
-            // RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
-            // if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
-            //     RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
-            //     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-            //     reset_planner_client_->async_send_request(request,
-            //         [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
-            //             try {
-            //                 auto response = future.get();
-            //                 if (response->success) {
-            //                     RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
-            //                         response->message.c_str());
-            //                 } else {
-            //                     RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
-            //                         response->message.c_str());
-            //                 }
-            //             } catch (const std::exception& e) {
-            //                 RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
-            //             }
-            //         });
-            // } else {
-            //     RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
-            // }
+            RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
+            if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
+                RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
+                auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+                reset_planner_client_->async_send_request(request,
+                    [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+                        try {
+                            auto response = future.get();
+                            if (response->success) {
+                                RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
+                                    response->message.c_str());
+                            } else {
+                                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
+                                    response->message.c_str());
+                            }
+                        } catch (const std::exception& e) {
+                            RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
+                        }
+                    });
+            } else {
+                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
+            }
         } else {
             response->success = false;
             response->message = "잘못된 상태 값";
@@ -700,6 +704,38 @@ private:
         arrival_msg.message = "도착 완료";
         
         arrival_publisher_->publish(arrival_msg);
+        
+        change_status("idle", "목적지 도착");
+        
+        RCLCPP_INFO(this->get_logger(), "도착 알림 발행: 위치 %d에 도착", location_id);
+    }
+
+    void publish_aruco_arrival_notification(int location_id, const shopee_interfaces::msg::Pose2D& target_pose)
+    {
+        auto arrival_msg = shopee_interfaces::msg::PickeeMobileArrival();
+        
+        arrival_msg.robot_id = robot_id_;
+        arrival_msg.order_id = current_order_id_;
+        arrival_msg.location_id = location_id;
+        
+        if (odom_received_) {
+            arrival_msg.final_pose.x = current_odom_.pose.pose.position.x;
+            arrival_msg.final_pose.y = current_odom_.pose.pose.position.y;
+            auto q = current_odom_.pose.pose.orientation;
+            arrival_msg.final_pose.theta = atan2(2.0 * (q.w * q.z + q.x * q.y), 
+                                                1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+            
+            // 위치 오차 계산
+            arrival_msg.position_error.x = target_pose.x - arrival_msg.final_pose.x;
+            arrival_msg.position_error.y = target_pose.y - arrival_msg.final_pose.y;
+            arrival_msg.position_error.theta = target_pose.theta - arrival_msg.final_pose.theta;
+        }
+        
+        // 이동 시간 계산 (시뮬레이션)
+        arrival_msg.travel_time = 30.0;  // TODO: 실제 시간 계산
+        arrival_msg.message = "도착 완료";
+        
+        aruco_arrival_publisher_->publish(arrival_msg);
         
         change_status("idle", "목적지 도착");
         
