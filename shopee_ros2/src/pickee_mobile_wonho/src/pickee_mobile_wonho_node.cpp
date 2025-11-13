@@ -585,25 +585,25 @@ private:
             publish_arrival_notification(current_target_location_id_, current_target_pose_);
 
             // CustomPlanner 초기화 서비스 호출
-            RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
-            if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
-                RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
-                auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-                reset_planner_client_->async_send_request(request,
-                    [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
-                        try {
-                            auto response = future.get();
-                            if (response->success) {
-                                RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
-                                    response->message.c_str());
-                            } else {
-                                RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
-                                    response->message.c_str());
-                            }
-                        } catch (const std::exception& e) {
-                            RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
-                        }
-                    });
+            // RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 서비스 호출 시도...");
+            // if (reset_planner_client_->wait_for_service(std::chrono::seconds(5))) {
+            //     RCLCPP_INFO(this->get_logger(), "CustomPlanner 서비스 발견됨. 요청 전송 중...");
+            //     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+            //     reset_planner_client_->async_send_request(request,
+            //         [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+            //             try {
+            //                 auto response = future.get();
+            //                 if (response->success) {
+            //                     RCLCPP_INFO(this->get_logger(), "CustomPlanner 초기화 성공: %s", 
+            //                         response->message.c_str());
+            //                 } else {
+            //                     RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 실패: %s", 
+            //                         response->message.c_str());
+            //                 }
+            //             } catch (const std::exception& e) {
+            //                 RCLCPP_ERROR(this->get_logger(), "CustomPlanner 서비스 호출 예외: %s", e.what());
+            //             }
+            //         });
             } else {
                 RCLCPP_WARN(this->get_logger(), "CustomPlanner 초기화 서비스를 사용할 수 없습니다. (5초 대기 후 타임아웃)");
             }
