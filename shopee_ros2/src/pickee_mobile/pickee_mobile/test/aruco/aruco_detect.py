@@ -91,9 +91,27 @@ dist_coeffs = np.array([
 
 # === ArUco settings ===
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_50)
+
 aruco_params = cv2.aruco.DetectorParameters()
 
-cap = cv2.VideoCapture(2)
+aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+aruco_params.adaptiveThreshConstant = 7
+aruco_params.minMarkerPerimeterRate = 0.02
+aruco_params.maxMarkerPerimeterRate = 4.0
+aruco_params.polygonalApproxAccuracyRate = 0.02
+aruco_params.cornerRefinementWinSize = 5
+aruco_params.cornerRefinementMaxIterations = 50
+
+
+# ✅ Video capture
+cap = cv2.VideoCapture(4)
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)  # exposure manual
+cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+cap.set(cv2.CAP_PROP_GAIN, 1)
+
+
+
+
 marker_length = 50  # mm
 
 print("🎥 ArUco 인식 시작 (q 눌러 종료)")
@@ -103,11 +121,24 @@ while True:
     if not ret:
         print("❌ 프레임을 읽을 수 없습니다.")
         break
-
+    
     frame_undistorted = cv2.undistort(frame, camera_matrix, dist_coeffs)
+    gray = cv2.cvtColor(frame_undistorted, cv2.COLOR_BGR2GRAY)
+    # th = cv2.adaptiveThreshold(gray, 255, 
+    #                        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+    #                        cv2.THRESH_BINARY, 11, -1)
+    # print(gray)
+    ret, th = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
 
     detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
     corners, ids, rejected = detector.detectMarkers(frame_undistorted)
+
+    if ids is None:
+        
+        corners, ids, _ = detector.detectMarkers(th)
+        if ids is not None:
+            print(f'!!!! GRAY !!!!')
+
 
     if ids is not None:
         cv2.aruco.drawDetectedMarkers(frame_undistorted, corners, ids)
@@ -117,7 +148,7 @@ while True:
         )
 
         for rvec, tvec, marker_id in zip(rvecs, tvecs, ids):
-            cv2.drawFrameAxes(frame_undistorted, camera_matrix, dist_coeffs, rvec, tvec, marker_length * 0.5)
+            cv2.drawFrameAxes(frame_undistorted, camera_matrix, dist_coeffs, rvec, tvec, marker_length * 1.5)
 
             pos = tvec.flatten()
             x, y, z = pos[0], pos[1], pos[2]
@@ -140,7 +171,27 @@ while True:
                 f"aruco_diff = {dist_side}"
             )
 
-    cv2.imshow("ArUco Marker Detection", frame_undistorted)
+            h, w = frame_undistorted.shape[:2]
+
+            text1 = f"x={x:.1f} y={y:.1f} z={z:.1f}"
+            text2 = f"roll={roll:.1f} pitch={pitch:.1f} yaw={yaw:.1f}"
+            text3 = f"front={dist_front:.1f} side={dist_side:.1f}"
+
+            # cv2.putText(frame_undistorted, text1, (10, h - 60),
+            #             cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0,0,0), 2)
+
+            # cv2.putText(frame_undistorted, text2, (10, h - 10),
+            #             cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0,0,0), 2)
+
+            # cv2.putText(frame_undistorted, text3, (10, h - 10),
+            #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,0), 2)
+
+
+
+    cv2.imshow("GRAY", gray)
+    cv2.imshow("THRESH", th)
+    cv2.imshow("CAM", frame_undistorted)
+
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break

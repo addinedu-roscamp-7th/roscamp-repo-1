@@ -92,6 +92,7 @@ class FinalPickeeVisionNode(Node):
         self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         self.last_detections = []
+        self.results = None
 
         # --- 기존 서비스 및 토픽 ---
         self.detection_result_pub = self.create_publisher(PickeeVisionDetection, '/pickee/vision/detection_result', 10)
@@ -114,7 +115,7 @@ class FinalPickeeVisionNode(Node):
         
         # --- PID 제어기 파라미터 및 변수 ---
         self.KP = 0.4   # P 제어기 게인
-        self.KI = 0.007 # I 제어기 게인
+        self.KI = 0.01 # I 제어기 게인
         self.KD = 0.05  # D 제어기 게인
         self.CONVERGENCE_THRESHOLD = 3
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
@@ -156,7 +157,7 @@ class FinalPickeeVisionNode(Node):
         self.tar_cord = None
 
         # --- Arm 연동 ROS2 인터페이스 ---
-        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product', self.start_pick_sequence_callback)
+        self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product_gg', self.start_pick_sequence_callback)
         self.move_start_client = self.create_client(Trigger, '/pickee/arm/move_start')
         self.arm_ready_sub = self.create_subscription(Bool, '/pickee/arm/is_moving', self.arm_ready_callback, 10)
         self.pose_subscriber = self.create_subscription(Pose6D, '/pickee/arm/real_pose', self.real_pose_callback, 10)
@@ -206,7 +207,7 @@ class FinalPickeeVisionNode(Node):
         for i, det in enumerate(detections):
             bbox_data = det['bbox']
             cv2.rectangle(frame, (bbox_data[0], bbox_data[1]), (bbox_data[2], bbox_data[3]), (0, 255, 0), 2)
-            cv2.putText(frame, f"# {i + 1}: {product_dic[int(det['class_name'])], 'Unknown'}", (bbox_data[0], bbox_data[1] - 35), 
+            cv2.putText(frame, f"# {i + 1}: {product_dic[int(det['class_name'])]}", (bbox_data[0], bbox_data[1] - 25), 
                         cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)
             # cv2.putText(frame, f"# {i + 1}: {product_dic.get(det['class_id'], 'Unknown')}", (bbox_data[0], bbox_data[1] - 15), 
             #             cv2.FONT_HERSHEY_PLAIN, 1.3, (0, 0, 255), 2)

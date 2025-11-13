@@ -92,15 +92,24 @@ class ArucoPoseEstimator:
 
         # 왜곡 보정
         frame_undistorted = cv2.undistort(frame, self.camera_matrix, self.dist_coeffs)
+        gray = cv2.cvtColor(frame_undistorted, cv2.COLOR_BGR2GRAY)
+        ret, th = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY) # 영상 흑백처리
 
         # 마커 검출
         detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         corners, ids, rejected = detector.detectMarkers(frame_undistorted)
 
+        if ids is None: # 칼라 이미지에서 마커 감지 안되면 흑백 버전으로 다시 감지 시도
+        
+            corners, ids, _ = detector.detectMarkers(th)
+            if ids is not None:
+                print(f'!!!! GRAY !!!!')
+
         results = []
 
         if ids is not None:
             cv2.aruco.drawDetectedMarkers(frame_undistorted, corners, ids)
+            
             rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                 corners, self.marker_length, self.camera_matrix, self.dist_coeffs
             )
@@ -145,7 +154,7 @@ class ArucoPoseEstimator:
                 print(f"   위치(mm): x={m['x']:.1f}, y={m['y']:.1f}, z={m['z']:.1f}")
                 print(f"   회전(°): roll={m['roll']:.1f}, pitch={m['pitch']:.1f}, yaw={m['yaw']:.1f}\n")
 
-            cv2.imshow("ArUco Marker Detection", frame_out)
+            # cv2.imshow("ArUco Marker Detection", frame_out)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
