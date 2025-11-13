@@ -168,6 +168,7 @@ to {request.pose_type}")
     def move_start_callback(self, request, response):
         self.get_logger().info('Move start request received from vision.')
         try:
+            self.arm.control_gripper(100)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
             time.sleep(2)
             self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE)
@@ -275,6 +276,8 @@ received.')
         basket_place_pose = getattr(arm_poses, f"BASKET_PLACE_POSE_{self.basket_item_count}")
 
         try:
+            self.arm.move_to_joints(arm_poses.TOP_VIEW_POSE_GRID2)
+            time.sleep(2)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
             time.sleep(2)
             self.get_logger().info("STANDBY_POSE")
