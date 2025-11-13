@@ -144,6 +144,7 @@ class PickeeMainController(Node):
         self.current_orientation_z = 0.0
         self.current_order_id = 0
         self.current_bbox_number = 0
+        self.current_product_id = 0
 
         # 자세 변경 관련 상태 변수들
         self.arm_pose_in_progress = False
@@ -1301,6 +1302,7 @@ class PickeeMainController(Node):
         
         # 상태 기계에 상품 선택 이벤트 전달
         self.selection_request = request
+        self.current_product_id = request.product_id
         self.current_bbox_number = request.bbox_number
         
         new_state = PickingProductState(self)

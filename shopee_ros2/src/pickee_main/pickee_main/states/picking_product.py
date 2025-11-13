@@ -12,8 +12,8 @@ class PickingProductState(State):
         self.place_completed = False
         
         # 선택된 상품 정보
-        self.bbox_number = getattr(self._node, 'selected_bbox_number', 1)
-        self.product_id = getattr(self._node, 'selected_product_id', 1)
+        self.bbox_number = getattr(self._node, 'selected_bbox_number', 2)
+        self.product_id = getattr(self._node, 'selected_product_id', 2)
         self.target_position = getattr(self._node, 'selected_target_position', None)
         
     def execute(self):

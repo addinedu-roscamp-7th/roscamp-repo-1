@@ -183,7 +183,7 @@ class PickeeVisionNode(Node):
 
         # 인식 수행 및 결과 저장 (yolo_detector.py 클래스)
         self.last_detections, self.results = self.product_detector.detect(frame_arm)
-        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
+        self.last_detections.sort(key=lambda det: (det['bbox'][0], det['bbox'][1]))
         self.get_logger().info(f'Detected {len(self.last_detections)} objects.')
 
         # 요청된 상품 ID의 필요 수량과 실제 감지된 수량을 비교 변수 설정
@@ -219,7 +219,7 @@ class PickeeVisionNode(Node):
 
     def publish_detection_data(self, robot_id, order_id):
         
-        self.last_detections.sort(key=lambda det: (det['bbox'][1], det['bbox'][0]))
+        self.last_detections.sort(key=lambda det: (det['bbox'][0], det['bbox'][1]))
 
         # self.last_detections를 ROS 메시지로 변환하여 발행
         detected_products = [] # DetectedProduct[] 자료형
