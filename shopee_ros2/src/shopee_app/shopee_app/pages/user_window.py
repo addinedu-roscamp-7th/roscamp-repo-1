@@ -302,14 +302,16 @@ class UserWindow(QWidget):
 
     IMAGE_ROOT = Path(__file__).resolve().parent / "image"
     ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
+    MAP_TOP_LEFT = (6.3, 8.4)
+    MAP_BOTTOM_RIGHT = (-5.8, 0.5)
     ROBOT_POSITION_OFFSET_X = (
-        ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else 1.0
+        ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else 0.0
     )
     ROBOT_POSITION_OFFSET_Y = (
         ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 0.0
     )
     ROBOT_POSITION_SCALE = (
-        ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 4.0
+        ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 1.0
     )
     SHOW_ROBOT_LABEL = False
     ROBOT_LABEL_OFFSET_Y = (
@@ -3093,19 +3095,32 @@ class UserWindow(QWidget):
         if (
             self.map_scene is None
             or self.map_robot_item is None
-            or self.map_resolution is None
-            or self.map_origin is None
             or self.map_image_size is None
         ):
             return
         width, height = self.map_image_size
-        origin_x, origin_y = self.map_origin
         adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
         adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
-        # 좌표계를 맞추기 위해 x, y 축을 서로 교환한다.
-        px = (adjusted_y - origin_y) / self.map_resolution * self.ROBOT_POSITION_SCALE
-        py = (adjusted_x - origin_x) / self.map_resolution
-        scene_y = height - py
+        top_left_x, top_left_y = self.MAP_TOP_LEFT
+        bottom_right_x, bottom_right_y = self.MAP_BOTTOM_RIGHT
+        max_x = max(top_left_x, bottom_right_x)
+        min_x = min(top_left_x, bottom_right_x)
+        max_y = max(top_left_y, bottom_right_y)
+        min_y = min(top_left_y, bottom_right_y)
+        range_x = max_x - min_x
+        range_y = max_y - min_y
+        if math.isclose(range_x, 0.0) or math.isclose(range_y, 0.0):
+            return
+        # ROS 좌표에서 y는 세로 축(X 범위), x는 가로 축(Y 범위)에 대응한다.
+        px_ratio = (max_y - adjusted_x) / range_y
+        py_ratio = (max_x - adjusted_y) / range_x
+        if not math.isclose(self.ROBOT_POSITION_SCALE, 1.0):
+            px_ratio = ((px_ratio - 0.5) * self.ROBOT_POSITION_SCALE) + 0.5
+            py_ratio = ((py_ratio - 0.5) * self.ROBOT_POSITION_SCALE) + 0.5
+        px_ratio = max(0.0, min(px_ratio, 1.0))
+        py_ratio = max(0.0, min(py_ratio, 1.0))
+        px = px_ratio * width
+        scene_y = py_ratio * height
         if not (math.isfinite(px) and math.isfinite(scene_y)):
             return
         px = max(0.0, min(px, float(width)))
