@@ -16,6 +16,7 @@ from pickee_main.states import (
     FollowingStaffState,
     RegisteringStaffState,
     MovingToPackingState,
+    PickingProductState,
     MovingToStandbyState
 )
 
@@ -1279,6 +1280,9 @@ class PickeeMainController(Node):
         # 상태 기계에 상품 선택 이벤트 전달
         self.selection_request = request
         self.current_bbox_number = request.bbox_number
+        
+        new_state = PickingProductState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Product selection processing started'
