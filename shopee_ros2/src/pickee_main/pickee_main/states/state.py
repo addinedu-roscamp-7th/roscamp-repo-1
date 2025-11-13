@@ -32,9 +32,9 @@ class State(ABC):
         '''
         return await self._node.call_mobile_move_to_location(location_id, target_pose, global_path, navigation_mode)
     
-    async def arm_move_to_pose(self, pose_type):
-        # Arm 자세 변경 명령
-        return await self._node.call_arm_move_to_pose(pose_type)
+    # async def arm_move_to_pose(self, pose_type):
+    #     # Arm 자세 변경 명령
+    #     return await self._node.call_arm_move_to_pose(pose_type)
     
     async def arm_check_product(self, bbox_number):
         # Arm 상품 체크 명령

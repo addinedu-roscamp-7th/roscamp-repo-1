@@ -563,8 +563,8 @@ private:
         const std::shared_ptr<shopee_interfaces::srv::PickeeMobileStatus::Request> request,
         std::shared_ptr<shopee_interfaces::srv::PickeeMobileStatus::Response> response)
     {
-        RCLCPP_INFO(this->get_logger(), "경로 업데이트 요청: 로봇=%d, 상태=%d", 
-                    request->robot_id, request->status);
+        RCLCPP_INFO(this->get_logger(), "경로 업데이트 요청: 로봇=%d, 상태=%s", 
+                    request->robot_id, request->status.c_str());
         
         if (request->robot_id != robot_id_) {
             response->success = false;

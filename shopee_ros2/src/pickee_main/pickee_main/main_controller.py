@@ -50,7 +50,7 @@ from shopee_interfaces.msg import (
 from shopee_interfaces.srv import (
     PickeeMobileMoveToLocation,
     PickeeMobileUpdateGlobalPath,
-    ArmMoveToPose,
+    # ArmMoveToPose,
     ArmCheckBbox,
     ArmPickProduct,
     ArmPlaceProduct,
@@ -261,10 +261,10 @@ class PickeeMainController(Node):
         )
         
         # Arm 서비스 클라이언트
-        self.arm_move_to_pose_client = self.create_client(
-            ArmMoveToPose,
-            '/pickee/arm/move_to_pose'
-        )
+        # self.arm_move_to_pose_client = self.create_client(
+        #     ArmMoveToPose,
+        #     '/pickee/arm/move_to_pose'
+        # )
         
         self.arm_check_product_client = self.create_client(
             ArmCheckBbox,
@@ -742,24 +742,24 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Mobile update global path service call failed: {str(e)}')
             return False
 
-    async def call_arm_move_to_pose(self, pose_type):
-        # Arm에 자세 변경 명령
-        request = ArmMoveToPose.Request()
-        request.robot_id = self.robot_id
-        request.order_id = self.current_order_id
-        request.pose_type = pose_type
+    # async def call_arm_move_to_pose(self, pose_type):
+    #     # Arm에 자세 변경 명령
+    #     request = ArmMoveToPose.Request()
+    #     request.robot_id = self.robot_id
+    #     request.order_id = self.current_order_id
+    #     request.pose_type = pose_type
         
-        if not self.arm_move_to_pose_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
-            self.get_logger().error('Arm move to pose service not available')
-            return False
+    #     if not self.arm_move_to_pose_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+    #         self.get_logger().error('Arm move to pose service not available')
+    #         return False
         
-        try:
-            future = self.arm_move_to_pose_client.call_async(request)
-            response = await future
-            return response.success
-        except Exception as e:
-            self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
-            return False
+    #     try:
+    #         future = self.arm_move_to_pose_client.call_async(request)
+    #         response = await future
+    #         return response.success
+    #     except Exception as e:
+    #         self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
+    #         return False
 
     async def call_arm_check_product(self, bbox_number):
         # Arm에 상품 픽업 명령
