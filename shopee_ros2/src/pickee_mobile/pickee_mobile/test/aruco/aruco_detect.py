@@ -104,7 +104,7 @@ aruco_params.cornerRefinementMaxIterations = 50
 
 
 # ✅ Video capture
-cap = cv2.VideoCapture(4)
+cap = cv2.VideoCapture(6)
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)  # exposure manual
 cap.set(cv2.CAP_PROP_EXPOSURE, -5)
 cap.set(cv2.CAP_PROP_GAIN, 1)
@@ -148,7 +148,7 @@ while True:
         )
 
         for rvec, tvec, marker_id in zip(rvecs, tvecs, ids):
-            cv2.drawFrameAxes(frame_undistorted, camera_matrix, dist_coeffs, rvec, tvec, marker_length * 1.5)
+            # cv2.drawFrameAxes(frame_undistorted, camera_matrix, dist_coeffs, rvec, tvec, marker_length * 1.5)
 
             pos = tvec.flatten()
             x, y, z = pos[0], pos[1], pos[2]

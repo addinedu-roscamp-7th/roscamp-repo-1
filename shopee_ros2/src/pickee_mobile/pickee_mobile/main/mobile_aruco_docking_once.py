@@ -222,7 +222,7 @@ class ArucoDocking(Node):
     # 마커 중심으로 이동, 마커 주시
     def align_to_side(self):
         
-        if abs(self.dist_side) > 50:
+        if abs(self.dist_side) > 100:
             self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
@@ -235,7 +235,7 @@ class ArucoDocking(Node):
             # 해당 축까지 전진
             self.get_logger().info(f"🚗 Going straight to ArUco axis {self.dist_side}mm")
             # self.go_straight_node.go_straight(abs(self.dist_side/1000))
-            run(self, abs(self.dist_side/1000))
+            run(self, abs(self.dist_side/1300))
             time.sleep(1.0)
 
             # 마커 바라보기 회전
@@ -252,6 +252,7 @@ class ArucoDocking(Node):
 
         self.current_state = "Docking"
 
+    # p 제어 cmd_vel.linear.x, cmd_vel.angular.z
     def docking(self):
         now = time.time()
         # self.get_logger().info(f"✅ Aligned to x!!! Start Docking")
@@ -295,12 +296,13 @@ class ArucoDocking(Node):
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.105)
+            run(self, 0.12)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
 
             self.publish_stop()
             self.reset_docking_state()
             self.docking_in_progress_pub.publish(Bool(data=True)) # 도킹 작업 성공 알림
+            time.sleep(0.5)
 
             # self.get_logger().info("✅ Docking complete → Resume Nav2") # nav2 가 cmd_vel 쏴주는거 재개, 안됨, 해당 서비스 없음
             # self.call_service(self.resume_cli)
@@ -308,11 +310,25 @@ class ArucoDocking(Node):
         self.cmd_pub.publish(self.cmd_vel)
 
     def set_yaw(self, goal_yaw_rad):
+
+        # yaw_vel_scale = max(min(self.dist_front / 10000, 0.06), 0.02)
+
+        # if goal_yaw_rad < self.old_yaw_rad:
+        #     yaw_vel_scale = -yaw_vel_scale
+
+        # self.cmd_vel.angular.z = yaw_vel_scale
+        
+
+
         if goal_yaw_rad > self.old_yaw_rad:
-            self.cmd_vel.angular.z = 0.06
+            self.cmd_vel.angular.z = 0.05
+            
         
         else:
-            self.cmd_vel.angular.z = -0.06
+            self.cmd_vel.angular.z = -0.05
+            
+
+
 
 
     def detect_marker_before_docking(self):

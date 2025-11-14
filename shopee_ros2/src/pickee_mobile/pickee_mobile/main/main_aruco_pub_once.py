@@ -61,8 +61,8 @@ class ArucoReaderNode(Node):
                         PickeeMobileStatus,
                         'pickee/mobile/pickee_mobile_status'
                     )
-        # while not self.cli_doc.wait_for_service(timeout_sec=1.0):
-        #     self.get_logger().warn("⏳ Waiting for service pickee/mobile/pickee_mobile_status...")
+        while not self.cli_doc.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("⏳ Waiting for service pickee/mobile/pickee_mobile_status...")
 
         self.doc_req = PickeeMobileStatus.Request()
 
@@ -89,7 +89,7 @@ class ArucoReaderNode(Node):
     def pickee_arrival_callback(self, msg: PickeeMobileArrival):
         """🚦 Nav2 도착 콜백 """
         self.get_logger().info("🚦 Arrival detected!")
-        if  msg.location_id > 0: # 
+        if  20 > msg.location_id > 0: # 
             if msg.location_id == 13: # 하드코딩
                 self.target_id = 1
             elif msg.location_id == 1:
@@ -135,6 +135,8 @@ class ArucoReaderNode(Node):
                 ret, frame = self.estimator.cap.read()
                 if not ret:
                     self.get_logger().warning("❌ 프레임을 읽을 수 없습니다.")
+                    self.send_docking_status(robot_id=self.robot_id, status="fail")
+
                     return
 
                 frame_out, markers = self.estimator.process_frame(frame)
