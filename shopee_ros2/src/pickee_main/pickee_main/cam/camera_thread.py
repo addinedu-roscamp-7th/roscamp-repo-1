@@ -34,7 +34,7 @@ class CameraThread(QThread):
 
         # YOLOv8 모델 로드 (사람 인식용)
         try:
-            self.yolo_model = YOLO('./employee_cloth_best.pt')  # employee_best.pt 경로로 변경
+            self.yolo_model = YOLO('./yolov8n.pt')  # employee_best.pt 경로로 변경
             self.yolo_enabled = True
             # 오탐지 방지를 위한 시간적 필터링 변수
             self.employee_detect_history = []  # 최근 N 프레임의 탐지 결과 저장

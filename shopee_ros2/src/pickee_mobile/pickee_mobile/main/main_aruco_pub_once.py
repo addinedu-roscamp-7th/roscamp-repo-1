@@ -89,7 +89,7 @@ class ArucoReaderNode(Node):
     def pickee_arrival_callback(self, msg: PickeeMobileArrival):
         """🚦 Nav2 도착 콜백 """
         self.get_logger().info("🚦 Arrival detected!")
-        if  msg.location_id > 0: # 
+        if  20 > msg.location_id > 0: # 
             if msg.location_id == 13: # 하드코딩
                 self.target_id = 1
             elif msg.location_id == 1:

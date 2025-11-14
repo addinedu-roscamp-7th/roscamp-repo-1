@@ -235,7 +235,7 @@ class ArucoDocking(Node):
             # 해당 축까지 전진
             self.get_logger().info(f"🚗 Going straight to ArUco axis {self.dist_side}mm")
             # self.go_straight_node.go_straight(abs(self.dist_side/1000))
-            run(self, abs(self.dist_side/1000))
+            run(self, abs(self.dist_side/1300))
             time.sleep(1.0)
 
             # 마커 바라보기 회전
@@ -311,21 +311,21 @@ class ArucoDocking(Node):
 
     def set_yaw(self, goal_yaw_rad):
 
-        yaw_vel_scale = max(min(self.dist_front / 10000, 0.06), 0.02)
+        # yaw_vel_scale = max(min(self.dist_front / 10000, 0.06), 0.02)
 
-        if goal_yaw_rad < self.old_yaw_rad:
-            yaw_vel_scale = -yaw_vel_scale
+        # if goal_yaw_rad < self.old_yaw_rad:
+        #     yaw_vel_scale = -yaw_vel_scale
 
-        self.cmd_vel.angular.z = yaw_vel_scale
+        # self.cmd_vel.angular.z = yaw_vel_scale
         
 
 
-        # if goal_yaw_rad > self.old_yaw_rad:
-        #     self.cmd_vel.angular.z = 0.06
+        if goal_yaw_rad > self.old_yaw_rad:
+            self.cmd_vel.angular.z = 0.05
             
         
-        # else:
-        #     self.cmd_vel.angular.z = -0.06
+        else:
+            self.cmd_vel.angular.z = -0.05
             
 
 

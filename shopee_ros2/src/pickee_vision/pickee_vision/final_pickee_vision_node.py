@@ -114,7 +114,7 @@ class FinalPickeeVisionNode(Node):
         
         # --- 카메라 초기화 ---
         # self.arm_cam = cv2.VideoCapture(4)
-        self.arm_cam = ThreadedCamera(0, self.get_logger()) ###########추가###########
+        self.arm_cam = ThreadedCamera(4, self.get_logger()) ###########추가###########
         # if not self.arm_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 4 (arm_cam).")
         #     raise IOError("Cannot open camera 4")
@@ -122,7 +122,7 @@ class FinalPickeeVisionNode(Node):
         # self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         # self.front_cam = cv2.VideoCapture(6)
-        self.front_cam = ThreadedCamera(2, self.get_logger()) ###########추가###########
+        self.front_cam = ThreadedCamera(6, self.get_logger()) ###########추가###########
         # if not self.front_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 6 (front_cam).")
         #     raise IOError("Cannot open camera 6")
@@ -155,7 +155,7 @@ class FinalPickeeVisionNode(Node):
         self.KP = 0.4   # P 제어기 게인
         self.KI = 0.01 # I 제어기 게인
         self.KD = 0.03  # D 제어기 게인
-        self.CONVERGENCE_THRESHOLD = 6
+        self.CONVERGENCE_THRESHOLD = 10
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
         self.previous_error = np.zeros(6, dtype=np.float32) # D 제어를 위한 이전 에러
         self.last_servoing_time = None
@@ -431,6 +431,8 @@ class FinalPickeeVisionNode(Node):
             response.success = False
             response.message = f"Failed to calculate target pose: {e}"
             return response
+
+        self.camera_type = 'arm'
 
         # --- 로봇 팔 이동 요청 ---
         if not self.move_start_client.wait_for_service(timeout_sec=1.0):
