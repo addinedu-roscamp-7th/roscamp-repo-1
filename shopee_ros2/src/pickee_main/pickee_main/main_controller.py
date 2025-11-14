@@ -804,7 +804,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_check_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm check product service call failed: {str(e)}')
             return False
@@ -825,7 +825,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_pick_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm pick product service call failed: {str(e)}')
             return False
@@ -844,7 +844,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_place_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm place product service call failed: {str(e)}')
             return False
