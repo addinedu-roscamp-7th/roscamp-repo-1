@@ -296,7 +296,7 @@ class ArucoDocking(Node):
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.11)
+            run(self, 0.12)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
 
             self.publish_stop()

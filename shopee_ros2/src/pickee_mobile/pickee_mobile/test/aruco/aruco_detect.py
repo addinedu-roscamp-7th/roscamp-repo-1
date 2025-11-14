@@ -104,7 +104,7 @@ aruco_params.cornerRefinementMaxIterations = 50
 
 
 # ✅ Video capture
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)  # exposure manual
 cap.set(cv2.CAP_PROP_EXPOSURE, -5)
 cap.set(cv2.CAP_PROP_GAIN, 1)
