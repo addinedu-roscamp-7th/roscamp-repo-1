@@ -9,13 +9,42 @@ import torch
 from torchvision import models, transforms
 import time
 import collections
-import threading ###########추가###########
+import threading
 
 # --- 분리된 클래스들 ---
 from .yolo_detector import YoloDetector
 from .cnn_classifier import CnnClassifier
 from .udp_video import UdpStreamer
 from .pose_cnn_model import PoseCNN
+
+# --- ROS 인터페이스 ---
+from shopee_interfaces.srv import (
+    PickeeVisionDetectProducts, 
+    PickeeVisionCheckProductInCart, 
+    VisionCheckCartPresence, 
+    PickeeVisionVideoStreamStart, 
+    PickeeVisionVideoStreamStop,
+    ArmPickProduct,
+)
+from std_srvs.srv import Trigger
+# 메시지
+from shopee_interfaces.msg import (
+    PickeeVisionDetection, 
+    DetectedProduct, 
+    DetectionInfo, 
+    BBox, 
+    Point2D, 
+    Pose6D, 
+    PickeeVisionCartCheck,
+)
+from std_msgs.msg import Bool
+
+product_dic = {
+    1 : "wasabi", 2 : "buldak_can", 3 : "butter_can", 4 : "richam", 5 : "soymilk", 
+    6 : "capri_sun", 7 : "red_apple", 8 : "green_apple", 9 : "orange", 10 : "pork", 
+    11 : "chicken", 12 : "fish", 13 : "abalone", 14 : "eclipse", 15 : "ivy", 
+    16 : "pepero", 17 : "ohyes"
+}
 
 class ThreadedCamera: ###########추가###########
     def __init__(self, src=0, node_logger=None): ###########추가###########
@@ -52,34 +81,6 @@ class ThreadedCamera: ###########추가###########
         self.thread.join() ###########추가###########
         self.stream.release() ###########추가###########
 
-# --- ROS 인터페이스 ---
-from shopee_interfaces.srv import (
-    PickeeVisionDetectProducts, 
-    PickeeVisionCheckProductInCart, 
-    VisionCheckCartPresence, 
-    PickeeVisionVideoStreamStart, 
-    PickeeVisionVideoStreamStop,
-    ArmPickProduct,
-)
-from std_srvs.srv import Trigger
-# 메시지
-from shopee_interfaces.msg import (
-    PickeeVisionDetection, 
-    DetectedProduct, 
-    DetectionInfo, 
-    BBox, 
-    Point2D, 
-    Pose6D, 
-    PickeeVisionCartCheck,
-)
-from std_msgs.msg import Bool
-
-product_dic = {
-    1 : "wasabi", 2 : "buldak_can", 3 : "butter_can", 4 : "richam", 5 : "soymilk", 
-    6 : "capri_sun", 7 : "red_apple", 8 : "green_apple", 9 : "orange", 10 : "pork", 
-    11 : "chicken", 12 : "fish", 13 : "abalone", 14 : "eclipse", 15 : "ivy", 
-    16 : "pepero", 17 : "ohyes"
-}
 
 class FinalPickeeVisionNode(Node):
     def __init__(self):
@@ -495,6 +496,10 @@ class FinalPickeeVisionNode(Node):
         error_magnitude = np.linalg.norm(np.array([error[0], error[1], error[5]]))
         self.get_logger().info(f"CNN Visual Servoing... Error: {error_magnitude:.3f}")
 
+        if self.streamer.is_running:
+            # if self.camera_type == "arm" and ret_arm: self.streamer.send_frame(arm_frame)
+            if self.camera_type == "arm" and frame is not None: self.streamer.send_frame(frame) ###########추가###########
+           
         cv2.imshow("CNN Servoing", frame)
         cv2.waitKey(1)
 

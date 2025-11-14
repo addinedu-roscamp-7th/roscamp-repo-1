@@ -145,8 +145,8 @@ class PickeeVisionNode(Node):
         if self.streamer.is_running:
             if self.camera_type == "arm" and ret_arm:
                 self.streamer.send_frame(arm_frame)
-            elif self.camera_type == "front" and ret_front:
-                self.streamer.send_frame(front_frame)
+            # elif self.camera_type == "front" and ret_front:
+            #     self.streamer.send_frame(front_frame)
             else:
                 self.get_logger().warn(f"Streaming requested for {self.camera_type} but frame not available or type invalid.")
 
