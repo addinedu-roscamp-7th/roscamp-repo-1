@@ -252,6 +252,7 @@ class ArucoDocking(Node):
 
         self.current_state = "Docking"
 
+    # p 제어 cmd_vel.linear.x, cmd_vel.angular.z
     def docking(self):
         now = time.time()
         # self.get_logger().info(f"✅ Aligned to x!!! Start Docking")
@@ -309,11 +310,25 @@ class ArucoDocking(Node):
         self.cmd_pub.publish(self.cmd_vel)
 
     def set_yaw(self, goal_yaw_rad):
-        if goal_yaw_rad > self.old_yaw_rad:
-            self.cmd_vel.angular.z = 0.06
+
+        yaw_vel_scale = max(min(self.dist_front / 10000, 0.06), 0.02)
+
+        if goal_yaw_rad < self.old_yaw_rad:
+            yaw_vel_scale = -yaw_vel_scale
+
+        self.cmd_vel.angular.z = yaw_vel_scale
         
-        else:
-            self.cmd_vel.angular.z = -0.06
+
+
+        # if goal_yaw_rad > self.old_yaw_rad:
+        #     self.cmd_vel.angular.z = 0.06
+            
+        
+        # else:
+        #     self.cmd_vel.angular.z = -0.06
+            
+
+
 
 
     def detect_marker_before_docking(self):
