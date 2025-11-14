@@ -818,6 +818,8 @@ class UserWindow(QWidget):
         super().closeEvent(event)
 
     def on_pay_clicked(self):
+        # 주문 생성 전에 알림 채널을 기동해 초기 이동 이벤트가 누락되지 않도록 한다.
+        self._ensure_notification_listener()
         if self.request_create_order():
             self.set_mode("pick")
             # 결제 후 매장 화면으로 전환되면 로봇 위치 추적을 시작한다.
@@ -2015,6 +2017,8 @@ class UserWindow(QWidget):
         if robot_id is not None:
             self.current_robot_id = robot_id
             self._auto_start_front_camera_if_possible()
+            # 도착 시점에는 즉시 팔 카메라로 전환해 상품 선택 화면을 구성한다.
+            self._ensure_arm_camera_view()
 
         section_id = data.get("section_id")
         location_id = data.get("location_id")
@@ -2800,9 +2804,15 @@ class UserWindow(QWidget):
         if self.select_title_label is not None:
             self.select_title_label.setText("화면에 표시된 상품을 선택해주세요.")
         self.populate_selection_buttons(mapped_options)
-        product_names = [opt.get("name") for opt in mapped_options if opt.get("name")]
-        detection_summary = ", ".join(product_names[:3])
-        if len(product_names) > 3:
+        product_summaries = []
+        for opt in mapped_options:
+            name_value = opt.get("name")
+            bbox_value = opt.get("bbox_number")
+            if not name_value or bbox_value is None:
+                continue
+            product_summaries.append(f"{bbox_value}.{name_value}")
+        detection_summary = ", ".join(product_summaries[:3])
+        if len(product_summaries) > 3:
             detection_summary += " 외"
         status_label = getattr(self.ui, "label_12", None)
         status_text = "감지된 상품을 선택해주세요."
@@ -3289,6 +3299,7 @@ class UserWindow(QWidget):
         self.selection_options_origin = None
         self.selection_selected_index = None
         self.populate_selection_buttons([])
+        self._announce_product_selection_result(product_id_value)
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
         return True, ""
@@ -3404,7 +3415,8 @@ class UserWindow(QWidget):
             if self.video_receiver.isRunning():
                 self._update_video_buttons(camera_type)
                 return
-        self._stop_video_stream(send_request=True)
+        # 카메라 전환 시에는 서버 스트림 유지가 필요하므로 stop 요청을 보내지 않는다.
+        self._stop_video_stream(send_request=False)
         user_type = self._current_user_type()
         try:
             response = self.service_client.start_video_stream(
@@ -3694,6 +3706,15 @@ class UserWindow(QWidget):
             footer_label.setText(text)
         context_prefix = f"[{context}] " if context else ""
         self.logger.info(f"{context_prefix}footer_label: {text}")
+
+    def _announce_product_selection_result(self, product_id: int) -> None:
+        """상품 선택 성공 시 사용자에게 문구를 노출한다."""
+        product_name = self._get_product_name_by_id(product_id) or '상품'
+        message = f'{product_name}을 선택했습니다.'
+        status_label = getattr(self.ui, 'label_12', None)
+        if not self.pick_flow_completed and status_label is not None:
+            status_label.setText(message)
+        self._update_footer_label(message, context='product_selection_response')
 
     def _get_friendly_section_name(self, section_label: str | None) -> str | None:
         """섹션 식별자를 사용자 친화적인 매대 이름으로 변환한다."""
