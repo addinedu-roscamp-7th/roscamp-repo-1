@@ -82,7 +82,7 @@ DEFAULT_MAP_CONFIG = (
 )
 DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
 VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
-DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+DEFAULT_ROBOT_ICON_SIZE = (24, 24)
 SECTION_FRIENDLY_NAMES = {
     "SECTION_1": "기성품",
     "SECTION_7": "신선식품",
@@ -308,7 +308,7 @@ class UserWindow(QWidget):
         ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else -0.1
     )
     ROBOT_POSITION_OFFSET_Y = (
-        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.6
+        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.5
     )
     ROBOT_POSITION_SCALE = (
         ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 1.0
@@ -2534,7 +2534,9 @@ class UserWindow(QWidget):
                 QtCore.Qt.TransformationMode.SmoothTransformation
             )
             return item, None
-        radius = 10
+        radius = max(DEFAULT_ROBOT_ICON_SIZE[0], DEFAULT_ROBOT_ICON_SIZE[1]) // 2
+        if radius <= 0:
+            radius = 10
         circle_pixmap = QPixmap(radius * 2, radius * 2)
         circle_pixmap.fill(QtCore.Qt.GlobalColor.transparent)
         painter = QPainter(circle_pixmap)
@@ -2555,15 +2557,28 @@ class UserWindow(QWidget):
         renderer = QSvgRenderer(str(VECTOR_ICON_PATH))
         if not renderer.isValid():
             return None
-        size = renderer.defaultSize()
-        if not size.isValid() or size.width() <= 0 or size.height() <= 0:
-            size = QtCore.QSize(*DEFAULT_ROBOT_ICON_SIZE)
-        image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+        desired_width, desired_height = DEFAULT_ROBOT_ICON_SIZE
+        target_size = QtCore.QSize(desired_width, desired_height)
+        default_size = renderer.defaultSize()
+        if not (
+            default_size.isValid()
+            and default_size.width() > 0
+            and default_size.height() > 0
+        ):
+            default_size = target_size
+        image = QImage(default_size, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(QtCore.Qt.GlobalColor.transparent)
         painter = QPainter(image)
         renderer.render(painter)
         painter.end()
-        return QPixmap.fromImage(image)
+        pixmap = QPixmap.fromImage(image)
+        if pixmap.isNull():
+            return pixmap
+        return pixmap.scaled(
+            target_size,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
 
     def _load_map_pixmap(self) -> tuple[QPixmap, float, tuple[float, float, float]]:
         if MAP_IMAGE_PATH:
@@ -3709,12 +3724,12 @@ class UserWindow(QWidget):
 
     def _announce_product_selection_result(self, product_id: int) -> None:
         """상품 선택 성공 시 사용자에게 문구를 노출한다."""
-        product_name = self._get_product_name_by_id(product_id) or '상품'
-        message = f'{product_name}을 선택했습니다.'
-        status_label = getattr(self.ui, 'label_12', None)
+        product_name = self._get_product_name_by_id(product_id) or "상품"
+        message = f"{product_name}을 선택했습니다."
+        status_label = getattr(self.ui, "label_12", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(message)
-        self._update_footer_label(message, context='product_selection_response')
+        self._update_footer_label(message, context="product_selection_response")
 
     def _get_friendly_section_name(self, section_label: str | None) -> str | None:
         """섹션 식별자를 사용자 친화적인 매대 이름으로 변환한다."""
