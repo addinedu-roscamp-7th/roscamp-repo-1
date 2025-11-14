@@ -308,7 +308,7 @@ class UserWindow(QWidget):
         ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else -0.1
     )
     ROBOT_POSITION_OFFSET_Y = (
-        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.5
+        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.0
     )
     ROBOT_POSITION_SCALE = (
         ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 1.0
@@ -3724,8 +3724,12 @@ class UserWindow(QWidget):
 
     def _announce_product_selection_result(self, product_id: int) -> None:
         """상품 선택 성공 시 사용자에게 문구를 노출한다."""
-        product_name = self._get_product_name_by_id(product_id) or "상품"
-        message = f"{product_name}을 선택했습니다."
+        product_name = self._get_product_name_by_id(product_id) or '상품'
+        bbox_number = self._get_bbox_number_by_product_id(product_id)
+        if bbox_number is not None and bbox_number > 0:
+            message = f'{bbox_number}. {product_name}을 선택했습니다.'
+        else:
+            message = f'{product_name}을 선택했습니다.'
         status_label = getattr(self.ui, "label_12", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(message)
@@ -3849,6 +3853,21 @@ class UserWindow(QWidget):
         for item in auto_items:
             if item.product_id == product_id:
                 return item.name
+        return None
+
+    def _get_bbox_number_by_product_id(self, product_id: int) -> int | None:
+        for option in self.selection_options:
+            try:
+                option_product_id = int(option.get('product_id'))
+            except (TypeError, ValueError):
+                continue
+            if option_product_id != product_id:
+                continue
+            bbox_value = option.get('bbox_number')
+            try:
+                return int(bbox_value)
+            except (TypeError, ValueError):
+                return None
         return None
 
     def open_profile_dialog(self) -> None:
