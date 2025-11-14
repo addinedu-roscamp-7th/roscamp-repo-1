@@ -305,10 +305,10 @@ class UserWindow(QWidget):
     MAP_TOP_LEFT = (6.3, 8.4)
     MAP_BOTTOM_RIGHT = (-5.8, 0.5)
     ROBOT_POSITION_OFFSET_X = (
-        ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else 0.0
+        ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else -0.1
     )
     ROBOT_POSITION_OFFSET_Y = (
-        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 0.0
+        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.6
     )
     ROBOT_POSITION_SCALE = (
         ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 1.0
@@ -418,6 +418,12 @@ class UserWindow(QWidget):
         self.ui.chk_select_all.stateChanged.connect(self.on_select_all_changed)
         if hasattr(self.ui, "btn_selected_delete"):
             self.ui.btn_selected_delete.clicked.connect(self.on_delete_selected_clicked)
+
+        # 맵 좌표 설정
+        self.WORLD_X_MIN = 0.5
+        self.WORLD_X_MAX = 8.4
+        self.WORLD_Y_MAX = 6.3  # 위
+        self.WORLD_Y_MIN = -5.8  # 아래
 
         self.current_columns = -1
         self.cart_container = None
@@ -2520,21 +2526,24 @@ class UserWindow(QWidget):
         pixmap = self._render_robot_svg()
         if pixmap is not None and not pixmap.isNull():
             item = QGraphicsPixmapItem(pixmap)
-            item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
             item.setTransformationMode(
                 QtCore.Qt.TransformationMode.SmoothTransformation
             )
             return item, None
         radius = 10
+        circle_pixmap = QPixmap(radius * 2, radius * 2)
+        circle_pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(circle_pixmap)
         pen = QPen(QColor("#ff4649"))
         pen.setWidth(2)
-        brush = QBrush(QColor("#ff4649"))
-        item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
-        item.setPen(pen)
-        item.setBrush(brush)
-        heading = QGraphicsLineItem(0, 0, radius * 2, 0, item)
-        heading.setPen(pen)
-        return item, heading
+        painter.setPen(pen)
+        painter.setBrush(QBrush(QColor("#ff4649")))
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.drawEllipse(0, 0, radius * 2, radius * 2)
+        painter.end()
+        item = QGraphicsPixmapItem(circle_pixmap)
+        item.setTransformationMode(QtCore.Qt.TransformationMode.SmoothTransformation)
+        return item, None
 
     def _render_robot_svg(self) -> QPixmap | None:
         if not VECTOR_ICON_PATH.exists():
@@ -3089,59 +3098,61 @@ class UserWindow(QWidget):
         print(
             f"[Map] 로봇 상태 수신: robot_id={robot_id_value}, x={x}, y={y}, theta={theta}"
         )
-        self._update_robot_pose(x, y, theta)
+        self.update_robot_pose(x, y, theta)
 
-    def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
-        if (
-            self.map_scene is None
-            or self.map_robot_item is None
-            or self.map_image_size is None
-        ):
+    def world_to_pixel(self, x: float, y: float) -> tuple[float, float]:
+        if self.map_pixmap_item is None:
+            return 0.0, 0.0
+        pixmap = self.map_pixmap_item.pixmap()
+        if pixmap.isNull():
+            return 0.0, 0.0
+        img_w = pixmap.width()
+        img_h = pixmap.height()
+        if img_w <= 0 or img_h <= 0:
+            return 0.0, 0.0
+        adjusted_x = y + self.ROBOT_POSITION_OFFSET_Y
+        adjusted_y = x + self.ROBOT_POSITION_OFFSET_X
+        # x: 왼쪽(최대) → 오른쪽(최소)로 갈수록 감소하므로 반전
+        tx = (self.WORLD_X_MAX - adjusted_x) / (self.WORLD_X_MAX - self.WORLD_X_MIN)
+        # y: 위(최대) → 아래(최소)로 갈수록 감소하므로 반전
+        ty = (self.WORLD_Y_MAX - adjusted_y) / (self.WORLD_Y_MAX - self.WORLD_Y_MIN)
+        px = tx * img_w
+        py = ty * img_h
+        return px, py
+
+    def update_robot_pose(self, x: float, y: float, theta: float) -> None:
+        if self.map_robot_item is None:
             return
-        width, height = self.map_image_size
-        adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
-        adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
-        top_left_x, top_left_y = self.MAP_TOP_LEFT
-        bottom_right_x, bottom_right_y = self.MAP_BOTTOM_RIGHT
-        max_x = max(top_left_x, bottom_right_x)
-        min_x = min(top_left_x, bottom_right_x)
-        max_y = max(top_left_y, bottom_right_y)
-        min_y = min(top_left_y, bottom_right_y)
-        range_x = max_x - min_x
-        range_y = max_y - min_y
-        if math.isclose(range_x, 0.0) or math.isclose(range_y, 0.0):
+        px, py = self.world_to_pixel(x, y)
+        if not (math.isfinite(px) and math.isfinite(py)):
             return
-        # ROS 좌표에서 y는 세로 축(X 범위), x는 가로 축(Y 범위)에 대응한다.
-        px_ratio = (max_y - adjusted_x) / range_y
-        py_ratio = (max_x - adjusted_y) / range_x
-        if not math.isclose(self.ROBOT_POSITION_SCALE, 1.0):
-            px_ratio = ((px_ratio - 0.5) * self.ROBOT_POSITION_SCALE) + 0.5
-            py_ratio = ((py_ratio - 0.5) * self.ROBOT_POSITION_SCALE) + 0.5
-        px_ratio = max(0.0, min(px_ratio, 1.0))
-        py_ratio = max(0.0, min(py_ratio, 1.0))
-        px = px_ratio * width
-        scene_y = py_ratio * height
-        if not (math.isfinite(px) and math.isfinite(scene_y)):
+        # 아이콘 크기를 고려해 중심 정렬
+        if isinstance(self.map_robot_item, QGraphicsPixmapItem):
+            icon_pixmap = self.map_robot_item.pixmap()
+            iw = icon_pixmap.width() if not icon_pixmap.isNull() else 0
+            ih = icon_pixmap.height() if not icon_pixmap.isNull() else 0
+        else:
+            rect = self.map_robot_item.boundingRect()
+            iw = rect.width()
+            ih = rect.height()
+        target_x = px - (iw / 2)
+        target_y = py - (ih / 2)
+        if iw <= 0 or ih <= 0:
             return
-        px = max(0.0, min(px, float(width)))
-        scene_y = max(0.0, min(scene_y, float(height)))
         self.map_robot_item.setVisible(True)
-        if self.map_heading_item is not None:
-            self.map_heading_item.setVisible(True)
-        self.map_robot_item.setPos(px, scene_y)
+        self.map_robot_item.setTransformOriginPoint(iw / 2, ih / 2)
+        self.map_robot_item.setPos(target_x, target_y)
         angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
         if self.map_robot_label is not None and self.SHOW_ROBOT_LABEL:
             self.map_robot_label.setVisible(True)
-            label_text = f"({x:.2f}, {y:.2f})"
-            self.map_robot_label.setText(label_text)
+            self.map_robot_label.setText(f"({x:.2f}, {y:.2f})")
             label_rect = self.map_robot_label.boundingRect()
-            label_x = px - (label_rect.width() / 2)
-            label_x = max(0.0, min(label_x, float(width) - label_rect.width()))
-            label_y = scene_y + self.ROBOT_LABEL_OFFSET_Y
-            label_y = max(0.0, min(label_y, float(height)))
+            label_x = target_x + (iw / 2) - (label_rect.width() / 2)
+            label_y = target_y + ih + self.ROBOT_LABEL_OFFSET_Y
             self.map_robot_label.setPos(label_x, label_y)
-        self._fit_map_to_view()
+        if self.map_scene is not None:
+            self.map_scene.update()
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
