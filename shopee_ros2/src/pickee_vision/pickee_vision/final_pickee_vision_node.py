@@ -114,7 +114,7 @@ class FinalPickeeVisionNode(Node):
         
         # --- 카메라 초기화 ---
         # self.arm_cam = cv2.VideoCapture(4)
-        self.arm_cam = ThreadedCamera(4, self.get_logger()) ###########추가###########
+        self.arm_cam = ThreadedCamera(0, self.get_logger()) ###########추가###########
         # if not self.arm_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 4 (arm_cam).")
         #     raise IOError("Cannot open camera 4")
@@ -122,7 +122,7 @@ class FinalPickeeVisionNode(Node):
         # self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         # self.front_cam = cv2.VideoCapture(6)
-        self.front_cam = ThreadedCamera(6, self.get_logger()) ###########추가###########
+        self.front_cam = ThreadedCamera(2, self.get_logger()) ###########추가###########
         # if not self.front_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 6 (front_cam).")
         #     raise IOError("Cannot open camera 6")
@@ -154,8 +154,8 @@ class FinalPickeeVisionNode(Node):
         # --- PID 제어기 파라미터 및 변수 ---
         self.KP = 0.4   # P 제어기 게인
         self.KI = 0.01 # I 제어기 게인
-        self.KD = 0.05  # D 제어기 게인
-        self.CONVERGENCE_THRESHOLD = 5
+        self.KD = 0.03  # D 제어기 게인
+        self.CONVERGENCE_THRESHOLD = 6
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
         self.previous_error = np.zeros(6, dtype=np.float32) # D 제어를 위한 이전 에러
         self.last_servoing_time = None
@@ -502,6 +502,7 @@ class FinalPickeeVisionNode(Node):
            
         cv2.imshow("CNN Servoing", frame)
         cv2.waitKey(1)
+
 
         if error_magnitude < self.CONVERGENCE_THRESHOLD:
             self.get_logger().info(f"Target reached. Calling grep_product service.")
