@@ -631,6 +631,7 @@ class MainServiceApp:
             robot_id = data.get("robot_id")
             user_id = data.get("user_id")
             user_type = data.get("user_type")
+            camera_type = data.get("camera_type")
             app_ip, _ = peer  # App의 TCP 포트가 아닌, UDP 포트로 보내야 함
             # App의 UDP 수신 포트는 6000으로 가정
             APP_UDP_PORT = 6000
@@ -646,7 +647,7 @@ class MainServiceApp:
             )
 
             # 2. 로봇에게 영상 송출 시작 명령
-            req = PickeeMainVideoStreamStart.Request(robot_id=robot_id, user_id=user_id, user_type=user_type)
+            req = PickeeMainVideoStreamStart.Request(robot_id=robot_id, user_id=user_id, user_type=user_type, camera_type=camera_type)
             res = await self._robot.dispatch_video_stream_start(req)
 
             success = res.success

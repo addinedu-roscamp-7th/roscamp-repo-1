@@ -541,17 +541,72 @@ ros2 topic echo /pickee/product_detected
 ros2 topic pub --once /pickee/product_detected shopee_interfaces/msg/PickeeProductDetection "{
   robot_id: 1,
   order_id: 1,
-  products: [{
-    product_id: 10,
-    bbox_number: 1,
-    bbox_coords: {
-      x1: 1,
-      y1: 1,
-      x2: 1,
-      y2: 1,
+  products: [
+    {
+      product_id: 10,
+      bbox_number: 1,
+      bbox: {
+        x1: 100,
+        y1: 100,
+        x2: 200,
+        y2: 200,
+      },
+      detection_info: {
+        polygon: [
+          {x: 1.0, y: 1.0},
+          {x: 2.0, y: 2.0},
+        ],
+        bbox_coords: {
+          x1: 100,
+          y1: 100,
+          x2: 200,
+          y2: 200,
+        }
+      },
+      pose: {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        rx: 1.0,
+        ry: 1.0,
+        rz: 1.0
+      },
+      arm_side: 'left',
+      confidence: 1.0
     },
-    confidence: 1.0
-  }]
+    {
+      product_id: 10,
+      bbox_number: 1,
+      bbox: {
+        x1: 300,
+        y1: 100,
+        x2: 400,
+        y2: 200,
+      },
+      detection_info: {
+        polygon: [
+          {x: 3.0, y: 3.0},
+          {x: 4.0, y: 4.0},
+        ],
+        bbox_coords: {
+          x1: 300,
+          y1: 100,
+          x2: 400,
+          y2: 200,
+        }
+      },
+      pose: {
+        x: 2.0,
+        y: 2.0,
+        z: 2.0,
+        rx: 2.0,
+        ry: 2.0,
+        rz: 2.0
+      },
+      arm_side: 'left',
+      confidence: 1.0
+    },
+  ]
 }"
 
 ros2 topic echo /pickee/robot_status
@@ -559,7 +614,7 @@ ros2 topic pub /pickee/robot_status shopee_interfaces/msg/PickeeRobotStatus "{
   robot_id: 1,
   state: 'PK_S10',
   battery_level: 70.0,
-  current_order_id: 1,
+  current_order_id: 0,
   position_x: 0.0,
   position_y: 0.0,
   orientation_z: 0.0
