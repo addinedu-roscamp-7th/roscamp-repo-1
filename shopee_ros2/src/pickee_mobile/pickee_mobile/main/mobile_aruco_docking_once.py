@@ -261,34 +261,34 @@ class ArucoDocking(Node):
 
         if abs(self.dist_side) > 10:
 
-            self.get_logger().info(f"🔁 111")
+            # self.get_logger().info(f"🔁 111")
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 5, 20), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
-            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
+            # self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
         else: # abs(self.dist_side) <= 10:
 
-            self.get_logger().info(f"🔁 222")
+            # self.get_logger().info(f"🔁 222")
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 14, 10), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
-            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
+            # self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
 
         # 전진 속도 조절
         if self.dist_front > self.limit_z:
 
-            self.get_logger().info(f"🚗 111")
+            # self.get_logger().info(f"🚗 111")
 
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(9):# or abs(self.dist_side) > 25:
+        elif abs(self.yaw_rad) > math.radians(7):# or abs(self.dist_side) > 25:
 
-            self.get_logger().info(f"🚗 222")
+            # self.get_logger().info(f"🚗 222")
 
             self.detect_marker_during_docking()
             self.get_logger().info(f"⚠️ ArUco marker's yaw is Too BIG")
@@ -296,7 +296,7 @@ class ArucoDocking(Node):
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
-            run(self, 0.12)
+            run(self, 0.115)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
 
             self.publish_stop()
