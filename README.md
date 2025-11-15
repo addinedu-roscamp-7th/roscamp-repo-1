@@ -5,11 +5,10 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 [ㄴ 클릭시 PPT 이동](https://docs.google.com/presentation/d/1-Q_TZLXfFrFoZFN47uKtgcyI_h5BXLpoyHWAMogy4Dw/edit?slide=id.p#slide=id.p)
 
 ## 주제 : 원격 쇼핑 로봇 플랫폼 [ROS2/AI/LLM/주행/로봇팔]
-![예시 이미지]()
+![예시 이미지](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%98%88%EC%8B%9C_%EC%9D%B4%EB%AF%B8%EC%A7%80.png?raw=true)
 
 ### 프로젝트 기간
-![스프린트 이미지]()
-
+![스프린트 이미지](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%8A%A4%ED%94%84%EB%A6%B0%ED%8A%B8_%EC%9D%B4%EB%AF%B8%EC%A7%80.png?raw=true)
 **25.09.10 ~ 25.11.18 약 10주간 진행** <br/>
 **Sprint1** : 주제 선정 / 기획 / 요구사항 정의 <br/>
 **Sprint2~4** : 설계 / 기술조사 <br/>
@@ -39,12 +38,23 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 
 
 # 00. 팀 소개
-![팀 소개 이미지]()
+![팀 소개 이미지](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%ED%8C%80_%EC%86%8C%EA%B0%9C_%EC%9D%B4%EB%AF%B8%EC%A7%80.jpg?raw=true)
 
 
 # 01. 프로젝트 소개
 ### 주제 선정 배경
-![주제 선정 배경]()
+![주제 선정 배경](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%A3%BC%EC%A0%9C_%EC%84%A0%EC%A0%95_%EB%B0%B0%EA%B2%BD.jpg?raw=true)
+
+원격 쇼핑 로봇을 주제로 선정한 이유 <br/>
+- AI의 발전 <br/>
+- 온라인 쇼핑 품질 불량 가능성 <br/>
+- 인터렉티브 콘텐츠 <br/>
+- 로봇 시장 성장 <br/>
+- 대형 마트와 소셜 커머스 경쟁 <br/>
+- 로봇과 커머스 융합 시장 <br/>
+  
+등의 이유가 있겠습니다.
+
 
 ### 사용자 요구사항 (User Requirements)
 #### 고객(Customer)
@@ -80,15 +90,18 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 | UR_13 | 자율 주행        | 로봇이 목표 지점까지 자율 이동 | R | - |
 
 [ **요약** ] <br/>
-![사용자 요구사항]()
+![사용자 요구사항](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%82%AC%EC%9A%A9%EC%9E%90_%EC%9A%94%EA%B5%AC%EC%82%AC%ED%95%AD.png?raw=true)
+
+사용자 요구사항을 크게 3가지로 요약하면, <br/>
+'Shopee App (사용자 인터페이스) / Pickee (주행&상품선택) / Packee (상품포장)' 이렇게 요약할 수 있습니다.
 
 
 # 02. 프로젝트 설계
 ### System Requirements
 
-### 서비스 흐름 : 주간
+### 서비스 흐름 : 주간(영업중)
 
-### 서비스 흐름 : 야간
+### 서비스 흐름 : 야간(영업외)
 
 ### System Architecture
 
