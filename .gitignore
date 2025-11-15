@@ -146,8 +146,8 @@ colcon_install/
 .gemini/
 gha-creds-*.json
 
-*.jpg
-*.png
+# *.jpg
+# *.png
 !shopee_ros2/src/shopee_app/shopee_app/pages/image/*.png
 *.csv
 *.txt
