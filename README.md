@@ -1,10 +1,10 @@
-# roscamp-repo-1
+# roscamp-repo-1 
 ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소.
 =======
 [![Banner](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/banner.jpg?raw=true)](https://docs.google.com/presentation/d/1-Q_TZLXfFrFoZFN47uKtgcyI_h5BXLpoyHWAMogy4Dw/edit?slide=id.p#slide=id.p)
 [ㄴ 클릭시 PPT 이동](https://docs.google.com/presentation/d/1-Q_TZLXfFrFoZFN47uKtgcyI_h5BXLpoyHWAMogy4Dw/edit?slide=id.p#slide=id.p)
 
-## 주제 : 원격 쇼핑 로봇 플랫폼 [ROS2/AI/주행/로봇팔]
+## 주제 : 원격 쇼핑 로봇 플랫폼 [ROS2/AI/LLM/주행/로봇팔]
 ![예시 이미지]()
 
 ### 프로젝트 기간
@@ -20,8 +20,8 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 ### 활용 기술
 |분류|기술|
 |---|---|
-|**개발환경**|<img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white"/> <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=Ubuntu&logoColor=white"/> <img src="https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white"/> |
-|**언어**|<img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white"/> <img src="https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=cplusplus&logoColor=white"/> |
+|**개발환경**| <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white"/> <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=Ubuntu&logoColor=white"/> <img src="https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white"/> |
+|**언어**| <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white"/> <img src="https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=cplusplus&logoColor=white"/> |
 |**UI**|<img src="https://img.shields.io/badge/PyQT-28c745?style=for-the-badge&logo=PyQT&logoColor=white"/>|
 |**DBMS**| <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white"/>|
 |**AI**| <img src="https://img.shields.io/badge/YOLOv8-FFBB00?style=for-the-badge&logo=YOLO&logoColor=white" alt="YOLOv8"/> <img src="https://img.shields.io/badge/YOLOv11-FF6600?style=for-the-badge&logo=YOLO&logoColor=white" alt="YOLOv11"/>  |
@@ -47,6 +47,40 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 ![주제 선정 배경]()
 
 ### 사용자 요구사항 (User Requirements)
+#### 고객(Customer)
+
+| UR_ID | Name              | Description                | Required | Remarks |
+|-------|--------------------|----------------------------|----------|---------|
+| UR_01 | 계정 관리         | 고객 계정 정보 관리        | R        | 계정 정보: 이름, 성별, 나이, 배송 주소, 알레르기 정보, 이전 구매 내역 |
+| UR_02 | 상품 탐색         | 상품 검색 및 추천          | R        | - |
+| UR_03 | 원격 쇼핑         | 원격 상품 선택 및 구매     | R        | - |
+| UR_04 | 원격 쇼핑 모니터링 | 실시간 쇼핑 현황 모니터링 | R        | 로봇 위치, 이동 경로 및 ETA, 작업 상태(정지/이동/집기), 장바구니 상태, 전방 카메라 영상 |
+
+---
+
+#### 직원(Staff)
+
+| UR_ID | Name             | Description                              | Required | Remarks |
+|-------|------------------|------------------------------------------|----------|---------|
+| UR_05 | 상품 포장 보조  | 쇼핑 종료 후 상품 적재 및 정렬           | R        | 정렬 기준: 손상 가능성 있는 물품 위로, 안전성 높은 방향 |
+| UR_06 | 재고 보충 보조  | 직원 요청 시 창고 상품을 매대로 자율 운송 | O        | - |
+
+---
+
+#### 관리자(Admin)
+
+| UR_ID | Name              | Description                 | Required | Remarks |
+|-------|-------------------|-----------------------------|----------|---------|
+| UR_07 | 주문 정보 관리   | 주문 현황 확인 및 이력 조회 | R        | 주문 정보: 주문 ID, 고객 ID, 상품 목록, 주문 상태 |
+| UR_08 | 작업 정보 관리   | 작업 현황 확인 및 이력 조회 | R        | 작업 정보: 작업 ID, 고객 ID, 로봇 ID, 작업 종류, 작업 상태 |
+| UR_09 | 로봇 정보 관리   | 로봇 상태 확인 및 이력 조회 | R        | 로봇 상태: 위치, 장바구니 상태, 배터리·충전, 오류 상태 |
+| UR_10 | 상품 정보 관리   | 상품 정보 조회 및 수정      | R        | 상품 ID, 바코드, 이름, 수량, 가격, 카테고리, 매대 위치, 알레르기/비건 여부 |
+| UR_11 | 자율 복귀        | 작업 종료 후 스테이션 자동 복귀 | O    | - |
+| UR_12 | 자동 충전        | 로봇이 배터리 상태 판단 후 자동 충전 | O | - |
+| UR_13 | 자율 주행        | 로봇이 목표 지점까지 자율 이동 | R | - |
+
+[ **요약** ] <br/>
+![사용자 요구사항]()
 
 
 # 02. 프로젝트 설계
