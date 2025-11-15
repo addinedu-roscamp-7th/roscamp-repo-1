@@ -93,8 +93,8 @@ ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMo
 ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "{
   robot_id: 1,
   order_id: 123,
-  location_id: 5,
-  target_pose: {x: 3.24, y: 2.1, theta: -1.57},
+  location_id: 20,
+  target_pose: {x: 3.8, y: 2.4, theta: 0.0},
 }"
 
 ros2 service call /pickee/mobile/move_to_location shopee_interfaces/srv/PickeeMobileMoveToLocation "{

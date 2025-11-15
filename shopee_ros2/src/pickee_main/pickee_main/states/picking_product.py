@@ -10,14 +10,15 @@ class PickingProductState(State):
         self.pick_completed = False
         self.place_started = False
         self.place_completed = False
-        
         # 선택된 상품 정보
         self.bbox_number = getattr(self._node, 'selected_bbox_number', 2)
-        self.product_id = getattr(self._node, 'selected_product_id', 2)
+        self.product_id = getattr(self._node, 'selected_product_id', 12)
         self.target_position = getattr(self._node, 'selected_target_position', None)
         
     def execute(self):
+        print(f'self.pick_stated: {self.pick_started}, self.pick_completed: {self.pick_completed}, self.place_started: {self.place_started}, self.place_completed: {self.place_completed}')
         if not self.pick_started:
+            print('시작 product pick...')
             # 상품 픽업 시작
             self._node.get_logger().info(f'상품 픽업 시작: {self.product_id}')
             # Arm에 픽업 명령 전달 (비동기)
@@ -53,9 +54,10 @@ class PickingProductState(State):
             #         self._node.get_logger().error(f'상품 픽업 실패: {str(e)}')
             
             # threading.Thread(target=pick_product).start()
-            # self.pick_started = True
+            self.pick_started = True
         
         elif not self.pick_completed and hasattr(self._node, 'arm_pick_completed') and self._node.arm_pick_completed:
+            print('픽업 완료, 장바구니에 놓기 시작...')
             # 픽업 완료, 장바구니에 놓기 시작
             self._node.arm_pick_completed = False  # 플래그 리셋
             self._node.get_logger().info(f'픽업 완료, 장바구니에 놓기 시작: {self.product_id}')
@@ -81,6 +83,7 @@ class PickingProductState(State):
             self.place_started = True
         
         elif self.place_started and hasattr(self._node, 'arm_place_completed') and self._node.arm_place_completed:
+            print('장바구니에 놓기 완료, 결과 보고...')
             # 장바구니에 놓기 완료
             self._node.arm_place_completed = False  # 플래그 리셋
             self._node.get_logger().info(f'장바구니에 상품 놓기 완료: {self.product_id}')
