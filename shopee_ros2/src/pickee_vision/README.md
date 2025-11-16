@@ -14,7 +14,6 @@
 -   [사용 모델](#사용-모델)
 -   [의존성](#의존성)
 -   [실행 방법](#실행-방법)
--   [기여](#기여)
 
 ## 노드
 
@@ -73,15 +72,15 @@
 
 ### 제공하는 서비스
 
--   **`/pickee/arm/pick_product_gg` (`ArmPickProduct`)**: 고정밀 피킹 시퀀스를 시작하는 메인 서비스입니다.
--   **`/pickee/vision/detect_products` (`PickeeVisionDetectProducts`)**: 선반의 상품들을 탐지하고 결과를 반환합니다.
--   **`/pickee/vision/check_product_in_cart` (`PickeeVisionCheckProductInCart`)**: 카트 안에 특정 상품이 있는지 확인합니다.
--   **`/pickee/vision/check_cart_presence` (`VisionCheckCartPresence`)**: 로봇 앞에 빈 카트가 있는지 확인합니다.
+-   **`/pickee/arm/pick_product` (`ArmPickProduct`)**: 고정밀 picking 시퀀스를 시작하는 메인 서비스입니다.
+-   **`/pickee/vision/detect_products` (`PickeeVisionDetectProducts`)**: 매대의 상품들을 탐지하고 결과를 반환합니다.
+-   **`/pickee/vision/check_product_in_cart` (`PickeeVisionCheckProductInCart`)**: 장바구니 안에 특정 상품이 있는지 확인합니다.
+-   **`/pickee/vision/check_cart_presence` (`VisionCheckCartPresence`)**: 로봇 위에 빈 장바구니가 있는지 확인합니다.
 -   **`/pickee/vision/video_stream_start` / `_stop`**: UDP 비디오 스트리밍을 시작/중지합니다.
 
 ### 사용하는 서비스 (Clients)
 
--   **`/pickee/arm/move_start` (`Trigger`)**: `pickee_arm`에게 피킹 준비 자세로 이동하라고 명령합니다.
+-   **`/pickee/arm/move_start` (`Trigger`)**: `pickee_arm`에게 매대 확인 자세로 이동하라고 명령합니다.
 -   **`/pickee/arm/grep_product` (`Trigger`)**: `pickee_arm`에게 상품을 잡으라고 명령합니다.
 
 ## 토픽
@@ -94,12 +93,12 @@
 
 ### 구독하는 토픽
 
--   **`/pickee/arm/is_moving` (`Bool`)**: `pickee_arm`이 특정 위치로 이동을 완료했는지 확인하는 신호를 받습니다.
+-   **`/pickee/arm/is_moving` (`Bool`)**: `pickee_arm`이 상품을 집기 위한 위치로 이동을 완료했는지 확인하는 신호를 받습니다.
 -   **`/pickee/arm/real_pose` (`Pose6D`)**: `pickee_arm`으로부터 팔 끝의 실시간 좌표를 받습니다.
 
 ## 사용 모델
 
--   **`YoloDetector`**: 선반 위 상품들의 Bounding Box를 탐지하는 YOLO 기반 모델.
+-   **`YoloDetector`**: 매대 위 또는 장바구니 안 상품들의 객체를 탐지하는 YOLO 기반 모델.
 -   **`CnnClassifier`**: 카트의 존재 여부를 분류하는 CNN 모델.
 -   **`PoseCNN`**: 특정 상품(예: 생선, 이클립스)의 6D Pose를 추정하여 Visual Servoing에 사용되는 CNN 모델.
 
@@ -112,12 +111,4 @@
 
 ```bash
 ros2 run pickee_vision final_pickee_vision_node
-```
-
-## 기여
-
-이 패키지에 기여하려면 `flake8` 및 `pep257` 코드 스타일 가이드를 준수해야 합니다. 기여하기 전에 다음 테스트를 통과해야 합니다.
-
-```bash
-colcon test --packages-select pickee_vision
 ```
