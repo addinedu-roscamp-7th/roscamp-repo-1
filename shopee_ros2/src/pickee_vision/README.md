@@ -56,9 +56,6 @@
        |                           | --(5) Grasps Product ---> |
        |                           |   (/grep_product)         |
        |                           |                           |
-       | --(6) Places Product -------------------------------->|
-       |   (/place_product)        |                           |
-       |                           |                           |
 ```
 
 1.  **시퀀스 시작**: `pickee_main` 노드가 `pickee_vision`의 `/pickee/arm/pick_product` 서비스를 호출하여 특정 상품에 대한 Picking 시퀀스를 시작합니다.
@@ -66,7 +63,6 @@
 3.  **팔 준비 완료 신호**: `pickee_arm`은 이동이 완료되면 `/is_moving` 토픽으로 `True`를 게시하여 `pickee_vision`에 준비되었음을 알립니다.
 4.  **Visual Servoing 루프**: `pickee_vision`은 `PoseCNN`을 이용한 Visual Servoing 루프를 시작합니다. 현재 이미지와 팔의 실제 좌표(`real_pose`)를 바탕으로 목표 좌표 오차를 계산하고, PID 제어기를 통해 보정된 목표 좌표를 `/move_servo` 토픽으로 계속해서 `pickee_arm`에 발행합니다.
 5.  **상품 잡기**: `pickee_vision`이 목표 지점에 수렴했다고 판단하면, `/grep_product` 서비스를 호출하여 `pickee_arm`이 상품을 잡도록 합니다.
-6.  **상품 놓기**: `pickee_main`이 `pickee_arm`의 `/place_product` 서비스를 호출하여 잡은 상품을 장바구니에 놓도록 명령합니다.
 
 ## 서비스
 
