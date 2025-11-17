@@ -163,9 +163,8 @@ class FinalPickeeVisionNode(Node):
 
         # --- 모델 및 리소스 경로 ---
         cnn_model_path = os.path.join(package_share_directory, "20251112_total.pt")
-        # target_image_path = os.path.join(package_share_directory, "test/capture_20251107-174001.jpg")
-        self.target_image_path_fish = os.path.join(package_share_directory, "test/target_fish_5.jpg")
-        self.target_image_path_eclipse = os.path.join(package_share_directory, "test/target_eclipse_3.jpg")
+        self.target_image_path_fish = os.path.join(package_share_directory, "target_fish.jpg")
+        self.target_image_path_eclipse = os.path.join(package_share_directory, "target_eclipse.jpg")
 
         # --- 역정규화 파라미터 ---
         self.pose_mean = np.array([-75.24822998046875, 140.6298370361328, 220.1119842529297, -179.412109375, 0.4675877094268799, 44.999176025390625], dtype=np.float32)
