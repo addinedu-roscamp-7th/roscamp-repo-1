@@ -98,15 +98,113 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 
 # 02. 프로젝트 설계
 ### System Requirements
+| SR_ID | SR_NAME  | Description         | Priority | Remark                                         |
+| ----- | -------- | ------------------- | -------- | ---------------------------------------------- |
+| SR_01 | 로그인      | 고객 및 관리자가 로그인하는 기능  | R1       | 세부 기능: ID/비밀번호 인증                              |
+| SR_02 | 고객 정보 조회 | 고객 및 관리자가 고객 정보를 조회 | O        | 조회 가능 정보: 이름, 성별, 나이, 알레르기 정보, 비건 유무, 이전 구매 내역 |
+| SR_03 | 고객 정보 수정 | 고객/관리자가 고객 정보를 수정   | O        | 수정 가능 정보: 알레르기 정보 업데이트, 비건 유무 업데이트             |
+| SR_04 | 상품 검색   | 고객이 상품 정보를 검색 | R1       | 검색어 입력: 텍스트/음성, 조회 정보: 상품명/카테고리/가격/할인율/알레르기/비건 |
+| SR_05 | 상품 추천   | 고객에게 상품 추천 제공 | O        | 구매 이력 기반, 알레르기/비건 고려, 인기 상품 추천                 |
+| SR_06 | 상품 예약   | 고객이 상품을 예약    | R1       | 예약 상품 추가/삭제, 수량 변경, 예약 목록 조회                   |
+| SR_07 | 상품 결제     | 예약 상품 선결제 기능      | R1       |                          |
+| SR_08 | 실시간 상품 선택 | 비기성품을 실시간으로 보고 선택 | R1       | 과일·육류 선택, 화면 클릭(bbox 클릭) |
+| SR_09 | 장바구니 조회   | 장바구니 상품 조회        | R3       |                          |
+| SR_10 | 실시간 영상 모니터링 | 로봇 카메라 영상 확인      | R2       | 전방 카메라, 로봇팔 카메라             |
+| SR_11 | 쇼핑중 알림      | 특정 상황 발생 시 실시간 알림 | R3       | 매대 도착, 집기 시작/완료, 장애물 감지, 오류 |
+| SR_12 | 장바구니 상태 확인  | 장바구니 현황 모니터링      | R4       | 담긴 상품 목록, 수량, 총액            |
+| SR_13 | 상품 포장 보조 | 쇼핑 후 상품을 포장 박스로 적재 | R1       | 포장대 이동, 장바구니 인식, 포장 순서 계획, 듀얼암 적재, 포장 완료 검증 |
+| SR_14 | 재고 보충 보조 | 로봇이 직원을 추종하며 보충 작업 지원 | O        | 직원 추종, 음성 명령, 창고-매대 운반 |
+| SR_15 | 주문 정보 조회 | 주문 정보 조회    | R1       | 주문 ID, 고객 ID, 상품 목록, 금액, 상태(PAID 등), 주문 시간 |
+| SR_16 | 주문 이력 조회 | 주문 이력 조회    | R2       | 주문 ID/고객 ID, 주문 일시, 상품 목록, 금액, 최종 상태       |
+| SR_17 | 작업 정보 모니터링 | 모든 작업 정보/상태 모니터링 | R1       | 작업 ID, 고객/로봇 ID, 작업 종류, 상태, 시간     |
+| SR_18 | 작업 이력 조회   | 작업 이력 조회         | R2       | 작업 ID, 로봇/고객 ID, 상태, 실패 이유, 위치, 시간 |
+| SR_19 | 로봇 상태 조회 | 로봇 상태 실시간 조회 | R1       | 로봇 ID/타입, 위치, 장바구니 상태, 배터리, 오류, 작업 ID |
+| SR_20 | 로봇 이력 조회 | 로봇 상태 이력 조회  | R2       | 위치 이동, 작업 수행, 충전, 오류, 상태 변경 timestamp |
+| SR_21 | 상품 정보 조회 | 상품 정보를 조회   | R3       | 상품 ID, 바코드, 이름, 카테고리, 재고, 가격, 매대 위치, 알레르기/비건  |
+| SR_22 | 상품 정보 수정 | 상품 정보를 수정   | R3       | 상품 추가/삭제, 바코드/이름 수정, 재고·가격 수정, 매대 위치, 알레르기 정보 |
+| SR_23 | 로봇 자동 복귀 | 작업 종료 시 자동 복귀/다음 미션 이동 | 
+| SR_24 | 로봇 자동 충전 | 배터리 상태 기반 자동 충전 | R4       |        |
+| SR_25 | 장애물 회피  | 경로 중 장애물 감지·회피 경로 생성 | R1       | 정적: 카트/박스, 동적: 사람/모바일 로봇 |
+
+[ **요약** ] <br/>
+![System Requirements](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/system_requirements.png?raw=true)
+
 
 ### 서비스 흐름 : 주간(영업중)
+![서비스흐름_영업중](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%84%9C%EB%B9%84%EC%8A%A4%ED%9D%90%EB%A6%84_%EC%98%81%EC%97%85%EC%A4%91.png?raw=true)
 
 ### 서비스 흐름 : 야간(영업외)
+![서비스흐름_영업후](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%84%9C%EB%B9%84%EC%8A%A4%ED%9D%90%EB%A6%84_%EC%98%81%EC%97%85%ED%9B%84.png?raw=true)
 
-### System Architecture
+### HW Architecture
+![HW Architecture](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/HW_Arc.png?raw=true)
+
+### SW Architecture
+![SW Architecture](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/SW_Arc.png?raw=true)
+
+### 상태 다이어그램
+![상태 다이어그램](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/%EC%83%81%ED%83%9C_%EB%8B%A4%EC%9D%B4%EC%96%B4%EA%B7%B8%EB%9E%A8.png?raw=true)
 
 ### 시퀀스 다이어그램
+<details>
+<summary> SC01: 상품 주문</summary>
+SC-01-01: 로그인
 
+SC-01-02: 상품 검색
+
+SC-01-03: 결제
+
+</details>
+<details>
+<summary> SC02: 쇼핑</summary>
+SC-02-01: 매대 이동
+
+SC-02-02: 장애물 회피
+
+SC-02-03: 매대 상품 선택
+
+SC-02-04: 상품 장바구니 담기
+
+SC-02-05: 쇼핑 종료
+
+</details>
+<details>
+<summary> SC03: 상품 포장</summary>
+SC-03-01: 포장대 이동
+
+SC-03-02: 장바구니 교체
+
+SC-03-03: Packee 작업 가능 확인
+
+SC-03-04: 상품 포장
+
+</details>
+<details>
+<summary> SC04: 복귀 및 충전</summary>
+
+</details>
+<details>
+<summary> SC05: 관리자 기능</summary>
+SC-05-01: 관리자 모니터링
+
+SC-05-02: 관리자 재고 관리
+
+SC-05-03: 관리자 작업 이력 조회
+
+</details>
+<details>
+<summary> SC06: 직원 보조 기능</summary>
+SC-06-01: 모드 시작
+
+SC-06-02: 인식 및 추종
+
+SC-06-03: 음성 명령
+
+SC-06-04: 목적지 이동
+
+SC-06-05: 임무 완료 확인
+
+</details>
 ### ERD
 
 ### Interface Specification
