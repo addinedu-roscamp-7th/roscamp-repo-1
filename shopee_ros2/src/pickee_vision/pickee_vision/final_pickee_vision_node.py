@@ -114,7 +114,7 @@ class FinalPickeeVisionNode(Node):
         
         # --- 카메라 초기화 ---
         # self.arm_cam = cv2.VideoCapture(4)
-        self.arm_cam = ThreadedCamera(4, self.get_logger()) ###########추가###########
+        self.arm_cam = ThreadedCamera(0, self.get_logger()) ###########추가###########
         # if not self.arm_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 4 (arm_cam).")
         #     raise IOError("Cannot open camera 4")
@@ -122,7 +122,7 @@ class FinalPickeeVisionNode(Node):
         # self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         # self.front_cam = cv2.VideoCapture(6)
-        self.front_cam = ThreadedCamera(6, self.get_logger()) ###########추가###########
+        self.front_cam = ThreadedCamera(2, self.get_logger()) ###########추가###########
         # if not self.front_cam.isOpened():
         #     self.get_logger().error("Cannot open camera index 6 (front_cam).")
         #     raise IOError("Cannot open camera 6")
