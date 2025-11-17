@@ -43,8 +43,11 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 ### 프로젝트 관리
 #### 컨플루언스(Confluence) - 문서 관리
 
+![confluence](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/confluence.png?raw=true)
+
 #### 지라(Jira) - 일정 관리
 
+![jira](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/jira.png?raw=true)
 
 # 01. 프로젝트 소개
 ### 주제 선정 배경
@@ -297,10 +300,466 @@ SC-06-05: 임무 완료 확인
 
 ### ERD
 
+![]()
+
 ### Interface Specification
+
+<details>
+<summary> TCP 통신</summary>
+
+| Function | From | To | Message Type | Schema |
+|---------|------|----|--------------|--------|
+| 사용자 로그인 요청 | App | Main Service | user_login | ```json { "type": "user_login", "data": { "user_id": "string", "password": "string" } }``` |
+| 사용자 로그인 응답 | Main Service | App | user_login_response | ```json { "type": "user_login_response", "result": true, "error_code": "string", "data": { "user_id": "string", "name": "string", "gender": "boolean", "age": "int", "address": "string", "allergy_info": { "nuts": "boolean", "milk": "boolean", "seafood": "boolean", "soy": "boolean", "peach": "boolean", "gluten": "boolean", "eggs": "boolean" }, "is_vegan": "boolean" }, "message": "string" }``` |
+| 유저 정보 수정 요청 | App | Main Service | user_edit | ```json { "type": "user_edit", "result": true, "error_code": "string", "data": { "user_id": "string", "name": "string", "gender": "boolean", "age": "int", "address": "string", "allergy_info": { "nuts": "boolean", "milk": "boolean", "seafood": "boolean", "soy": "boolean", "peach": "boolean", "gluten": "boolean", "eggs": "boolean" }, "is_vegan": "boolean" } }``` |
+| 유저 정보 수정 응답 | Main Service | App | user_edit_response | ```json { "type": "user_edit_response", "result": true, "error_code": "string", "data": { "user_id": "string", "name": "string", "gender": "boolean", "age": "int", "address": "string", "allergy_info": { "nuts": "boolean", "milk": "boolean", "seafood": "boolean", "soy": "boolean", "peach": "boolean", "gluten": "boolean", "eggs": "boolean" }, "is_vegan": "boolean" }, "message": "string" }``` |
+| 전체 상품 요청 | App | Main Service | total_product | ```json { "type": "total_product", "data": { "user_id": "string" } }``` |
+| 전체 상품 응답 | Main Service | App | total_product_response | ```json { "type": "total_product_response", "result": true, "error_code": "string", "data": { "products": [ { "product_id": "int", "name": "string", "price": "int", "discount_rate": "int", "category": "string", "allergy_info": { "nuts": "boolean", "milk": "boolean", "seafood": "boolean", "soy": "boolean", "peach": "boolean", "gluten": "boolean", "eggs": "boolean" }, "is_vegan_friendly": "boolean" } ], "total_count": "int" }, "message": "string" }``` |
+| 상품 검색 요청 | App | Main Service | product_search | ```json { "type": "product_search", "data": { "user_id": "string", "query": "string", "filter": { "allergy_info": { "nuts": "boolean", "milk": "boolean", "seafood": "boolean", "soy": "boolean", "peach": "boolean", "gluten": "boolean", "eggs": "boolean" }, "is_vegan": "boolean" } } }``` |
+| 상품 검색 응답 | Main Service | App | product_search_response | ```json { "type": "product_search_response", "result": true, "error_code": "string", "data": { "products": [ { "product_id": "int", "name": "string", "price": "int", "quantity": "int", "section_id": "int", "category": "string", "allergy_info_id": "int", "is_vegan_friendly": "boolean" } ], "total_count": "int" }, "message": "string" }``` |
+| 주문 생성 요청 | App | Main Service | order_create | ```json { "type": "order_create", "data": { "user_id": "string", "cart_items": [ { "product_id": "int", "quantity": "int" } ], "payment_method": "string", "total_amount": "int" } }``` |
+| 주문 생성 응답 | Main Service | App | order_create_response | ```json { "type": "order_create_response", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int", "products": [ { "product_id": "int", "name": "string", "quantity": "int", "auto_select": "boolean" } ], "total_count": "int" }, "message": "string" }``` |
+| 상품 선택 요청 | App | Main Service | product_selection | ```json { "type": "product_selection", "data": { "order_id": "int", "robot_id": "int", "bbox_number": "int", "product_id": "int" } }``` |
+| 상품 선택 응답 | Main Service | App | product_selection_response | ```json { "type": "product_selection_response", "result": true, "error_code": "string", "data": { "order_id": "int", "product_id": "int", "bbox_number": "int" }, "message": "string" }``` |
+| 상품 선택 요청 (텍스트) | App | Main Service | product_selection_by_text | ```json { "type": "product_selection_by_text", "data": { "order_id": "int", "robot_id": "int", "speech": "string" } }``` |
+| 상품 선택 응답 (텍스트) | Main Service | App | product_selection_by_text_response | ```json { "type": "product_selection_by_text_response", "result": true, "error_code": "string", "data": { "bbox": "int", "product_id": "int" }, "message": "string" }``` |
+| 쇼핑 종료 요청 | App | Main Service | shopping_end | ```json { "type": "shopping_end", "data": { "user_id": "string", "order_id": "int" } }``` |
+| 쇼핑 종료 응답 | Main Service | App | shopping_end_response | ```json { "type": "shopping_end_response", "result": true, "error_code": "string", "data": { "order_id": "int", "total_items": "int", "total_price": "int" }, "message": "string" }``` |
+| 영상 스트림 시작 요청 | App | Main Service | video_stream_start | ```json { "type": "video_stream_start", "data": { "user_type": "string", "user_id": "string", "robot_id": "int", "camera_type": "string" } }``` |
+| 영상 스트림 시작 응답 | Main Service | App | video_stream_start_response | ```json { "type": "video_stream_start_response", "result": true, "error_code": "string", "data": {}, "message": "string" }``` |
+| 영상 스트림 중지 요청 | App | Main Service | video_stream_stop | ```json { "type": "video_stream_stop", "data": { "user_type": "string", "user_id": "string", "robot_id": "int" } }``` |
+| 영상 스트림 중지 응답 | Main Service | App | video_stream_stop_response | ```json { "type": "video_stream_stop_response", "result": true, "error_code": "string", "data": {}, "message": "string" }``` |
+| 재고 조회 요청 | App | Main Service | inventory_search | ```json { "type": "inventory_search", "data": { "product_id": "int|null", "barcode": "string|null", "name": "string|null", "quantity": ["int","int"]|null, "price": "int|null", "section_id": "int|null", "category": "string|null", "allergy_info_id": "int|null", "is_vegan_friendly": "boolean|null" } }``` |
+| 재고 조회 응답 | Main Service | App | inventory_search_response | ```json { "type": "inventory_search_response", "result": true, "error_code": "string", "data": { "products": [ { "product_id": "int", "barcode": "string", "name": "string", "quantity": "int", "price": "int", "section_id": "int", "category": "string", "allergy_info_id": "int", "is_vegan_friendly": "boolean" } ], "total_count": "int" }, "message": "string" }``` |
+| 재고 추가 요청 | App | Main Service | inventory_create | ```json { "type": "inventory_create", "data": { "product_id": "int", "barcode": "string", "name": "string", "quantity": "int", "price": "int", "section_id": "int", "category": "string", "allergy_info_id": "int", "is_vegan_friendly": "boolean" } }``` |
+| 재고 추가 응답 | Main Service | App | inventory_create_response | ```json { "type": "inventory_create_response", "result": true, "error_code": "string", "data": {}, "message": "string" }``` |
+| 재고 수정 요청 | App | Main Service | inventory_update | ```json { "type": "inventory_update", "data": { "product_id": "int", "barcode": "string", "name": "string", "quantity": "int", "price": "int", "section_id": "int", "category": "string", "allergy_info_id": "int", "is_vegan_friendly": "boolean" } }``` |
+| 재고 수정 응답 | Main Service | App | inventory_update_response | ```json { "type": "inventory_update_response", "result": true, "error_code": "string", "data": {}, "message": "string" }``` |
+| 재고 삭제 요청 | App | Main Service | inventory_delete | ```json { "type": "inventory_delete", "data": { "product_id": "int" } }``` |
+| 재고 삭제 응답 | Main Service | App | inventory_delete_response | ```json { "type": "inventory_delete_response", "result": true, "error_code": "string", "data": {}, "message": "string" }``` |
+| 작업 이력 조회 요청 | App | Main Service | robot_history_search | ```json { "type": "robot_history_search", "data": { "robot_history_id": "int|null", "robot_id": "int|null", "order_item_id": "int|null", "failure_reason": "string|null", "is_complete": "boolean|null", "active_duration": "int|null", "created_at": "string|null" } }``` |
+| 작업 이력 조회 응답 | Main Service | App | robot_history_search_response | ```json { "type": "robot_history_search_response", "result": true, "error_code": "string", "data": { "histories": [ { "robot_history_id": "int", "robot_id": "int", "order_item_id": "int|null", "failure_reason": "string|null", "is_complete": "boolean", "active_duration": "int", "created_at": "datetime" } ], "total_count": "int" }, "message": "string" }``` |
+| 로봇 상태 조회 요청 | App | Main Service | robot_status_request | ```json { "type": "robot_status_request", "data": { "robot_type": "string|null" } }``` |
+| 로봇 상태 조회 응답 | Main Service | App | robot_status_response | ```json { "type": "robot_status_response", "result": true, "error_code": "string", "data": { "robots": [ { "robot_id": "int", "type": "string", "status": "string", "detailed_status": "string", "reserved": "boolean", "active_order_id": "int|null", "battery_level": "float|null", "maintenance_mode": "boolean", "last_update": "string|null" } ], "total_count": "int" }, "message": "string" }``` |
+| 로봇 유지보수 모드 설정 요청 | App | Main Service | robot_maintenance_mode | ```json { "type": "robot_maintenance_mode", "data": { "robot_id": "int", "enabled": "boolean" } }``` |
+| 로봇 유지보수 모드 설정 응답 | Main Service | App | robot_maintenance_mode_response | ```json { "type": "robot_maintenance_mode_response", "result": true, "error_code": "string", "data": { "robot_id": "int", "maintenance_mode": "boolean" }, "message": "string" }``` |
+| 서비스 헬스체크 요청 | App | Main Service | health_check | ```json { "type": "health_check" }``` |
+| 서비스 헬스체크 응답 | Main Service | App | health_check_response | ```json { "type": "health_check_response", "result": true, "error_code": "string", "data": { "status": "string", "checks": { "database": "boolean", "ros2": "boolean", "robot_count": "int" } }, "message": "string" }``` |
+| 로봇 이동 알림 | Main Service | App | robot_moving_notification | ```json { "type": "robot_moving_notification", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int", "destination": "string" }, "message": "string" }``` |
+| 로봇 도착 알림 | Main Service | App | robot_arrived_notification | ```json { "type": "robot_arrived_notification", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int", "location_id": "int", "section_id": "int" }, "message": "string" }``` |
+| 상품 담기 완료 알림 | Main Service | App | picking_complete_notification | ```json { "type": "picking_complete_notification", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int" }, "message": "string" }``` |
+| 상품 선택 시작 알림 | Main Service | App | product_selection_start | ```json { "type": "product_selection_start", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int", "products": [ { "product_id": "int", "name": "string", "bbox_number": "int" } ] }, "message": "string" }``` |
+| 장바구니 담기 알림 | Main Service | App | cart_update_notification | ```json { "type": "cart_update_notification", "result": true, "error_code": "string", "data": { "order_id": "int", "robot_id": "int", "action": "string", "product": { "product_id": "int", "name": "string", "quantity": "int", "price": "int" }, "total_items": "int", "total_price": "int" }, "message": "string" }``` |
+| 작업 정보 알림 | Main Service | App | work_info_notification | ```json { "type": "work_info_notification", "result": true, "error_code": "string", "data": { "robot_id": "int", "destination": "string", "progress": "int", "active_duration": "int", "user_id": "string", "customer_name": "string", "customer_allergy_info_id": "int", "customer_is_vegan": "boolean" }, "message": "string" }``` |
+| 포장 정보 알림 | Main Service | App | packing_info_notification | ```json { "type": "packing_info_notification", "result": true, "error_code": "string", "data": { "order_status": "string", "product_id": "int", "product_name": "string", "product_price": "int", "product_quantity": "int" }, "message": "string" }``` |
+
+</details>
+
+<details>
+<summary> UDP 통신</summary>
+
+#### 통신규약
+| 항목 | 내용 |
+|------|------|
+| Port | 6000 |
+| Protocol | UDP |
+| Data Format | JSON (메타데이터) + Binary (이미지 데이터) |
+| Max Packet Size | 1,600 bytes (1,400 bytes data + 200 bytes header) |
+| Encoding | UTF-8 (JSON), Binary (Image) |
+| Image Format | JPEG |
+| Resolution | 640×480 |
+| Frame Delivery Type | Chunk-based Transmission (Partial Segmentation) |
+
+#### 패킷 구조
+[ JSON Header (≈200 bytes) ] + [ Binary Image Data (max 1,400 bytes) ]
+
+#### JSON Header 포맷
+```
+{
+  "type": "video_frame",
+  "robot_id": 1,
+  "frame_id": 12345,
+  "chunk_idx": 0,
+  "total_chunks": 50,
+  "data_size": 1400,
+  "timestamp": 1730000000000,
+  "width": 640,
+  "height": 480,
+  "format": "jpeg"
+}
+```
+#### 인터페이스 목록
+
+Main -> App
+
+| Function   | From  | To   | Message Type | 상세 메시지 포맷 | 비고 |
+|------------|-------|------|--------------|------------------|------|
+| 영상 송출 | Main Service | App | video_frame | {<br>  "type": "video_frame",<br>  "robot_id": 1,<br>  "frame_id": 12345,<br>  "chunk_idx": 0,<br>  "total_chunks": 50,<br>  "data_size": 1400,<br>  "timestamp": 1730000000000,<br>  "width": 640,<br>  "height": 480,<br>  "format": "jpeg"<br>}<br>+ Binary Data (max 1,400 bytes) | 640x480 JPEG 분할 전송 |
+
+Pic Vision -> Main
+
+| Function   | From       | To   | Message Type | 상세 메시지 포맷 | 비고 |
+|------------|------------|------|--------------|------------------|------|
+| 영상 송출 | Pic Vision | Main | video_frame  | {<br>  "type": "video_frame",<br>  "robot_id": 1,<br>  "frame_id": 12345,<br>  "chunk_idx": 0,<br>  "total_chunks": 50,<br>  "data_size": 1400,<br>  "timestamp": 1730000000000,<br>  "width": 640,<br>  "height": 480,<br>  "format": "jpeg"<br>}<br>+ Binary Data (max 1,400 bytes) | 640x480 JPEG 분할 전송 |
+
+
+</details>
+
+<details>
+<summary> HTTP 통신</summary>
+
+Service Name: Shopee LLM Service
+
+Clients: Shopee Main Service, Pickee Main Controller
+
+Port: 5001
+
+Protocol: HTTP (RESTful)
+
+
+#### 상태 코드
+
+| 코드 (status_code) | 요청 결과                          |
+|--------------------|------------------------------------|
+| 200                | 정상 요청, 데이터 응답 성공        |
+| 400                | 잘못된 요청 (Bad Request)          |
+| 401                | 정상 요청, 정보 없음 또는 응답 실패 |
+| 404                | 잘못된 요청 (Not Found)            |
+| 405                | 메소드가 리소스에서 허용되지 않음   |
+| 500                | 서버 내부 오류                      |
+| 503                | 서비스 불가                         |
+
+#### 인터페이스 목록
+
+| Function           | Endpoint              | Request                               | Response                                         |
+|--------------------|------------------------|----------------------------------------|--------------------------------------------------|
+| 상품 검색 쿼리 생성 | GET /llm/search_query | {<br>  "text": "사과 정보 알려줘"<br>} | {<br>  "sql_query": "name LIKE '%사과%'"<br>}     |
+| bbox 번호 추출     | GET /llm/bbox         | {<br>  "text": "2번 집어줘"<br>}       | {<br>  "bbox": 2<br>}                             |
+| 발화 의도 분석     | GET /llm/intent_detection | {<br>  "text": "피키야, XX로 이동해줘"<br>} | {<br>  "intent": "Move_place",<br>  "entities": {<br>    "place_name": "XX",<br>    "action": "move"<br>  }<br>} |
+
+
+</details>
+
+<details>
+<summary> ROS2 통신</summary>
+
+### Main <-> Pic Main
+
+🔹 Publish / Subscribe 메시지 (Message)
+
+| Function         | Topic                       | Message Type                                   | From     | To   | 상세 메시지 포맷 |
+|------------------|------------------------------|-------------------------------------------------|----------|------|------------------|
+| 이동 시작 알림     | /pickee/moving_status        | shopee_interfaces/msg/PickeeMoveStatus.msg      | Pic Main | Main | int32 robot_id<br>int32 order_id<br>int32 location_id |
+| 도착 보고         | /pickee/arrival_notice       | shopee_interfaces/msg/PickeeArrival.msg         | Pic Main | Main | int32 robot_id<br>int32 order_id<br>int32 location_id<br>int32 section_id  |
+| 상품 위치 인식 완료 | /pickee/product_detected     | shopee_interfaces/msg/PickeeProductDetection.msg | Pic Main | Main | int32 robot_id<br>int32 order_id<br>DetectedProduct[] products |
+| 장바구니 교체 완료 | /pickee/cart_handover_complete | shopee_interfaces/msg/PickeeCartHandover.msg    | Pic Main | Main | int32 robot_id<br>int32 order_id |
+| 로봇 상태 전송      | /pickee/robot_status         | shopee_interfaces/msg/PickeeRobotStatus.msg     | Pic Main | Main | int32 robot_id<br>string state<br>float32 battery_level<br>int32 current_order_id<br>float32 position_x<br>float32 position_y<br>float32 orientation_z |
+| 담기 완료 보고     | /pickee/product/selection_result | shopee_interfaces/msg/PickeeProductSelection.msg | Pic Main | Main | int32 robot_id<br>int32 order_id<br>int32 product_id<br>bool success<br>int32 quantity<br>string message |
+| 창고 물품 적재 완료 | /pickee/product/loaded       | shopee_interfaces/msg/PickeeProductLoaded.msg   | Pic Main | Main | int32 robot_id<br>int32 product_id<br>int32 quantity<br>bool success<br>string message |
+
+🔹 메시지 구조 상세 (DetectedProduct 등)
+
+DetectedProduct
+- int32 product_id
+- float32 confidence
+- BBox bbox
+- int32 bbox_number
+- DetectionInfo detection_info
+- Point3D position
+
+DetectionInfo
+- Point2D[] polygon
+- BBox bbox_coords
+
+Point2D
+- float32 x
+- float32 y
+
+BBox
+- int32 x1
+- int32 y1
+- int32 x2
+- int32 y2
+
+🔹 Service 호출 표
+
+| Function         | Service Name                         | Service Type                                          | From | To      | 상세 메시지 |
+|------------------|----------------------------------------|--------------------------------------------------------|------|---------|-------------|
+| 작업 시작 명령     | /pickee/workflow/start_task            | shopee_interfaces/srv/PickeeWorkflowStartTask.srv      | Main | Pic Main | **Request**<br>int32 robot_id<br>int32 order_id<br>string user_id<br>ProductLocation[] product_list<br>**Response**<br>bool success<br>string message |
+| 섹션 이동 명령     | /pickee/workflow/move_to_section       | shopee_interfaces/srv/PickeeWorkflowMoveToSection.srv  | Main | Pic Main | Request: robot_id, order_id, location_id, section_id<br>Response: success, message |
+| 상품 인식 명령     | /pickee/product/detect                 | shopee_interfaces/srv/PickeeProductDetect.srv          | Main | Pic Main | Request: robot_id, order_id, int32[] product_ids<br>Response: success, message |
+| 상품 담기 명령     | /pickee/product/process_selection      | shopee_interfaces/srv/PickeeProductProcessSelection.srv | Main | Pic Main | Request: robot_id, order_id, product_id, bbox_number<br>Response: success, message |
+| 쇼핑 종료 명령     | /pickee/workflow/end_shopping          | shopee_interfaces/srv/PickeeWorkflowEndShopping.srv     | Main | Pic Main | Request: robot_id, order_id<br>Response: success, message |
+| 포장대 이동 명령   | /pickee/workflow/move_to_packaging     | shopee_interfaces/srv/PickeeWorkflowMoveToPackaging.srv | Main | Pic Main | Request: robot_id, order_id, location_id<br>Response: success, message |
+| 복귀 명령         | /pickee/workflow/return_to_base        | shopee_interfaces/srv/PickeeWorkflowReturnToBase.srv    | Main | Pic Main | Request: robot_id, location_id<br>Response: success, message |
+| 직원으로 복귀 명령 | /pickee/workflow/return_to_staff       | shopee_interfaces/srv/PickeeWorkflowReturnToStaff.srv   | Main | Pic Main | Request: robot_id<br>Response: success, message |
+| 영상 송출 시작     | /pickee/video_stream/start             | shopee_interfaces/srv/PickeeMainVideoStreamStart.srv    | Main | Pic Main | Request: user_type, user_id, robot_id, camera_type<br>Response: success, message |
+| 영상 송출 중지     | /pickee/video_stream/stop              | shopee_interfaces/srv/PickeeMainVideoStreamStop.srv     | Main | Pic Main | Request: user_type, user_id, robot_id<br>Response: success, message |
+| 상품 위치 조회     | /main/get_product_location             | shopee_interfaces/srv/MainGetProductLocation.srv        | Pic Main | Main | Request: product_id<br>Response: success, warehouse_id, section_id, message |
+| 좌표 정보 조회     | /main/get_location_pose               | shopee_interfaces/srv/MainGetLocationPose.srv          | Pic Main | Main | Request: location_id<br>Response: Pose2D pose, success, message |
+| 창고 좌표 조회     | /main/get_warehouse_pose              | shopee_interfaces/srv/MainGetWarehousePose.srv         | Pic Main | Main | Request: warehouse_id<br>Response: Pose2D pose, success, message |
+| 섹션 좌표 조회     | /main/get_section_pose                | shopee_interfaces/srv/MainGetSectionPose.srv           | Pic Main | Main | Request: section_id<br>Response: Pose2D pose, success, message |
+
+Pose2D
+- float32 x
+- float32 y
+- float32 theta
+
+
+### Pic Main <-> Pic Vision
+
+🟦 1. 메시지(Message) 표
+
+| Function(기능) | Topic | Message Type | From | To | 메시지 필드 |
+|----------------|--------|---------------|-------|------|-------------|
+| 매대 상품 인식 완료 | /pickee/vision/detection_result | shopee_interfaces/msg/PickeeVisionDetection.msg | Pic Vision | Pic Main | int32 robot_id<br>int32 order_id<br>bool success<br>DetectedProduct[] products<br>string message |
+| 장바구니 상품 확인 완료 | /pickee/vision/cart_check_result | shopee_interfaces/msg/PickeeVisionCartCheck.msg | Pic Vision | Pic Main | int32 robot_id<br>int32 order_id<br>bool success<br>int32 product_id<br>bool found<br>int32 quantity<br>string message |
+| 장애물 감지 알림 | /pickee/vision/obstacle_detected | shopee_interfaces/msg/PickeeVisionObstacles.msg | Pic Vision | Pic Main | int32 robot_id<br>int32 order_id<br>Obstacle[] obstacles<br>string message |
+| 직원 위치 추종 정보 | /pickee/vision/staff_location | shopee_interfaces/msg/PickeeVisionStaffLocation.msg | Pic Vision | Pic Main | int32 robot_id<br>Point2D relative_position<br>float32 distance<br>bool is_tracking |
+| 직원 등록 결과 | /pickee/vision/register_staff_result | shopee_interfaces/msg/PickeeVisionStaffRegister.msg | Pic Vision | Pic Main | int32 robot_id<br>bool success<br>string message |
+
+🟦 1-1. 메시지 구조 상세
+
+🔸 DetectedProduct 구조
+
+DetectedProduct
+- int32 product_id
+- float32 confidence
+- BBox bbox
+- int32 bbox_number
+- DetectionInfo detection_info
+- Pose6D pose
+
+DetectionInfo
+- Point2D[] polygon
+- BBox bbox_coords
+
+🔸 Obstacle 구조
+
+Obstacle
+
+- string obstacle_type    # cart, box, product, shelf, person, other_robot, cart_moving
+- Point2D position        # (m)
+- float32 distance
+- float32 velocity
+- Vector2D direction
+- BBox bbox
+- float32 confidence
+
+🔸 공통 구조체
+
+Point2D: float32 x, float32 y
+
+Vector2D: float32 vx, float32 vy
+
+BBox: int32 x1, y1, x2, y2
+
+🟩 2. 서비스(Service) 표
+| Function(기능) | Service Name | Service Type | From | To | 요청/응답 |
+|----------------|---------------|-----------------------------|--------|--------|-----------|
+| 매대 상품 인식 요청 | /pickee/vision/detect_products | shopee_interfaces/srv/PickeeVisionDetectProducts.srv | Pic Main | Pic Vision | Request: robot_id, order_id, int32[] product_ids<br>Response: success, message |
+| 장바구니 특정 상품 확인 | /pickee/vision/check_product_in_cart | shopee_interfaces/srv/PickeeVisionCheckProductInCart.srv | Pic Main | Pic Vision | Request: robot_id, order_id, product_id<br>Response: success, message |
+| 장바구니 존재 확인 | /pickee/vision/check_cart_presence | shopee_interfaces/srv/PickeeVisionCheckCartPresence.srv | Pic Main | Pic Vision | Request: robot_id, order_id<br>Response: success, bool cart_present, float confidence, message |
+| 영상 송출 시작 | /pickee/vision/video_stream_start | shopee_interfaces/srv/PickeeVisionVideoStreamStart.srv | Pic Main | Pic Vision | Request: user_type, user_id, robot_id, camera_type<br>Response: success, message |
+| 영상 송출 중지 | /pickee/vision/video_stream_stop | shopee_interfaces/srv/PickeeVisionVideoStreamStop.srv | Pic Main | Pic Vision | Request: user_type, user_id, robot_id<br>Response: success, message |
+| 직원 등록 요청 | /pickee/vision/register_staff | shopee_interfaces/srv/PickeeVisionRegisterStaff.srv | Pic Main | Pic Vision | Request: robot_id<br>Response: accepted, message |
+| 직원 추종 제어 | /pickee/vision/track_staff | shopee_interfaces/srv/PickeeVisionTrackStaff.srv | Pic Main | Pic Vision | Request: robot_id, bool track<br>Response: success, message |
+| Vision 모드 변경 | /pickee/vision/set_mode | shopee_interfaces/srv/PickeeVisionSetMode.srv | Pic Main | Pic Vision | Request: robot_id, string mode<br>Response: success, message |
+| 음성 출력 요청 | /pickee/tts_request | shopee_interfaces/srv/PickeeTtsRequest.srv | Pic Vision | Pic Main | Request: robot_id, text_to_speak<br>Response: success, message |
+
+🔹 Vision Mode 종류
+```
+idle
+navigation
+register_staff
+detect_products
+track_staff
+```
+
+### Pic Main <-> Pic Arm
+
+#### 메시지(Message)
+
+#### 1. 자세 변경 상태 (`/pickee/arm/pose_status`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| pose_type | string | 자세 종류 (`shelf_view`, `cart_view`, `standby`) |
+| status | string | 상태 (`in_progress`, `completed`, `failed`) |
+| progress | float32 | 진행률 (0.0 ~ 1.0) |
+| message | string | 메시지 |
+
+#### 2. 픽업 상태 (`/pickee/arm/pick_status`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| product_id | int32 | 상품 ID |
+| arm_side | string | 팔 구분 (Pickee는 `""`) |
+| status | string | 상태 (`in_progress`, `completed`, `failed`) |
+| current_phase | string | 현재 단계 (`planning`, `approaching`, `grasping`, `lifting`, `done`) |
+| progress | float32 | 진행률 (0.0 ~ 1.0) |
+| message | string | 메시지 |
+
+#### 3. 담기 상태 (`/pickee/arm/place_status`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| product_id | int32 | 상품 ID |
+| arm_side | string | 팔 구분 (Pickee는 `""`) |
+| status | string | 상태 (`in_progress`, `completed`, `failed`) |
+| current_phase | string | 현재 단계 (`planning`, `moving`, `placing`, `releasing`, `done`) |
+| progress | float32 | 진행률 (0.0 ~ 1.0) |
+| message | string | 메시지 |
+
+---
+
+#### 서비스(Service)
+
+#### 1. 자세 변경 요청 (`/pickee/arm/move_to_pose`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | robot_id | int32 | 로봇 ID |
+|  | order_id | int32 | 주문 ID |
+|  | pose_type | string | 자세 종류 (`shelf_view`, `cart_view`, `standby`) |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+#### 2. 상품 확인 요청 (`/pickee/arm/check_product`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | bbox_number | int32 | 앱 UI용 바운딩 박스 번호 |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+#### 3. 상품 담기 요청 (`/pickee/arm/place_product`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | robot_id | int32 | 로봇 ID |
+|  | order_id | int32 | 주문 ID |
+|  | product_id | int32 | 상품 ID |
+|  | arm_side | string | 팔 구분 (Pickee는 `""`) |
+|  | pose | Pose6D | 6DOF 위치 |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+#### 4. Pose6D (`shopee_interfaces/msg/Pose6D`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| x | float32 | X 좌표 |
+| y | float32 | Y 좌표 |
+| z | float32 | Z 좌표 |
+| rx | float32 | 회전 X |
+| ry | float32 | 회전 Y |
+| rz | float32 | 회전 Z |
+
+
+### Pickee Mobile ROS Interface
+
+#### 메시지(Message)
+
+#### 1. 위치 업데이트 (`/pickee/mobile/pose`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| current_pose | Pose2D | 현재 위치 |
+| linear_velocity | float32 | 선속도 |
+| angular_velocity | float32 | 각속도 |
+| battery_level | float32 | 배터리 잔량 |
+| status | string | 상태 (`idle`, `moving`, `stopped`, `charging`, `error`) |
+
+#### 2. 도착 알림 (`/pickee/mobile/arrival`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| location_id | int32 | 도착 위치 ID |
+| final_pose | Pose2D | 최종 위치 |
+| position_error | Pose2D | 위치 오차 |
+| travel_time | float32 | 이동 시간 |
+| message | string | 메시지 |
+
+#### 3. 상태 알림 (`/pickee/mobile/status`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| status | string | 상태 |
+
+#### 4. 속도 제어 (`/pickee/mobile/speed_control`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| order_id | int32 | 주문 ID |
+| speed_mode | string | 속도 모드 |
+| target_speed | float32 | 목표 속도 |
+| obstacles | Obstacle[] | 장애물 정보 |
+| reason | string | 이유 |
+
+#### 5. 도킹 - 목적지 아르코 마커 정보 전달 (`/pickee/mobile/aruco_pose`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| aruco_id | int32 | ArUco 마커 ID |
+| x | float32 | X 좌표 |
+| y | float32 | Y 좌표 |
+| z | float32 | Z 좌표 |
+| roll | float32 | Roll |
+| pitch | float32 | Pitch |
+| yaw | float32 | Yaw |
+
+#### 6. 도킹 - 도킹 완료 알림 (`/pickee/mobile/docking_result`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| data | boolean | True: 성공, False: 실패 (수신 시 작업 종료) |
+
+#### 7. 사람 트래킹 (`/pickee/mobile/person_detection`)
+| 필드 | 타입 | 설명 |
+|-------|------|-----|
+| robot_id | int32 | 로봇 ID |
+| direction | string | 사람 방향 |
+
+---
+
+#### 서비스(Service)
+
+#### 1. 목적지 이동 명령 (`/pickee/mobile/move_to_location`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | robot_id | int32 | 로봇 ID |
+|  | order_id | int32 | 주문 ID |
+|  | location_id | int32 | 목적지 위치 ID |
+|  | target_pose | Pose2D | 목표 위치 |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+#### 2. 목적지 변경 (`/pickee/mobile/update_global_path`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | robot_id | int32 | 로봇 ID |
+|  | order_id | int32 | 주문 ID |
+|  | location_id | int32 | 목표 위치 ID |
+|  | target_pose | Pose2D | 목표 위치 |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+#### 3. 트래킹 모드 변경 (`/pickee/mobile/change_tracking_mode`)
+| 구분 | 필드 | 타입 | 설명 |
+|-------|------|------|-----|
+| Request | robot_id | int32 | 로봇 ID |
+|  | mode | string | 트래킹 모드 |
+| Response | success | bool | 요청 성공 여부 |
+|  | message | string | 메시지 |
+
+
+
+
+</details>
 
 ### GUI
 
+![]()
 
 
 # 03. 프로젝트 구현
