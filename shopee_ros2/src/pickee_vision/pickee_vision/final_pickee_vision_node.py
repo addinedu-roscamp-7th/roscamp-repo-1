@@ -46,50 +46,54 @@ product_dic = {
     16 : "pepero", 17 : "ohyes"
 }
 
-class ThreadedCamera: ###########추가###########
-    def __init__(self, src=0, node_logger=None): ###########추가###########
-        self.stream = cv2.VideoCapture(src) ###########추가###########
-        self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 640) ###########추가###########
-        self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) ###########추가###########
+
+# =================================================================
+# 실시간 카메라 이미지가 다른 작업에 의해 버퍼에 쌓여 딜레이 되는 것을 방지
+# 항상 최근 이미지를 AI 연산에 제공하기 위한 Thread 객체
+# =================================================================
+class ThreadedCamera:
+    def __init__(self, src=0, node_logger=None):
+        self.stream = cv2.VideoCapture(src)
+        self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 640) 
+        self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
-        if not self.stream.isOpened(): ###########추가###########
-            if node_logger: ###########추가###########
-                node_logger.error(f"Cannot open camera index {src}.") ###########추가###########
-            raise IOError(f"Cannot open camera {src}") ###########추가###########
+        if not self.stream.isOpened():
+            if node_logger:
+                node_logger.error(f"Cannot open camera index {src}.")
+            raise IOError(f"Cannot open camera {src}")
 
-        self.ret, self.frame = self.stream.read() ###########추가###########
-        self.running = True ###########추가###########
-        self.lock = threading.Lock() ###########추가###########
-        self.thread = threading.Thread(target=self.update, args=()) ###########추가###########
-        self.thread.daemon = True ###########추가###########
-        self.thread.start() ###########추가###########
+        self.ret, self.frame = self.stream.read()
+        self.running = True
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self.update, args=())
+        self.thread.daemon = True
+        self.thread.start()
 
-    def update(self): ###########추가###########
-        while self.running: ###########추가###########
-            ret, frame = self.stream.read() ###########추가###########
-            with self.lock: ###########추가###########
-                if ret: ###########추가###########
-                    self.frame = frame ###########추가###########
-            time.sleep(0.01) # Prevent busy-waiting ###########추가###########
+    def update(self):
+        while self.running:
+            ret, frame = self.stream.read()
+            with self.lock:
+                if ret:
+                    self.frame = frame
+            time.sleep(0.01) # Prevent busy-waiting
 
-    def read(self): ###########추가###########
-        with self.lock: ###########추가###########
-            return self.frame.copy() if self.frame is not None else None ###########추가###########
+    def read(self):
+        with self.lock:
+            return self.frame.copy() if self.frame is not None else None
 
-    def stop(self): ###########추가###########
-        self.running = False ###########추가###########
-        self.thread.join() ###########추가###########
-        self.stream.release() ###########추가###########
+    def stop(self):
+        self.running = False
+        self.thread.join()
+        self.stream.release()
 
-
+# =================================================================
+# pickee_vision의 Node
+# =================================================================
 class FinalPickeeVisionNode(Node):
     def __init__(self):
         super().__init__('final_pickee_vision_node')
         self.get_logger().info("Initializing Final Pickee Vision Node...")
 
-        # =================================================================
-        # 1. pickee_vision_node.py 기반 초기화
-        # =================================================================
         package_share_directory = get_package_share_directory('pickee_vision').replace(
                             'install/pickee_vision/share/pickee_vision', 
                             'src/pickee_vision/resource'
@@ -108,27 +112,16 @@ class FinalPickeeVisionNode(Node):
             self.get_logger().error(f"Failed to load base models: {e}")
             raise e
 
+        # --- 개별 로봇 파라미터 ---
         self.ROBOT_ID = 1
         self.streamer = UdpStreamer(host='192.168.0.154', port=6000, robot_id=self.ROBOT_ID)
         self.camera_type = ""
         
         # --- 카메라 초기화 ---
-        # self.arm_cam = cv2.VideoCapture(4)
-        self.arm_cam = ThreadedCamera(0, self.get_logger()) ###########추가###########
-        # if not self.arm_cam.isOpened():
-        #     self.get_logger().error("Cannot open camera index 4 (arm_cam).")
-        #     raise IOError("Cannot open camera 4")
-        # self.arm_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        # self.arm_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.arm_cam = ThreadedCamera(0, self.get_logger())
+        self.front_cam = ThreadedCamera(2, self.get_logger())
         
-        # self.front_cam = cv2.VideoCapture(6)
-        self.front_cam = ThreadedCamera(2, self.get_logger()) ###########추가###########
-        # if not self.front_cam.isOpened():
-        #     self.get_logger().error("Cannot open camera index 6 (front_cam).")
-        #     raise IOError("Cannot open camera 6")
-        # self.front_cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        # self.front_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        
+        # --- YOLO 학습 파라미터 ---
         self.last_detections = []
         self.results = None
 
@@ -152,10 +145,10 @@ class FinalPickeeVisionNode(Node):
         self.cnn_servoing_timer = None
         
         # --- PID 제어기 파라미터 및 변수 ---
-        self.KP = 0.4   # P 제어기 게인
+        self.KP = 0.5   # P 제어기 게인
         self.KI = 0.01 # I 제어기 게인
         self.KD = 0.03  # D 제어기 게인
-        self.CONVERGENCE_THRESHOLD = 10
+        self.CONVERGENCE_THRESHOLD = 3.5
         self.integral_error = np.zeros(6, dtype=np.float32) # I 제어를 위한 이전 에러
         self.previous_error = np.zeros(6, dtype=np.float32) # D 제어를 위한 이전 에러
         self.last_servoing_time = None
@@ -164,7 +157,7 @@ class FinalPickeeVisionNode(Node):
         # --- 모델 및 리소스 경로 ---
         cnn_model_path = os.path.join(package_share_directory, "20251112_total.pt")
         self.target_image_path_fish = os.path.join(package_share_directory, "target_fish.jpg")
-        self.target_image_path_eclipse = os.path.join(package_share_directory, "target_eclipse.jpg")
+        self.target_image_path_eclipse = os.path.join(package_share_directory, "T_E.jpg")
 
         # --- 역정규화 파라미터 ---
         self.pose_mean = np.array([-75.24822998046875, 140.6298370361328, 220.1119842529297, -179.412109375, 0.4675877094268799, 44.999176025390625], dtype=np.float32)
@@ -183,6 +176,7 @@ class FinalPickeeVisionNode(Node):
         self.transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((224, 224)), transforms.ToTensor()])
 
         # --- 목표 이미지 Pose 추론 ---
+        self.tar_cord = None
         # try:
         #     target_image = cv2.imread(target_image_path)
         #     norm_tar_cord = self.predict_pose(target_image)
@@ -191,8 +185,7 @@ class FinalPickeeVisionNode(Node):
         # except Exception as e:
         #     self.get_logger().error(f"Failed to predict target pose: {e}")
         #     raise e
-        self.tar_cord = None
-
+        
         # --- Arm 연동 ROS2 인터페이스 ---
         self.start_pick_srv = self.create_service(ArmPickProduct, '/pickee/arm/pick_product_gg', self.start_pick_sequence_callback)
         self.move_start_client = self.create_client(Trigger, '/pickee/arm/move_start')
@@ -211,26 +204,24 @@ class FinalPickeeVisionNode(Node):
     # 기존 pickee_vision_node.py 메소드들 (main_loop, draw_annotations 등)
     # =====================================================================
     def main_loop(self):
-        # ret_arm, arm_frame = self.arm_cam.read()
-        arm_frame = self.arm_cam.read() ###########추가###########
-        # ret_front, front_frame = self.front_cam.read()
-        front_frame = self.front_cam.read() ###########추가###########
+        arm_frame = self.arm_cam.read()
+        front_frame = self.front_cam.read()
         
         # if not ret_arm and not ret_front:
-        if arm_frame is None and front_frame is None: ###########추가###########
+        if arm_frame is None and front_frame is None:
             self.get_logger().warn('Failed to capture frame from both cameras.')
             return
         
         # 로컬 디스플레이: 상태에 따라 다른 프레임 표시
         if self.state == 'IDLE' or self.state == 'SHELF_VIEW_READY' or self.state == "WAITING_FOR_TOP_VIEW":
-            if arm_frame is not None: ###########추가###########
+            if arm_frame is not None:
                 annotated_frame = self.draw_annotations(arm_frame.copy(), self.last_detections)
                 cv2.imshow("Detection Result", annotated_frame)
         elif self.state == 'CNN_SERVOING':
             # cnn_servoing_loop에서 자체적으로 imshow 호출
             pass
         else: # 다른 상태일 때 기본 화면
-            if arm_frame is not None: ###########추가###########
+            if arm_frame is not None:
                 cv2.imshow("Detection Result", arm_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -239,10 +230,8 @@ class FinalPickeeVisionNode(Node):
             if rclpy.ok(): rclpy.get_current_context().shutdown()
 
         if self.streamer.is_running:
-            # if self.camera_type == "arm" and ret_arm: self.streamer.send_frame(arm_frame)
-            if self.camera_type == "arm" and arm_frame is not None: self.streamer.send_frame(arm_frame) ###########추가###########
-            # elif self.camera_type == "front" and ret_front: self.streamer.send_frame(front_frame)
-            elif self.camera_type == "front" and front_frame is not None: self.streamer.send_frame(front_frame) ###########추가###########
+            if self.camera_type == "arm" and arm_frame is not None: self.streamer.send_frame(arm_frame)
+            elif self.camera_type == "front" and front_frame is not None: self.streamer.send_frame(front_frame)
 
     def draw_annotations(self, frame, detections):
         if self.results is not None:
@@ -271,10 +260,8 @@ class FinalPickeeVisionNode(Node):
              self.get_logger().info(f'Detect products request received (Picking Sequence Mode).')
 
         # --- 공통 감지 로직 ---
-        # ret_arm, frame_arm = self.arm_cam.read()
-        frame_arm = self.arm_cam.read() ###########추가###########
-        # if not ret_arm:
-        if frame_arm is None: ###########추가###########
+        frame_arm = self.arm_cam.read()
+        if frame_arm is None:
             self.get_logger().error('Failed to capture frame for detection.')
             response.success = False
             response.message = "Failed to capture frame"
@@ -352,10 +339,8 @@ class FinalPickeeVisionNode(Node):
 
     def check_product_in_cart_callback(self, request, response):
         self.get_logger().info(f'Check product in cart for product_id: {request.product_id}')
-        # ret_arm, frame_arm = self.arm_cam.read()
-        frame_arm = self.arm_cam.read() ###########추가###########
-        # if not ret_arm:
-        if frame_arm is None: ###########추가###########
+        frame_arm = self.arm_cam.read()
+        if frame_arm is None:
             response.success = False; response.message = 'Failed to capture frame'; return response
 
         self.last_detections, _ = self.product_detector.detect(frame_arm)
@@ -375,10 +360,8 @@ class FinalPickeeVisionNode(Node):
     
     def check_cart_presence_callback(self, request, response):
         self.get_logger().info('Check cart presence request received.')
-        # ret_arm, frame_arm = self.arm_cam.read()
-        frame_arm = self.arm_cam.read() ###########추가###########
-        # if not ret_arm:
-        if frame_arm is None: ###########추가###########
+        frame_arm = self.arm_cam.read()
+        if frame_arm is None:
             response.success=False; response.cart_present=False; response.confidence=0.0; response.message="Failed to capture frame"; return response
 
         self.last_detections = []
@@ -477,10 +460,8 @@ class FinalPickeeVisionNode(Node):
 
     def cnn_servoing_loop(self):
         if self.state != 'CNN_SERVOING': return
-        # ret, frame = self.arm_cam.read()
-        frame = self.arm_cam.read() ###########추가###########
-        # if not ret or self.real_cur_cord is None: return
-        if frame is None or self.real_cur_cord is None: return ###########추가###########
+        frame = self.arm_cam.read()
+        if frame is None or self.real_cur_cord is None: return
 
         current_time = self.get_clock().now()
         if self.last_servoing_time is None:
@@ -494,12 +475,14 @@ class FinalPickeeVisionNode(Node):
         pose_err = cur_cord - self.real_cur_cord
         real_tar_cord = self.tar_cord - pose_err
         error = real_tar_cord - self.real_cur_cord
+        print(cur_cord)
+        print(self.real_cur_cord)
+        print(real_tar_cord)
         error_magnitude = np.linalg.norm(np.array([error[0], error[1], error[5]]))
         self.get_logger().info(f"CNN Visual Servoing... Error: {error_magnitude:.3f}")
 
         if self.streamer.is_running:
-            # if self.camera_type == "arm" and ret_arm: self.streamer.send_frame(arm_frame)
-            if self.camera_type == "arm" and frame is not None: self.streamer.send_frame(frame) ###########추가###########
+            if self.camera_type == "arm" and frame is not None: self.streamer.send_frame(frame)
            
         cv2.imshow("CNN Servoing", frame)
         cv2.waitKey(1)
@@ -534,16 +517,17 @@ class FinalPickeeVisionNode(Node):
 
             # PI 제어 (X, Y)
             PI_delta = proportional_term + integral_term
-            commanded_pose = self.real_cur_cord + PI_delta
+            # PI_delta = proportional_term
+            commanded_pose = self.real_cur_cord + PI_delta + derivative_term
             
             # PD 제어 (RZ - Yaw)
-            commanded_pose[5] = self.real_cur_cord[5] + proportional_term[5] + derivative_term[5]
+            # commanded_pose[5] = self.real_cur_cord[5] + proportional_term[5] + derivative_term[5]
             
             move_cmd = Pose6D()
             
             move_cmd.x, move_cmd.y, move_cmd.rz = float(commanded_pose[0]), float(commanded_pose[1]), float(commanded_pose[5])
             move_cmd.rx, move_cmd.ry, move_cmd.z = float(self.tar_cord[3]), float(self.tar_cord[4]), float(self.tar_cord[2])
-            
+            if move_cmd.y < 100: return
             self.move_publisher.publish(move_cmd)
             time.sleep(2.3)
 
@@ -567,10 +551,8 @@ class FinalPickeeVisionNode(Node):
     def destroy_node(self):
         self.get_logger().info("Shutting down node.")
         self.streamer.stop()
-        # if self.arm_cam.isOpened(): self.arm_cam.release()
-        self.arm_cam.stop() ###########추가###########
-        # if self.front_cam.isOpened(): self.front_cam.release()
-        self.front_cam.stop() ###########추가###########
+        self.arm_cam.stop()
+        self.front_cam.stop()
         cv2.destroyAllWindows()
         if self.cnn_servoing_timer: self.cnn_servoing_timer.cancel()
         super().destroy_node()
