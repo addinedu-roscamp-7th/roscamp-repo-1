@@ -300,7 +300,7 @@ SC-06-05: 임무 완료 확인
 
 ### ERD
 
-![]()
+![ERD](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/erd.png?raw=true)
 
 ### Interface Specification
 
@@ -580,186 +580,246 @@ track_staff
 
 #### 메시지(Message)
 
-#### 1. 자세 변경 상태 (`/pickee/arm/pose_status`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| pose_type | string | 자세 종류 (`shelf_view`, `cart_view`, `standby`) |
-| status | string | 상태 (`in_progress`, `completed`, `failed`) |
-| progress | float32 | 진행률 (0.0 ~ 1.0) |
-| message | string | 메시지 |
 
-#### 2. 픽업 상태 (`/pickee/arm/pick_status`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| product_id | int32 | 상품 ID |
-| arm_side | string | 팔 구분 (Pickee는 `""`) |
-| status | string | 상태 (`in_progress`, `completed`, `failed`) |
-| current_phase | string | 현재 단계 (`planning`, `approaching`, `grasping`, `lifting`, `done`) |
-| progress | float32 | 진행률 (0.0 ~ 1.0) |
-| message | string | 메시지 |
-
-#### 3. 담기 상태 (`/pickee/arm/place_status`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| product_id | int32 | 상품 ID |
-| arm_side | string | 팔 구분 (Pickee는 `""`) |
-| status | string | 상태 (`in_progress`, `completed`, `failed`) |
-| current_phase | string | 현재 단계 (`planning`, `moving`, `placing`, `releasing`, `done`) |
-| progress | float32 | 진행률 (0.0 ~ 1.0) |
-| message | string | 메시지 |
-
----
-
-#### 서비스(Service)
-
-#### 1. 자세 변경 요청 (`/pickee/arm/move_to_pose`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | robot_id | int32 | 로봇 ID |
-|  | order_id | int32 | 주문 ID |
-|  | pose_type | string | 자세 종류 (`shelf_view`, `cart_view`, `standby`) |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
-
-#### 2. 상품 확인 요청 (`/pickee/arm/check_product`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | bbox_number | int32 | 앱 UI용 바운딩 박스 번호 |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
-
-#### 3. 상품 담기 요청 (`/pickee/arm/place_product`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | robot_id | int32 | 로봇 ID |
-|  | order_id | int32 | 주문 ID |
-|  | product_id | int32 | 상품 ID |
-|  | arm_side | string | 팔 구분 (Pickee는 `""`) |
-|  | pose | Pose6D | 6DOF 위치 |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
-
-#### 4. Pose6D (`shopee_interfaces/msg/Pose6D`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| x | float32 | X 좌표 |
-| y | float32 | Y 좌표 |
-| z | float32 | Z 좌표 |
-| rx | float32 | 회전 X |
-| ry | float32 | 회전 Y |
-| rz | float32 | 회전 Z |
-
-
-### Pickee Mobile ROS Interface
+### Pic Main <-> Pic Mobile 
 
 #### 메시지(Message)
+| 기능         | 토픽명                        | 메시지 타입                                 | 송신 | 수신 | 주요 필드 및 설명 |
+|--------------|-------------------------------|---------------------------------------------|------|------|------------------|
+| 자세 변경 상태 | /pickee/arm/pose_status       | shopee_interfaces/msg/ArmPoseStatus.msg     | Pic Arm | Pic Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>string pose_type ("shelf_view", "cart_view", "standby")</li><li>string status ("in_progress", "completed", "failed")</li><li>float32 progress (0.0~1.0)</li><li>string message</li></ul> |
+| 픽업 상태    | /pickee/arm/pick_status        | shopee_interfaces/msg/ArmTaskStatus.msg     | Pic Arm | Pic Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>int32 product_id</li><li>string arm_side (Pickee는 "")</li><li>string status ("in_progress", "completed", "failed")</li><li>string current_phase ("planning", "approaching", "grasping", "lifting", "done")</li><li>float32 progress</li><li>string message</li></ul> |
+| 담기 상태    | /pickee/arm/place_status       | shopee_interfaces/msg/ArmTaskStatus.msg     | Pic Arm | Pic Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>int32 product_id</li><li>string arm_side (Pickee는 "")</li><li>string status ("in_progress", "completed", "failed")</li><li>string current_phase ("planning", "moving", "placing", "releasing", "done")</li><li>float32 progress</li><li>string message</li></ul> |
 
-#### 1. 위치 업데이트 (`/pickee/mobile/pose`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| current_pose | Pose2D | 현재 위치 |
-| linear_velocity | float32 | 선속도 |
-| angular_velocity | float32 | 각속도 |
-| battery_level | float32 | 배터리 잔량 |
-| status | string | 상태 (`idle`, `moving`, `stopped`, `charging`, `error`) |
+#### 서비스 (Service)
+| 기능           | 서비스명                        | 서비스 타입                                   | 송신 | 수신 | 요청(Request) 필드 | 응답(Response) 필드 | 비고 |
+|----------------|-------------------------------|-----------------------------------------------|------|------|-------------------|---------------------|------|
+| 자세 변경 요청 | /pickee/arm/move_to_pose      | shopee_interfaces/srv/ArmMoveToPose.srv       | Pic Main | Pic Arm | int32 robot_id<br>int32 order_id<br>string pose_type ("shelf_view", "cart_view", "standby") | bool success<br>string message |  |
+| 상품 확인 요청 | /pickee/arm/check_product     | shopee_interfaces/srv/ArmCheckBbox.srv        | Pic Main | Pic Arm | int32 bbox_number | bool success<br>string message |  |
+| 상품 담기 요청 | /pickee/arm/place_product     | shopee_interfaces/srv/ArmPlaceProduct.srv     | Pic Main | Pic Arm | int32 robot_id<br>int32 order_id<br>int32 product_id<br>string arm_side (Pickee는 "")<br>Pose6D pose | bool success<br>string message |  |
 
-#### 2. 도착 알림 (`/pickee/mobile/arrival`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| location_id | int32 | 도착 위치 ID |
-| final_pose | Pose2D | 최종 위치 |
-| position_error | Pose2D | 위치 오차 |
-| travel_time | float32 | 이동 시간 |
-| message | string | 메시지 |
+#### Pose6D 메시지 정의
 
-#### 3. 상태 알림 (`/pickee/mobile/status`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| status | string | 상태 |
+| 필드명 | 타입    | 설명         |
+|--------|---------|--------------|
+| x      | float32 | 위치 x       |
+| y      | float32 | 위치 y       |
+| z      | float32 | 위치 z       |
+| rx     | float32 | 회전 x       |
+| ry     | float32 | 회전 y       |
+| rz     | float32 | 회전 z       |
 
-#### 4. 속도 제어 (`/pickee/mobile/speed_control`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| order_id | int32 | 주문 ID |
-| speed_mode | string | 속도 모드 |
-| target_speed | float32 | 목표 속도 |
-| obstacles | Obstacle[] | 장애물 정보 |
-| reason | string | 이유 |
 
-#### 5. 도킹 - 목적지 아르코 마커 정보 전달 (`/pickee/mobile/aruco_pose`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| aruco_id | int32 | ArUco 마커 ID |
-| x | float32 | X 좌표 |
-| y | float32 | Y 좌표 |
-| z | float32 | Z 좌표 |
-| roll | float32 | Roll |
-| pitch | float32 | Pitch |
-| yaw | float32 | Yaw |
 
-#### 6. 도킹 - 도킹 완료 알림 (`/pickee/mobile/docking_result`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| data | boolean | True: 성공, False: 실패 (수신 시 작업 종료) |
+### Pic Main <-> Pic Mobile
 
-#### 7. 사람 트래킹 (`/pickee/mobile/person_detection`)
-| 필드 | 타입 | 설명 |
-|-------|------|-----|
-| robot_id | int32 | 로봇 ID |
-| direction | string | 사람 방향 |
+#### 메세지 (Message)
+| 기능                | 토픽명                        | 메시지 타입                                   | 송신       | 수신     | 주요 필드 및 설명 |
+|---------------------|-------------------------------|-----------------------------------------------|------------|----------|------------------|
+| 위치 업데이트       | /pickee/mobile/pose           | shopee_interfaces/msg/PickeeMobilePose.msg    | Pic Mobile | Pic Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>shopee_interfaces/msg/Pose2D current_pose</li><li>float32 linear_velocity</li><li>float32 angular_velocity</li><li>float32 battery_level</li><li>string status ('idle', 'moving', 'stopped', 'charging', 'error')</li></ul> |
+| 도착 알림           | /pickee/mobile/arrival        | shopee_interfaces/msg/PickeeMobileArrival.msg | Pic Mobile | Pic Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>int32 location_id</li><li>shopee_interfaces/msg/Pose2D final_pose</li><li>shopee_interfaces/msg/Pose2D position_error</li><li>float32 travel_time</li><li>string message</li></ul> |
+| 상태 알림           | /pickee/mobile/status         | shopee_interfaces/msg/PickeeMobileStatus      | Pic Mobile | Pic Main | <ul><li>int32 robot_id</li><li>string status</li></ul> |
+| 속도 제어           | /pickee/mobile/speed_control  | shopee_interfaces/msg/PickeeMobileSpeedControl.msg | Pic Main | Pic Mobile | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>string speed_mode</li><li>float32 target_speed</li><li>shopee_interfaces/msg/Obstacle[] obstacles</li><li>string reason</li></ul> |
+| 도킹 - 목적지 아르코 마커 정보 | /pickee/mobile/aruco_pose   | shopee_interfaces/msg/ArucoPose.msg           | Pic Main   | Pic Mobile | <ul><li>int32 aruco_id</li><li>float32 x</li><li>float32 y</li><li>float32 z</li><li>float32 roll</li><li>float32 pitch</li><li>float32 yaw</li></ul> |
+| 도킹 - 도킹 완료 알림 | /pickee/mobile/docking_result | std_msgs/msg/Bool                             | Pic Mobile | Pic Main | <ul><li>boolean data # True 성공, False 실패, 뭐든 수신하면 작업 종료</li></ul> |
+| 사람 트래킹         | /pickee/mobile/person_detection | shopee_interfaces/msg/PersonDetection.msg     | Pic Main   | Pic Mobile | <ul><li>int32 robot_id</li><li>string direction</li></ul> |
+
+
+#### 서비스 (Service)
+| 기능                | 서비스명                           | 서비스 타입                                         | 송신     | 수신     | 요청(Request) 필드 | 응답(Response) 필드 |
+|---------------------|------------------------------------|-----------------------------------------------------|----------|----------|-------------------|---------------------|
+| 목적지 이동 명령    | /pickee/mobile/move_to_location    | shopee_interfaces/srv/PickeeMobileMoveToLocation.srv | Pic Main | Pic Mobile | int32 robot_id<br>int32 order_id<br>int32 location_id<br>shopee_interfaces/msg/Pose2D target_pose | bool success<br>string message |
+| 목적지 변경         | /pickee/mobile/update_global_path  | shopee_interfaces/srv/PickeeMobileUpdateGlobalPath.srv | Pic Main | Pic Mobile | int32 robot_id<br>int32 order_id<br>int32 location_id<br>shopee_interfaces/msg/Pose2D target_pose | bool success<br>string message |
+| 트래킹 모드 변경    | /pickee/mobile/change_tracking_mode | shopee_interfaces/srv/ChangeTrackingMode.srv         | Pic Main | Pic Mobile | int32 robot_id<br>string mode | bool success<br>string message |
+
+#### 메시지 타입 참고
+```
+- **shopee_interfaces/msg/Pose2D**
+    - float32 x
+    - float32 y
+    - float32 theta
+
+- **shopee_interfaces/msg/Obstacle**
+    - (InterfaceSpecification 문서 참고)
+
+- **shopee_interfaces/msg/ArucoPose**
+    - int32 aruco_id
+    - float32 x, y, z
+    - float32 roll, pitch, yaw
+
+- **shopee_interfaces/msg/PersonDetection**
+    - int32 robot_id
+    - string direction
+```
+
+### Main <-> Pac Main
+
+#### 메세지 (Message)
+| 기능                | 토픽명                          | 메시지 타입                                   | 송신     | 수신   | 주요 필드 및 설명 |
+|---------------------|---------------------------------|-----------------------------------------------|----------|--------|------------------|
+| 포장 완료 알림      | /packee/packing_complete        | shopee_interfaces/msg/PackeePackingComplete.msg | Pac Main | Main   | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>bool success</li><li>int32 packed_items</li><li>string message</li></ul> |
+| 로봇 상태 전송      | /packee/robot_status            | shopee_interfaces/msg/PackeeRobotStatus.msg     | Pac Main | Main   | <ul><li>int32 robot_id</li><li>string state</li><li>int32 current_order_id</li><li>int32 items_in_cart</li></ul> |
+| 작업 가능 확인 완료 | /packee/availability_result     | shopee_interfaces/msg/PackeeAvailability.msg    | Pac Main | Main   | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>bool available</li><li>bool cart_detected</li><li>string message</li></ul><br>available: 로봇 상태 기준<br>cart_detected: 비전 기반 감지 결과 |
+
+#### 서비스 (Service)
+
+| 기능                | 서비스명                              | 서비스 타입                                         | 송신   | 수신     | 요청(Request) 필드 | 응답(Response) 필드 |
+|---------------------|---------------------------------------|-----------------------------------------------------|--------|----------|-------------------|---------------------|
+| 작업 가능 확인 요청 | /packee/packing/check_availability    | shopee_interfaces/srv/PackeePackingCheckAvailability.srv | Main   | Pac Main | int32 robot_id<br>int32 order_id | bool success<br>string message |
+| 포장 시작 명령      | /packee/packing/start                 | shopee_interfaces/srv/PackeePackingStart.srv        | Main   | Pac Main | int32 robot_id<br>int32 order_id<br>shopee_interfaces/ProductInfo[] products | int32 box_id<br>bool success<br>string message |
+
+#### ProductInfo 메시지 정의
+
+| 필드명     | 타입    | 설명         |
+|------------|---------|--------------|
+| product_id | int32   | 상품 ID      |
+| quantity   | int32   | 수량         |
+| length     | int32   | 길이(mm)     |
+| width      | int32   | 폭(mm)       |
+| height     | int32   | 높이(mm)     |
+| weight     | int32   | 무게(g)      |
+| fragile    | bool    | 파손주의 여부 |
+
+
+### Pac Main <-> Pac Vision
+
+#### 서비스 (Service)
+
+| 기능                      | 서비스명                                    | 서비스 타입                                         | 송신     | 수신      | 요청(Request) 필드 | 응답(Response) 필드 |
+|---------------------------|---------------------------------------------|-----------------------------------------------------|----------|-----------|-------------------|---------------------|
+| 장바구니 유무 확인        | /packee/vision/check_cart_presence          | shopee_interfaces/srv/VisionCheckCartPresence.srv   | Pac Main | Pac Vision | int32 robot_id<br>int32 order_id | bool success<br>bool cart_present<br>float32 confidence<br>string message |
+| 장바구니 내 상품 위치 확인 | /packee/vision/detect_products_in_cart      | shopee_interfaces/srv/PackeeVisionDetectProductsInCart.srv | Pac Main | Pac Vision | int32 robot_id<br>int32 order_id<br>int32[] expected_product_ids | bool success<br>shopee_interfaces/msg/DetectedProduct[] products<br>int32 total_detected<br>string message |
+| 포장 완료 확인           | /packee/vision/verify_packing_complete      | shopee_interfaces/srv/PackeeVisionVerifyPackingComplete.srv | Pac Main | Pac Vision | int32 robot_id<br>int32 order_id | bool cart_empty<br>int32 remaining_items<br>int32[] remaining_product_ids<br>string message |
+| bpp 알고리즘 시작        | /packee/vision/bpp_start                    | shopee_interfaces/srv/PackeeVisionBppStart          | Pac Main | Pac Vision | int32 robot_id<br>int32 order_id<br>shopee_interfaces/ProductInfo[] products | bool success<br>string message |
+| bpp 알고리즘 완료        | /packee/vision/bpp_complete                 | shopee_interfaces/srv/PackeeMainStartMTC            | Pac Vision | Pac Main | int32 robot_id<br>int32 order_id<br>shopee_interfaces/Sequence[] sequences | bool success<br>string message |
 
 ---
 
-#### 서비스(Service)
+#### 주요 메시지 타입 정의
 
-#### 1. 목적지 이동 명령 (`/pickee/mobile/move_to_location`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | robot_id | int32 | 로봇 ID |
-|  | order_id | int32 | 주문 ID |
-|  | location_id | int32 | 목적지 위치 ID |
-|  | target_pose | Pose2D | 목표 위치 |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
+#### DetectedProduct
 
-#### 2. 목적지 변경 (`/pickee/mobile/update_global_path`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | robot_id | int32 | 로봇 ID |
-|  | order_id | int32 | 주문 ID |
-|  | location_id | int32 | 목표 위치 ID |
-|  | target_pose | Pose2D | 목표 위치 |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
+| 필드명         | 타입                                   | 설명                        |
+|----------------|----------------------------------------|-----------------------------|
+| product_id     | int32                                  | 상품 ID                     |
+| confidence     | float32                                | 감지 신뢰도 (0.0~1.0)       |
+| bbox           | shopee_interfaces/BBox                 | Bounding Box                |
+| bbox_number    | int32                                  | BBox 번호 (앱 UI 선택용)    |
+| detection_info | shopee_interfaces/DetectionInfo        | 다각형 영역 정보            |
+| pose           | shopee_interfaces/Pose6D               | 6D Pose                     |
 
-#### 3. 트래킹 모드 변경 (`/pickee/mobile/change_tracking_mode`)
-| 구분 | 필드 | 타입 | 설명 |
-|-------|------|------|-----|
-| Request | robot_id | int32 | 로봇 ID |
-|  | mode | string | 트래킹 모드 |
-| Response | success | bool | 요청 성공 여부 |
-|  | message | string | 메시지 |
+#### BBox
+
+| 필드명 | 타입   | 설명      |
+|--------|--------|-----------|
+| x1     | int32  | 좌상단 x  |
+| y1     | int32  | 좌상단 y  |
+| x2     | int32  | 우하단 x  |
+| y2     | int32  | 우하단 y  |
 
 
+### Pac Main <-> Pac Arm
 
+#### 메세지 (Message)
+| 기능         | 토픽명                        | 메시지 타입                                 | 송신    | 수신    | 주요 필드 및 설명 |
+|--------------|-------------------------------|---------------------------------------------|---------|---------|------------------|
+| 자세 변경 상태 | /packee/arm/pose_status       | shopee_interfaces/msg/ArmPoseStatus.msg     | Pac Arm | Pac Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>string pose_type</li><li>string status ("in_progress", "completed", "failed")</li><li>float32 progress</li><li>string message</li></ul> |
+| 픽업 상태    | /packee/arm/pick_status        | shopee_interfaces/msg/ArmTaskStatus.msg     | Pac Arm | Pac Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>int32 product_id</li><li>string arm_side ("left", "right")</li><li>string status ("in_progress", "completed", "failed")</li><li>string current_phase ("planning", "approaching", "grasping", "lifting", "done")</li><li>float32 progress</li><li>string message</li></ul> |
+| 담기 상태    | /packee/arm/place_status       | shopee_interfaces/msg/ArmTaskStatus.msg     | Pac Arm | Pac Main | <ul><li>int32 robot_id</li><li>int32 order_id</li><li>int32 product_id</li><li>string arm_side ("left", "right")</li><li>string status ("in_progress", "completed", "failed")</li><li>string current_phase ("planning", "approaching", "grasping", "lifting", "done")</li><li>float32 progress</li><li>string message</li></ul> |
+
+#### 서비스 (Service)
+| 기능           | 서비스명                        | 서비스 타입                                   | 송신    | 수신    | 요청(Request) 필드 | 응답(Response) 필드 | 비고 |
+|----------------|-------------------------------|-----------------------------------------------|---------|---------|-------------------|---------------------|------|
+| 자세 변경 명령 | /packee/arm/move_to_pose      | shopee_interfaces/srv/ArmMoveToPose.srv       | Pac Main | Pac Arm | int32 robot_id<br>int32 order_id<br>string pose_type ("cart_view", "standby") | bool success<br>string message |  |
+| 상품 픽업 명령 | /packee/arm/pick_product      | shopee_interfaces/srv/ArmPickProduct.srv      | Pac Main | Pac Arm | int32 robot_id<br>int32 order_id<br>string arm_side ("left", "right")<br>shopee_interfaces/msg/DetectedProduct[] products | bool success<br>string message |  |
+| 상품 담기 명령 | /packee/arm/place_product     | shopee_interfaces/srv/ArmPlaceProduct.srv     | Pac Main | Pac Arm | int32 robot_id<br>int32 order_id<br>int32 product_id<br>string arm_side ("left", "right")<br>shopee_interfaces/msg/Pose6D pose | bool success<br>string message |  |
+| MTC 시작      | /packee/mtc/startmtc          | shopee_interfaces/srv/PackeeMainStartMTC      | Pac Main | Pac Arm | int32 robot_id<br>int32 order_id<br>shopee_interfaces/Sequence[] sequences | bool success<br>string message |  |
+| MTC 완료      | /packee/mtc/finish            | shopee_interfaces/srv/PackeeArmPackingComplete | Pac Arm | Pac Main | int32 robot_id<br>int32 order_id<br>shopee_interfaces/Sequence[] sequences<br>bool success<br>string message | bool success<br>string message |  |
+
+#### 주요 메시지 타입 정의
+
+##### DetectedProduct
+
+| 필드명         | 타입                                   | 설명                        |
+|----------------|----------------------------------------|-----------------------------|
+| product_id     | int32                                  | 상품 ID                     |
+| bbox_number    | int32                                  | BBox 번호                   |
+| detection_info | DetectionInfo                          | 다각형 영역 정보            |
+| bbox           | BBox                                   | Bounding Box                |
+| confidence     | float32                                | 감지 신뢰도 (0.0~1.0)       |
+| pose           | Pose6D                                 | 6D Pose                     |
+
+##### DetectionInfo
+
+| 필드명   | 타입                | 설명         |
+|----------|---------------------|--------------|
+| polygon  | Point2D[]           | 다각형 좌표  |
+| bbox_coords | BBox              | BBox 좌표    |
+
+##### Point2D
+
+| 필드명 | 타입    | 설명      |
+|--------|---------|-----------|
+| x      | float32 | x 좌표    |
+| y      | float32 | y 좌표    |
+
+##### BBox
+
+| 필드명 | 타입   | 설명      |
+|--------|--------|-----------|
+| x1     | int32  | 좌상단 x  |
+| y1     | int32  | 좌상단 y  |
+| x2     | int32  | 우하단 x  |
+| y2     | int32  | 우하단 y  |
+
+##### Pose6D
+
+| 필드명 | 타입    | 설명      |
+|--------|---------|-----------|
+| x      | float32 | 위치 x    |
+| y      | float32 | 위치 y    |
+| z      | float32 | 위치 z    |
+| rx     | float32 | 회전 x    |
+| ry     | float32 | 회전 y    |
+| rz     | float32 | 회전 z    |
+
+##### Sequence
+
+| 필드명 | 타입     | 설명         |
+|--------|----------|--------------|
+| seq    | int32    | 시퀀스 번호  |
+| id     | int32    | ID           |
+| x      | float64  | 위치 x       |
+| y      | float64  | 위치 y       |
+| z      | float64  | 위치 z       |
+| rx     | float64  | 회전 x       |
+| ry     | float64  | 회전 y       |
+| rz     | float64  | 회전 z       |
+
+
+### Pac Arm <-> Pac Vision
+
+#### 서비스 (Service)
+
+| 기능             | 서비스명                   | 서비스 타입                                 | 송신    | 수신      | 요청(Request) 필드 | 응답(Response) 필드 |
+|------------------|---------------------------|---------------------------------------------|---------|-----------|-------------------|---------------------|
+| MTC Vision 전달  | /packee/picking/ibvs      | shopee_interfaces/srv/ArmPickProduct.srv    | Pac Arm | Pac Vision | int32 robot_id<br>int32 order_id<br>int32 product_id<br>string arm_side (Packee: 'left'/'right', Pickee: '')<br>shopee_interfaces/Pose6D pose | bool success<br>string message |
+
+#### Pose6D 메시지 정의
+
+| 필드명 | 타입    | 설명      |
+|--------|---------|-----------|
+| x      | float32 | 위치 x    |
+| y      | float32 | 위치 y    |
+| z      | float32 | 위치 z    |
+| rx     | float32 | 회전 x    |
+| ry     | float32 | 회전 y    |
+| rz     | float32 | 회전 z    |
 
 </details>
 
 ### GUI
 
-![]()
+![GUI](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/dev/assets/images/gui.png?raw=true)
 
 
 # 03. 프로젝트 구현
