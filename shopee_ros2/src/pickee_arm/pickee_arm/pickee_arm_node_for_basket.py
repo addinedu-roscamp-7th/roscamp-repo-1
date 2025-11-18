@@ -19,6 +19,7 @@ class PickeeArmNode(Node):
         self.arm = None
         self.basket_item_count = 0
         self.bbox = 0
+        self.grep_product_id = 0
 
         # 실시간 시각 서보 제어(Visual Servoing) 활성화 여부를 나타내는 상태 플래그
         self.visual_servoing_active = True # for test
@@ -26,7 +27,7 @@ class PickeeArmNode(Node):
         try:
             self.arm = ArmControl(self.get_logger())
             self.arm.control_gripper(100)
-            self.arm.move_to_joints(arm_poses.STANDBY_POSE)
+            self.arm.move_to_joints(arm_poses.LYING_DOWN_POSE)
             time.sleep(2)
             #self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE) #for_test
         except Exception as e:
@@ -42,7 +43,7 @@ Shutting down node.")
 
         # 서비스 서버 생성
         self.move_to_pose_srv = self.create_service(ArmMoveToPose,
-        '/pickee/arm/move_to_pose', self.move_to_pose_callback)
+        '/pickee/arm/move_to_pose_gg', self.move_to_pose_callback)
         # (main -> arm) Bbox_number전달 
         self.check_product_srv = self.create_service(ArmCheckBbox,
         '/pickee/arm/check_product', self.check_product_callback)
@@ -171,7 +172,8 @@ to {request.pose_type}")
             self.arm.control_gripper(100)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
             time.sleep(2)
-            self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE)
+            # self.arm.move_to_joints(arm_poses.CHECK_SHELF_POSE)
+            self.arm.move_to_coords(arm_poses.CHECK_SHELF_POSE_COORDS)
             time.sleep(1)
             while self.arm.is_moving():
                 time.sleep(0.1)
@@ -221,6 +223,7 @@ to {request.pose_type}")
             response.success = False
             response.message = f"Fkiled during check_product process: {e}"
             self.get_logger().error(response.message)
+            
         
         return response
 
@@ -233,6 +236,14 @@ to {request.pose_type}")
             self.servo_callback,
             10)
 
+        pub = self.pick_status_pub
+        product_id = 12
+        request = ArmTaskStatus()
+        request.robot_id = 1
+        request.order_id = 1  # Dummy request object
+        # request = type('obj', (object,), {'robot_id': 1, 'order_id': 1})()  # Dummy request object
+        self._publish_task_status(pub, request, product_id, "in_progress",
+        "starting", 0.05, "Starting pick sequence")
 
         self.get_logger().info(f'Pick product request received. Activating Visual \
 Servoing.')
@@ -242,6 +253,7 @@ Servoing.')
         try:
             temp_list = self.arm.get_coords()
             temp_list[2] = 150
+            temp_list[1] += 20
             self.arm.move_to_coords(temp_list)
             self.get_logger().info("Reached pre-pick pose. Waiting for \
 /pickee/arm/move_servo commands...")
@@ -249,10 +261,14 @@ Servoing.')
             response.message = "Visual servoing for pick-up activated."
             time.sleep(0.5)
             self.arm.control_gripper(0)
+            self._publish_task_status(pub, request, product_id, "completed", "done"
+            , 1.0, response.message)
         except Exception as e:
             self.get_logger().error(f"Failed to move to pre-pick pose: {e}")
             response.success = False
             response.message = str(e)
+            self._publish_task_status(pub, request, product_id, "failed", "error",
+            0.5, response.message)
 
         return response
 
@@ -276,7 +292,7 @@ received.')
         basket_place_pose = getattr(arm_poses, f"BASKET_PLACE_POSE_{self.basket_item_count}")
 
         try:
-            self.arm.move_to_joints(arm_poses.TOP_VIEW_POSE_GRID2)
+            self.arm.move_to_joints(arm_poses.PRE_PICK_1_POSE)
             time.sleep(2)
             self.arm.move_to_joints(arm_poses.STANDBY_POSE)
             time.sleep(2)
