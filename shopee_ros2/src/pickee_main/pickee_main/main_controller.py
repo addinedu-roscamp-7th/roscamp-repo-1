@@ -16,6 +16,7 @@ from pickee_main.states import (
     FollowingStaffState,
     RegisteringStaffState,
     MovingToPackingState,
+    PickingProductState,
     MovingToStandbyState
 )
 
@@ -50,7 +51,7 @@ from shopee_interfaces.msg import (
 from shopee_interfaces.srv import (
     PickeeMobileMoveToLocation,
     PickeeMobileUpdateGlobalPath,
-    ArmMoveToPose,
+    # ArmMoveToPose,
     ArmCheckBbox,
     ArmPickProduct,
     ArmPlaceProduct,
@@ -143,6 +144,7 @@ class PickeeMainController(Node):
         self.current_orientation_z = 0.0
         self.current_order_id = 0
         self.current_bbox_number = 0
+        self.current_product_id = 0
 
         # 자세 변경 관련 상태 변수들
         self.arm_pose_in_progress = False
@@ -179,6 +181,13 @@ class PickeeMainController(Node):
             PickeeMobileArrival,
             '/pickee/mobile/arrival',
             self.mobile_arrival_callback,
+            10
+        )
+        
+        self.mobile_aruco_arrival_sub = self.create_subscription(
+            PickeeMobileArrival,
+            '/pickee/mobile/aruco_arrival',
+            self.mobile_aruco_arrival_callback,
             10
         )
         
@@ -261,10 +270,10 @@ class PickeeMainController(Node):
         )
         
         # Arm 서비스 클라이언트
-        self.arm_move_to_pose_client = self.create_client(
-            ArmMoveToPose,
-            '/pickee/arm/move_to_pose'
-        )
+        # self.arm_move_to_pose_client = self.create_client(
+        #     ArmMoveToPose,
+        #     '/pickee/arm/move_to_pose'
+        # )
         
         self.arm_check_product_client = self.create_client(
             ArmCheckBbox,
@@ -514,6 +523,21 @@ class PickeeMainController(Node):
         self.arrival_received = True
         self.arrived_location_id = msg.location_id
 
+    def mobile_aruco_arrival_callback(self, msg):
+        '''
+        Mobile ArUco 도착 알림 콜백
+        
+        docs 인터페이스 명세 반영 (Pic_Main_vs_Pic_Mobile.md):
+        - Mobile에서 ArUco 마커 기반 도착 시 자동으로 알림 전송
+        - 중앙집중식 설계로 Mobile이 모든 경로 계획/실행 담당
+        '''
+        self.get_logger().info(f'📍 Mobile ArUco 도착 알림: robot_id={msg.robot_id}, location_id={msg.location_id}')
+        self.get_logger().info(f'🎯 → ArUco 마커 기반 목적지 도달 완료 (Mobile 자체 경로 계획/실행)')
+        
+        # 상태 기계에 ArUco 도착 이벤트 전달
+        self.arrival_received = True
+        self.aruco_arrived_location_id = msg.location_id
+
     def mobile_pose_callback(self, msg):
         '''
         Mobile 위치 업데이트 콜백
@@ -704,14 +728,20 @@ class PickeeMainController(Node):
         
         if not self.mobile_move_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
             self.get_logger().error('Mobile move service not available')
+            self.current_mobile_status = 'idle'
             return False
         
         try:
             future = self.mobile_move_client.call_async(request)
             response = await future
+            if response.success:
+                self.current_mobile_status = 'moving'
+            else:
+                self.current_mobile_status = 'idle'
             return response.success
         except Exception as e:
             self.get_logger().error(f'Mobile move service call failed: {str(e)}')
+            self.current_mobile_status = 'idle'
             return False
 
     async def call_mobile_update_global_path(self, location_id, global_path):
@@ -742,24 +772,24 @@ class PickeeMainController(Node):
             self.get_logger().error(f'Mobile update global path service call failed: {str(e)}')
             return False
 
-    async def call_arm_move_to_pose(self, pose_type):
-        # Arm에 자세 변경 명령
-        request = ArmMoveToPose.Request()
-        request.robot_id = self.robot_id
-        request.order_id = self.current_order_id
-        request.pose_type = pose_type
+    # async def call_arm_move_to_pose(self, pose_type):
+    #     # Arm에 자세 변경 명령
+    #     request = ArmMoveToPose.Request()
+    #     request.robot_id = self.robot_id
+    #     request.order_id = self.current_order_id
+    #     request.pose_type = pose_type
         
-        if not self.arm_move_to_pose_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
-            self.get_logger().error('Arm move to pose service not available')
-            return False
+    #     if not self.arm_move_to_pose_client.wait_for_service(timeout_sec=self.get_parameter('component_service_timeout').get_parameter_value().double_value):
+    #         self.get_logger().error('Arm move to pose service not available')
+    #         return False
         
-        try:
-            future = self.arm_move_to_pose_client.call_async(request)
-            response = await future
-            return response.success
-        except Exception as e:
-            self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
-            return False
+    #     try:
+    #         future = self.arm_move_to_pose_client.call_async(request)
+    #         response = await future
+    #         return response.success
+    #     except Exception as e:
+    #         self.get_logger().error(f'Arm move to pose service call failed: {str(e)}')
+    #         return False
 
     async def call_arm_check_product(self, bbox_number):
         # Arm에 상품 픽업 명령
@@ -774,7 +804,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_check_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm check product service call failed: {str(e)}')
             return False
@@ -795,7 +825,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_pick_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm pick product service call failed: {str(e)}')
             return False
@@ -814,7 +844,7 @@ class PickeeMainController(Node):
         try:
             future = self.arm_place_product_client.call_async(request)
             response = await future
-            return response.accepted
+            return response.success
         except Exception as e:
             self.get_logger().error(f'Arm place product service call failed: {str(e)}')
             return False
@@ -1020,7 +1050,7 @@ class PickeeMainController(Node):
     #     self.aruco_pose_pub.publish(msg)
     #     print(f'Aruco pose 발행: id={marker_id}, position=({tvec[0]:.2f}, {tvec[1]:.2f}, {tvec[2]:.2f})')
 
-    def publish_arrival_notice(self, location_id, section_id=0):
+    def publish_arrival_notice(self, location_id, section_id=7):
         # 목적지 도착 알림 발행
         msg = PickeeArrival()
         msg.robot_id = self.robot_id
@@ -1146,9 +1176,11 @@ class PickeeMainController(Node):
             future = self.get_location_pose_client.call_async(request)
             response = await future
             if response.success:
+                self.current_mobile_status = 'moving'
                 return response.pose
             return None
         except Exception as e:
+            self.current_mobile_status = 'idle'
             self.get_logger().error(f'Get location pose service call failed: {str(e)}')
             return None
 
@@ -1227,7 +1259,8 @@ class PickeeMainController(Node):
         # MOVING_TO_SHELF 상태로 전환
         new_state = MovingToShelfState(self)
         self.state_machine.transition_to(new_state)
-        
+        self.current_mobile_status = 'moving'
+
         response.success = True
         response.message = 'Move to section command accepted'
         return response
@@ -1269,7 +1302,11 @@ class PickeeMainController(Node):
         
         # 상태 기계에 상품 선택 이벤트 전달
         self.selection_request = request
+        self.current_product_id = request.product_id
         self.current_bbox_number = request.bbox_number
+        
+        new_state = PickingProductState(self)
+        self.state_machine.transition_to(new_state)
         
         response.success = True
         response.message = 'Product selection processing started'

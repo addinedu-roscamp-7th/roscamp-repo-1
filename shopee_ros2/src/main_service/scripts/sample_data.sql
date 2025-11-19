@@ -44,26 +44,26 @@ INSERT INTO location (location_name, location_x, location_y, location_theta, aru
 ('SHELF_B', 20.0, 30.0, 3.14, 102),  -- ID: 5 (Shelf B)
 ('SHELF_C', 25.0, 35.0, 0.0, 103);   -- ID: 6 (Shelf C)
 
--- Section Locations (Shelf A)
+-- Section Locations (Shelf A : 기성품)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_A_1', -1.59, 1.47, 0.0, 201),   -- ID: 7 (Section A-1: 과일)
-('SECTION_A_2', -1.59, 1.47, 0.0, 202),   -- ID: 8 (Section A-2: 과일)
-('SECTION_A_3', -1.59, 1.47, 0.0, 203),   -- ID: 9 (Section A-3: 스프레드)
-('SECTION_A_4', -1.59, 1.47, 0.0, 204);   -- ID: 10 (Section A-4: 예비)
+('SECTION_A_1', -2.10, 1.50, 0.0, 201),   -- ID: 7 (Section A-1: 과일)
+('SECTION_A_2', -2.10, 1.50, 0.0, 202),   -- ID: 8 (Section A-2: 과일)
+('SECTION_A_3', -2.10, 1.50, 0.0, 203),   -- ID: 9 (Section A-3: 스프레드)
+('SECTION_A_4', -2.10, 1.50, 0.0, 204);   -- ID: 10 (Section A-4: 예비)
 
--- Section Locations (Shelf B)
+-- Section Locations (Shelf B : 신석식품)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_B_1', 0.71, 0.40, 1.57, 211),   -- ID: 11 (Section B-1: 채소)
-('SECTION_B_2', 0.71, 0.40, 1.57, 212),   -- ID: 12 (Section B-2: 채소)
-('SECTION_B_3', 0.71, 0.40, 1.57, 213),   -- ID: 13 (Section B-3: 신선식품)
-('SECTION_B_4', 0.71, 0.40, 1.57, 214);   -- ID: 14 (Section B-4: 예비)
+('SECTION_B_1', 0.80, 0.00, 1.57, 211),   -- ID: 11 (Section B-1: 생선)
+('SECTION_B_2', 0.80, 0.00, 1.57, 212),   -- ID: 12 (Section B-2: 생선)
+('SECTION_B_3', 0.80, 0.00, 1.57, 213),   -- ID: 13 (Section B-3: 생선)
+('SECTION_B_4', 0.80, 0.00, 1.57, 214);   -- ID: 14 (Section B-4: 생선)
 
--- Section Locations (Shelf C)
+-- Section Locations (Shelf C : 과자)
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
-('SECTION_C_1', 3.24, 2.10, -1.57, 221),   -- ID: 15 (Section C-1: 음료)
-('SECTION_C_2', 3.24, 2.10, -1.57, 222),   -- ID: 16 (Section C-2: 음료)
-('SECTION_C_3', 3.24, 2.10, -1.57, 223),   -- ID: 17 (Section C-3: 베이커리)
-('SECTION_C_4', 3.24, 2.10, -1.57, 224);   -- ID: 18 (Section C-4: 예비)
+('SECTION_C_1', 3.20, 2.50, -1.57, 221),   -- ID: 15 (Section C-1: 이클립스)
+('SECTION_C_2', 3.20, 2.50, -1.57, 222),   -- ID: 16 (Section C-2: 이클립스)
+('SECTION_C_3', 3.20, 2.50, -1.57, 223),   -- ID: 17 (Section C-3: 이클립스)
+('SECTION_C_4', 3.20, 2.50, -1.57, 224);   -- ID: 18 (Section C-4: 이클립스)
 
 -- Special Locations
 INSERT INTO location (location_name, location_x, location_y, location_theta, aruco_marker) VALUES
@@ -91,20 +91,20 @@ INSERT INTO shelf (location_id, shelf_name) VALUES
 -- ========================================
 INSERT INTO section (shelf_id, location_id, section_name) VALUES
 -- Shelf A Sections
-(1, 7, 'SECTION_A_1'),    -- ID: 1 (기성품)
-(1, 8, 'SECTION_A_2'),    -- ID: 2 (예비)
-(1, 9, 'SECTION_A_3'),    -- ID: 3 (예비)
-(1, 10, 'SECTION_A_4'),   -- ID: 4 (예비)
+(1, 7, 'SECTION_A_1'),    -- ID: 1 
+(1, 8, 'SECTION_A_2'),    -- ID: 2 
+(1, 9, 'SECTION_A_3'),    -- ID: 3 
+(1, 10, 'SECTION_A_4'),   -- ID: 4 
 -- Shelf B Sections
-(2, 11, 'SECTION_B_1'),   -- ID: 5 (과일)
-(2, 12, 'SECTION_B_2'),   -- ID: 6 (예비)
-(2, 13, 'SECTION_B_3'),   -- ID: 7 (육류/어류)
-(2, 14, 'SECTION_B_4'),   -- ID: 8 (예비)
+(2, 11, 'SECTION_B_1'),   -- ID: 5 
+(2, 12, 'SECTION_B_2'),   -- ID: 6 
+(2, 13, 'SECTION_B_3'),   -- ID: 7 
+(2, 14, 'SECTION_B_4'),   -- ID: 8 
 -- Shelf C Sections
-(3, 15, 'SECTION_C_1'),   -- ID: 9 (예비)
-(3, 16, 'SECTION_C_2'),   -- ID: 10 (예비)
-(3, 17, 'SECTION_C_3'),   -- ID: 11 (과자/베이커리)
-(3, 18, 'SECTION_C_4');   -- ID: 12 (예비)
+(3, 15, 'SECTION_C_1'),   -- ID: 9 
+(3, 16, 'SECTION_C_2'),   -- ID: 10 
+(3, 17, 'SECTION_C_3'),   -- ID: 11 
+(3, 18, 'SECTION_C_4');   -- ID: 12
 
 -- ========================================
 -- 8. Product (테스트용 상품)

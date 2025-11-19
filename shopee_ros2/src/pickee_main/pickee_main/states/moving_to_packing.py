@@ -61,7 +61,7 @@ class MovingToPackingState(State):
             self._node.get_logger().info('포장대에 도착했습니다. WAITING_HANDOVER 상태로 전환합니다.')
             
             # 포장대 도착 알림 발행
-            self._node.publish_arrival_notice(self.packing_location_id)
+            self._node.publish_arrival_notice(self.packing_location_id, section_id=7)
             
             from .waiting_handover import WaitingHandoverState
             return WaitingHandoverState(self._node)

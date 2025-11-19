@@ -78,17 +78,17 @@ DEFAULT_MAP_CONFIG = (
     / "src"
     / "pickee_mobile"
     / "map"
-    / "shopee_map.yaml"
+    / "map1021_modify.yaml"
 )
 DEFAULT_IMAGE_FALLBACK = Path(__file__).resolve().parent / "image" / "map.png"
 VECTOR_ICON_PATH = Path(__file__).resolve().parent / "icons" / "vector.svg"
-DEFAULT_ROBOT_ICON_SIZE = (56, 56)
+DEFAULT_ROBOT_ICON_SIZE = (24, 24)
 SECTION_FRIENDLY_NAMES = {
-    'SECTION_1': '기성품',
-    'SECTION_7': '신선식품',
-    'SECTION_11': '과자',
-    'SECTION_C_3': '이클립스',
-    'SECTION_B_3': '생선',
+    "SECTION_1": "기성품",
+    "SECTION_7": "신선식품",
+    "SECTION_11": "과자",
+    "SECTION_C_3": "이클립스",
+    "SECTION_B_3": "생선",
 }
 
 
@@ -112,6 +112,16 @@ def _get_env_float(name: str, default: float) -> float:
         return default
 
 
+def _get_env_float_optional(name: str) -> float | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 def _get_env_tuple(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
     value = os.getenv(name)
     if not value:
@@ -128,10 +138,14 @@ MAP_IMAGE_PATH = os.getenv("SHOPEE_APP_MAP_IMAGE")
 MAP_RESOLUTION_OVERRIDE = _get_env_float("SHOPEE_APP_MAP_RESOLUTION", -1.0)
 MAP_ORIGIN_OVERRIDE = _get_env_tuple("SHOPEE_APP_MAP_ORIGIN", ())
 VIDEO_STREAM_DEBUG = os.getenv("SHOPEE_APP_DEBUG_VIDEO_STREAM", "0") == "1"
+ROBOT_OFFSET_X_OVERRIDE = _get_env_float_optional("SHOPEE_APP_ROBOT_OFFSET_X")
+ROBOT_OFFSET_Y_OVERRIDE = _get_env_float_optional("SHOPEE_APP_ROBOT_OFFSET_Y")
+ROBOT_LABEL_OFFSET_OVERRIDE = _get_env_float_optional("SHOPEE_APP_ROBOT_LABEL_OFFSET_Y")
+ROBOT_SCALE_OVERRIDE = _get_env_float_optional("SHOPEE_APP_ROBOT_POSITION_SCALE")
 
 
 class ClickableLabel(QLabel):
-    '''마우스 클릭 이벤트를 시그널로 제공하는 QLabel 확장.'''
+    """마우스 클릭 이벤트를 시그널로 제공하는 QLabel 확장."""
 
     clicked = pyqtSignal()
 
@@ -140,14 +154,14 @@ class ClickableLabel(QLabel):
         self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        '''왼쪽 버튼이 떼어질 때 클릭 신호를 방출한다.'''
+        """왼쪽 버튼이 떼어질 때 클릭 신호를 방출한다."""
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
 
 class BBoxGraphicsRectItem(QGraphicsRectItem):
-    '''bbox 사각형을 클릭했을 때 콜백을 호출하는 그래픽 항목.'''
+    """bbox 사각형을 클릭했을 때 콜백을 호출하는 그래픽 항목."""
 
     def __init__(
         self,
@@ -167,7 +181,7 @@ class BBoxGraphicsRectItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        '''좌클릭 시 선택 콜백을 호출한다.'''
+        """좌클릭 시 선택 콜백을 호출한다."""
         if (
             event.button() == QtCore.Qt.MouseButton.LeftButton
             and self._bbox_number > 0
@@ -180,7 +194,7 @@ class BBoxGraphicsRectItem(QGraphicsRectItem):
 
 
 class SttStatusDialog(QDialog):
-    '''음성 인식 진행 상황을 실시간으로 보여 주는 모달 대화상자.'''
+    """음성 인식 진행 상황을 실시간으로 보여 주는 모달 대화상자."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -194,7 +208,7 @@ class SttStatusDialog(QDialog):
         layout.addWidget(self.message_label)
 
     def update_message(self, text: str, *, warning: bool = False) -> None:
-        '''상태 메시지를 갱신하고 경고 여부에 따라 색상을 조정한다.'''
+        """상태 메시지를 갱신하고 경고 여부에 따라 색상을 조정한다."""
         # 안내 문구를 업데이트하면서 경고 여부에 따라 색상을 바꾼다.
         self.message_label.setText(text)
         if warning:
@@ -206,7 +220,7 @@ class SttStatusDialog(QDialog):
 
 
 class SttWorker(QtCore.QObject):
-    '''Whisper STT를 별도 스레드에서 실행해 UI 응답성을 유지한다.'''
+    """Whisper STT를 별도 스레드에서 실행해 UI 응답성을 유지한다."""
 
     microphone_detected = QtCore.pyqtSignal(int, str)
     listening_started = QtCore.pyqtSignal()
@@ -227,7 +241,7 @@ class SttWorker(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def run(self) -> None:
-        '''마이크를 탐색하고 STT를 실행한 뒤 결과를 발행한다.'''
+        """마이크를 탐색하고 STT를 실행한 뒤 결과를 발행한다."""
         try:
             # 우선 사용 가능한 마이크를 탐색하고 발견한 정보를 신호로 알린다.
             microphone_info = self._detect_microphone(self._stt_module)
@@ -284,13 +298,27 @@ class SttWorker(QtCore.QObject):
 
 
 class UserWindow(QWidget):
-    '''사용자 쇼핑 화면과 로봇 제어 흐름을 담당하는 주 창.'''
+    """사용자 쇼핑 화면과 로봇 제어 흐름을 담당하는 주 창."""
 
     IMAGE_ROOT = Path(__file__).resolve().parent / "image"
     ROBOT_ICON_ROTATION_OFFSET_DEG = 90.0
-    ROBOT_POSITION_OFFSET_X = 14.7
-    ROBOT_POSITION_OFFSET_Y = 12.0
-    ROBOT_LABEL_OFFSET_Y = -36.0
+    MAP_TOP_LEFT = (6.3, 8.4)
+    MAP_BOTTOM_RIGHT = (-5.8, 0.5)
+    ROBOT_POSITION_OFFSET_X = (
+        ROBOT_OFFSET_X_OVERRIDE if ROBOT_OFFSET_X_OVERRIDE is not None else -0.1
+    )
+    ROBOT_POSITION_OFFSET_Y = (
+        ROBOT_OFFSET_Y_OVERRIDE if ROBOT_OFFSET_Y_OVERRIDE is not None else 1.0
+    )
+    ROBOT_POSITION_SCALE = (
+        ROBOT_SCALE_OVERRIDE if ROBOT_SCALE_OVERRIDE is not None else 1.0
+    )
+    SHOW_ROBOT_LABEL = False
+    ROBOT_LABEL_OFFSET_Y = (
+        ROBOT_LABEL_OFFSET_OVERRIDE
+        if ROBOT_LABEL_OFFSET_OVERRIDE is not None
+        else -36.0
+    )
     VIDEO_FRAME_WIDTH = 640
     VIDEO_FRAME_HEIGHT = 480
     PRODUCT_IMAGE_BY_ID: dict[int, Path] = {
@@ -341,7 +369,7 @@ class UserWindow(QWidget):
         ros_thread: "RosNodeThread | None" = None,
         parent=None,
     ):
-        '''사용자 정보와 서비스 의존성을 받아 UI를 초기화한다.'''
+        """사용자 정보와 서비스 의존성을 받아 UI를 초기화한다."""
         super().__init__(parent)
 
         # 컴포넌트 로거 초기화
@@ -372,12 +400,13 @@ class UserWindow(QWidget):
         self.cart_empty_label: QLabel | None = None
         if self.cart_items_layout is not None:
             # 장바구니가 비었을 때 표시할 안내 문구를 준비한다.
-            self.cart_empty_label = QLabel('장바구니에 담긴 상품이 없습니다.')
+            self.cart_empty_label = QLabel("장바구니에 담긴 상품이 없습니다.")
             self.cart_empty_label.setAlignment(
-                QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignVCenter
+                QtCore.Qt.AlignmentFlag.AlignHCenter
+                | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
             self.cart_empty_label.setStyleSheet(
-                'color: #9AA0A6; font-size: 12pt; font-weight: 500;'
+                "color: #9AA0A6; font-size: 12pt; font-weight: 500;"
             )
             self.cart_empty_label.setWordWrap(True)
             self.cart_empty_label.hide()
@@ -389,6 +418,12 @@ class UserWindow(QWidget):
         self.ui.chk_select_all.stateChanged.connect(self.on_select_all_changed)
         if hasattr(self.ui, "btn_selected_delete"):
             self.ui.btn_selected_delete.clicked.connect(self.on_delete_selected_clicked)
+
+        # 맵 좌표 설정
+        self.WORLD_X_MIN = 0.5
+        self.WORLD_X_MAX = 8.4
+        self.WORLD_Y_MAX = 6.3  # 위
+        self.WORLD_Y_MIN = -5.8  # 아래
 
         self.current_columns = -1
         self.cart_container = None
@@ -528,7 +563,9 @@ class UserWindow(QWidget):
             self.selection_voice_button.clicked.connect(
                 self.on_selection_voice_button_clicked
             )
-        self.auto_pick_button: QPushButton | None = getattr(self.ui, 'btn_auto_pick', None)
+        self.auto_pick_button: QPushButton | None = getattr(
+            self.ui, "btn_auto_pick", None
+        )
         if self.auto_pick_button is not None:
             self.auto_pick_button.setEnabled(False)
             self.auto_pick_button.clicked.connect(self.on_auto_pick_clicked)
@@ -781,6 +818,8 @@ class UserWindow(QWidget):
         super().closeEvent(event)
 
     def on_pay_clicked(self):
+        # 주문 생성 전에 알림 채널을 기동해 초기 이동 이벤트가 누락되지 않도록 한다.
+        self._ensure_notification_listener()
         if self.request_create_order():
             self.set_mode("pick")
             # 결제 후 매장 화면으로 전환되면 로봇 위치 추적을 시작한다.
@@ -998,10 +1037,10 @@ class UserWindow(QWidget):
         self.mic_info_label.setVisible(False)
 
     def request_total_products(self) -> None:
-        '''전체 상품 목록을 조회해 초기 화면에 표시한다.'''
+        """전체 상품 목록을 조회해 초기 화면에 표시한다."""
         if self.service_client is None:
             QMessageBox.warning(
-                self, '상품 로드 실패', '상품 서비스를 사용할 수 없습니다.'
+                self, "상품 로드 실패", "상품 서비스를 사용할 수 없습니다."
             )
             self.set_products([])
             self.refresh_product_grid()
@@ -1009,7 +1048,9 @@ class UserWindow(QWidget):
         user_id = self._ensure_user_identity()
         if not user_id:
             QMessageBox.warning(
-                self, '상품 로드 실패', '사용자 정보를 확인할 수 없어 상품을 불러올 수 없습니다.'
+                self,
+                "상품 로드 실패",
+                "사용자 정보를 확인할 수 없어 상품을 불러올 수 없습니다.",
             )
             self.set_products([])
             self.refresh_product_grid()
@@ -1018,21 +1059,21 @@ class UserWindow(QWidget):
             response = self.service_client.fetch_total_products(user_id)
         except MainServiceClientError as exc:
             QMessageBox.warning(
-                self, '상품 로드 실패', f'전체 상품을 불러오지 못했습니다.\n{exc}'
+                self, "상품 로드 실패", f"전체 상품을 불러오지 못했습니다.\n{exc}"
             )
             self.set_products([])
             self.refresh_product_grid()
             return
         if not response:
             QMessageBox.warning(
-                self, '상품 로드 실패', '서버에서 전체 상품 응답을 받지 못했습니다.'
+                self, "상품 로드 실패", "서버에서 전체 상품 응답을 받지 못했습니다."
             )
             self.set_products([])
             self.refresh_product_grid()
             return
         if not response.get("result"):
-            message = response.get("message") or '전체 상품을 가져오지 못했습니다.'
-            QMessageBox.warning(self, '상품 로드 실패', message)
+            message = response.get("message") or "전체 상품을 가져오지 못했습니다."
+            QMessageBox.warning(self, "상품 로드 실패", message)
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -1040,10 +1081,8 @@ class UserWindow(QWidget):
         entries = data.get("products") or []
         products = self._convert_total_products(entries)
         if not products:
-            QMessageBox.information(
-                self, '상품 로드 안내', '표시할 상품이 없습니다.'
-            )
-            self.empty_products_message = '표시할 상품이 없습니다.'
+            QMessageBox.information(self, "상품 로드 안내", "표시할 상품이 없습니다.")
+            self.empty_products_message = "표시할 상품이 없습니다."
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -1052,7 +1091,7 @@ class UserWindow(QWidget):
         self.refresh_product_grid()
 
     def request_product_search(self, query: str) -> None:
-        '''사용자 입력과 필터 조건으로 상품 검색을 수행한다.'''
+        """사용자 입력과 필터 조건으로 상품 검색을 수행한다."""
         # 서비스 클라이언트가 없다면 네트워크 요청 자체가 불가능하므로 즉시 반환한다.
         if self.service_client is None:
             return
@@ -1091,10 +1130,10 @@ class UserWindow(QWidget):
             self._close_stt_status_dialog()
             # 오류 알림을 하지 않으면 사용자가 검색 실패 원인을 알 수 없다.
             QMessageBox.warning(
-                self, '검색 실패', f'상품 검색 중 오류가 발생했습니다.\n{exc}'
+                self, "검색 실패", f"상품 검색 중 오류가 발생했습니다.\n{exc}"
             )
             # 실패 시 목록을 초기화하지 않으면 사용자가 최신 상태를 확인하기 어렵다.
-            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            self.empty_products_message = "상품을 불러오지 못했습니다."
             self.set_products([])
             # 상품 목록을 다시 그리지 않으면 기존 화면이 갱신되지 않는다.
             self.refresh_product_grid()
@@ -1109,17 +1148,17 @@ class UserWindow(QWidget):
         self._close_stt_status_dialog()
         # 응답이 비어 있으면 이후 처리에서 KeyError가 발생할 수 있으므로 여기서 중단한다.
         if not response:
-            QMessageBox.warning(self, '검색 실패', '서버에서 응답을 받지 못했습니다.')
-            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            QMessageBox.warning(self, "검색 실패", "서버에서 응답을 받지 못했습니다.")
+            self.empty_products_message = "상품을 불러오지 못했습니다."
             self.set_products([])
             self.refresh_product_grid()
             return
         # result 플래그를 확인하지 않으면 서버가 실패를 알린 경우에도 잘못된 데이터를 사용할 수 있다.
         if not response.get("result"):
             # 서버가 전달한 메시지를 표시하지 않으면 사용자가 실패 이유를 확인할 수 없다.
-            message = response.get("message") or '상품을 불러오지 못했습니다.'
-            QMessageBox.warning(self, '검색 실패', message)
-            self.empty_products_message = '상품을 불러오지 못했습니다.'
+            message = response.get("message") or "상품을 불러오지 못했습니다."
+            QMessageBox.warning(self, "검색 실패", message)
+            self.empty_products_message = "상품을 불러오지 못했습니다."
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -1131,7 +1170,7 @@ class UserWindow(QWidget):
         products = self._convert_search_results(product_entries)
         # 검색 결과가 비어 있으면 사용자에게 안내하고 그리드를 비워야 혼란이 없다.
         if not products:
-            self.empty_products_message = '조건에 맞는 상품이 없습니다.'
+            self.empty_products_message = "조건에 맞는 상품이 없습니다."
             self.set_products([])
             self.refresh_product_grid()
             return
@@ -1141,7 +1180,7 @@ class UserWindow(QWidget):
         self.refresh_product_grid()
 
     def _build_search_filter(self) -> tuple[dict[str, bool], bool | None]:
-        '''사용자 환경설정으로 검색 필터를 구성한다.'''
+        """사용자 환경설정으로 검색 필터를 구성한다."""
         # 사용자 정보가 비어 있으면 알레르기 필터를 구성할 수 없으므로 빈 딕셔너리를 준비한다.
         raw_allergy = (
             self.user_info.get("allergy_info")
@@ -1169,7 +1208,7 @@ class UserWindow(QWidget):
         return normalized_allergy, bool(vegan_value)
 
     def _resolve_product_image(self, product_id: int, name: str) -> Path:
-        '''상품 이름이나 ID로 이미지 파일 경로를 결정한다.'''
+        """상품 이름이나 ID로 이미지 파일 경로를 결정한다."""
         # 이름 기반 매핑이 있으면 우선적으로 사용한다. 상품 ID가 재사용되더라도 이름은 정확하다는 가정이다.
         normalized_name = (name or "").strip()
         if normalized_name:
@@ -1189,7 +1228,7 @@ class UserWindow(QWidget):
         *,
         allergy_info_id: int,
     ) -> AllergyInfoData | None:
-        '''상품 항목에 포함된 알레르기 정보를 안전하게 추출한다.'''
+        """상품 항목에 포함된 알레르기 정보를 안전하게 추출한다."""
         # 알러지 정보가 딕셔너리 형태가 아니라면 안전하게 None으로 처리한다.
         raw_info = entry.get("allergy_info")
         if not isinstance(raw_info, dict):
@@ -1213,7 +1252,7 @@ class UserWindow(QWidget):
     def _convert_search_results(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
-        '''검색 결과 응답을 UI 표현에 맞는 데이터 모델로 변환한다.'''
+        """검색 결과 응답을 UI 표현에 맞는 데이터 모델로 변환한다."""
         # 결과를 누적할 리스트가 없으면 변환된 상품을 반환할 수 없다.
         products: list[ProductData] = []
         # 이미지 경로 계산은 전용 헬퍼로 위임해 중복을 줄인다.
@@ -1304,7 +1343,7 @@ class UserWindow(QWidget):
     def _convert_total_products(
         self, entries: list[dict[str, object]]
     ) -> list[ProductData]:
-        '''전체 상품 목록 응답을 ProductData 목록으로 변환한다.'''
+        """전체 상품 목록 응답을 ProductData 목록으로 변환한다."""
         # 전체 상품 응답이 비어 있으면 빈 리스트를 반환해야 이후 로직에서 목업 데이터를 사용할 수 있다.
         products: list[ProductData] = []
         for entry in entries:
@@ -1345,7 +1384,7 @@ class UserWindow(QWidget):
         return products
 
     def setup_cart_section(self):
-        '''장바구니 영역의 컨테이너와 토글 버튼을 구성한다.'''
+        """장바구니 영역의 컨테이너와 토글 버튼을 구성한다."""
         self.cart_container = getattr(self.ui, "widget_3", None)
         self.cart_frame = getattr(self.ui, "cart_frame", None)
         self.cart_body = getattr(self.ui, "cart_body", None)
@@ -1401,7 +1440,7 @@ class UserWindow(QWidget):
         self.update_cart_empty_state()
 
     def setup_navigation(self):
-        '''상단 네비게이션과 사이드 스택 위젯을 초기화한다.'''
+        """상단 네비게이션과 사이드 스택 위젯을 초기화한다."""
         self.main_stack = getattr(self.ui, "stacked_content", None)
         self.side_stack = getattr(self.ui, "stack_side_bar", None)
         self.page_user = getattr(self.ui, "page_content_user", None)
@@ -1419,8 +1458,7 @@ class UserWindow(QWidget):
         # 이 스타일은 'seg' 속성을 사용하여 각 버튼(왼쪽, 오른쪽)을 식별하고
         # :checked 상태에 따라 모양과 색상을 변경합니다.
         primary_color = COLORS["primary"]
-        qss = (
-            f'''
+        qss = f"""
         /* 공통 베이스: 회색 테두리, 글자 회색, 약간의 패딩 */
         QAbstractButton[seg="left"], QAbstractButton[seg="right"] {{
             border: 1px solid #D3D3D3;         /* 회색 보더 */
@@ -1462,8 +1500,7 @@ class UserWindow(QWidget):
         QAbstractButton[seg="right"]:focus {{
             outline: none;
         }}
-        '''
-        )
+        """
         self._segment_button_qss = qss
         self.setStyleSheet(qss)
 
@@ -1498,7 +1535,7 @@ class UserWindow(QWidget):
         self._apply_camera_toggle_styles()
 
     def _apply_camera_toggle_styles(self) -> None:
-        '''전면/로봇팔 전환 버튼에 세그먼트 스타일을 적용한다.'''
+        """전면/로봇팔 전환 버튼에 세그먼트 스타일을 적용한다."""
         if self.front_view_button is None or self.arm_view_button is None:
             return
         self.front_view_button.setProperty("seg", "left")
@@ -1552,7 +1589,7 @@ class UserWindow(QWidget):
         button.toggled.connect(self._on_allergy_toggle_clicked)
 
     def _setup_allergy_checkboxes(self) -> None:
-        '''알레르기 체크박스를 수집해 상태 동기화를 준비한다.'''
+        """알레르기 체크박스를 수집해 상태 동기화를 준비한다."""
         # 알러지 필터 체크박스를 동기화하지 않으면 상위와 하위 항목이 따로 움직인다.
         self.allergy_total_checkbox = getattr(self.ui, "cb_allergy_total", None)
         checkbox_names = {
@@ -1622,7 +1659,7 @@ class UserWindow(QWidget):
         self._apply_product_filters(refresh=False)
 
     def _apply_allergy_toggle_state(self, *, expanded: bool) -> None:
-        '''토글 상태에 맞춰 서브 위젯 표시 여부와 아이콘을 갱신한다.'''
+        """토글 상태에 맞춰 서브 위젯 표시 여부와 아이콘을 갱신한다."""
         if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
             return
         self.allergy_filters_expanded = expanded
@@ -1640,7 +1677,7 @@ class UserWindow(QWidget):
         self.allergy_sub_widget.hide()
 
     def _on_allergy_toggle_clicked(self, checked: bool) -> None:
-        '''토글 버튼 클릭에 대해 확장 상태를 반영한다.'''
+        """토글 버튼 클릭에 대해 확장 상태를 반영한다."""
         if self.allergy_toggle_button is None or self.allergy_sub_widget is None:
             return
         self._apply_allergy_toggle_state(expanded=checked)
@@ -1648,7 +1685,7 @@ class UserWindow(QWidget):
     def _on_allergy_total_state_changed(
         self, state: int | QtCore.Qt.CheckState
     ) -> None:
-        '''상위 체크박스 상태에 따라 하위 항목을 일괄 갱신한다.'''
+        """상위 체크박스 상태에 따라 하위 항목을 일괄 갱신한다."""
         # 하위 체크박스가 없으면 동기화를 진행할 수 없다.
         if not self.allergy_checkbox_map:
             return
@@ -1668,7 +1705,7 @@ class UserWindow(QWidget):
         self._apply_product_filters()
 
     def _on_allergy_child_state_changed(self, _state: int) -> None:
-        '''하위 체크박스 변경 시 상위 상태와 필터를 다시 계산한다.'''
+        """하위 체크박스 변경 시 상위 상태와 필터를 다시 계산한다."""
         # 상위 체크박스가 없거나 하위 목록이 비어 있으면 처리하지 않는다.
         if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
             return
@@ -1678,12 +1715,12 @@ class UserWindow(QWidget):
         self._apply_product_filters()
 
     def _on_vegan_state_changed(self, _state: int) -> None:
-        '''비건 필터 변경에 맞춰 검색 조건을 다시 적용한다.'''
+        """비건 필터 변경에 맞춰 검색 조건을 다시 적용한다."""
         # 비건 필터만 변경되어도 상품 목록을 다시 계산해야 한다.
         self._apply_product_filters()
 
     def _set_allergy_children_checked(self, *, checked: bool) -> None:
-        '''하위 알레르기 체크박스를 일괄적으로 설정한다.'''
+        """하위 알레르기 체크박스를 일괄적으로 설정한다."""
         # 신호 루프를 막기 위해 블록하면서 모든 하위 체크박스를 설정한다.
         for checkbox in self.allergy_checkbox_map.values():
             checkbox.blockSignals(True)
@@ -1691,7 +1728,7 @@ class UserWindow(QWidget):
             checkbox.blockSignals(False)
 
     def _sync_allergy_total_from_children(self) -> None:
-        '''하위 체크 상태를 검토해 상위 체크박스 표시를 동기화한다.'''
+        """하위 체크 상태를 검토해 상위 체크박스 표시를 동기화한다."""
         # 상위 체크박스나 하위 목록이 없으면 더 이상 동기화를 진행하지 않는다.
         if self.allergy_total_checkbox is None or not self.allergy_checkbox_map:
             return
@@ -1849,11 +1886,11 @@ class UserWindow(QWidget):
                 total_amount=total_amount,
             )
         except MainServiceClientError as exc:
-            QMessageBox.warning(self, '주문 생성 실패', str(exc))
+            QMessageBox.warning(self, "주문 생성 실패", str(exc))
             return False
 
         if not response:
-            QMessageBox.warning(self, '주문 생성 실패', '서버 응답이 없습니다.')
+            QMessageBox.warning(self, "주문 생성 실패", "서버 응답이 없습니다.")
             return False
 
         if response.get("result"):
@@ -1869,8 +1906,8 @@ class UserWindow(QWidget):
 
         QMessageBox.warning(
             self,
-            '주문 생성 실패',
-            response.get("message") or '주문 생성에 실패했습니다.',
+            "주문 생성 실패",
+            response.get("message") or "주문 생성에 실패했습니다.",
         )
         return False
 
@@ -1953,7 +1990,7 @@ class UserWindow(QWidget):
         message_text = payload.get("message") or "로봇 이동중"
         friendly_destination = self._get_friendly_section_name(destination)
         if friendly_destination:
-            formatted = f'현재 <b>{friendly_destination}</b> 매대로 이동 중입니다.'
+            formatted = f"현재 <b>{friendly_destination}</b> 매대로 이동 중입니다."
         elif destination:
             formatted = f"{message_text} : {destination}"
         else:
@@ -1961,7 +1998,7 @@ class UserWindow(QWidget):
         status_label = getattr(self.ui, "label_12", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        self._update_footer_label(formatted, context='robot_moving_notification')
+        self._update_footer_label(formatted, context="robot_moving_notification")
 
         print(f"[알림] {formatted}")
         self._show_moving_page()
@@ -1980,6 +2017,8 @@ class UserWindow(QWidget):
         if robot_id is not None:
             self.current_robot_id = robot_id
             self._auto_start_front_camera_if_possible()
+            # 도착 시점에는 즉시 팔 카메라로 전환해 상품 선택 화면을 구성한다.
+            self._ensure_arm_camera_view()
 
         section_id = data.get("section_id")
         location_id = data.get("location_id")
@@ -1993,7 +2032,7 @@ class UserWindow(QWidget):
         message_text = payload.get("message") or "로봇 도착"
         friendly_destination = self._get_friendly_section_name(location_text)
         if friendly_destination:
-            formatted = f'<b>{friendly_destination}</b> 매대에 도착했습니다.'
+            formatted = f"<b>{friendly_destination}</b> 매대에 도착했습니다."
         elif location_text:
             formatted = f"{message_text} : {location_text}"
         else:
@@ -2002,7 +2041,7 @@ class UserWindow(QWidget):
         status_label = getattr(self.ui, "label_12", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        self._update_footer_label(formatted, context='robot_arrived_notification')
+        self._update_footer_label(formatted, context="robot_arrived_notification")
         print(f"[알림] {formatted}")
         self._show_moving_page()
 
@@ -2026,7 +2065,7 @@ class UserWindow(QWidget):
             status_label.setText(message_text)
         self._update_footer_label(
             message_text,
-            context='picking_complete_notification',
+            context="picking_complete_notification",
             force=True,
         )
         self._footer_locked = True
@@ -2064,7 +2103,7 @@ class UserWindow(QWidget):
 
         raw_products = data.get("products") or []
         self.selection_options = []
-        self.selection_options_origin = 'service'
+        self.selection_options_origin = "service"
         for product in raw_products:
             if not isinstance(product, dict):
                 continue
@@ -2108,7 +2147,7 @@ class UserWindow(QWidget):
         status_label = getattr(self.ui, "label_12", None)
         if status_label is not None:
             status_label.setText(formatted)
-        self._update_footer_label(formatted, context='product_selection_start')
+        self._update_footer_label(formatted, context="product_selection_start")
         self.populate_selection_buttons(self.selection_options)
         if self.order_select_stack is not None:
             target_page = (
@@ -2174,7 +2213,7 @@ class UserWindow(QWidget):
         status_label = getattr(self.ui, "label_12", None)
         if not self.pick_flow_completed and status_label is not None:
             status_label.setText(formatted)
-        self._update_footer_label(formatted, context='cart_update_notification')
+        self._update_footer_label(formatted, context="cart_update_notification")
         print(f"[알림] {formatted}")
         self._show_moving_page()
 
@@ -2292,29 +2331,31 @@ class UserWindow(QWidget):
             button = QPushButton(parent)
             button.setCheckable(True)
             button.setFixedSize(123, 36)
-            bbox_value = product.get('bbox_number')
-            raw_label = str(product.get('label') or '').strip()
-            raw_name = product.get('name')
+            bbox_value = product.get("bbox_number")
+            raw_label = str(product.get("label") or "").strip()
+            raw_name = product.get("name")
             if isinstance(raw_name, str):
                 name_text = raw_name.strip()
             elif raw_name is not None:
                 name_text = str(raw_name)
             else:
-                name_text = ''
+                name_text = ""
             if not name_text:
-                product_id_value = product.get('product_id')
+                product_id_value = product.get("product_id")
                 if product_id_value is not None:
                     name_text = str(product_id_value)
             display_label = raw_label
             if not display_label:
-                base_name = name_text or f'선택지{index + 1}'
+                base_name = name_text or f"선택지{index + 1}"
                 try:
-                    bbox_number_text = f'{int(bbox_value)}. ' if bbox_value is not None else ''
+                    bbox_number_text = (
+                        f"{int(bbox_value)}. " if bbox_value is not None else ""
+                    )
                 except (TypeError, ValueError):
-                    bbox_number_text = ''
-                display_label = f'{bbox_number_text}{base_name}'.strip()
+                    bbox_number_text = ""
+                display_label = f"{bbox_number_text}{base_name}".strip()
                 if not display_label:
-                    display_label = f'선택지{index + 1}'
+                    display_label = f"선택지{index + 1}"
             tooltip_text = name_text or display_label
             button.setText(display_label)
             button.setToolTip(tooltip_text)
@@ -2466,18 +2507,21 @@ class UserWindow(QWidget):
             heading_item.setVisible(False)
         self.map_robot_item = robot_item
         self.map_heading_item = heading_item
-        label_item = QGraphicsSimpleTextItem('')
-        label_font = label_item.font()
-        label_font.setPointSize(10)
-        label_item.setFont(label_font)
-        label_item.setBrush(QBrush(QColor('#212121')))
-        label_item.setZValue(12)
-        label_item.setVisible(False)
-        label_item.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
-        )
-        self.map_scene.addItem(label_item)
-        self.map_robot_label = label_item
+        if self.SHOW_ROBOT_LABEL:
+            label_item = QGraphicsSimpleTextItem("")
+            label_font = label_item.font()
+            label_font.setPointSize(10)
+            label_item.setFont(label_font)
+            label_item.setBrush(QBrush(QColor("#212121")))
+            label_item.setZValue(12)
+            label_item.setVisible(False)
+            label_item.setFlag(
+                QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
+            )
+            self.map_scene.addItem(label_item)
+            self.map_robot_label = label_item
+        else:
+            self.map_robot_label = None
         self.map_view.installEventFilter(self)
 
     def _create_robot_graphics(
@@ -2486,21 +2530,26 @@ class UserWindow(QWidget):
         pixmap = self._render_robot_svg()
         if pixmap is not None and not pixmap.isNull():
             item = QGraphicsPixmapItem(pixmap)
-            item.setOffset(-pixmap.width() / 2, -pixmap.height() / 2)
             item.setTransformationMode(
                 QtCore.Qt.TransformationMode.SmoothTransformation
             )
             return item, None
-        radius = 10
+        radius = max(DEFAULT_ROBOT_ICON_SIZE[0], DEFAULT_ROBOT_ICON_SIZE[1]) // 2
+        if radius <= 0:
+            radius = 10
+        circle_pixmap = QPixmap(radius * 2, radius * 2)
+        circle_pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+        painter = QPainter(circle_pixmap)
         pen = QPen(QColor("#ff4649"))
         pen.setWidth(2)
-        brush = QBrush(QColor("#ff4649"))
-        item = QGraphicsEllipseItem(-radius, -radius, radius * 2, radius * 2)
-        item.setPen(pen)
-        item.setBrush(brush)
-        heading = QGraphicsLineItem(0, 0, radius * 2, 0, item)
-        heading.setPen(pen)
-        return item, heading
+        painter.setPen(pen)
+        painter.setBrush(QBrush(QColor("#ff4649")))
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.drawEllipse(0, 0, radius * 2, radius * 2)
+        painter.end()
+        item = QGraphicsPixmapItem(circle_pixmap)
+        item.setTransformationMode(QtCore.Qt.TransformationMode.SmoothTransformation)
+        return item, None
 
     def _render_robot_svg(self) -> QPixmap | None:
         if not VECTOR_ICON_PATH.exists():
@@ -2508,15 +2557,28 @@ class UserWindow(QWidget):
         renderer = QSvgRenderer(str(VECTOR_ICON_PATH))
         if not renderer.isValid():
             return None
-        size = renderer.defaultSize()
-        if not size.isValid() or size.width() <= 0 or size.height() <= 0:
-            size = QtCore.QSize(*DEFAULT_ROBOT_ICON_SIZE)
-        image = QImage(size, QImage.Format.Format_ARGB32_Premultiplied)
+        desired_width, desired_height = DEFAULT_ROBOT_ICON_SIZE
+        target_size = QtCore.QSize(desired_width, desired_height)
+        default_size = renderer.defaultSize()
+        if not (
+            default_size.isValid()
+            and default_size.width() > 0
+            and default_size.height() > 0
+        ):
+            default_size = target_size
+        image = QImage(default_size, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(QtCore.Qt.GlobalColor.transparent)
         painter = QPainter(image)
         renderer.render(painter)
         painter.end()
-        return QPixmap.fromImage(image)
+        pixmap = QPixmap.fromImage(image)
+        if pixmap.isNull():
+            return pixmap
+        return pixmap.scaled(
+            target_size,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
 
     def _load_map_pixmap(self) -> tuple[QPixmap, float, tuple[float, float, float]]:
         if MAP_IMAGE_PATH:
@@ -2600,22 +2662,22 @@ class UserWindow(QWidget):
             self.arm_view_button.setChecked(active == "arm")
 
     def _ensure_arm_camera_view(self) -> None:
-        '''선택 단계에서는 로봇 팔 카메라가 표시되도록 보장한다.'''
+        """선택 단계에서는 로봇 팔 카메라가 표시되도록 보장한다."""
         if self.arm_view_button is None:
             return
         if self.current_robot_id is None:
             return
-        if self.active_camera_type == 'arm':
+        if self.active_camera_type == "arm":
             return
         self.arm_view_button.setChecked(True)
-        self.on_camera_button_clicked('arm')
+        self.on_camera_button_clicked("arm")
 
     def on_camera_button_clicked(self, camera_type: str) -> None:
         if self.current_robot_id is None:
             QMessageBox.information(
                 self,
-                '영상 요청',
-                '로봇 ID가 없어 영상 스트림을 요청할 수 없습니다.\n주문 생성 또는 로봇 연결 상태를 확인해주세요.',
+                "영상 요청",
+                "로봇 ID가 없어 영상 스트림을 요청할 수 없습니다.\n주문 생성 또는 로봇 연결 상태를 확인해주세요.",
             )
             self._update_video_buttons(None)
             return
@@ -2631,18 +2693,18 @@ class UserWindow(QWidget):
             if not self._auto_camera_warning_displayed:
                 QMessageBox.information(
                     self,
-                    '영상 자동 시작 안내',
-                    '로봇 ID 정보를 확인할 수 없어 전면 카메라 자동 시작을 건너뜁니다.\n주문 생성 후 다시 시도해주세요.',
+                    "영상 자동 시작 안내",
+                    "로봇 ID 정보를 확인할 수 없어 전면 카메라 자동 시작을 건너뜁니다.\n주문 생성 후 다시 시도해주세요.",
                 )
                 self._auto_camera_warning_displayed = True
             return
         if self.front_view_button is None:
             return
         self._auto_camera_warning_displayed = False
-        self.on_camera_button_clicked('front')
+        self.on_camera_button_clicked("front")
 
     def _set_detection_subscription(self, enabled: bool) -> None:
-        '''UI 흐름에 맞춰 Pickee 비전 토픽 구독 상태를 전환한다.'''
+        """UI 흐름에 맞춰 Pickee 비전 토픽 구독 상태를 전환한다."""
         if self.ros_thread is None:
             return
         try:
@@ -2654,7 +2716,7 @@ class UserWindow(QWidget):
         if self.pose_tracking_active:
             return
         self.pose_tracking_active = True
-        print('[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.')
+        print("[Map] 픽업 모드로 로봇 위치 추적을 시작합니다.")
         self._set_detection_subscription(True)
 
     def _disable_pose_tracking(self) -> None:
@@ -2662,11 +2724,11 @@ class UserWindow(QWidget):
             self._set_detection_subscription(False)
             return
         self.pose_tracking_active = False
-        print('[Map] 픽업 모드를 종료하며 로봇 위치 추적을 중지합니다.')
+        print("[Map] 픽업 모드를 종료하며 로봇 위치 추적을 중지합니다.")
         self._set_detection_subscription(False)
 
     def _on_detection_received(self, payload: object) -> None:
-        '''ROS 비전 bbox 데이터를 받아와 화면에 반영한다.'''
+        """ROS 비전 bbox 데이터를 받아와 화면에 반영한다."""
         if isinstance(payload, dict):
             self._apply_detection_context(payload)
         normalized = self._normalize_detection_products(payload)
@@ -2682,43 +2744,37 @@ class UserWindow(QWidget):
         self._update_selection_from_detection(normalized)
 
     def _apply_detection_context(self, payload: dict[str, Any]) -> None:
-        '''bbox 토픽에서 전달된 로봇/주문 ID를 UI 상태와 동기화한다.'''
+        """bbox 토픽에서 전달된 로봇/주문 ID를 UI 상태와 동기화한다."""
         order_id_value: int | None = None
         robot_id_value: int | None = None
         try:
-            raw_order_id = payload.get('order_id')
+            raw_order_id = payload.get("order_id")
             if raw_order_id is not None:
                 order_id_value = int(raw_order_id)
         except (TypeError, ValueError):
             order_id_value = None
         try:
-            raw_robot_id = payload.get('robot_id')
+            raw_robot_id = payload.get("robot_id")
             if raw_robot_id is not None:
                 robot_id_value = int(raw_robot_id)
         except (TypeError, ValueError):
             robot_id_value = None
-        if (
-            order_id_value is not None
-            and (
-                self.current_order_id is None
-                or self.current_order_id == -1
-                or self.current_order_id == order_id_value
-            )
+        if order_id_value is not None and (
+            self.current_order_id is None
+            or self.current_order_id == -1
+            or self.current_order_id == order_id_value
         ):
             self.current_order_id = order_id_value
-        if (
-            robot_id_value is not None
-            and (
-                self.current_robot_id is None
-                or self.current_robot_id == -1
-                or self.current_robot_id == robot_id_value
-            )
+        if robot_id_value is not None and (
+            self.current_robot_id is None
+            or self.current_robot_id == -1
+            or self.current_robot_id == robot_id_value
         ):
             self.current_robot_id = robot_id_value
 
     def _clear_detection_selection_if_needed(self) -> None:
-        '''bbox 기반 선택지가 표시 중일 때 화면을 초기화한다.'''
-        if self.selection_options_origin != 'detection':
+        """bbox 기반 선택지가 표시 중일 때 화면을 초기화한다."""
+        if self.selection_options_origin != "detection":
             return
         self.selection_options = []
         self.selection_options_origin = None
@@ -2730,61 +2786,67 @@ class UserWindow(QWidget):
     def _update_selection_from_detection(
         self, detection_products: list[dict[str, Any]]
     ) -> None:
-        '''전면 카메라 bbox 정보를 선택 버튼과 동기화한다.'''
+        """전면 카메라 bbox 정보를 선택 버튼과 동기화한다."""
         mapped_options: list[dict[str, Any]] = []
         for info in detection_products:
             try:
-                bbox_value = int(info.get('bbox_number'))
-                product_id_value = int(info.get('product_id'))
+                bbox_value = int(info.get("bbox_number"))
+                product_id_value = int(info.get("product_id"))
             except (TypeError, ValueError):
                 continue
             if bbox_value <= 0:
                 continue
-            name_text = str(info.get('name') or info.get('label') or '').strip()
+            name_text = str(info.get("name") or info.get("label") or "").strip()
             if not name_text:
-                name_text = f'상품 {product_id_value}'
-            label_text = str(info.get('label') or '').strip()
+                name_text = f"상품 {product_id_value}"
+            label_text = str(info.get("label") or "").strip()
             if not label_text:
-                label_text = f'{bbox_value}. {name_text}'
+                label_text = f"{bbox_value}. {name_text}"
             mapped_options.append(
                 {
-                    'product_id': product_id_value,
-                    'bbox_number': bbox_value,
-                    'name': name_text,
-                    'label': label_text,
+                    "product_id": product_id_value,
+                    "bbox_number": bbox_value,
+                    "name": name_text,
+                    "label": label_text,
                 }
             )
         if not mapped_options:
             self._clear_detection_selection_if_needed()
             return
         self.selection_options = mapped_options
-        self.selection_options_origin = 'detection'
+        self.selection_options_origin = "detection"
         self.selection_selected_index = None
         if self.select_title_label is not None:
-            self.select_title_label.setText('화면에 표시된 상품을 선택해주세요.')
+            self.select_title_label.setText("화면에 표시된 상품을 선택해주세요.")
         self.populate_selection_buttons(mapped_options)
-        product_names = [opt.get('name') for opt in mapped_options if opt.get('name')]
-        detection_summary = ', '.join(product_names[:3])
-        if len(product_names) > 3:
-            detection_summary += ' 외'
-        status_label = getattr(self.ui, 'label_12', None)
-        status_text = '감지된 상품을 선택해주세요.'
+        product_summaries = []
+        for opt in mapped_options:
+            name_value = opt.get("name")
+            bbox_value = opt.get("bbox_number")
+            if not name_value or bbox_value is None:
+                continue
+            product_summaries.append(f"{bbox_value}.{name_value}")
+        detection_summary = ", ".join(product_summaries[:3])
+        if len(product_summaries) > 3:
+            detection_summary += " 외"
+        status_label = getattr(self.ui, "label_12", None)
+        status_text = "감지된 상품을 선택해주세요."
         if detection_summary:
-            status_text = f'감지된 상품을 선택해주세요. ({detection_summary})'
+            status_text = f"감지된 상품을 선택해주세요. ({detection_summary})"
         if status_label is not None:
             status_label.setText(status_text)
-        self._update_footer_label(status_text, context='vision_detection_update')
+        self._update_footer_label(status_text, context="vision_detection_update")
         if self.order_select_stack is not None and self.page_select_product is not None:
             self.order_select_stack.setCurrentWidget(self.page_select_product)
 
     def _on_bbox_rect_clicked(self, bbox_number: int) -> None:
-        '''영상 bbox를 클릭했을 때 선택 버튼과 동기화한다.'''
+        """영상 bbox를 클릭했을 때 선택 버튼과 동기화한다."""
         if not self.selection_options:
             return
         target_index: int | None = None
         for index, option in enumerate(self.selection_options):
             try:
-                option_bbox = int(option.get('bbox_number'))
+                option_bbox = int(option.get("bbox_number"))
             except (TypeError, ValueError):
                 continue
             if option_bbox == bbox_number:
@@ -2805,48 +2867,48 @@ class UserWindow(QWidget):
     def _normalize_detection_products(
         self, payload: object
     ) -> list[dict[str, Any]] | None:
-        '''수신 페이로드를 UI에서 쓰기 쉬운 리스트로 변환한다.'''
+        """수신 페이로드를 UI에서 쓰기 쉬운 리스트로 변환한다."""
         if not isinstance(payload, dict):
             return None
-        raw_products = payload.get('products')
+        raw_products = payload.get("products")
         if not isinstance(raw_products, list):
             return []
         normalized: list[dict[str, Any]] = []
         for entry in raw_products:
             if not isinstance(entry, dict):
                 continue
-            bbox_info = entry.get('bbox')
+            bbox_info = entry.get("bbox")
             if not isinstance(bbox_info, dict):
                 continue
             coords = self._sanitize_bbox_coords(bbox_info)
             if coords is None:
                 continue
             try:
-                bbox_number = int(entry.get('bbox_number'))
+                bbox_number = int(entry.get("bbox_number"))
             except (TypeError, ValueError):
                 continue
             if bbox_number <= 0:
                 continue
             try:
-                product_id = int(entry.get('product_id'))
+                product_id = int(entry.get("product_id"))
             except (TypeError, ValueError):
                 product_id = -1
-            product_name = entry.get('product_name') or entry.get('name')
+            product_name = entry.get("product_name") or entry.get("name")
             if product_name is None:
-                product_name = f'상품 {product_id}' if product_id >= 0 else '상품'
+                product_name = f"상품 {product_id}" if product_id >= 0 else "상품"
             name_text = str(product_name)
-            label_text = f'{bbox_number}. {name_text}'
+            label_text = f"{bbox_number}. {name_text}"
             x1, y1, x2, y2 = coords
             normalized.append(
                 {
-                    'bbox_number': bbox_number,
-                    'product_id': product_id,
-                    'name': name_text,
-                    'label': label_text,
-                    'x1': x1,
-                    'y1': y1,
-                    'x2': x2,
-                    'y2': y2,
+                    "bbox_number": bbox_number,
+                    "product_id": product_id,
+                    "name": name_text,
+                    "label": label_text,
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x2,
+                    "y2": y2,
                 }
             )
         return normalized
@@ -2854,12 +2916,12 @@ class UserWindow(QWidget):
     def _sanitize_bbox_coords(
         self, bbox: dict[str, Any]
     ) -> tuple[int, int, int, int] | None:
-        '''UI 좌표계를 벗어난 bbox 좌표를 보정한다.'''
+        """UI 좌표계를 벗어난 bbox 좌표를 보정한다."""
         try:
-            x1 = int(bbox.get('x1'))
-            y1 = int(bbox.get('y1'))
-            x2 = int(bbox.get('x2'))
-            y2 = int(bbox.get('y2'))
+            x1 = int(bbox.get("x1"))
+            y1 = int(bbox.get("y1"))
+            x2 = int(bbox.get("x2"))
+            y2 = int(bbox.get("y2"))
         except (TypeError, ValueError):
             return None
         frame_w = self.VIDEO_FRAME_WIDTH
@@ -2873,10 +2935,12 @@ class UserWindow(QWidget):
         return x1, y1, x2, y2
 
     def _try_render_bbox_overlays(self) -> None:
-        '''전면 카메라 장면 위에 bbox를 그린다.'''
+        """팔 카메라 장면 위에 bbox를 그린다."""
         if not self._bbox_overlays_dirty:
             return
-        if self.front_scene is None or self.front_item is None:
+        target_scene = self.arm_scene
+        target_item = self.arm_item
+        if target_scene is None or target_item is None:
             return
         if not self.pending_detection_products:
             self._remove_bbox_items_from_scene()
@@ -2886,27 +2950,27 @@ class UserWindow(QWidget):
         self.bbox_rect_items.clear()
         self.bbox_label_items.clear()
         self.bbox_label_bg_items.clear()
-        pen = QPen(QColor('#ff9800'))
+        pen = QPen(QColor("#ff9800"))
         pen.setWidth(2)
         pen.setCosmetic(True)
         transparent_brush = QBrush(QtCore.Qt.BrushStyle.NoBrush)
         for info in self.pending_detection_products:
-            width = info['x2'] - info['x1']
-            height = info['y2'] - info['y1']
+            width = info["x2"] - info["x1"]
+            height = info["y2"] - info["y1"]
             if width <= 0 or height <= 0:
                 continue
             try:
-                bbox_number = int(info.get('bbox_number'))
+                bbox_number = int(info.get("bbox_number"))
             except (TypeError, ValueError):
                 bbox_number = -1
             rect_item = BBoxGraphicsRectItem(
-                info['x1'],
-                info['y1'],
+                info["x1"],
+                info["y1"],
                 width,
                 height,
                 bbox_number=bbox_number,
                 on_click=self._on_bbox_rect_clicked,
-                parent=self.front_item,
+                parent=target_item,
             )
             rect_item.setPen(pen)
             rect_item.setBrush(transparent_brush)
@@ -2914,19 +2978,19 @@ class UserWindow(QWidget):
             self.bbox_overlay_items.append(rect_item)
             if bbox_number > 0:
                 self.bbox_rect_items[bbox_number] = rect_item
-            label_item = QGraphicsSimpleTextItem(info['label'], self.front_item)
+            label_item = QGraphicsSimpleTextItem(info["label"], target_item)
             label_font = label_item.font()
             if label_font.pointSizeF() < 11.0:
                 label_font.setPointSizeF(11.0)
             label_item.setFont(label_font)
-            label_item.setBrush(QBrush(QColor('#ffffff')))
+            label_item.setBrush(QBrush(QColor("#ffffff")))
             label_item.setZValue(7)
             label_rect = label_item.boundingRect()
             padding = 6.0
-            label_x = float(info['x1'])
+            label_x = float(info["x1"])
             max_x = float(self.VIDEO_FRAME_WIDTH) - label_rect.width()
             label_x = max(0.0, min(label_x, max_x))
-            label_y = float(info['y1']) - label_rect.height() - padding
+            label_y = float(info["y1"]) - label_rect.height() - padding
             label_y = max(0.0, label_y)
             label_item.setPos(label_x, label_y)
             bg_item = QGraphicsRectItem(
@@ -2934,7 +2998,7 @@ class UserWindow(QWidget):
                 label_y - (padding / 2),
                 label_rect.width() + padding,
                 label_rect.height() + padding,
-                self.front_item,
+                target_item,
             )
             bg_item.setBrush(QBrush(QColor(0, 0, 0, 180)))
             bg_item.setPen(QPen(QtCore.Qt.PenStyle.NoPen))
@@ -2943,12 +3007,12 @@ class UserWindow(QWidget):
             if bbox_number > 0:
                 self.bbox_label_items[bbox_number] = label_item
                 self.bbox_label_bg_items[bbox_number] = bg_item
-        self.front_scene.update()
+        target_scene.update()
         self._bbox_overlays_dirty = False
         self._refresh_bbox_highlight()
 
     def _remove_bbox_items_from_scene(self) -> None:
-        '''현재 장면에 올라간 bbox 그래픽을 제거한다.'''
+        """현재 장면에 올라간 bbox 그래픽을 제거한다."""
         if not self.bbox_overlay_items:
             return
         for item in self.bbox_overlay_items:
@@ -2966,14 +3030,14 @@ class UserWindow(QWidget):
         self.bbox_label_bg_items.clear()
 
     def _clear_bbox_overlays(self) -> None:
-        '''bbox 그래픽과 대기 데이터를 모두 초기화한다.'''
+        """bbox 그래픽과 대기 데이터를 모두 초기화한다."""
         self.pending_detection_products = []
         self._bbox_overlays_dirty = False
         self._remove_bbox_items_from_scene()
         self._refresh_bbox_highlight()
 
     def _refresh_bbox_highlight(self) -> None:
-        '''선택된 bbox와 동일한 사각형에 강조 색상을 적용한다.'''
+        """선택된 bbox와 동일한 사각형에 강조 색상을 적용한다."""
         if not self.bbox_rect_items:
             return
         selected_bbox = None
@@ -2985,17 +3049,17 @@ class UserWindow(QWidget):
             try:
                 selected_bbox = int(
                     self.selection_options[self.selection_selected_index].get(
-                        'bbox_number'
+                        "bbox_number"
                     )
                 )
             except (TypeError, ValueError):
                 selected_bbox = None
-        default_color = QColor('#ff9800')
-        highlight_color = QColor('#4caf50')
-        default_label_color = QColor('#ffffff')
+        default_color = QColor("#ff9800")
+        highlight_color = QColor("#4caf50")
+        default_label_color = QColor("#ffffff")
         default_bg_color = QColor(0, 0, 0, 180)
-        highlight_label_color = QColor('#000000')
-        highlight_bg_color = QColor('#ffffff')
+        highlight_label_color = QColor("#000000")
+        highlight_bg_color = QColor("#ffffff")
         for bbox_number, rect_item in self.bbox_rect_items.items():
             if rect_item is None:
                 continue
@@ -3059,45 +3123,61 @@ class UserWindow(QWidget):
         print(
             f"[Map] 로봇 상태 수신: robot_id={robot_id_value}, x={x}, y={y}, theta={theta}"
         )
-        self._update_robot_pose(x, y, theta)
+        self.update_robot_pose(x, y, theta)
 
-    def _update_robot_pose(self, x: float, y: float, theta: float) -> None:
-        if (
-            self.map_scene is None
-            or self.map_robot_item is None
-            or self.map_resolution is None
-            or self.map_origin is None
-            or self.map_image_size is None
-        ):
+    def world_to_pixel(self, x: float, y: float) -> tuple[float, float]:
+        if self.map_pixmap_item is None:
+            return 0.0, 0.0
+        pixmap = self.map_pixmap_item.pixmap()
+        if pixmap.isNull():
+            return 0.0, 0.0
+        img_w = pixmap.width()
+        img_h = pixmap.height()
+        if img_w <= 0 or img_h <= 0:
+            return 0.0, 0.0
+        adjusted_x = y + self.ROBOT_POSITION_OFFSET_Y
+        adjusted_y = x + self.ROBOT_POSITION_OFFSET_X
+        # x: 왼쪽(최대) → 오른쪽(최소)로 갈수록 감소하므로 반전
+        tx = (self.WORLD_X_MAX - adjusted_x) / (self.WORLD_X_MAX - self.WORLD_X_MIN)
+        # y: 위(최대) → 아래(최소)로 갈수록 감소하므로 반전
+        ty = (self.WORLD_Y_MAX - adjusted_y) / (self.WORLD_Y_MAX - self.WORLD_Y_MIN)
+        px = tx * img_w
+        py = ty * img_h
+        return px, py
+
+    def update_robot_pose(self, x: float, y: float, theta: float) -> None:
+        if self.map_robot_item is None:
             return
-        width, height = self.map_image_size
-        origin_x, origin_y = self.map_origin
-        adjusted_x = x + self.ROBOT_POSITION_OFFSET_X
-        adjusted_y = y + self.ROBOT_POSITION_OFFSET_Y
-        px = (adjusted_x - origin_x) / self.map_resolution
-        py = (adjusted_y - origin_y) / self.map_resolution
-        scene_y = height - py
-        if not (math.isfinite(px) and math.isfinite(scene_y)):
+        px, py = self.world_to_pixel(x, y)
+        if not (math.isfinite(px) and math.isfinite(py)):
             return
-        px = max(0.0, min(px, float(width)))
-        scene_y = max(0.0, min(scene_y, float(height)))
+        # 아이콘 크기를 고려해 중심 정렬
+        if isinstance(self.map_robot_item, QGraphicsPixmapItem):
+            icon_pixmap = self.map_robot_item.pixmap()
+            iw = icon_pixmap.width() if not icon_pixmap.isNull() else 0
+            ih = icon_pixmap.height() if not icon_pixmap.isNull() else 0
+        else:
+            rect = self.map_robot_item.boundingRect()
+            iw = rect.width()
+            ih = rect.height()
+        target_x = px - (iw / 2)
+        target_y = py - (ih / 2)
+        if iw <= 0 or ih <= 0:
+            return
         self.map_robot_item.setVisible(True)
-        if self.map_heading_item is not None:
-            self.map_heading_item.setVisible(True)
-        self.map_robot_item.setPos(px, scene_y)
+        self.map_robot_item.setTransformOriginPoint(iw / 2, ih / 2)
+        self.map_robot_item.setPos(target_x, target_y)
         angle_deg = -math.degrees(theta) + self.ROBOT_ICON_ROTATION_OFFSET_DEG
         self.map_robot_item.setRotation(angle_deg)
-        if self.map_robot_label is not None:
+        if self.map_robot_label is not None and self.SHOW_ROBOT_LABEL:
             self.map_robot_label.setVisible(True)
-            label_text = f'({x:.2f}, {y:.2f})'
-            self.map_robot_label.setText(label_text)
+            self.map_robot_label.setText(f"({x:.2f}, {y:.2f})")
             label_rect = self.map_robot_label.boundingRect()
-            label_x = px - (label_rect.width() / 2)
-            label_x = max(0.0, min(label_x, float(width) - label_rect.width()))
-            label_y = scene_y + self.ROBOT_LABEL_OFFSET_Y
-            label_y = max(0.0, min(label_y, float(height)))
+            label_x = target_x + (iw / 2) - (label_rect.width() / 2)
+            label_y = target_y + ih + self.ROBOT_LABEL_OFFSET_Y
             self.map_robot_label.setPos(label_x, label_y)
-        self._fit_map_to_view()
+        if self.map_scene is not None:
+            self.map_scene.update()
 
     def on_selection_button_toggled(self, button: QPushButton, checked: bool) -> None:
         """선택지 토글 상태를 관리한다."""
@@ -3111,21 +3191,21 @@ class UserWindow(QWidget):
         self._refresh_bbox_highlight()
 
     def on_select_done_clicked(self) -> None:
-        '''선택 완료 버튼 클릭을 처리한다.'''
+        """선택 완료 버튼 클릭을 처리한다."""
         self._submit_current_selection(self.select_done_button)
 
     def _submit_current_selection(self, trigger_button: QPushButton | None) -> None:
-        '''선택된 상품을 Main Service에 전달한다.'''
+        """선택된 상품을 Main Service에 전달한다."""
         if not self.selection_options:
-            QMessageBox.information(self, '상품 선택', '선택 가능한 상품이 없습니다.')
+            QMessageBox.information(self, "상품 선택", "선택 가능한 상품이 없습니다.")
             return
         if self.selection_selected_index is None or not (
             0 <= self.selection_selected_index < len(self.selection_options)
         ):
-            QMessageBox.warning(self, '상품 선택', '먼저 선택지를 선택해주세요.')
+            QMessageBox.warning(self, "상품 선택", "먼저 선택지를 선택해주세요.")
             return
         if self.current_order_id is None or self.current_robot_id is None:
-            QMessageBox.warning(self, '상품 선택', '주문 정보가 확인되지 않습니다.')
+            QMessageBox.warning(self, "상품 선택", "주문 정보가 확인되지 않습니다.")
             return
         selected = self.selection_options[self.selection_selected_index]
         bbox_number = selected.get("bbox_number")
@@ -3137,7 +3217,7 @@ class UserWindow(QWidget):
             product_id_value = int(product_id)
         except (TypeError, ValueError):
             QMessageBox.warning(
-                self, '상품 선택', '선택한 상품 정보를 확인할 수 없습니다.'
+                self, "상품 선택", "선택한 상품 정보를 확인할 수 없습니다."
             )
             return
 
@@ -3156,17 +3236,17 @@ class UserWindow(QWidget):
 
         if not success:
             QMessageBox.warning(
-                self, '상품 선택', error_message or '상품 선택을 처리하지 못했습니다.'
+                self, "상품 선택", error_message or "상품 선택을 처리하지 못했습니다."
             )
             return
 
-        QMessageBox.information(self, '상품 선택', '로봇에게 상품 선택을 전달했습니다.')
+        QMessageBox.information(self, "상품 선택", "로봇에게 상품 선택을 전달했습니다.")
         return
 
     def on_auto_pick_clicked(self) -> None:
-        '''자동 선택 버튼을 눌렀을 때 랜덤 선택을 요청한다.'''
+        """자동 선택 버튼을 눌렀을 때 랜덤 선택을 요청한다."""
         if not self.selection_options:
-            QMessageBox.information(self, '자동 선택', '선택 가능한 상품이 없습니다.')
+            QMessageBox.information(self, "자동 선택", "선택 가능한 상품이 없습니다.")
             return
         random_index = random.randrange(len(self.selection_options))
         self.selection_selected_index = random_index
@@ -3181,16 +3261,16 @@ class UserWindow(QWidget):
         bbox_value: int,
         product_id_value: int,
     ) -> tuple[bool, str]:
-        '''product_selection 요청을 전송하고 UI 상태를 동기화한다.'''
+        """product_selection 요청을 전송하고 UI 상태를 동기화한다."""
         if self.service_client is None:
-            return False, '서비스 클라이언트가 초기화되지 않았습니다.'
+            return False, "서비스 클라이언트가 초기화되지 않았습니다."
         self.logger.info(
-            'product_selection 요청 시작',
+            "product_selection 요청 시작",
             extra={
-                'order_id': order_id_value,
-                'robot_id': robot_id_value,
-                'bbox_number': bbox_value,
-                'product_id': product_id_value,
+                "order_id": order_id_value,
+                "robot_id": robot_id_value,
+                "bbox_number": bbox_value,
+                "product_id": product_id_value,
             },
         )
         try:
@@ -3202,41 +3282,42 @@ class UserWindow(QWidget):
             )
         except MainServiceClientError as exc:
             self.logger.warning(
-                'product_selection 요청 실패',
-                extra={'order_id': order_id_value, 'error': str(exc)},
+                "product_selection 요청 실패",
+                extra={"order_id": order_id_value, "error": str(exc)},
             )
-            return False, f'상품을 선택하지 못했습니다.\n{exc}'
-        if not response or not response.get('result'):
+            return False, f"상품을 선택하지 못했습니다.\n{exc}"
+        if not response or not response.get("result"):
             if isinstance(response, dict):
-                message = response.get('message')
+                message = response.get("message")
             else:
                 message = None
             self.logger.warning(
-                'product_selection 응답 실패',
+                "product_selection 응답 실패",
                 extra={
-                    'order_id': order_id_value,
-                    'message': message or '',
-                    'response': response,
+                    "order_id": order_id_value,
+                    "message": message or "",
+                    "response": response,
                 },
             )
-            return False, message or '상품 선택을 처리하지 못했습니다.'
+            return False, message or "상품 선택을 처리하지 못했습니다."
         self.logger.info(
-            'product_selection 요청 성공',
+            "product_selection 요청 성공",
             extra={
-                'order_id': order_id_value,
-                'robot_id': robot_id_value,
-                'bbox_number': bbox_value,
-                'product_id': product_id_value,
+                "order_id": order_id_value,
+                "robot_id": robot_id_value,
+                "bbox_number": bbox_value,
+                "product_id": product_id_value,
             },
         )
-        self._set_selection_status(product_id_value, '선택 진행중')
+        self._set_selection_status(product_id_value, "선택 진행중")
         self.selection_options = []
         self.selection_options_origin = None
         self.selection_selected_index = None
         self.populate_selection_buttons([])
+        self._announce_product_selection_result(product_id_value)
         if self.order_select_stack is not None and self.page_moving_view is not None:
             self.order_select_stack.setCurrentWidget(self.page_moving_view)
-        return True, ''
+        return True, ""
 
     def _update_selection_voice_button(self, active: bool) -> None:
         if self.selection_voice_button is None:
@@ -3246,13 +3327,13 @@ class UserWindow(QWidget):
         self.selection_voice_button.setText(text)
 
     def _handle_selection_voice_result(self, recognized: str) -> bool:
-        '''음성 인식 결과를 Main Service에 전달해 상품을 선택한다.'''
+        """음성 인식 결과를 Main Service에 전달해 상품을 선택한다."""
         speech = recognized.strip()
         if not speech:
             return False
         if self.current_order_id is None or self.current_robot_id is None:
             self._show_stt_status_dialog(
-                '주문 정보가 없어 음성 선택을 진행할 수 없습니다.',
+                "주문 정보가 없어 음성 선택을 진행할 수 없습니다.",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
@@ -3260,7 +3341,7 @@ class UserWindow(QWidget):
             return False
         if self.service_client is None:
             self._show_stt_status_dialog(
-                '서비스 클라이언트가 준비되지 않았습니다.',
+                "서비스 클라이언트가 준비되지 않았습니다.",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
@@ -3271,7 +3352,7 @@ class UserWindow(QWidget):
             robot_id_value = int(self.current_robot_id)
         except (TypeError, ValueError):
             self._show_stt_status_dialog(
-                '주문 또는 로봇 정보를 확인할 수 없습니다.',
+                "주문 또는 로봇 정보를 확인할 수 없습니다.",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
@@ -3286,15 +3367,15 @@ class UserWindow(QWidget):
             )
         except MainServiceClientError as exc:
             self._show_stt_status_dialog(
-                f'음성 선택 요청에 실패했습니다.\n{exc}',
+                f"음성 선택 요청에 실패했습니다.\n{exc}",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
             self._stt_status_hide_timer.start(2500)
             return False
 
-        if not response or not response.get('result'):
-            message = response.get('message') if isinstance(response, dict) else None
+        if not response or not response.get("result"):
+            message = response.get("message") if isinstance(response, dict) else None
             self._show_stt_status_dialog(
                 message or f"'{speech}'에서 선택할 상품을 찾지 못했습니다.",
                 icon=QMessageBox.Icon.Warning,
@@ -3303,15 +3384,15 @@ class UserWindow(QWidget):
             self._stt_status_hide_timer.start(2500)
             return False
 
-        data = response.get('data') or {}
-        bbox_number = data.get('bbox')
-        product_id = data.get('product_id')
+        data = response.get("data") or {}
+        bbox_number = data.get("bbox")
+        product_id = data.get("product_id")
         try:
             bbox_value = int(bbox_number)
             product_id_value = int(product_id)
         except (TypeError, ValueError):
             self._show_stt_status_dialog(
-                '서버 응답에 유효한 bbox 또는 상품 ID가 없습니다.',
+                "서버 응답에 유효한 bbox 또는 상품 ID가 없습니다.",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
@@ -3327,7 +3408,7 @@ class UserWindow(QWidget):
         )
         if not success:
             self._show_stt_status_dialog(
-                error_message or '음성 선택을 처리하지 못했습니다.',
+                error_message or "음성 선택을 처리하지 못했습니다.",
                 icon=QMessageBox.Icon.Warning,
             )
             self._schedule_stt_status_close(2500)
@@ -3349,7 +3430,8 @@ class UserWindow(QWidget):
             if self.video_receiver.isRunning():
                 self._update_video_buttons(camera_type)
                 return
-        self._stop_video_stream(send_request=True)
+        # 카메라 전환 시에는 서버 스트림 유지가 필요하므로 stop 요청을 보내지 않는다.
+        self._stop_video_stream(send_request=False)
         user_type = self._current_user_type()
         try:
             response = self.service_client.start_video_stream(
@@ -3463,7 +3545,7 @@ class UserWindow(QWidget):
                 f"[VideoStream] frame camera={camera_type} size={pixmap.width()}x{pixmap.height()}"
             )
         self._fit_view(view, item)
-        if camera_type == 'front':
+        if camera_type == "arm":
             self._try_render_bbox_overlays()
         scene.update()
 
@@ -3631,17 +3713,30 @@ class UserWindow(QWidget):
         context: str | None = None,
         force: bool = False,
     ) -> None:
-        '''푸터 상태 문구를 갱신하고 로깅한다.'''
+        """푸터 상태 문구를 갱신하고 로깅한다."""
         if self._footer_locked and not force:
             return
-        footer_label = getattr(self.ui, 'label_robot_notification', None)
+        footer_label = getattr(self.ui, "label_robot_notification", None)
         if footer_label is not None:
             footer_label.setText(text)
-        context_prefix = f'[{context}] ' if context else ''
-        self.logger.info(f'{context_prefix}footer_label: {text}')
+        context_prefix = f"[{context}] " if context else ""
+        self.logger.info(f"{context_prefix}footer_label: {text}")
+
+    def _announce_product_selection_result(self, product_id: int) -> None:
+        """상품 선택 성공 시 사용자에게 문구를 노출한다."""
+        product_name = self._get_product_name_by_id(product_id) or '상품'
+        bbox_number = self._get_bbox_number_by_product_id(product_id)
+        if bbox_number is not None and bbox_number > 0:
+            message = f'{bbox_number}. {product_name}을 선택했습니다.'
+        else:
+            message = f'{product_name}을 선택했습니다.'
+        status_label = getattr(self.ui, "label_12", None)
+        if not self.pick_flow_completed and status_label is not None:
+            status_label.setText(message)
+        self._update_footer_label(message, context="product_selection_response")
 
     def _get_friendly_section_name(self, section_label: str | None) -> str | None:
-        '''섹션 식별자를 사용자 친화적인 매대 이름으로 변환한다.'''
+        """섹션 식별자를 사용자 친화적인 매대 이름으로 변환한다."""
         if not section_label:
             return None
         normalized = str(section_label).strip().upper()
@@ -3758,6 +3853,21 @@ class UserWindow(QWidget):
         for item in auto_items:
             if item.product_id == product_id:
                 return item.name
+        return None
+
+    def _get_bbox_number_by_product_id(self, product_id: int) -> int | None:
+        for option in self.selection_options:
+            try:
+                option_product_id = int(option.get('product_id'))
+            except (TypeError, ValueError):
+                continue
+            if option_product_id != product_id:
+                continue
+            bbox_value = option.get('bbox_number')
+            try:
+                return int(bbox_value)
+            except (TypeError, ValueError):
+                return None
         return None
 
     def open_profile_dialog(self) -> None:

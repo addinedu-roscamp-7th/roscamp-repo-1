@@ -61,7 +61,7 @@ class MovingToStandbyState(State):
             self._node.get_logger().info('대기 장소에 도착했습니다. CHARGING_AVAILABLE 상태로 전환합니다.')
             
             # 도착 알림 발행
-            self._node.publish_arrival_notice(self.standby_location_id)
+            self._node.publish_arrival_notice(self.standby_location_id, section_id=7)
             
             from .charging_available import ChargingAvailableState
             return ChargingAvailableState(self._node)

@@ -12,12 +12,14 @@ from std_msgs.msg import Float32, Bool
 from shopee_interfaces.msg import ArucoPose, PickeeMobileArrival
 from nav_msgs.msg import Odometry
 
+from std_srvs.srv import Empty
+
 # Pickee 전용 이동 함수 (직선 이동, 회전)
 from pickee_mobile.module.module_go_straight import run
 from pickee_mobile.module.module_rotate import rotate
 
 #⚙️ Pickee 전용 odom 받아서 정밀 이동 class
-from pickee_mobile.module.module_go_straight_odom import GoStraight #⚙️ odom읽으면서 제어
+# from pickee_mobile.module.module_go_straight_odom import GoStraight #⚙️ odom읽으면서 제어
 from pickee_mobile.module.module_rotate_odom import Rotate #⚙️ odom읽으면서 제어
 
 # 상태
@@ -88,7 +90,7 @@ class ArucoDocking(Node):
         self.stop_event = Event()
 
         # 기구 오프셋
-        self.camera_offset_mm = 90.0           # 카메라가 로봇 중심보다 전방(+Z) 90 mm
+        self.camera_offset_mm = 90.0           # 카메라가 로봇 중심보다 전방(+Z) 90 mm 안씀
 
         ## Publish
         # 속도 publish 설정
@@ -128,11 +130,21 @@ class ArucoDocking(Node):
             10
         )
 
+        # self.pause_cli = self.create_client(Empty, "/controller_server/pause")
+        # self.resume_cli = self.create_client(Empty, "/controller_server/resume")
+
+
         self.rotate_node = Rotate() #⚙️
-        self.go_straight_node = GoStraight() #⚙️
+        # self.go_straight_node = GoStraight() #⚙️
 
 
         self.get_logger().info("🤖 ArUco Docking FSM Started")
+
+    # def call_service(self, cli):  # nav2 가 cmd_vel 쏴주는거 중지, 안됨, 해당 서비스 없음
+    #     while not cli.wait_for_service(timeout_sec=1.0):
+    #         self.get_logger().warn("Waiting for service...")
+    #     req = Empty.Request()
+    #     cli.call_async(req)
 
 
     # ==========================================================
@@ -142,6 +154,10 @@ class ArucoDocking(Node):
     def pickee_arrival_callback(self, arrival_msg: PickeeMobileArrival):
         self.get_logger().info("📦 Arrival message received")
         if self.current_state == "Idle":
+
+            # self.call_service(self.pause_cli) # nav2 가 cmd_vel 0 쏴주는거 중지, 안됨, 해당 서비스 없음
+            # self.get_logger().info("⛔ Nav2 paused")
+
 
             self.current_state = "Before_docking"
             self.position_error_yaw_rad = arrival_msg.position_error.theta
@@ -195,17 +211,6 @@ class ArucoDocking(Node):
                     self.current_state = "Lost_during_docking"
                     self.detect_marker_during_docking()
 
-            # If docking in progress → process movements
-            # if self.is_docking_active:
-
-            #     if self.current_state == "Aligning_to_side":
-
-            #         self.align_x(x, z, yaw_rad)
-
-            #     elif self.current_state == "Docking":
-
-            #         self.set_docking_vel(x, z, yaw_rad)
-
     # ==========================================================
     # ✅ Docking Logic Functions
     # ==========================================================
@@ -217,7 +222,7 @@ class ArucoDocking(Node):
     # 마커 중심으로 이동, 마커 주시
     def align_to_side(self):
         
-        if abs(self.dist_side) > 50:
+        if abs(self.dist_side) > 100:
             self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
             # 마커 방향 x축에 수직이 되도록 회전
@@ -230,7 +235,7 @@ class ArucoDocking(Node):
             # 해당 축까지 전진
             self.get_logger().info(f"🚗 Going straight to ArUco axis {self.dist_side}mm")
             # self.go_straight_node.go_straight(abs(self.dist_side/1000))
-            run(self, abs(self.dist_side/1000))
+            run(self, abs(self.dist_side/1300))
             time.sleep(1.0)
 
             # 마커 바라보기 회전
@@ -247,88 +252,83 @@ class ArucoDocking(Node):
 
         self.current_state = "Docking"
 
+    # p 제어 cmd_vel.linear.x, cmd_vel.angular.z
     def docking(self):
         now = time.time()
         # self.get_logger().info(f"✅ Aligned to x!!! Start Docking")
         
         self.get_logger().info(f"✅ dist_front = {self.dist_front}, dist_side = {self.dist_side}, yaw_deg = {math.degrees(self.yaw_rad)}")
 
-        # ----- P 제어 계산 -----
-        # dist_side, yaw_rad = self.cmd_vel.angular.z
-        # +, + = - 작은
-        # +, - = + dist_side 비례
-        # -, + = - dist_side 비례
-        # -, - = + 작은
-
-        # 회전 각도 조절
-        # if abs(self.dist_side) > 10:
-
-        #     self.get_logger().info(f"🔁 111")
-
-        #     scale_yaw = max(min((abs(self.dist_side)) / 1000, 0.1), 0.05)
-        #     if abs(self.yaw_rad) > math.radians(10) and self.dist_side * self.yaw_rad < 0:
-        #         scale_yaw *= 0.1
-        #     self.cmd_vel.angular.z = scale_yaw if self.dist_side < 0 else -scale_yaw
-
-        # else: # abs(self.dist_side) <= 5:
-
-        #     self.get_logger().info(f"🔁 222")
-
-        #     scale_yaw = max(min((abs(self.yaw_rad)) / 100, 0.5), 0.1)
-
-        #     self.cmd_vel.angular.z = scale_yaw if self.dist_side < 0 else -scale_yaw
-
-
         if abs(self.dist_side) > 10:
 
-            self.get_logger().info(f"🔁 111")
+            # self.get_logger().info(f"🔁 111")
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 5, 20), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
-            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
+            # self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
         else: # abs(self.dist_side) <= 10:
 
-            self.get_logger().info(f"🔁 222")
+            # self.get_logger().info(f"🔁 222")
 
             goal_yaw_rad = math.radians(max(min((abs(self.dist_side)) / 14, 10), 0.0))
             goal_yaw_rad = goal_yaw_rad if self.dist_side < 0 else -goal_yaw_rad
-            self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
+            # self.get_logger().info(f"🔁 222 goal_yaw_deg = {math.degrees(goal_yaw_rad)}")
             self.set_yaw(goal_yaw_rad)
 
 
         # 전진 속도 조절
         if self.dist_front > self.limit_z:
 
-            self.get_logger().info(f"🚗 111")
+            # self.get_logger().info(f"🚗 111")
 
             scale_z = max(min((self.dist_front - self.limit_z) / 1000, 0.07), 0.03)
             self.cmd_vel.linear.x = scale_z
         
-        elif abs(self.yaw_rad) > math.radians(5):# or abs(self.dist_side) > 25:
+        elif abs(self.yaw_rad) > math.radians(7):# or abs(self.dist_side) > 25:
 
-            self.get_logger().info(f"🚗 222")
+            # self.get_logger().info(f"🚗 222")
 
             self.detect_marker_during_docking()
+            self.get_logger().info(f"⚠️ ArUco marker's yaw is Too BIG")
         
         else:
             self.get_logger().info(f'✅ Last Docking Process')
             self.publish_stop()
             run(self, 0.115)
             self.get_logger().info(f"✅ Docking process completed!!! Ending Process")
+
             self.publish_stop()
             self.reset_docking_state()
             self.docking_in_progress_pub.publish(Bool(data=True)) # 도킹 작업 성공 알림
+            time.sleep(0.5)
+
+            # self.get_logger().info("✅ Docking complete → Resume Nav2") # nav2 가 cmd_vel 쏴주는거 재개, 안됨, 해당 서비스 없음
+            # self.call_service(self.resume_cli)
 
         self.cmd_pub.publish(self.cmd_vel)
 
     def set_yaw(self, goal_yaw_rad):
+
+        # yaw_vel_scale = max(min(self.dist_front / 10000, 0.06), 0.02)
+
+        # if goal_yaw_rad < self.old_yaw_rad:
+        #     yaw_vel_scale = -yaw_vel_scale
+
+        # self.cmd_vel.angular.z = yaw_vel_scale
+        
+
+
         if goal_yaw_rad > self.old_yaw_rad:
-            self.cmd_vel.angular.z = 0.06
+            self.cmd_vel.angular.z = 0.05
+            
         
         else:
-            self.cmd_vel.angular.z = -0.06
+            self.cmd_vel.angular.z = -0.05
+            
+
+
 
 
     def detect_marker_before_docking(self):
@@ -365,13 +365,16 @@ class ArucoDocking(Node):
             self.get_logger().warn(
                 "❌ ArUco not found after multiple orientation attempts. Cancelling docking."
             )
+            # self.get_logger().info("✅ Docking complete → Resume Nav2")
+            # self.call_service(self.resume_cli)
+
             self.docking_in_progress_pub.publish(Bool(data=False))
             self.publish_stop()
 
         self.current_state = "Before_docking"
 
     def detect_marker_during_docking(self):
-        self.get_logger().info(f"⚠️ ArUco marker lost during docking")
+        
         self.get_logger().info(f"⚠️ Current state is {self.current_state}")
         # self.get_logger().info(f"⚠️ Marker lost while docking (count={self.lost_count_during_docking})")
         
@@ -423,6 +426,9 @@ class ArucoDocking(Node):
         else:
             # === 3) 그 외 → 실패 처리 ===
             self.get_logger().warn("❌ Marker lost too long, cancel docking")
+            # self.get_logger().info("✅ Docking complete → Resume Nav2")
+            # self.call_service(self.resume_cli)
+
             self.docking_in_progress_pub.publish(Bool(data=False))
             self.publish_stop()
             self.reset_docking_state()

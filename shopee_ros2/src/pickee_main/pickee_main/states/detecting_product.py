@@ -14,12 +14,12 @@ class DetectingProductState(State):
         self.future = None
 
         # 0단계: Arm을 shelf_view 자세로 변경 시작
-        self._node.get_logger().info('0단계: Arm을 shelf_view 자세로 변경 시작')
-        request = ArmMoveToPose.Request()
-        request.robot_id = self._node.robot_id
-        request.order_id = self._node.current_order_id
-        request.pose_type = 'shelf_view'
-        self.future = self._node.arm_move_to_pose_client.call_async(request)
+        # self._node.get_logger().info('0단계: Arm을 shelf_view 자세로 변경 시작')
+        # request = ArmMoveToPose.Request()
+        # request.robot_id = self._node.robot_id
+        # request.order_id = self._node.current_order_id
+        # request.pose_type = 'shelf_view'
+        # self.future = self._node.arm_move_to_pose_client.call_async(request)
 
     def execute(self):
         if self.future and self.future.done():
