@@ -2,7 +2,7 @@
 
 `pickee_mobile` 패키지는 Shopee 로봇 쇼핑 시스템의 Pickee Mobile 로봇을 위한 ROS2 기반 제어 시스템을 구현합니다. Pickee Main Controller의 지시에 따라 로봇의 자율 이동, 위치 추정, 경로 계획 및 모션 제어, 속도제어를 담당하며, 로봇의 상태를 보고합니다.
 
-[발표자료 70p ~ 79p 참고](https://docs.google.com/presentation/d/1-Q_TZLXfFrFoZFN47uKtgcyI_h5BXLpoyHWAMogy4Dw/edit?slide=id.g3a2a1fc9115_15_9#slide=id.g3a2a1fc9115_15_9) 
+[발표자료 70p ~ 79p 참고](https://docs.google.com/presentation/d/1iN3Aog8W6Vpwonyym_iHP6_rQ15YRPeK5jBaKaBTmqU/edit?usp=sharing) 
 
 ## 1. 패키지 개요
 
@@ -82,3 +82,9 @@ ros2 run pickee_mobile main_aruco_pub_once # pc
 
 TEST_GUIDE의 /pickee/mobile/move_to_location service_client 서비스 요청, 해당 위치로 이동 후 도킹함
 ```
+
+<details>
+<summary> Pickee Mobile  (매대 주행 및 정밀주차) </summary>
+
+
+</details>
