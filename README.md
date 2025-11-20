@@ -857,6 +857,54 @@ track_staff
 <details>
 <summary> Pickee Mobile  (매대 주행 및 정밀주차) </summary>
 
+ [PPT 77P 참고](https://docs.google.com/presentation/d/1-Q_TZLXfFrFoZFN47uKtgcyI_h5BXLpoyHWAMogy4Dw/edit?slide=id.p#slide=id.p)
+
+* **기능, 목적** 
+
+    ![순서도](https://raw.githubusercontent.com/addinedu-roscamp-7th/roscamp-repo-1/refs/heads/main/assets/images/%EC%A0%95%EB%B0%80%EC%A3%BC%EC%B0%A8_%EC%88%9C%EC%84%9C%EB%8F%84_3.png)
+    * Nav2를 활용한 자율 주행   
+    지시한 목적지로 자율주행을 한다. 추가로 **Ros2 토픽**을 사용해서 속도를 제어한다.
+
+    * ArUco 마커를 활용한 정밀 주차  
+    Nav2 만으로는 목적지에 정확하게 도착할 수 없었다. 매대의 상품을 **Pickee arm** 이 집기 위해서는 Pickee_Mobile이 매번 같은 위치에 일정하게 도착해야 하는데 이 요구사항을 수행하기 위해 ArUco 마커를 활용했다.
+
+* **Nav2를 활용한 자율 주행** 
+    * 속도 조절
+    Nav2로 주행 중 로봇이 특정 토픽을 받으면 감속 혹은 일시정지를 해야 하는데 이렇게 유동적으로 속도를 제어했다. 기존에는 로봇이 **/cmd_vel** 토픽을 **Subscribe**해서 속도가 제어됐는데 해당 토픽을 **Publish** 하는 노드가 Nav2 패키지에 있어서 해당 코드를 수정할 수는 없었다. 그래서 로봇이 **/cmd_vel_modified** 토픽을 **Subscribe** 해서 속도가 제어되도록 설정을 바꿨고 새로은 노드를 만들었다. **/cmd_vel** 토픽을 **Subscribe**해서 속도를 변환한 다음 **/cmd_vel_modified** 토픽을 **Publish** 하는 **vel_modifier** 노드를 만들었다.  
+
+    * 자율 주행
+    목적지를 전달 받으면 주행 서비스 요청, 이동중 위치 피드백, 도착 결과 **Publish** 이외에 매대까지 주행을 위한 기능들을 수행한다.
+
+* **ArUco 마커를 활용한 정밀 주차**  
+    
+    * 이미지 전처리  
+        특정 상황에서 **ArUco 마커**가 카메라에 전부 나오는 경우에도 감지되지 않는 경우가 있었다. 12개의 매대 중 한 매대에서 특정 거리가 떨어져 있을 때만, 즉 매우 특수한 상황에서만 감지되지 않았다. RGB 이미지로 **ArUco 마커**감지를 실패하면 이미지 처리한 버전으로 다시 감지를 시도한다.  
+        
+        cv2로 Grayscale 변환 후 이진화 처리를 했다.
+
+        이미지 처리 전
+        ![이미지 처리 전](https://raw.githubusercontent.com/addinedu-roscamp-7th/roscamp-repo-1/refs/heads/main/assets/images/aruco_before.png) 
+        이미지 처리 후
+        ![이미지 처리 후](https://raw.githubusercontent.com/addinedu-roscamp-7th/roscamp-repo-1/refs/heads/main/assets/images/aruco_after.png)
+
+    * 좌표계 변환  
+        **ArUco 마커**를 감지하는 기본 패키지를 사용 하면 카메라 기준 **ArUco 마커**의 좌표와 회전값이 나온다. 이 값을 활용해서 **ArUco 마커**기준 카메라의 좌표, 화전값을 구해서 정밀 주차 하는데 사용했다. 카메라가 **Pickee Mobile** 맨 앞에 있기 때문에 카메라의 좌표를 로봇의 좌표로 간주했다.
+
+        이전 좌표계  
+        ![변환 전 좌표계](https://raw.githubusercontent.com/addinedu-roscamp-7th/roscamp-repo-1/refs/heads/main/assets/images/%EC%B9%B4%EB%A9%94%EB%9D%BC%EC%A2%8C%ED%91%9C%EA%B3%84.png)  
+        이후 좌표계  
+        ![변환 후 좌표계](https://raw.githubusercontent.com/addinedu-roscamp-7th/roscamp-repo-1/refs/heads/main/assets/images/%EB%A7%88%EC%BB%A4%EC%A2%8C%ED%91%9C%EA%B3%84.png)  
+
+    * x축 정렬(변환 후 좌표계 기준)
+        로봇이 **ArUco 마커**에 접근 하는 과정을 시뮬레이션 했을 때 x 오차를 줄이며 접근하는 과정에서 **ArUco 마커**가 카메라의 시야에서 벗어나는 경우가 많았다. 특히 로봇의 x 오차가 클수록 자주 벗어났다. 그래서 매대에 도착하면 **ArUco 마커**를 보고 x 오차가 줄어드는 방향으로 이동한 다음 **ArUco 마커**에 접근한다.
+    
+    * 마커 접근, 오차 기반 속도 보정
+        x 좌표 오차에 비례해 x축 방향 속도가 결정되고 z 좌표 오차에 비례해 z축 방향 속도가 결정된다. 이때 z축 속도는 로봇의 전진속도지만 이 로봇은 차동구동 로봇이기 때문에 x축 방향 속도를 바로 결정할 수는 없다. 그래서 x축 속도 대신 yaw(카메라 기준 **ArUco 마커**가 틀어진 각도)를 x축 속도처럼 사용했다. 
+    
+    * 특정 거리, 각도 이동
+        로봇의 /odom 토픽을 구독해서 특정 거리를 전진하거나 특정 각도를 회전하게 했다.
+
+
 </details>
 
 
