@@ -37,6 +37,7 @@ ROS2와 AI를 활용한 자율주행 로봇개발자 부트캠프 1팀 저장소
 - [마무리 : 소감](#마무리)
 
 
+
 # 00. 팀 소개
 ![팀 소개 이미지](https://github.com/addinedu-roscamp-7th/roscamp-repo-1/blob/main/assets/images/%ED%8C%80_%EC%86%8C%EA%B0%9C_%EC%9D%B4%EB%AF%B8%EC%A7%80.jpg?raw=true)
 
