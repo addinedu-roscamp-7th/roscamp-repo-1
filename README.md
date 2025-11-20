@@ -827,23 +827,14 @@ track_staff
 <details>
 <summary> Shopee App </summary>
 
-
-
 </details>
 
 
 
 
 <details>
-
-
-
-
-
 <summary> Shopee Main </summary>
 
-
-
 </details>
 
 
@@ -851,32 +842,24 @@ track_staff
 
 
 <details>
-
-
-
-
 <summary> Shopee LLM </summary>
 
-
-
 </details>
+
+
+
 <details>
-
-
-
-
-
 <summary> Pickee Main  </summary>
 
-
-
 </details>
 
+
+<details>
 <summary> Pickee Mobile   </summary>
 
-
-
 </details>
+
+
 
 <details>
 <summary> Pickee Vision </summary>
@@ -954,20 +937,16 @@ track_staff
 
 
 
-
+<details>
 <summary> Packee Vision  </summary>
-
-
 
 </details>
 
 
 
 
-
+<details>
 <summary> Packee Arm  </summary>
-
-
 
 </details>
 
