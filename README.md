@@ -825,7 +825,7 @@ track_staff
 
 # 03. 프로젝트 구현
 <details>
-<summary> Shopee App </summary>
+<summary> Shopee App (사용자 화면) </summary>
 
 </details>
 
@@ -833,7 +833,7 @@ track_staff
 
 
 <details>
-<summary> Shopee Main </summary>
+<summary> Shopee Main (서버 & 통신) </summary>
 
 </details>
 
@@ -842,27 +842,27 @@ track_staff
 
 
 <details>
-<summary> Shopee LLM </summary>
+<summary> Shopee LLM (음성인식) </summary>
 
 </details>
 
 
 
 <details>
-<summary> Pickee Main  </summary>
+<summary> Pickee Main (주행로봇 통신) </summary>
 
 </details>
 
 
 <details>
-<summary> Pickee Mobile   </summary>
+<summary> Pickee Mobile  (매대 주행 및 정밀주차) </summary>
 
 </details>
 
 
 
 <details>
-<summary> Pickee Vision </summary>
+<summary> Pickee Vision (상품 선택 시야) </summary>
 
 * **데이터 수집 및 학습**
     * 상품을 집기 위한 준비 자세에서 변동성이 적은 $Z$, **Roll**, **Pitch** 좌표는 **고정**하고, 변동성이 많은 $X$, $Y$, **Yaw** 좌표를 바꿔가며 이미지에 라벨링 하여 데이터를 수집 후 해당 CNN 모델을 이용해 학습을 진행했습니다.
@@ -938,7 +938,7 @@ track_staff
 
 
 <details>
-<summary> Packee Vision  </summary>
+<summary> Packee Vision (포장대 이미지 학습 및 처리) </summary>
 
 </details>
 
@@ -946,7 +946,7 @@ track_staff
 
 
 <details>
-<summary> Packee Arm  </summary>
+<summary> Packee Arm (포장대 로봇팔) </summary>
 
 </details>
 
