@@ -855,7 +855,7 @@ track_staff
 
 
 <details>
-<summary> ### Vision (Pickee Vision)</summary>
+<summary> Vision (Pickee Vision)</summary>
 
 * **데이터 수집 및 학습**
     * 상품을 집기 위한 준비 자세에서 변동성이 적은 $Z$, **Roll**, **Pitch** 좌표는 **고정**하고, 변동성이 많은 $X$, $Y$, **Yaw** 좌표를 바꿔가며 이미지에 라벨링 하여 데이터를 수집 후 해당 CNN 모델을 이용해 학습을 진행했습니다.
@@ -875,7 +875,7 @@ track_staff
 
 
 <details>
-<summary> ### 로봇팔 제어 및 보정 (Pickee Arm) </summary>
+<summary> 로봇팔 제어 및 보정 (Pickee Arm) </summary>
 
 * **오차 발생 및 보정 필요성**
     * 데이터 수집 시 로봇팔의 위치는 **고정**되어 있었습니다. 그래서 현재 이미지를 CNN 모델에 넣어 예측할 때에도 **고정적인 좌표**가 도출됩니다.
@@ -899,7 +899,7 @@ track_staff
 
 
 <details>
-<summary> ### PhysicalAI </summary>
+<summary> PhysicalAI </summary>
 
 1) YOLO11 기반 상품 감지 (Detection)
 
