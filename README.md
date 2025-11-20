@@ -824,38 +824,62 @@ track_staff
 
 
 # 03. 프로젝트 구현
-### Shopee App
+<details>
+<summary> Shopee App </summary>
+
+
+
+</details>
+
+
+
+
+<details>
 
 
 
 
 
-### Shopee Main
+<summary> Shopee Main </summary>
 
 
 
-
-
-### Shopee LLM 
-
-
-
-
-
-### Pickee Main 
-
-
-
-
-
-### Pickee Mobile 
+</details>
 
 
 
 
 
 <details>
-<summary> Vision (Pickee Vision)</summary>
+
+
+
+
+<summary> Shopee LLM </summary>
+
+
+
+</details>
+<details>
+
+
+
+
+
+<summary> Pickee Main  </summary>
+
+
+
+</details>
+
+<summary> Pickee Mobile   </summary>
+
+
+
+</details>
+
+<details>
+<summary> Pickee Vision </summary>
 
 * **데이터 수집 및 학습**
     * 상품을 집기 위한 준비 자세에서 변동성이 적은 $Z$, **Roll**, **Pitch** 좌표는 **고정**하고, 변동성이 많은 $X$, $Y$, **Yaw** 좌표를 바꿔가며 이미지에 라벨링 하여 데이터를 수집 후 해당 CNN 모델을 이용해 학습을 진행했습니다.
@@ -875,7 +899,7 @@ track_staff
 
 
 <details>
-<summary> 로봇팔 제어 및 보정 (Pickee Arm) </summary>
+<summary> Pickee Arm (로봇팔 제어 및 보정) </summary>
 
 * **오차 발생 및 보정 필요성**
     * 데이터 수집 시 로봇팔의 위치는 **고정**되어 있었습니다. 그래서 현재 이미지를 CNN 모델에 넣어 예측할 때에도 **고정적인 좌표**가 도출됩니다.
@@ -930,18 +954,22 @@ track_staff
 
 
 
-### Packee Vision
+
+<summary> Packee Vision  </summary>
+
+
+
+</details>
 
 
 
 
 
-### Packee Arm
+<summary> Packee Arm  </summary>
 
 
 
-
-
+</details>
 
 # 마무리
 ## 소감
